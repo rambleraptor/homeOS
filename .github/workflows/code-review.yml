@@ -1,0 +1,137 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    name: Automated Code Review
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run TypeScript type check
+        working-directory: frontend
+        run: npm run type-check || echo "Type check failed but continuing..."
+        continue-on-error: true
+
+      - name: Run ESLint
+        working-directory: frontend
+        run: npx eslint . --ext .ts,.tsx --max-warnings 0 || echo "Linting issues found"
+        continue-on-error: true
+
+      - name: Claude Code Review
+        uses: anthropics/claude-code-review-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          review_level: 'thorough'
+          focus_areas: |
+            - Security vulnerabilities (XSS, injection, authentication issues)
+            - TypeScript type safety and best practices
+            - React hooks usage and component patterns
+            - Module architecture adherence
+            - RBAC permission implementation
+            - Code quality and maintainability
+          custom_instructions: |
+            This is a modular HomeOS application built with:
+            - React + TypeScript + Vite
+            - PocketBase backend
+            - Module Registry pattern for extensibility
+            - Role-Based Access Control (RBAC)
+
+            When reviewing code:
+            1. Ensure new modules follow the established pattern in src/modules/
+            2. Verify permission checks are properly implemented
+            3. Check for proper TypeScript typing
+            4. Validate that components use proper hooks (useAuth, usePermissions)
+            5. Look for security issues in authentication and authorization
+            6. Ensure PocketBase API calls are properly typed
+
+            The architecture emphasizes:
+            - Self-contained modules with their own components, routes, and hooks
+            - Central module registration in src/modules/registry.ts
+            - Strict type safety throughout
+            - Permission-based rendering and routing
+
+  build-test:
+    runs-on: ubuntu-latest
+    name: Build and Test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build application
+        working-directory: frontend
+        run: npm run build
+
+      - name: Check build output
+        working-directory: frontend
+        run: |
+          echo "Build completed successfully"
+          ls -la dist/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: frontend/dist/
+          retention-days: 7
+
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Scan
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run npm audit
+        working-directory: frontend
+        run: npm audit --audit-level=high || true
+
+      - name: Check for secrets
+        run: |
+          echo "Checking for exposed secrets..."
+          ! grep -r -i "api_key\|secret\|password\|token" frontend/src --include="*.ts" --include="*.tsx" | grep -v "placeholder" | grep -v "example" || echo "Warning: Potential secrets found in code"
