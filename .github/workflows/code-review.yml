@@ -1,4 +1,4 @@
-name: Claude Code Review
+name: Code Quality & Security
 
 on:
   pull_request:
@@ -11,9 +11,9 @@ permissions:
   issues: write
 
 jobs:
-  code-review:
+  lint-and-typecheck:
     runs-on: ubuntu-latest
-    name: Automated Code Review
+    name: Lint & Type Check
 
     steps:
       - name: Checkout code
@@ -34,47 +34,11 @@ jobs:
 
       - name: Run TypeScript type check
         working-directory: frontend
-        run: npm run type-check || echo "Type check failed but continuing..."
-        continue-on-error: true
+        run: npm run type-check
 
       - name: Run ESLint
         working-directory: frontend
-        run: npx eslint . --ext .ts,.tsx --max-warnings 0 || echo "Linting issues found"
-        continue-on-error: true
-
-      - name: Claude Code Review
-        uses: anthropics/claude-code-review-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          review_level: 'thorough'
-          focus_areas: |
-            - Security vulnerabilities (XSS, injection, authentication issues)
-            - TypeScript type safety and best practices
-            - React hooks usage and component patterns
-            - Module architecture adherence
-            - RBAC permission implementation
-            - Code quality and maintainability
-          custom_instructions: |
-            This is a modular HomeOS application built with:
-            - React + TypeScript + Vite
-            - PocketBase backend
-            - Module Registry pattern for extensibility
-            - Role-Based Access Control (RBAC)
-
-            When reviewing code:
-            1. Ensure new modules follow the established pattern in src/modules/
-            2. Verify permission checks are properly implemented
-            3. Check for proper TypeScript typing
-            4. Validate that components use proper hooks (useAuth, usePermissions)
-            5. Look for security issues in authentication and authorization
-            6. Ensure PocketBase API calls are properly typed
-
-            The architecture emphasizes:
-            - Self-contained modules with their own components, routes, and hooks
-            - Central module registration in src/modules/registry.ts
-            - Strict type safety throughout
-            - Permission-based rendering and routing
+        run: npm run lint
 
   build-test:
     runs-on: ubuntu-latest
