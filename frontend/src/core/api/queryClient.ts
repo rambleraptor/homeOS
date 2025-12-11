@@ -5,7 +5,7 @@
  * Used for async state management and caching of PocketBase data
  */
 
-import { QueryClient, DefaultOptions } from '@tanstack/react-query';
+import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
 
 /**
  * Default query options for all queries

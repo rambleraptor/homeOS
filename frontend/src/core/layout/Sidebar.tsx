@@ -5,7 +5,7 @@
  * based on user permissions and role.
  */
 
-import React from 'react';
+
 import { NavLink } from 'react-router-dom';
 import { Home, LogOut, Settings, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';

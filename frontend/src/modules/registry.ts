@@ -23,8 +23,8 @@
  * ```
  */
 
-import { HomeModule, ModuleRegistry } from './types';
-import { UserRole } from '../core/auth/types';
+import type { HomeModule, ModuleRegistry } from './types';
+import type { UserRole } from '../core/auth/types';
 import { hasRoleAccess } from '../core/permissions/rbac';
 
 // =============================================================================
@@ -58,7 +58,7 @@ const MODULES: HomeModule[] = [
 // =============================================================================
 
 class ModuleRegistryImpl implements ModuleRegistry {
-  private modules: HomeModule[];
+  modules: HomeModule[];
 
   constructor(modules: HomeModule[]) {
     // Filter out disabled modules and sort by navOrder
@@ -93,19 +93,6 @@ class ModuleRegistryImpl implements ModuleRegistry {
       }
     }
   }
-
-  /**
-   * Get all registered modules
-   */
-  get modules(): HomeModule[] {
-    return this._modules;
-  }
-
-  set modules(value: HomeModule[]) {
-    this._modules = value;
-  }
-
-  private _modules: HomeModule[] = [];
 
   /**
    * Get a specific module by ID

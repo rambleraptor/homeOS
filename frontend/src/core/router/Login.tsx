@@ -4,7 +4,7 @@
  * Authentication page for user login
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Home, Mail, Lock, AlertCircle } from 'lucide-react';

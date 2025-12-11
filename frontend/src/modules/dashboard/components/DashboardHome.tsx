@@ -4,7 +4,7 @@
  * Main dashboard view showing overview of HomeOS system
  */
 
-import React from 'react';
+
 import { useAuth } from '../../../core/auth/useAuth';
 import { LayoutDashboard, Users, Activity, Clock } from 'lucide-react';
 

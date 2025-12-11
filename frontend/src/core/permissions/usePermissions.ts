@@ -8,9 +8,9 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth/useAuth';
-import { UserRole } from '../auth/types';
-import { ModulePermissions, RoleDefinition, ModulePermissionOverride } from '../../modules/types';
-import { hasRoleAccess, isAdmin, getDefaultPermissions, PermissionAction } from './rbac';
+import type { UserRole } from '../auth/types';
+import type { ModulePermissions, RoleDefinition, ModulePermissionOverride } from '../../modules/types';
+import { hasRoleAccess, isAdmin, getDefaultPermissions, type PermissionAction } from './rbac';
 import { getCollection, Collections } from '../api/pocketbase';
 import { queryKeys } from '../api/queryClient';
 

@@ -4,7 +4,7 @@
  * Top navigation bar with menu toggle and breadcrumbs
  */
 
-import React from 'react';
+
 import { Menu, Bell } from 'lucide-react';
 
 interface HeaderProps {

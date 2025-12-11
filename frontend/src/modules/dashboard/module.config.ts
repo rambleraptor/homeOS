@@ -5,7 +5,7 @@
  * It demonstrates the pattern that all modules should follow.
  */
 
-import { HomeModule } from '../types';
+import type { HomeModule } from '../types';
 import { LayoutDashboard } from 'lucide-react';
 import { dashboardRoutes } from './routes';
 

@@ -5,9 +5,9 @@
  * All modules registered in the system must implement the HomeModule interface.
  */
 
-import { RouteObject } from 'react-router-dom';
-import { LucideIcon } from 'lucide-react';
-import { UserRole } from '../core/auth/types';
+import type { RouteObject } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
+import type { UserRole } from '../core/auth/types';
 
 /**
  * Permission levels for module access

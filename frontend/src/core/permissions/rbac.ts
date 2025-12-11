@@ -5,7 +5,7 @@
  * for checking user permissions throughout the application.
  */
 
-import { UserRole } from '../auth/types';
+import type { UserRole } from '../auth/types';
 
 /**
  * Role hierarchy levels (higher number = more permissions)

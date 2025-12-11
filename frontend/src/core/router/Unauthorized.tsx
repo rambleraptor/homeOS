@@ -2,7 +2,7 @@
  * Unauthorized Access Page
  */
 
-import React from 'react';
+
 import { Link } from 'react-router-dom';
 import { ShieldX, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';

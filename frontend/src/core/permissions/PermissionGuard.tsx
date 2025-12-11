@@ -5,10 +5,10 @@
  * Supports role-based and module-specific permission checks.
  */
 
-import React from 'react';
+
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
-import { UserRole } from '../auth/types';
+import type { UserRole } from '../auth/types';
 import { hasRoleAccess } from './rbac';
 
 interface PermissionGuardProps {

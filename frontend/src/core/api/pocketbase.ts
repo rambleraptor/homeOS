@@ -6,7 +6,7 @@
  */
 
 import PocketBase from 'pocketbase';
-import { User } from '../auth/types';
+import type { User } from '../auth/types';
 
 const PB_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
 
@@ -38,7 +38,7 @@ export function getCurrentUser(): User | null {
   if (!authStore.isValid || !authStore.model) {
     return null;
   }
-  return authStore.model as User;
+  return authStore.model as unknown as User;
 }
 
 /**
@@ -67,7 +67,7 @@ export function clearAuth(): void {
  */
 export function onAuthChange(callback: (token: string, model: User | null) => void) {
   return pb.authStore.onChange((token, model) => {
-    callback(token, model as User | null);
+    callback(token, model as unknown as User | null);
   });
 }
 

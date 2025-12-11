@@ -5,8 +5,8 @@
  * Manages user sessions, login, logout, and registration.
  */
 
-import React, { createContext, useEffect, useState, useCallback } from 'react';
-import {
+import { createContext, useEffect, useState, useCallback } from 'react';
+import type {
   AuthContextValue,
   AuthState,
   LoginCredentials,
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         .collection(Collections.USERS)
         .authWithPassword(credentials.email, credentials.password);
 
-      const user = authData.record as User;
+      const user = authData.record as unknown as User;
 
       setState({
         user,
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       // Create the user
-      const user = await pb.collection(Collections.USERS).create({
+      await pb.collection(Collections.USERS).create({
         ...data,
         emailVisibility: true,
         // Default role is 'member' unless specified
@@ -152,7 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const user = await pb.collection(Collections.USERS).getOne(state.user.id);
       setState((prev) => ({
         ...prev,
-        user: user as User,
+        user: user as unknown as User,
       }));
 
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
