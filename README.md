@@ -305,12 +305,26 @@ We welcome contributions! Here's how:
 
 ### Code Review
 
-This project uses **Claude Code** for automated code reviews via GitHub Actions. When you open a PR:
-
+**Automated CI Checks** run on every PR:
 - ✅ TypeScript type checking
 - ✅ ESLint validation
-- ✅ Security scan
-- ✅ Claude AI code review
+- ✅ Build verification
+- ✅ Security scanning (npm audit)
+- ✅ **Claude AI Code Review** - Automated intelligent code reviews
+
+**Setting up Claude Code Reviews:**
+
+1. Go to your repository Settings → Secrets and variables → Actions
+2. Add a new secret named `CLAUDE_CODE_OAUTH_TOKEN`
+3. Get your token from [Claude Code OAuth setup](https://docs.anthropic.com/en/docs/claude-code/authentication)
+4. Claude will now automatically review all PRs with detailed feedback on:
+   - Modular architecture adherence
+   - Security and RBAC implementation
+   - TypeScript best practices
+   - React patterns and performance
+   - Code quality and maintainability
+
+See [`.github/workflows/code-review.yml`](.github/workflows/code-review.yml) for the full configuration.
 
 ## 📝 License
 

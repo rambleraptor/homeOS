@@ -1,4 +1,4 @@
-name: Claude Code Review
+name: Code Quality & Security
 
 on:
   pull_request:
@@ -9,11 +9,80 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  id-token: write
 
 jobs:
-  code-review:
+  claude-code-review:
     runs-on: ubuntu-latest
-    name: Automated Code Review
+    name: Claude AI Code Review
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            This is a modular HomeOS application built with:
+            - React 19 + TypeScript + Vite
+            - PocketBase backend
+            - Module Registry pattern for extensibility
+            - Role-Based Access Control (RBAC)
+
+            Please review this pull request and provide feedback on:
+
+            **Code Quality & Architecture:**
+            - Adherence to modular architecture pattern (modules should be self-contained)
+            - TypeScript type safety and best practices
+            - React 19 patterns and hooks usage (no unused React imports needed)
+            - Component composition and reusability
+
+            **Security:**
+            - Authentication and authorization implementation
+            - RBAC permission checks (usePermissions, PermissionGuard)
+            - PocketBase API security rules
+            - XSS, injection, and other OWASP vulnerabilities
+            - Sensitive data handling
+
+            **Module System:**
+            - New modules follow the established pattern in src/modules/
+            - Module registration in src/modules/registry.ts
+            - Proper route definitions and permissions
+            - Module-specific types are well-defined
+
+            **Performance & Best Practices:**
+            - Efficient React Query usage and caching
+            - Proper error handling
+            - Loading states and user feedback
+            - Accessibility considerations
+
+            **Testing & Documentation:**
+            - Code clarity and maintainability
+            - Inline documentation where needed
+            - Component prop types
+
+            Be constructive and specific. Highlight both strengths and areas for improvement.
+            Use the repository's documentation for context on architecture decisions.
+
+            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    name: Lint & Type Check
 
     steps:
       - name: Checkout code
@@ -34,47 +103,11 @@ jobs:
 
       - name: Run TypeScript type check
         working-directory: frontend
-        run: npm run type-check || echo "Type check failed but continuing..."
-        continue-on-error: true
+        run: npm run type-check
 
       - name: Run ESLint
         working-directory: frontend
-        run: npx eslint . --ext .ts,.tsx --max-warnings 0 || echo "Linting issues found"
-        continue-on-error: true
-
-      - name: Claude Code Review
-        uses: anthropics/claude-code-review-action@v1
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          review_level: 'thorough'
-          focus_areas: |
-            - Security vulnerabilities (XSS, injection, authentication issues)
-            - TypeScript type safety and best practices
-            - React hooks usage and component patterns
-            - Module architecture adherence
-            - RBAC permission implementation
-            - Code quality and maintainability
-          custom_instructions: |
-            This is a modular HomeOS application built with:
-            - React + TypeScript + Vite
-            - PocketBase backend
-            - Module Registry pattern for extensibility
-            - Role-Based Access Control (RBAC)
-
-            When reviewing code:
-            1. Ensure new modules follow the established pattern in src/modules/
-            2. Verify permission checks are properly implemented
-            3. Check for proper TypeScript typing
-            4. Validate that components use proper hooks (useAuth, usePermissions)
-            5. Look for security issues in authentication and authorization
-            6. Ensure PocketBase API calls are properly typed
-
-            The architecture emphasizes:
-            - Self-contained modules with their own components, routes, and hooks
-            - Central module registration in src/modules/registry.ts
-            - Strict type safety throughout
-            - Permission-based rendering and routing
+        run: npm run lint
 
   build-test:
     runs-on: ubuntu-latest
