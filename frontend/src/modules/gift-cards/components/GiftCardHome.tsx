@@ -1,0 +1,221 @@
+/**
+ * Gift Card Home Component
+ *
+ * Main gift card management interface
+ */
+
+import { useState } from 'react';
+import { Plus, Gift, Loader2, AlertCircle } from 'lucide-react';
+import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
+import { useCreateGiftCard } from '../hooks/useCreateGiftCard';
+import { useUpdateGiftCard } from '../hooks/useUpdateGiftCard';
+import { useDeleteGiftCard } from '../hooks/useDeleteGiftCard';
+import { MerchantList } from './MerchantList';
+import { MerchantDetail } from './MerchantDetail';
+import { GiftCardForm } from './GiftCardForm';
+import type { GiftCard, GiftCardFormData } from '../types';
+
+type View = 'list' | 'detail' | 'form';
+
+export function GiftCardHome() {
+  const [view, setView] = useState<View>('list');
+  const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
+  const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
+
+  const { stats, isLoading, isError, error } = useMerchantSummaries();
+  const createMutation = useCreateGiftCard();
+  const updateMutation = useUpdateGiftCard();
+  const deleteMutation = useDeleteGiftCard();
+
+  const handleAddCard = () => {
+    setEditingCard(null);
+    setView('form');
+  };
+
+  const handleMerchantClick = (merchant: string) => {
+    setSelectedMerchant(merchant);
+    setView('detail');
+  };
+
+  const handleBack = () => {
+    setSelectedMerchant(null);
+    setView('list');
+  };
+
+  const handleEditCard = (card: GiftCard) => {
+    setEditingCard(card);
+    setView('form');
+  };
+
+  const handleDeleteCard = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this gift card?')) {
+      await deleteMutation.mutateAsync(id);
+    }
+  };
+
+  const handleFormSubmit = async (data: GiftCardFormData) => {
+    try {
+      if (editingCard) {
+        await updateMutation.mutateAsync({ id: editingCard.id, data });
+      } else {
+        await createMutation.mutateAsync(data);
+      }
+      setView('list');
+      setEditingCard(null);
+    } catch (err) {
+      console.error('Failed to save gift card:', err);
+    }
+  };
+
+  const handleFormCancel = () => {
+    setView('list');
+    setEditingCard(null);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+          <div>
+            <h3 className="font-semibold text-red-900 dark:text-red-200">
+              Failed to load gift cards
+            </h3>
+            <p className="text-sm text-red-700 dark:text-red-300">
+              {error instanceof Error ? error.message : 'An error occurred'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedMerchantData = stats?.merchants.find(
+    (m) => m.merchant === selectedMerchant
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      {view === 'list' && (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                Gift Cards
+              </h1>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">
+                Manage your household gift cards
+              </p>
+            </div>
+            <button
+              onClick={handleAddCard}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium transition-colors shadow-md"
+            >
+              <Plus className="w-5 h-5" />
+              Add Gift Card
+            </button>
+          </div>
+
+          {/* Stats Overview */}
+          {stats && stats.totalCards > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Total Balance
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+                      ${stats.totalAmount.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                    <Gift className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Total Cards
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+                      {stats.totalCards}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                    <Gift className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Merchants
+                    </p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
+                      {stats.merchantCount}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                    <Gift className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Merchant List */}
+          {stats && (
+            <MerchantList
+              merchants={stats.merchants}
+              onMerchantClick={handleMerchantClick}
+            />
+          )}
+        </>
+      )}
+
+      {/* Merchant Detail View */}
+      {view === 'detail' && selectedMerchantData && (
+        <MerchantDetail
+          merchant={selectedMerchantData.merchant}
+          cards={selectedMerchantData.cards}
+          totalAmount={selectedMerchantData.totalAmount}
+          onBack={handleBack}
+          onEdit={handleEditCard}
+          onDelete={handleDeleteCard}
+        />
+      )}
+
+      {/* Form View */}
+      {view === 'form' && (
+        <div className="max-w-2xl">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            {editingCard ? 'Edit Gift Card' : 'Add New Gift Card'}
+          </h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
+            <GiftCardForm
+              onSubmit={handleFormSubmit}
+              onCancel={handleFormCancel}
+              initialData={editingCard || undefined}
+              isSubmitting={createMutation.isPending || updateMutation.isPending}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

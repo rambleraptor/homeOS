@@ -40,9 +40,9 @@ preview: ## Preview production build
 	@echo "Previewing production build..."
 	cd $(FRONTEND_DIR) && npm run preview
 
-test: ## Run tests (placeholder for future test implementation)
-	@echo "No tests configured yet"
-	@echo "Add your test command to package.json and update this target"
+test: ## Run tests with Vitest
+	@echo "Running tests..."
+	cd $(FRONTEND_DIR) && npm run test
 
 audit: ## Run security audit
 	@echo "Running security audit..."
