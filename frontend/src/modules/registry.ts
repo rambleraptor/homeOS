@@ -31,6 +31,7 @@ import type { HomeModule, ModuleRegistry } from './types';
 
 // Import modules as they are created
 import { dashboardModule } from './dashboard/module.config';
+import { giftCardsModule } from './gift-cards/module.config';
 // import { choresModule } from './chores/module.config';
 // import { mealsModule } from './meals/module.config';
 
@@ -44,6 +45,7 @@ import { dashboardModule } from './dashboard/module.config';
  */
 const MODULES: HomeModule[] = [
   dashboardModule,
+  giftCardsModule,
   // choresModule,
   // mealsModule,
 

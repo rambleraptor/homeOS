@@ -28,6 +28,7 @@ export const Collections = {
   USER_ROLES: 'user_roles',
   MODULE_PERMISSIONS: 'module_permissions',
   AUDIT_LOG: 'audit_log',
+  GIFT_CARDS: 'gift_cards',
 } as const;
 
 /**
