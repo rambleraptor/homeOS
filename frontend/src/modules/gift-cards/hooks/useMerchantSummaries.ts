@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { useGiftCards } from './useGiftCards';
-import type { MerchantSummary, GiftCardStats } from '../types';
+import type { MerchantSummary, GiftCardStats, GiftCard } from '../types';
 
 export function useMerchantSummaries() {
   const { data: giftCards, ...queryResult } = useGiftCards();
@@ -17,7 +17,7 @@ export function useMerchantSummaries() {
     // Group cards by merchant
     const merchantMap = new Map<string, MerchantSummary>();
 
-    giftCards.forEach((card) => {
+    giftCards.forEach((card: GiftCard) => {
       const existing = merchantMap.get(card.merchant);
       if (existing) {
         existing.totalAmount += card.amount;

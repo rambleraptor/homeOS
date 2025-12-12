@@ -15,6 +15,7 @@ vi.mock('../hooks/useGiftCards', () => ({
 }));
 
 import { useGiftCards } from '../hooks/useGiftCards';
+import type { UseQueryResult } from '@tanstack/react-query';
 
 const mockGiftCards: GiftCard[] = [
   {
@@ -72,7 +73,7 @@ describe('useMerchantSummaries', () => {
       isError: false,
       error: null,
       refetch: vi.fn(),
-    } as any);
+    } as unknown as UseQueryResult<GiftCard[]>);
 
     const { result } = renderHook(() => useMerchantSummaries(), {
       wrapper: createWrapper(),
@@ -115,7 +116,7 @@ describe('useMerchantSummaries', () => {
       isError: false,
       error: null,
       refetch: vi.fn(),
-    } as any);
+    } as unknown as UseQueryResult<GiftCard[]>);
 
     const { result } = renderHook(() => useMerchantSummaries(), {
       wrapper: createWrapper(),
@@ -138,7 +139,7 @@ describe('useMerchantSummaries', () => {
       isError: false,
       error: null,
       refetch: vi.fn(),
-    } as any);
+    } as unknown as UseQueryResult<GiftCard[]>);
 
     const { result } = renderHook(() => useMerchantSummaries(), {
       wrapper: createWrapper(),
@@ -169,7 +170,7 @@ describe('useMerchantSummaries', () => {
       isError: false,
       error: null,
       refetch: vi.fn(),
-    } as any);
+    } as unknown as UseQueryResult<GiftCard[]>);
 
     const { result } = renderHook(() => useMerchantSummaries(), {
       wrapper: createWrapper(),
