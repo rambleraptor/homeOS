@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { Card } from '../../../shared/components/Card';
 import { Button } from '../../../shared/components/Button';
@@ -18,13 +17,8 @@ export function SettingsHome() {
   const updateSubscription = useUpdateNotificationSubscription();
   const deleteSubscription = useDeleteNotificationSubscription();
 
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [isBrowserSupported, setIsBrowserSupported] = useState(true);
-
-  useEffect(() => {
-    setIsBrowserSupported(isNotificationSupported());
-    setIsEnabled(subscription?.enabled || false);
-  }, [subscription]);
+  const isBrowserSupported = isNotificationSupported();
+  const isEnabled = subscription?.enabled || false;
 
   const handleEnableNotifications = async () => {
     try {
@@ -43,8 +37,6 @@ export function SettingsHome() {
         subscription: pushSubscription,
         enabled: true,
       });
-
-      setIsEnabled(true);
     } catch (error) {
       console.error('Failed to enable notifications:', error);
       alert('Failed to enable notifications. Please try again.');
@@ -58,8 +50,6 @@ export function SettingsHome() {
 
       // Delete subscription from database
       await deleteSubscription.mutateAsync();
-
-      setIsEnabled(false);
     } catch (error) {
       console.error('Failed to disable notifications:', error);
       alert('Failed to disable notifications. Please try again.');
