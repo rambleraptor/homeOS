@@ -32,3 +32,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Migration test artifacts
+tests/migrations/pocketbase
+tests/migrations/pocketbase.exe
+tests/migrations/pocketbase.zip
+tests/migrations/test_pb_data/
