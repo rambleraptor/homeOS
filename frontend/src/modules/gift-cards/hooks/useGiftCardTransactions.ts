@@ -11,7 +11,7 @@ import type { GiftCardTransaction } from '../types';
 
 export function useGiftCardTransactions(giftCardId: string | null) {
   return useQuery({
-    queryKey: queryKeys.module('gift-cards').detail(giftCardId || '').list('transactions'),
+    queryKey: [...queryKeys.module('gift-cards').all(), 'transactions', giftCardId || ''],
     queryFn: async () => {
       if (!giftCardId) return [];
 
