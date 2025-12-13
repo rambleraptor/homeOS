@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { Calendar, Cake, Heart, Plus, Trash2, Edit } from 'lucide-react';
+import { Calendar, Cake, Heart, Plus } from 'lucide-react';
 import { Card } from '../../../shared/components/Card';
 import { Button } from '../../../shared/components/Button';
 import { Modal } from '../../../shared/components/Modal';
 import { Spinner } from '../../../shared/components/Spinner';
+import { ConfirmDialog } from '../../../shared/components/ConfirmDialog';
+import { useToast } from '../../../shared/components/ToastProvider';
 import { useEvents } from '../hooks/useEvents';
 import { useCreateEvent } from '../hooks/useCreateEvent';
 import { useUpdateEvent } from '../hooks/useUpdateEvent';
 import { useDeleteEvent } from '../hooks/useDeleteEvent';
 import { useEventStats } from '../hooks/useEventStats';
 import { EventForm } from './EventForm';
+import { EventCard } from './EventCard';
 import type { Event, EventFormData } from '../types';
 
 export function EventsHome() {
@@ -18,16 +21,27 @@ export function EventsHome() {
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const toast = useToast();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    eventId: string | null;
+    eventTitle: string | null;
+  }>({ isOpen: false, eventId: null, eventTitle: null });
 
   const handleCreateEvent = async (data: EventFormData) => {
     try {
       await createEvent.mutateAsync(data);
       setIsCreateModalOpen(false);
+      toast.success('Event created successfully!');
     } catch (error) {
-      console.error('Failed to create event:', error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to create event. Please try again.'
+      );
     }
   };
 
@@ -37,28 +51,38 @@ export function EventsHome() {
     try {
       await updateEvent.mutateAsync({ id: editingEvent.id, data });
       setEditingEvent(null);
+      toast.success('Event updated successfully!');
     } catch (error) {
-      console.error('Failed to update event:', error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to update event. Please try again.'
+      );
     }
   };
 
-  const handleDeleteEvent = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+  const handleDeleteClick = (event: Event) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      eventId: event.id,
+      eventTitle: event.title,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirmation.eventId) return;
 
     try {
-      await deleteEvent.mutateAsync(id);
+      await deleteEvent.mutateAsync(deleteConfirmation.eventId);
+      setDeleteConfirmation({ isOpen: false, eventId: null, eventTitle: null });
+      toast.success('Event deleted successfully!');
     } catch (error) {
-      console.error('Failed to delete event:', error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to delete event. Please try again.'
+      );
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
   };
 
   const getUpcomingEvents = () => {
@@ -186,60 +210,12 @@ export function EventsHome() {
         ) : (
           <div className="space-y-3">
             {upcomingEvents.map((event) => (
-              <Card key={event.id}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    {event.event_type === 'birthday' ? (
-                      <Cake className="w-6 h-6 text-pink-500 mt-1" />
-                    ) : (
-                      <Heart className="w-6 h-6 text-red-500 mt-1" />
-                    )}
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {event.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {event.people_involved}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                        {formatDate(event.event_date)}
-                        {event.recurring_yearly && ' (Recurring)'}
-                      </p>
-                      {event.details && (
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                          {event.details}
-                        </p>
-                      )}
-                      {event.notification_preferences.length > 0 && (
-                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                          Reminders:{' '}
-                          {event.notification_preferences
-                            .map((p) => p.replaceAll('_', ' '))
-                            .join(', ')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setEditingEvent(event)}
-                      aria-label={`Edit ${event.title}`}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleDeleteEvent(event.id)}
-                      aria-label={`Delete ${event.title}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+              <EventCard
+                key={event.id}
+                event={event}
+                onEdit={setEditingEvent}
+                onDelete={handleDeleteClick}
+              />
             ))}
           </div>
         )}
@@ -258,47 +234,13 @@ export function EventsHome() {
         ) : (
           <div className="space-y-3">
             {events.map((event) => (
-              <Card key={event.id}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    {event.event_type === 'birthday' ? (
-                      <Cake className="w-6 h-6 text-pink-500 mt-1" />
-                    ) : (
-                      <Heart className="w-6 h-6 text-red-500 mt-1" />
-                    )}
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        {event.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {event.people_involved}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                        {formatDate(event.event_date)}
-                        {event.recurring_yearly && ' (Recurring)'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setEditingEvent(event)}
-                      aria-label={`Edit ${event.title}`}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleDeleteEvent(event.id)}
-                      aria-label={`Delete ${event.title}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+              <EventCard
+                key={event.id}
+                event={event}
+                onEdit={setEditingEvent}
+                onDelete={handleDeleteClick}
+                showDetails={false}
+              />
             ))}
           </div>
         )}
@@ -330,6 +272,19 @@ export function EventsHome() {
           />
         )}
       </Modal>
+
+      <ConfirmDialog
+        isOpen={deleteConfirmation.isOpen}
+        onClose={() =>
+          setDeleteConfirmation({ isOpen: false, eventId: null, eventTitle: null })
+        }
+        onConfirm={handleDeleteConfirm}
+        title="Delete Event"
+        message={`Are you sure you want to delete "${deleteConfirmation.eventTitle}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteEvent.isPending}
+      />
     </div>
   );
 }

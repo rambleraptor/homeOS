@@ -9,12 +9,15 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from './core/auth/AuthContext';
 import { Router } from './core/router/Router';
 import { queryClient } from './core/api/queryClient';
+import { ToastProvider } from './shared/components/ToastProvider';
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router />
+        <ToastProvider>
+          <Router />
+        </ToastProvider>
       </AuthProvider>
       {/* React Query Devtools - only shows in development */}
       <ReactQueryDevtools initialIsOpen={false} />
