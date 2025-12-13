@@ -6,7 +6,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { queryClient, queryKeys } from '@/core/api/queryClient';
-import { Collections, getCollection } from '@/core/api/pocketbase';
+import { Collections, getCollection, getCurrentUser } from '@/core/api/pocketbase';
 import type { GiftCard, GiftCardTransaction, TransactionFormData } from '../types';
 
 interface CreateTransactionParams {
@@ -32,6 +32,7 @@ export function useCreateTransaction() {
       }
 
       // Create the transaction record
+      const currentUser = getCurrentUser();
       const transaction = await getCollection<GiftCardTransaction>(
         Collections.GIFT_CARD_TRANSACTIONS
       ).create({
@@ -41,6 +42,7 @@ export function useCreateTransaction() {
         new_amount: newAmount,
         amount_changed: amountChanged,
         notes: data.notes,
+        created_by: currentUser?.id,
       });
 
       // Update the gift card with new amount and archive if needed
