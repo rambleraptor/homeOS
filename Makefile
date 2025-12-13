@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check build test dev preview audit format all ci
+.PHONY: help install clean lint type-check build test test-migrations test-all dev preview audit format all ci
 
 # Default target
 .DEFAULT_GOAL := help
@@ -19,6 +19,8 @@ clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
 	rm -rf $(FRONTEND_DIR)/dist
 	rm -rf $(FRONTEND_DIR)/node_modules
+	@echo "Cleaning migration test artifacts..."
+	cd tests/migrations && npm run clean 2>/dev/null || true
 
 lint: ## Run ESLint
 	@echo "Running ESLint..."
@@ -40,9 +42,16 @@ preview: ## Preview production build
 	@echo "Previewing production build..."
 	cd $(FRONTEND_DIR) && npm run preview
 
-test: ## Run tests with Vitest
-	@echo "Running tests..."
+test: ## Run frontend tests with Vitest
+	@echo "Running frontend tests..."
 	cd $(FRONTEND_DIR) && npm run test
+
+test-migrations: ## Run PocketBase migration tests
+	@echo "Running migration tests..."
+	npm test --prefix tests/migrations
+
+test-all: test test-migrations ## Run all tests (frontend + migrations)
+	@echo "All tests completed!"
 
 audit: ## Run security audit
 	@echo "Running security audit..."
