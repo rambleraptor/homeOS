@@ -8,13 +8,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { useEventStats } from '../hooks/useEventStats';
 import type { Event } from '../types';
+import type { UseQueryResult } from '@tanstack/react-query';
 
-// Mock the getCollection function
-vi.mock('@/core/api/pocketbase', () => ({
-  getCollection: vi.fn(),
+// Mock the useEvents hook
+vi.mock('../hooks/useEvents', () => ({
+  useEvents: vi.fn(),
 }));
 
-import { getCollection } from '@/core/api/pocketbase';
+import { useEvents } from '../hooks/useEvents';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -78,9 +79,13 @@ describe('useEventStats', () => {
       },
     ];
 
-    vi.mocked(getCollection).mockReturnValue({
-      getFullList: vi.fn().mockResolvedValue(mockEvents),
-    } as unknown as ReturnType<typeof getCollection<Event>>);
+    vi.mocked(useEvents).mockReturnValue({
+      data: mockEvents,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as UseQueryResult<Event[]>);
 
     const { result } = renderHook(() => useEventStats(), {
       wrapper: createWrapper(),
@@ -134,9 +139,13 @@ describe('useEventStats', () => {
       },
     ];
 
-    vi.mocked(getCollection).mockReturnValue({
-      getFullList: vi.fn().mockResolvedValue(mockEvents),
-    } as unknown as ReturnType<typeof getCollection<Event>>);
+    vi.mocked(useEvents).mockReturnValue({
+      data: mockEvents,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as UseQueryResult<Event[]>);
 
     const { result } = renderHook(() => useEventStats(), {
       wrapper: createWrapper(),
@@ -188,9 +197,13 @@ describe('useEventStats', () => {
       },
     ];
 
-    vi.mocked(getCollection).mockReturnValue({
-      getFullList: vi.fn().mockResolvedValue(mockEvents),
-    } as unknown as ReturnType<typeof getCollection<Event>>);
+    vi.mocked(useEvents).mockReturnValue({
+      data: mockEvents,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as UseQueryResult<Event[]>);
 
     const { result } = renderHook(() => useEventStats(), {
       wrapper: createWrapper(),
@@ -210,9 +223,13 @@ describe('useEventStats', () => {
   });
 
   it('should return zero stats when no events exist', async () => {
-    vi.mocked(getCollection).mockReturnValue({
-      getFullList: vi.fn().mockResolvedValue([]),
-    } as unknown as ReturnType<typeof getCollection<Event>>);
+    vi.mocked(useEvents).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(),
+    } as unknown as UseQueryResult<Event[]>);
 
     const { result } = renderHook(() => useEventStats(), {
       wrapper: createWrapper(),
