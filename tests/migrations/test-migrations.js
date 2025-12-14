@@ -14,7 +14,7 @@ import { spawn } from 'child_process';
 import { createWriteStream, existsSync, cpSync } from 'fs';
 import { mkdir, rm, chmod, readdir } from 'fs/promises';
 import { get as httpsGet } from 'https';
-import { get as httpGet } from 'http';
+import { get as httpGet, request as httpRequest } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -262,7 +262,6 @@ async function createAdminAndAuth() {
   return new Promise((resolve, reject) => {
     console.log('\n👤 Creating admin user and authenticating...\n');
 
-    const http = require('http');
     const postData = JSON.stringify({
       email: 'test@test.com',
       password: 'test1234test1234',
@@ -280,7 +279,7 @@ async function createAdminAndAuth() {
       }
     };
 
-    const req = http.request(options, (res) => {
+    const req = httpRequest(options, (res) => {
       let data = '';
 
       res.on('data', (chunk) => {
@@ -309,7 +308,6 @@ async function createAdminAndAuth() {
  */
 async function authenticateAdmin() {
   return new Promise((resolve, reject) => {
-    const http = require('http');
     const postData = JSON.stringify({
       identity: 'test@test.com',
       password: 'test1234test1234'
@@ -326,7 +324,7 @@ async function authenticateAdmin() {
       }
     };
 
-    const req = http.request(options, (res) => {
+    const req = httpRequest(options, (res) => {
       let data = '';
 
       res.on('data', (chunk) => {
@@ -360,7 +358,6 @@ async function authenticateAdmin() {
 async function verifyCollections(authToken) {
   return new Promise((resolve, reject) => {
     console.log('\n📊 Verifying collections...\n');
-    const http = require('http');
 
     const options = {
       hostname: '127.0.0.1',
@@ -372,7 +369,7 @@ async function verifyCollections(authToken) {
       }
     };
 
-    const req = http.request(options, (res) => {
+    const req = httpRequest(options, (res) => {
       let data = '';
 
       res.on('data', (chunk) => {
