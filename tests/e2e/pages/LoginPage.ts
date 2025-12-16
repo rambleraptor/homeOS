@@ -25,12 +25,15 @@ export class LoginPage {
   }
 
   async expectLoginError(message?: string | RegExp) {
-    // Match the actual error styling from Login.tsx
-    const errorElement = this.page.locator('[role="alert"], .error, .text-red-500, .text-red-600').first();
-    await expect(errorElement).toBeVisible();
+    // Find the error container and then the text element inside it
+    // The structure is: div > (SVG icon + p tag with text)
+    const errorContainer = this.page.locator('.bg-red-50.border-red-200').first();
+    await expect(errorContainer).toBeVisible();
 
     if (message) {
-      await expect(errorElement).toContainText(message);
+      // Find the p tag with the actual error text
+      const errorText = errorContainer.locator('p.text-red-600');
+      await expect(errorText).toContainText(message);
     }
   }
 
