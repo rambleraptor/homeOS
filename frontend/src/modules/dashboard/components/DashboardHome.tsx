@@ -1,170 +1,73 @@
 /**
  * Dashboard Home Component
  *
- * Main dashboard view showing overview of HomeOS system
+ * Home screen showing all available modules for easy access
  */
 
 
 import { useAuth } from '@/core/auth/useAuth';
-import { LayoutDashboard, Users, Activity, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { getNavigationModules } from '@/modules/registry';
+import { ArrowRight } from 'lucide-react';
 
 export function DashboardHome() {
   const { user } = useAuth();
-
-  const stats = [
-    {
-      title: 'Welcome Back',
-      value: user?.name || 'User',
-      icon: Users,
-      color: 'blue',
-    },
-    {
-      title: 'Active Modules',
-      value: '0',
-      subtitle: 'Available to you',
-      icon: LayoutDashboard,
-      color: 'green',
-    },
-    {
-      title: 'Recent Activity',
-      value: '0',
-      subtitle: 'Actions today',
-      icon: Activity,
-      color: 'purple',
-    },
-    {
-      title: 'Last Login',
-      value: 'Just now',
-      subtitle: 'Current session',
-      icon: Clock,
-      color: 'orange',
-    },
-  ];
-
-  const colorClasses = {
-    blue: 'bg-blue-600',
-    green: 'bg-green-600',
-    purple: 'bg-purple-600',
-    orange: 'bg-orange-600',
-  };
+  const navigate = useNavigate();
+  const modules = getNavigationModules().filter(m => m.id !== 'dashboard');
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Dashboard
+        <h1 className="text-3xl font-bold text-gray-900">
+          Welcome back, {user?.name || 'User'}
         </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Welcome to your Home Operating System
+        <p className="mt-2 text-gray-600">
+          Choose a module to get started
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
+      {/* Modules Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {modules.map((module) => {
+          const Icon = module.icon;
           return (
-            <div
-              key={stat.title}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700"
+            <button
+              key={module.id}
+              onClick={() => navigate(module.basePath)}
+              className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg hover:border-primary-300 transition-all text-left group"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {stat.title}
-                  </p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-                    {stat.value}
-                  </p>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="p-3 bg-primary-100 rounded-lg group-hover:bg-primary-200 transition-colors">
+                    <Icon className="w-8 h-8 text-primary-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-700 transition-colors">
+                      {module.name}
+                    </h3>
+                    {module.description && (
+                      <p className="mt-1 text-sm text-gray-600">
+                        {module.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div
-                  className={`${
-                    colorClasses[stat.color as keyof typeof colorClasses]
-                  } p-3 rounded-lg`}
-                >
-                  <Icon className="w-6 h-6 text-white" />
-                </div>
+                <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-primary-600 group-hover:translate-x-1 transition-all flex-shrink-0" />
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
 
-      {/* Quick Start Guide */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-          🚀 Getting Started with HomeOS
-        </h2>
-        <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 bg-primary-500 text-gray-900 rounded-full flex items-center justify-center text-sm font-bold">
-              1
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                Explore Modules
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Check out the available modules in the sidebar. Each module provides
-                different functionality for managing your home.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 bg-primary-500 text-gray-900 rounded-full flex items-center justify-center text-sm font-bold">
-              2
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                Create New Modules
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Follow the pattern in <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">src/modules/dashboard</code> to
-                create your own modules (Chores, Meal Planner, etc.).
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-6 h-6 bg-primary-500 text-gray-900 rounded-full flex items-center justify-center text-sm font-bold">
-              3
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                Register Your Module
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Add your module to <code className="text-xs bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded">src/modules/registry.ts</code> and
-                it will automatically appear in navigation!
-              </p>
-            </div>
-          </div>
+      {/* Empty State */}
+      {modules.length === 0 && (
+        <div className="bg-white rounded-lg shadow-md p-12 border border-gray-200 text-center">
+          <p className="text-gray-600">
+            No modules available. Contact your administrator.
+          </p>
         </div>
-      </div>
-
-      {/* Architecture Highlights */}
-      <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg shadow-md p-6 text-gray-900">
-        <h2 className="text-xl font-bold mb-4">
-          ✨ Modular Architecture
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h3 className="font-semibold mb-2">Self-Contained Modules</h3>
-            <p className="text-sm text-gray-700">
-              Each module has its own components, hooks, routes, and types. No
-              cross-dependencies.
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Easy to Extend</h3>
-            <p className="text-sm text-gray-700">
-              Creating a new module is as simple as following the established pattern.
-            </p>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
