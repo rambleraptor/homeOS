@@ -1,5 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
+  // Check if collection already exists (idempotent)
+  try {
+    const existing = app.findCollectionByNameOrId("notifications");
+    if (existing) {
+      return; // Collection already exists, skip creation
+    }
+  } catch (e) {
+    // Collection doesn't exist, continue with creation
+  }
+
   // Get the users and events collection IDs
   const usersCollection = app.findCollectionByNameOrId("users");
   const eventsCollection = app.findCollectionByNameOrId("events");
@@ -46,9 +56,7 @@ migrate((app) => {
         "type": "select",
         "required": true,
         "presentable": false,
-        "options": {
-          "values": ["day_of", "day_before", "week_before", "system"]
-        }
+        "values": ["day_of", "day_before", "week_before", "system"]
       },
       {
         "name": "scheduled_for",
@@ -76,10 +84,10 @@ migrate((app) => {
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_user_id ON notifications (user_id)",
-      "CREATE INDEX idx_event_id ON notifications (event_id)",
-      "CREATE INDEX idx_read ON notifications (read)",
-      "CREATE INDEX idx_scheduled_for ON notifications (scheduled_for)"
+      "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id)",
+      "CREATE INDEX IF NOT EXISTS idx_notifications_event_id ON notifications (event_id)",
+      "CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications (read)",
+      "CREATE INDEX IF NOT EXISTS idx_notifications_scheduled_for ON notifications (scheduled_for)"
     ],
     "listRule": "@request.auth.id != '' && user_id = @request.auth.id",
     "viewRule": "@request.auth.id != '' && user_id = @request.auth.id",

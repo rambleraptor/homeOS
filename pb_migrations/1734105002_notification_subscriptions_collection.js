@@ -1,5 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
+  // Check if collection already exists (idempotent)
+  try {
+    const existing = app.findCollectionByNameOrId("notification_subscriptions");
+    if (existing) {
+      return; // Collection already exists, skip creation
+    }
+  } catch (e) {
+    // Collection doesn't exist, continue with creation
+  }
+
   // Get the users collection ID
   const usersCollection = app.findCollectionByNameOrId("users");
 
@@ -31,8 +41,8 @@ migrate((app) => {
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_user_id ON notification_subscriptions (user_id)",
-      "CREATE UNIQUE INDEX idx_user_subscription ON notification_subscriptions (user_id)"
+      "CREATE INDEX IF NOT EXISTS idx_notification_subscriptions_user_id ON notification_subscriptions (user_id)",
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_subscriptions_user_subscription ON notification_subscriptions (user_id)"
     ],
     "listRule": "@request.auth.id != '' && user_id = @request.auth.id",
     "viewRule": "@request.auth.id != '' && user_id = @request.auth.id",
