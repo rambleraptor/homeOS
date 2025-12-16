@@ -1,5 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
+  // Check if collection already exists (idempotent)
+  try {
+    const existing = app.findCollectionByNameOrId("gift_cards");
+    if (existing) {
+      return; // Collection already exists, skip creation
+    }
+  } catch (e) {
+    // Collection doesn't exist, continue with creation
+  }
+
   // Get the users collection ID
   const usersCollection = app.findCollectionByNameOrId("users");
 
@@ -54,8 +64,8 @@ migrate((app) => {
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_merchant ON gift_cards (merchant)",
-      "CREATE INDEX idx_created_by ON gift_cards (created_by)"
+      "CREATE INDEX IF NOT EXISTS idx_gift_cards_merchant ON gift_cards (merchant)",
+      "CREATE INDEX IF NOT EXISTS idx_gift_cards_created_by ON gift_cards (created_by)"
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",

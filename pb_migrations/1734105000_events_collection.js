@@ -1,5 +1,15 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
+  // Check if collection already exists (idempotent)
+  try {
+    const existing = app.findCollectionByNameOrId("events");
+    if (existing) {
+      return; // Collection already exists, skip creation
+    }
+  } catch (e) {
+    // Collection doesn't exist, continue with creation
+  }
+
   // Get the users collection ID
   const usersCollection = app.findCollectionByNameOrId("users");
 
@@ -13,9 +23,7 @@ migrate((app) => {
         "type": "select",
         "required": true,
         "presentable": false,
-        "options": {
-          "values": ["birthday", "anniversary"]
-        }
+        "values": ["birthday", "anniversary"]
       },
       {
         "name": "title",
@@ -67,9 +75,9 @@ migrate((app) => {
       }
     ],
     "indexes": [
-      "CREATE INDEX idx_event_type ON events (event_type)",
-      "CREATE INDEX idx_event_date ON events (event_date)",
-      "CREATE INDEX idx_created_by ON events (created_by)"
+      "CREATE INDEX IF NOT EXISTS idx_events_event_type ON events (event_type)",
+      "CREATE INDEX IF NOT EXISTS idx_events_event_date ON events (event_date)",
+      "CREATE INDEX IF NOT EXISTS idx_events_created_by ON events (created_by)"
     ],
     "listRule": "@request.auth.id != ''",
     "viewRule": "@request.auth.id != ''",

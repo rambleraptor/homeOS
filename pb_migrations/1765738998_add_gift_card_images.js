@@ -2,8 +2,11 @@
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("gift_cards");
 
-  // Add front_image field (file field)
-  collection.fields.add(new FileField({
+  // Check if front_image field already exists (idempotent)
+  const existingFrontImage = collection.fields.getByName("front_image");
+  if (!existingFrontImage) {
+    // Add front_image field (file field)
+    collection.fields.add(new FileField({
     name: "front_image",
     required: false,
     presentable: false,
@@ -19,10 +22,14 @@ migrate((app) => {
       "100x100",
       "400x400"
     ]
-  }));
+    }));
+  }
 
-  // Add back_image field (file field)
-  collection.fields.add(new FileField({
+  // Check if back_image field already exists (idempotent)
+  const existingBackImage = collection.fields.getByName("back_image");
+  if (!existingBackImage) {
+    // Add back_image field (file field)
+    collection.fields.add(new FileField({
     name: "back_image",
     required: false,
     presentable: false,
@@ -38,7 +45,8 @@ migrate((app) => {
       "100x100",
       "400x400"
     ]
-  }));
+    }));
+  }
 
   return app.save(collection);
 }, (app) => {
