@@ -27,10 +27,14 @@ type PocketBaseFixtures = {
  */
 export const test = base.extend<PocketBaseFixtures>({
   /**
-   * PocketBase client instance
+   * PocketBase client instance (authenticated as admin)
    */
   pocketbase: async ({}, use) => {
     const pb = new PocketBase(getPocketBaseUrl());
+
+    // Authenticate as admin to allow user creation
+    await pb.admins.authWithPassword('admin@test.local', 'TestAdmin123!');
+
     await use(pb);
     pb.authStore.clear();
   },
@@ -41,7 +45,7 @@ export const test = base.extend<PocketBaseFixtures>({
   testUser: async ({ pocketbase }, use) => {
     const userData = testUsers.user1;
 
-    // Create user via PocketBase API
+    // Create user via PocketBase API (as admin)
     const user = await pocketbase.collection('users').create({
       email: userData.email,
       password: userData.password,
@@ -58,6 +62,10 @@ export const test = base.extend<PocketBaseFixtures>({
 
     // Cleanup: delete test user
     try {
+      // Re-authenticate as admin if needed for deletion
+      if (!pocketbase.authStore.isValid) {
+        await pocketbase.admins.authWithPassword('admin@test.local', 'TestAdmin123!');
+      }
       await pocketbase.collection('users').delete(user.id);
     } catch (e) {
       // User might already be deleted
