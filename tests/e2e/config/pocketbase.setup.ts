@@ -20,15 +20,15 @@ let pbProcess: ChildProcess | null = null;
  * Get project root directory
  */
 export function getProjectRoot(): string {
-  // tests/e2e/config -> go up 3 levels
-  return join(process.cwd(), '../../..');
+  // When running from tests/e2e, go up 2 levels to reach project root
+  return join(process.cwd(), '../..');
 }
 
 /**
  * Get test directories
  */
 export function getTestDirs() {
-  const e2eDir = join(process.cwd(), '..');
+  const e2eDir = process.cwd(); // We're already in tests/e2e when running
   return {
     e2eDir,
     pbDataDir: join(e2eDir, 'pb_test_data'),
