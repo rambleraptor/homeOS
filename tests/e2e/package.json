@@ -1,0 +1,35 @@
+{
+  "name": "homeos-e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for HomeOS using Playwright",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:chromium": "playwright test --project=chromium",
+    "test:auth": "playwright test tests/auth/",
+    "test:gift-cards": "playwright test tests/gift-cards/",
+    "test:events": "playwright test tests/events/",
+    "test:settings": "playwright test tests/settings/",
+    "test:navigation": "playwright test tests/navigation/",
+    "report": "playwright show-report",
+    "clean": "rm -rf test-results playwright-report pb_test_data"
+  },
+  "keywords": [
+    "e2e",
+    "playwright",
+    "testing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.2"
+  },
+  "dependencies": {
+    "pocketbase": "^0.21.5"
+  }
+}
