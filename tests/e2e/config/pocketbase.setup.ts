@@ -143,7 +143,14 @@ export async function setupPocketBase(): Promise<void> {
   // Create data directory and copy migrations
   await mkdir(pbDataDir, { recursive: true });
   const migrationsDir = join(pbDataDir, 'pb_migrations');
+
+  console.log(`📦 Copying migrations from ${migrationsSource} to ${migrationsDir}`);
   cpSync(migrationsSource, migrationsDir, { recursive: true });
+
+  // Verify migrations were copied
+  const fs = await import('fs');
+  const migrationsFiles = fs.readdirSync(migrationsDir);
+  console.log(`   Found ${migrationsFiles.length} migration files:`, migrationsFiles.filter(f => f.endsWith('.js')).join(', '));
 
   // Create admin user
   await createAdminUser();
@@ -224,6 +231,8 @@ export async function startPocketBase(): Promise<void> {
     pbProcess.stdout?.on('data', (data) => {
       const text = data.toString();
       output += text;
+      // Log all PocketBase output to help debug migration issues
+      console.log('[PocketBase]', text.trim());
 
       if (text.includes('Server started') || text.includes(`http://127.0.0.1:${TEST_PORT}`)) {
         ready = true;
@@ -234,6 +243,8 @@ export async function startPocketBase(): Promise<void> {
     pbProcess.stderr?.on('data', (data) => {
       const text = data.toString();
       output += text;
+      // Log errors/warnings from PocketBase
+      console.error('[PocketBase ERROR]', text.trim());
     });
 
     pbProcess.on('error', (err) => {
