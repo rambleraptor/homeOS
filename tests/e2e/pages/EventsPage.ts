@@ -168,8 +168,15 @@ export class EventsPage {
     // Navigate back to main events view to force fresh data fetch
     await this.goto();
 
-    // Wait for the main list to fully load
+    // Wait for the main list to fully load and React Query to refetch
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+
+    // Additional wait to ensure React Query has time to refetch invalidated queries
+    // After query invalidation, React Query needs to:
+    // 1. Detect the invalidation
+    // 2. Trigger a background refetch
+    // 3. Re-render with new data
+    await this.page.waitForTimeout(1000);
   }
 
   async deleteEvent(eventName: string) {
