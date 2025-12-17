@@ -40,7 +40,12 @@ export class GiftCardsPage {
   }
 
   async submitGiftCardForm() {
-    await this.page.getByRole('button', { name: /add card|update|saving/i }).click();
+    console.log(`[GiftCardsPage] Looking for submit button`);
+    const submitButton = this.page.getByRole('button', { name: /add card|update|saving/i });
+    const buttonText = await submitButton.textContent();
+    console.log(`[GiftCardsPage] Found submit button with text: "${buttonText}"`);
+    await submitButton.click();
+    console.log(`[GiftCardsPage] Submit button clicked`);
   }
 
   async createGiftCard(data: {
@@ -104,24 +109,35 @@ export class GiftCardsPage {
 
     // Use aria-label to find the edit button for a specific card
     // Format: "Edit Amazon card ($50.00)"
+    console.log(`[GiftCardsPage] Looking for edit button for ${merchant}`);
     if (cardAmount !== undefined) {
-      await this.page.getByRole('button', { name: `Edit ${merchant} card ($${cardAmount.toFixed(2)})` }).first().click();
+      const buttonName = `Edit ${merchant} card ($${cardAmount.toFixed(2)})`;
+      console.log(`[GiftCardsPage] Looking for button with exact name: "${buttonName}"`);
+      await this.page.getByRole('button', { name: buttonName }).first().click();
     } else {
-      // Fall back to finding any edit button with the merchant name
+      console.log(`[GiftCardsPage] Looking for button matching regex: /Edit ${merchant}/i`);
       await this.page.getByRole('button', { name: new RegExp(`Edit ${merchant}`, 'i') }).first().click();
     }
+    console.log(`[GiftCardsPage] Edit button clicked`);
 
     // Wait for the form to be visible and ready
+    console.log(`[GiftCardsPage] Waiting for form fields to appear`);
     await this.page.locator('#merchant').waitFor({ state: 'visible', timeout: 5000 });
     await this.page.locator('#amount').waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`[GiftCardsPage] Form fields are visible`);
 
     if (newData.merchant) {
       await this.page.locator('#merchant').fill(newData.merchant);
     }
 
     if (newData.amount !== undefined) {
+      console.log(`[GiftCardsPage] Filling amount field with: ${newData.amount}`);
       const amountField = this.page.locator('#amount');
+      const currentValue = await amountField.inputValue();
+      console.log(`[GiftCardsPage] Current amount value: ${currentValue}`);
       await amountField.fill(newData.amount.toString());
+      const newValue = await amountField.inputValue();
+      console.log(`[GiftCardsPage] New amount value after fill: ${newValue}`);
     }
 
     if (newData.card_number) {

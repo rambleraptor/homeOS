@@ -56,7 +56,12 @@ export class EventsPage {
   }
 
   async submitEventForm() {
-    await this.page.getByRole('button', { name: /create event|update event|saving/i }).click();
+    console.log(`[EventsPage] Looking for submit button`);
+    const submitButton = this.page.getByRole('button', { name: /create event|update event|saving/i });
+    const buttonText = await submitButton.textContent();
+    console.log(`[EventsPage] Found submit button with text: "${buttonText}"`);
+    await submitButton.click();
+    console.log(`[EventsPage] Submit button clicked`);
   }
 
   async createEvent(data: {
@@ -102,20 +107,30 @@ export class EventsPage {
     // Wait for the event to be visible on the page first
     await this.expectEventInList(eventName);
 
+    console.log(`[EventsPage] Looking for edit button: "Edit ${eventName}"`);
     // Buttons have aria-labels like "Edit Test Event"
-    await this.page.getByRole('button', { name: `Edit ${eventName}` }).first().click();
+    const editButton = this.page.getByRole('button', { name: `Edit ${eventName}` }).first();
+    await editButton.click();
+    console.log(`[EventsPage] Edit button clicked`);
 
     // Wait for the modal/form to be visible and ready
+    console.log(`[EventsPage] Waiting for form fields to appear`);
     await this.page.locator('#title').waitFor({ state: 'visible', timeout: 5000 });
     await this.page.locator('#event_date').waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`[EventsPage] Form fields are visible`);
 
     if (newData.event_type) {
       await this.page.locator('#event_type').selectOption(newData.event_type);
     }
 
     if (newData.name) {
+      console.log(`[EventsPage] Filling title field with: ${newData.name}`);
       const nameField = this.page.locator('#title');
+      const currentValue = await nameField.inputValue();
+      console.log(`[EventsPage] Current title value: ${currentValue}`);
       await nameField.fill(newData.name);
+      const newValue = await nameField.inputValue();
+      console.log(`[EventsPage] New title value after fill: ${newValue}`);
     }
 
     if (newData.people_involved) {
