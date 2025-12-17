@@ -59,11 +59,13 @@ export class GiftCardsPage {
   }
 
   async expectGiftCardInList(merchant: string, amount?: number) {
-    await expect(this.page.getByText(merchant)).toBeVisible();
+    // Use .first() to handle cases where merchant appears in both summary and list
+    await expect(this.page.getByText(merchant).first()).toBeVisible();
 
     if (amount !== undefined) {
       const formattedAmount = `$${amount.toFixed(2)}`;
-      await expect(this.page.getByText(formattedAmount)).toBeVisible();
+      // Use .first() to handle cases where amount appears in both summary and individual cards
+      await expect(this.page.getByText(formattedAmount).first()).toBeVisible();
     }
   }
 
@@ -132,7 +134,14 @@ export class GiftCardsPage {
     }
 
     await this.submitGiftCardForm();
+
+    // Wait for the form to close and data to reload
     await this.page.waitForTimeout(500);
+
+    // Wait for network to be idle to ensure data has reloaded
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
+      // If networkidle timeout, that's ok - continue anyway
+    });
   }
 
   async deleteGiftCard(merchant: string, cardAmount?: number) {

@@ -138,7 +138,14 @@ export class EventsPage {
     }
 
     await this.submitEventForm();
+
+    // Wait for the form to close and data to reload
     await this.page.waitForTimeout(500);
+
+    // Wait for network to be idle to ensure data has reloaded
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
+      // If networkidle timeout, that's ok - continue anyway
+    });
   }
 
   async deleteEvent(eventName: string) {

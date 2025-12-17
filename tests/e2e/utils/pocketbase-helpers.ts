@@ -36,8 +36,13 @@ export async function createMultipleGiftCards(
   pb: PocketBase,
   cards: Array<{ merchant: string; amount: number; notes?: string }>
 ) {
-  const promises = cards.map(card => createGiftCard(pb, card));
-  return await Promise.all(promises);
+  // Create sequentially to avoid PocketBase auto-cancellation
+  const results = [];
+  for (const card of cards) {
+    const result = await createGiftCard(pb, card);
+    results.push(result);
+  }
+  return results;
 }
 
 /**
@@ -99,8 +104,13 @@ export async function createMultipleEvents(
     notes?: string;
   }>
 ) {
-  const promises = events.map(event => createEvent(pb, event));
-  return await Promise.all(promises);
+  // Create sequentially to avoid PocketBase auto-cancellation
+  const results = [];
+  for (const event of events) {
+    const result = await createEvent(pb, event);
+    results.push(result);
+  }
+  return results;
 }
 
 /**
