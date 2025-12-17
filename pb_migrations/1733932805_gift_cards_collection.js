@@ -10,8 +10,16 @@ migrate((app) => {
     // Collection doesn't exist, continue with creation
   }
 
-  // Get the users collection ID
-  const usersCollection = app.findCollectionByNameOrId("users");
+  // Get the users collection ID (if it exists)
+  let usersCollectionId;
+  try {
+    const usersCollection = app.findCollectionByNameOrId("users");
+    usersCollectionId = usersCollection.id;
+  } catch (e) {
+    // Users collection doesn't exist yet - create relation without specific collection
+    // This will be fixed when users collection is created
+    console.log("Users collection not found, creating gift_cards without user relation");
+  }
 
   const collection = new Collection({
     "name": "gift_cards",
@@ -52,17 +60,16 @@ migrate((app) => {
         "required": false,
         "presentable": false,
         "max": 1000
-      },
-      {
-        "name": "created_by",
-        "type": "relation",
-        "required": false,
-        "presentable": false,
-        "collectionId": usersCollection.id,
-        "cascadeDelete": false,
-        "maxSelect": 1
       }
-    ],
+    ].concat(usersCollectionId ? [{
+      "name": "created_by",
+      "type": "relation",
+      "required": false,
+      "presentable": false,
+      "collectionId": usersCollectionId,
+      "cascadeDelete": false,
+      "maxSelect": 1
+    }] : []),
     "indexes": [
       "CREATE INDEX IF NOT EXISTS idx_gift_cards_merchant ON gift_cards (merchant)",
       "CREATE INDEX IF NOT EXISTS idx_gift_cards_created_by ON gift_cards (created_by)"

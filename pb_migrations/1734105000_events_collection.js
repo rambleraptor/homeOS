@@ -10,8 +10,15 @@ migrate((app) => {
     // Collection doesn't exist, continue with creation
   }
 
-  // Get the users collection ID
-  const usersCollection = app.findCollectionByNameOrId("users");
+  // Get the users collection ID (if it exists)
+  let usersCollectionId;
+  try {
+    const usersCollection = app.findCollectionByNameOrId("users");
+    usersCollectionId = usersCollection.id;
+  } catch (e) {
+    // Users collection doesn't exist yet - create relation without specific collection
+    console.log("Users collection not found, creating events without user relation");
+  }
 
   const collection = new Collection({
     "name": "events",
@@ -63,17 +70,16 @@ migrate((app) => {
         "type": "json",
         "required": false,
         "presentable": false
-      },
-      {
-        "name": "created_by",
-        "type": "relation",
-        "required": false,
-        "presentable": false,
-        "collectionId": usersCollection.id,
-        "cascadeDelete": false,
-        "maxSelect": 1
       }
-    ],
+    ].concat(usersCollectionId ? [{
+      "name": "created_by",
+      "type": "relation",
+      "required": false,
+      "presentable": false,
+      "collectionId": usersCollectionId,
+      "cascadeDelete": false,
+      "maxSelect": 1
+    }] : []),
     "indexes": [
       "CREATE INDEX IF NOT EXISTS idx_events_event_type ON events (event_type)",
       "CREATE INDEX IF NOT EXISTS idx_events_event_date ON events (event_date)",
