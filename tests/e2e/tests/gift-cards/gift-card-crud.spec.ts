@@ -41,7 +41,7 @@ test.describe('Gift Cards CRUD', () => {
 
   test('should edit existing gift card', async ({ userPocketbase }) => {
     // Create a gift card via API
-    await createGiftCard(userPocketbase, testGiftCards[0]);
+    const created = await createGiftCard(userPocketbase, testGiftCards[0]);
 
     await giftCardsPage.goto();
 
@@ -49,7 +49,11 @@ test.describe('Gift Cards CRUD', () => {
     const newAmount = 75.00;
     await giftCardsPage.editGiftCard(testGiftCards[0].merchant, { amount: newAmount });
 
-    // Verify the updated amount
+    // Verify the update actually saved to the database
+    const updated = await userPocketbase.collection('gift_cards').getOne(created.id);
+    expect(updated.amount).toBe(newAmount);
+
+    // Verify the updated amount is visible in the UI
     await giftCardsPage.expectGiftCardInList(testGiftCards[0].merchant, newAmount);
   });
 

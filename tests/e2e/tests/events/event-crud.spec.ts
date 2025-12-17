@@ -48,7 +48,7 @@ test.describe('Events CRUD', () => {
 
   test('should edit existing event', async ({ userPocketbase }) => {
     // Create an event via API
-    await createEvent(userPocketbase, {
+    const created = await createEvent(userPocketbase, {
       name: 'Original Event',
       date: getFutureDate(20),
     });
@@ -60,7 +60,11 @@ test.describe('Events CRUD', () => {
       name: 'Updated Event',
     });
 
-    // Verify the updated name
+    // Verify the update actually saved to the database
+    const updated = await userPocketbase.collection('events').getOne(created.id);
+    expect(updated.title).toBe('Updated Event');
+
+    // Verify the updated name is visible in the UI
     await eventsPage.expectEventInList('Updated Event');
     await eventsPage.expectEventNotInList('Original Event');
   });
