@@ -22,23 +22,20 @@ export class GiftCardsPage {
   async fillGiftCardForm(data: {
     merchant: string;
     amount: number;
-    cardNumber?: string;
+    card_number?: string;
     pin?: string;
     notes?: string;
   }) {
-    await this.page.getByLabel(/merchant/i).fill(data.merchant);
-    await this.page.getByLabel(/amount|balance/i).fill(data.amount.toString());
-
-    if (data.cardNumber) {
-      await this.page.getByLabel(/card number/i).fill(data.cardNumber);
-    }
+    await this.page.locator('#merchant').fill(data.merchant);
+    await this.page.locator('#card_number').fill(data.card_number || '1234-5678-9012-3456');
+    await this.page.locator('#amount').fill(data.amount.toString());
 
     if (data.pin) {
-      await this.page.getByLabel(/pin/i).fill(data.pin);
+      await this.page.locator('#pin').fill(data.pin);
     }
 
     if (data.notes) {
-      await this.page.getByLabel(/notes/i).fill(data.notes);
+      await this.page.locator('#notes').fill(data.notes);
     }
   }
 
@@ -49,7 +46,7 @@ export class GiftCardsPage {
   async createGiftCard(data: {
     merchant: string;
     amount: number;
-    cardNumber?: string;
+    card_number?: string;
     pin?: string;
     notes?: string;
   }) {
@@ -83,7 +80,7 @@ export class GiftCardsPage {
   async editGiftCard(merchant: string, newData: Partial<{
     merchant: string;
     amount: number;
-    cardNumber: string;
+    card_number: string;
     pin: string;
     notes: string;
   }>) {
@@ -91,25 +88,25 @@ export class GiftCardsPage {
     await row.getByRole('button', { name: /edit/i }).click();
 
     if (newData.merchant) {
-      await this.page.getByLabel(/merchant/i).fill(newData.merchant);
+      await this.page.locator('#merchant').fill(newData.merchant);
     }
 
     if (newData.amount !== undefined) {
-      const amountField = this.page.getByLabel(/amount|balance/i);
+      const amountField = this.page.locator('#amount');
       await amountField.clear();
       await amountField.fill(newData.amount.toString());
     }
 
-    if (newData.cardNumber) {
-      await this.page.getByLabel(/card number/i).fill(newData.cardNumber);
+    if (newData.card_number) {
+      await this.page.locator('#card_number').fill(newData.card_number);
     }
 
     if (newData.pin) {
-      await this.page.getByLabel(/pin/i).fill(newData.pin);
+      await this.page.locator('#pin').fill(newData.pin);
     }
 
     if (newData.notes) {
-      await this.page.getByLabel(/notes/i).fill(newData.notes);
+      await this.page.locator('#notes').fill(newData.notes);
     }
 
     await this.submitGiftCardForm();

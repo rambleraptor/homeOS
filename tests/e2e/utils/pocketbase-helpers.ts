@@ -49,16 +49,18 @@ export async function createEvent(
     name: string;
     date: string;
     recurring?: boolean;
-    recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     notes?: string;
+    event_type?: 'birthday' | 'anniversary';
+    people_involved?: string;
   }
 ) {
   return await pb.collection('events').create({
-    name: data.name,
-    date: data.date,
-    recurring: data.recurring || false,
-    recurrence_type: data.recurrence_type || '',
-    notes: data.notes || '',
+    title: data.name,
+    event_date: data.date,
+    recurring_yearly: data.recurring || false,
+    details: data.notes || '',
+    event_type: data.event_type || 'birthday',
+    people_involved: data.people_involved || 'Test Person',
     created_by: pb.authStore.model?.id,
   });
 }

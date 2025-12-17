@@ -22,21 +22,25 @@ export const testUsers = {
 export const testGiftCards = [
   {
     merchant: 'Amazon',
+    card_number: '1234-5678-9012-3456',
     amount: 50.00,
     notes: 'Birthday gift',
   },
   {
     merchant: 'Starbucks',
+    card_number: '2345-6789-0123-4567',
     amount: 25.00,
     notes: 'Coffee gift card',
   },
   {
     merchant: 'Target',
+    card_number: '3456-7890-1234-5678',
     amount: 100.00,
     notes: 'Holiday shopping',
   },
   {
     merchant: 'Amazon',
+    card_number: '4567-8901-2345-6789',
     amount: 30.00,
     notes: 'Another Amazon card',
   },

@@ -23,23 +23,35 @@ export class EventsPage {
     name: string;
     date: string;
     recurring?: boolean;
-    recurrenceType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     notes?: string;
+    event_type?: 'birthday' | 'anniversary';
+    people_involved?: string;
   }) {
-    await this.page.getByLabel(/name|event name/i).fill(data.name);
-    await this.page.getByLabel(/date/i).fill(data.date);
-
-    if (data.recurring) {
-      const recurringCheckbox = this.page.getByLabel(/recurring|repeat/i);
-      await recurringCheckbox.check();
-
-      if (data.recurrenceType) {
-        await this.page.getByLabel(/type|frequency/i).selectOption(data.recurrenceType);
-      }
+    // Event Type (defaults to birthday if not specified)
+    if (data.event_type) {
+      await this.page.locator('#event_type').selectOption(data.event_type);
     }
 
+    // Title field
+    await this.page.locator('#title').fill(data.name);
+
+    // People Involved field (required)
+    await this.page.locator('#people_involved').fill(data.people_involved || 'Test Person');
+
+    // Event Date field
+    await this.page.locator('#event_date').fill(data.date);
+
+    // Recurring yearly checkbox
+    const recurringCheckbox = this.page.locator('#recurring_yearly');
+    if (data.recurring) {
+      await recurringCheckbox.check();
+    } else {
+      await recurringCheckbox.uncheck();
+    }
+
+    // Additional Details (optional)
     if (data.notes) {
-      await this.page.getByLabel(/notes/i).fill(data.notes);
+      await this.page.locator('#details').fill(data.notes);
     }
   }
 
@@ -51,8 +63,9 @@ export class EventsPage {
     name: string;
     date: string;
     recurring?: boolean;
-    recurrenceType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
     notes?: string;
+    event_type?: 'birthday' | 'anniversary';
+    people_involved?: string;
   }) {
     await this.clickAddEvent();
     await this.fillEventForm(data);
@@ -78,24 +91,33 @@ export class EventsPage {
     name: string;
     date: string;
     recurring: boolean;
-    recurrenceType: 'daily' | 'weekly' | 'monthly' | 'yearly';
     notes: string;
+    event_type: 'birthday' | 'anniversary';
+    people_involved: string;
   }>) {
     const row = await this.getEventRow(eventName);
     await row.getByRole('button', { name: /edit/i }).click();
 
+    if (newData.event_type) {
+      await this.page.locator('#event_type').selectOption(newData.event_type);
+    }
+
     if (newData.name) {
-      const nameField = this.page.getByLabel(/name|event name/i);
+      const nameField = this.page.locator('#title');
       await nameField.clear();
       await nameField.fill(newData.name);
     }
 
+    if (newData.people_involved) {
+      await this.page.locator('#people_involved').fill(newData.people_involved);
+    }
+
     if (newData.date) {
-      await this.page.getByLabel(/date/i).fill(newData.date);
+      await this.page.locator('#event_date').fill(newData.date);
     }
 
     if (newData.recurring !== undefined) {
-      const recurringCheckbox = this.page.getByLabel(/recurring|repeat/i);
+      const recurringCheckbox = this.page.locator('#recurring_yearly');
 
       if (newData.recurring) {
         await recurringCheckbox.check();
@@ -104,12 +126,8 @@ export class EventsPage {
       }
     }
 
-    if (newData.recurrenceType) {
-      await this.page.getByLabel(/type|frequency/i).selectOption(newData.recurrenceType);
-    }
-
     if (newData.notes) {
-      await this.page.getByLabel(/notes/i).fill(newData.notes);
+      await this.page.locator('#details').fill(newData.notes);
     }
 
     await this.submitEventForm();
