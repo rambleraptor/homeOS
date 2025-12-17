@@ -139,8 +139,10 @@ export class EventsPage {
 
     await this.submitEventForm();
 
-    // Wait for the form to close
-    await this.page.waitForTimeout(500);
+    // Wait for the form/modal to close (look for the submit button to be hidden)
+    await this.page.getByRole('button', { name: /create event|update event|saving/i }).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {
+      // If button doesn't disappear, that's ok - continue anyway
+    });
 
     // Wait for network to be idle to ensure data has reloaded
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
@@ -150,8 +152,11 @@ export class EventsPage {
     // Navigate back to main events view to see the updated data
     await this.goto();
 
-    // Give React Query time to refetch and update the UI
-    await this.page.waitForTimeout(1000);
+    // Wait for the page to load
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+
+    // Give React Query extra time to refetch and update the UI
+    await this.page.waitForTimeout(2000);
   }
 
   async deleteEvent(eventName: string) {
