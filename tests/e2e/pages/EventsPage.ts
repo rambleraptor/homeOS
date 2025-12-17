@@ -144,19 +144,14 @@ export class EventsPage {
       // If button doesn't disappear, that's ok - continue anyway
     });
 
-    // Wait for network to be idle to ensure data has reloaded
-    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {
-      // If networkidle timeout, that's ok - continue anyway
-    });
-
-    // Navigate back to main events view to see the updated data
-    await this.goto();
-
-    // Wait for the page to load
+    // Wait for network to be idle to ensure mutation completed
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 
-    // Give React Query extra time to refetch and update the UI
-    await this.page.waitForTimeout(2000);
+    // Reload the page to force fresh data fetch (React Query might be using stale cache)
+    await this.page.reload();
+
+    // Wait for the page to fully load after reload
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
   }
 
   async deleteEvent(eventName: string) {
