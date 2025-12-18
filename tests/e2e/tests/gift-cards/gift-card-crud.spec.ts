@@ -40,6 +40,15 @@ test.describe('Gift Cards CRUD', () => {
   });
 
   test('should edit existing gift card', async ({ page, userPocketbase }) => {
+    // Clean up any existing cards for this merchant from previous test runs
+    const existingCards = await userPocketbase.collection('gift_cards').getFullList({
+      filter: `merchant = "${testGiftCards[0].merchant}"`
+    });
+    console.log(`[TEST] Found ${existingCards.length} existing card(s) for ${testGiftCards[0].merchant}, cleaning up...`);
+    for (const card of existingCards) {
+      await userPocketbase.collection('gift_cards').delete(card.id);
+    }
+
     // Create a gift card via UI (not API) to avoid session/caching issues
     await giftCardsPage.goto();
     await giftCardsPage.clickAddGiftCard();
