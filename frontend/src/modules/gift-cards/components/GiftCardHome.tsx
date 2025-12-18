@@ -65,22 +65,15 @@ export function GiftCardHome() {
   };
 
   const handleFormSubmit = async (data: GiftCardFormData) => {
-    console.log('[GiftCardHome] handleFormSubmit called with data:', data);
-    console.log('[GiftCardHome] editingCard:', editingCard);
     try {
       if (editingCard) {
-        console.log(`[GiftCardHome] ⚠️ EDITING GIFT CARD ID: ${editingCard.id} - OLD AMOUNT: ${editingCard.amount} - NEW AMOUNT: ${data.amount}`);
         await updateMutation.mutateAsync({ id: editingCard.id, data });
-        console.log(`[GiftCardHome] ✅ Update completed successfully for ID: ${editingCard.id}`);
       } else {
-        console.log('[GiftCardHome] Creating gift card:', data);
         await createMutation.mutateAsync(data);
-        console.log('[GiftCardHome] Create completed successfully');
       }
       setView('list');
       setEditingCard(null);
     } catch (err) {
-      console.error('[GiftCardHome] Failed to save gift card:', err);
       logger.error('Failed to save gift card', err);
     }
   };
@@ -136,6 +129,7 @@ export function GiftCardHome() {
             </div>
             <button
               onClick={handleAddCard}
+              data-testid="add-gift-card-button"
               className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-gray-900 rounded-lg font-medium transition-colors shadow-md"
             >
               <Plus className="w-5 h-5" />

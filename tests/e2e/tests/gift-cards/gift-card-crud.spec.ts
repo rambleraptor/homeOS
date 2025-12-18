@@ -13,7 +13,7 @@ test.describe('Gift Cards CRUD', () => {
   test.beforeEach(async ({ authenticatedPage, userPocketbase }) => {
     giftCardsPage = new GiftCardsPage(authenticatedPage);
 
-    // Clean up any existing gift cards
+    // Clean up any existing gift cards for this test user
     await deleteAllGiftCards(userPocketbase);
 
     await giftCardsPage.goto();
@@ -40,57 +40,30 @@ test.describe('Gift Cards CRUD', () => {
   });
 
   test('should edit existing gift card', async ({ page, userPocketbase }) => {
-    // Clean up any existing cards for this merchant (from any user)
-    const existingCards = await userPocketbase.collection('gift_cards').getFullList({
-      filter: `merchant = "${testGiftCards[0].merchant}"`
-    });
-    console.log(`[TEST] Found ${existingCards.length} existing card(s) for ${testGiftCards[0].merchant}, cleaning up...`);
-    for (const card of existingCards) {
-      await userPocketbase.collection('gift_cards').delete(card.id);
-    }
+    // Create a gift card via API for faster setup
+    const originalCard = testGiftCards[0];
+    const createdCard = await createGiftCard(userPocketbase, originalCard);
 
-    // Create a gift card via UI (not API) to avoid session/caching issues
+    // Navigate to gift cards page
     await giftCardsPage.goto();
-    await giftCardsPage.clickAddGiftCard();
-    await giftCardsPage.fillGiftCardForm(testGiftCards[0]);
-    await giftCardsPage.submitGiftCardForm();
 
-    // FIRST: Check PocketBase to see if card was actually created
-    const originalAmount = testGiftCards[0].amount;
-    console.log(`[TEST] Checking PocketBase for card with merchant: ${testGiftCards[0].merchant}`);
+    // Verify card appears with original amount
+    await giftCardsPage.expectGiftCardInList(originalCard.merchant, originalCard.amount);
 
-    const cardsBeforeEdit = await userPocketbase.collection('gift_cards').getFullList({
-      filter: `merchant = "${testGiftCards[0].merchant}"`
-    });
-    console.log(`[TEST] Found ${cardsBeforeEdit.length} card(s) for ${testGiftCards[0].merchant} in PocketBase`);
-    expect(cardsBeforeEdit.length).toBe(1);
-    const createdCard = cardsBeforeEdit[0];
-    console.log(`[TEST] Card in DB - ID: ${createdCard.id}, amount: ${createdCard.amount}, merchant: ${createdCard.merchant}`);
-    expect(createdCard.amount).toBe(originalAmount);
-
-    // THEN: Check if it appears in the UI
-    console.log(`[TEST] Card exists in DB, now checking if it appears in UI...`);
-    await giftCardsPage.expectGiftCardInList(testGiftCards[0].merchant, originalAmount);
-
-    // Edit it - pass the original amount so the exact edit button can be found
+    // Edit the card
     const newAmount = 75.00;
-    console.log(`[TEST] About to edit card ${createdCard.id} from $${originalAmount} to $${newAmount}`);
-
     await giftCardsPage.editGiftCard(
-      testGiftCards[0].merchant,
+      originalCard.merchant,
       { amount: newAmount },
-      originalAmount
+      originalCard.amount
     );
 
-    // FIRST: Check PocketBase to verify the update happened
-    console.log(`[TEST] Checking PocketBase for updated card ${createdCard.id}...`);
+    // Verify the card was updated in the database
     const updatedCard = await userPocketbase.collection('gift_cards').getOne(createdCard.id);
-    console.log(`[TEST] Card in DB after edit - ID: ${updatedCard.id}, amount: ${updatedCard.amount}`);
     expect(updatedCard.amount).toBe(newAmount);
 
-    // THEN: Verify the updated amount is visible in the UI
-    console.log(`[TEST] Card updated in DB, now checking if new amount appears in UI...`);
-    await giftCardsPage.expectGiftCardInList(testGiftCards[0].merchant, newAmount);
+    // Verify the updated amount appears in the UI
+    await giftCardsPage.expectGiftCardInList(originalCard.merchant, newAmount);
   });
 
   test('should delete a gift card', async ({ userPocketbase }) => {
@@ -99,7 +72,10 @@ test.describe('Gift Cards CRUD', () => {
 
     await giftCardsPage.goto();
 
-    // Delete it - pass the amount so the exact delete button can be found
+    // Verify card exists
+    await giftCardsPage.expectGiftCardInList(testGiftCards[0].merchant, testGiftCards[0].amount);
+
+    // Delete it
     await giftCardsPage.deleteGiftCard(testGiftCards[0].merchant, testGiftCards[0].amount);
 
     // Verify it's removed
@@ -113,10 +89,7 @@ test.describe('Gift Cards CRUD', () => {
 
     await giftCardsPage.goto();
 
-    // Both Amazon cards should be visible
-    const totalAmazon = amazonCards.reduce((sum, card) => sum + card.amount, 0);
-
-    // Check that merchant appears (might be in summary view)
+    // Merchant should appear (might be in summary view)
     await giftCardsPage.expectGiftCardInList('Amazon');
   });
 });

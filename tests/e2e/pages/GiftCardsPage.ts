@@ -16,7 +16,9 @@ export class GiftCardsPage {
   }
 
   async clickAddGiftCard() {
-    await this.page.getByRole('button', { name: /add gift card|new gift card/i }).click();
+    const addButton = this.page.getByTestId('add-gift-card-button');
+    await addButton.waitFor({ state: 'visible' });
+    await addButton.click();
   }
 
   async fillGiftCardForm(data: {
@@ -40,12 +42,11 @@ export class GiftCardsPage {
   }
 
   async submitGiftCardForm() {
-    console.log(`[GiftCardsPage] Looking for submit button`);
-    const submitButton = this.page.getByRole('button', { name: /add card|update|saving/i });
-    const buttonText = await submitButton.textContent();
-    console.log(`[GiftCardsPage] Found submit button with text: "${buttonText}"`);
+    const submitButton = this.page.getByTestId('gift-card-form-submit');
+    await submitButton.waitFor({ state: 'visible' });
     await submitButton.click();
-    console.log(`[GiftCardsPage] Submit button clicked`);
+    // Wait for the submit button to disappear (form closed)
+    await submitButton.waitFor({ state: 'hidden' });
   }
 
   async createGiftCard(data: {
@@ -58,38 +59,40 @@ export class GiftCardsPage {
     await this.clickAddGiftCard();
     await this.fillGiftCardForm(data);
     await this.submitGiftCardForm();
-
-    // Wait for form to close or success message
-    await this.page.waitForTimeout(500);
+    // Wait for network to settle after mutation
+    await this.page.waitForLoadState('networkidle');
   }
 
   async expectGiftCardInList(merchant: string, amount?: number) {
-    // Use .first() to handle cases where merchant appears in both summary and list
+    // Use .first() to handle cases where merchant appears in multiple places
     await expect(this.page.getByText(merchant).first()).toBeVisible();
 
     if (amount !== undefined) {
       const formattedAmount = `$${amount.toFixed(2)}`;
-      // Use .first() to handle cases where amount appears in both summary and individual cards
       await expect(this.page.getByText(formattedAmount).first()).toBeVisible();
     }
   }
 
   async expectGiftCardNotInList(merchant: string) {
-    await expect(this.page.getByText(merchant).first()).not.toBeVisible({ timeout: 2000 }).catch(() => {
-      // If the element doesn't exist at all, that's also fine
+    // Check that the merchant text is not visible
+    const merchantLocator = this.page.getByText(merchant).first();
+    await expect(merchantLocator).not.toBeVisible({ timeout: 2000 }).catch(() => {
+      // Element doesn't exist, which is fine
     });
   }
 
   async getGiftCardRow(merchant: string): Promise<Locator> {
-    // Gift cards are displayed as card components, not table rows
-    // Find by looking for the merchant amount heading
-    return this.page.locator('.bg-white.rounded-lg.border').filter({ hasText: /\$\d+\.\d{2}/ }).first();
+    // Gift cards are displayed as card components
+    return this.page.locator('.bg-white.rounded-lg.border').filter({ hasText: merchant }).first();
   }
 
   async clickMerchant(merchant: string) {
     // Click on a merchant card to view its gift cards
-    await this.page.getByText(merchant).click();
-    await this.page.waitForTimeout(300);
+    const merchantCard = this.page.getByText(merchant);
+    await merchantCard.waitFor({ state: 'visible' });
+    await merchantCard.click();
+    // Wait for detail view to load
+    await this.page.waitForLoadState('networkidle');
   }
 
   async editGiftCard(merchant: string, newData: Partial<{
@@ -100,44 +103,31 @@ export class GiftCardsPage {
     notes: string;
   }>, cardAmount?: number) {
     // First, ensure we're viewing the merchant's cards
-    // Click on the merchant if we're on the list view
     await this.expectGiftCardInList(merchant);
     await this.clickMerchant(merchant);
 
-    // Wait for the merchant detail view to load
-    await this.page.waitForTimeout(500);
-
-    // Use aria-label to find the edit button for a specific card
-    // Format: "Edit Amazon card ($50.00)"
-    console.log(`[GiftCardsPage] Looking for edit button for ${merchant}`);
+    // Find and click the edit button
+    let editButton: Locator;
     if (cardAmount !== undefined) {
       const buttonName = `Edit ${merchant} card ($${cardAmount.toFixed(2)})`;
-      console.log(`[GiftCardsPage] Looking for button with exact name: "${buttonName}"`);
-      await this.page.getByRole('button', { name: buttonName }).first().click();
+      editButton = this.page.getByRole('button', { name: buttonName }).first();
     } else {
-      console.log(`[GiftCardsPage] Looking for button matching regex: /Edit ${merchant}/i`);
-      await this.page.getByRole('button', { name: new RegExp(`Edit ${merchant}`, 'i') }).first().click();
+      editButton = this.page.getByRole('button', { name: new RegExp(`Edit ${merchant}`, 'i') }).first();
     }
-    console.log(`[GiftCardsPage] Edit button clicked`);
 
-    // Wait for the form to be visible and ready
-    console.log(`[GiftCardsPage] Waiting for form fields to appear`);
-    await this.page.locator('#merchant').waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.locator('#amount').waitFor({ state: 'visible', timeout: 5000 });
-    console.log(`[GiftCardsPage] Form fields are visible`);
+    await editButton.waitFor({ state: 'visible' });
+    await editButton.click();
 
+    // Wait for form to be visible
+    await this.page.locator('#merchant').waitFor({ state: 'visible' });
+
+    // Fill in changed fields
     if (newData.merchant) {
       await this.page.locator('#merchant').fill(newData.merchant);
     }
 
     if (newData.amount !== undefined) {
-      console.log(`[GiftCardsPage] Filling amount field with: ${newData.amount}`);
-      const amountField = this.page.locator('#amount');
-      const currentValue = await amountField.inputValue();
-      console.log(`[GiftCardsPage] Current amount value: ${currentValue}`);
-      await amountField.fill(newData.amount.toString());
-      const newValue = await amountField.inputValue();
-      console.log(`[GiftCardsPage] New amount value after fill: ${newValue}`);
+      await this.page.locator('#amount').fill(newData.amount.toString());
     }
 
     if (newData.card_number) {
@@ -152,48 +142,40 @@ export class GiftCardsPage {
       await this.page.locator('#notes').fill(newData.notes);
     }
 
+    // Submit and wait for form to close
     await this.submitGiftCardForm();
-
-    // Wait for the form to close - the app uses client-side view state (not navigation)
-    // After submission, GiftCardHome.handleFormSubmit calls setView('list')
-    await this.page.getByRole('button', { name: /add card|update|saving/i }).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
-
-    // Wait for the mutation to complete and queries to be invalidated/refetched
-    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-
-    // The view should now be back at the 'list' view automatically
-    // React Query will have invalidated and refetched the gift cards
-    // No need to navigate - just wait for the data to refresh
   }
 
   async deleteGiftCard(merchant: string, cardAmount?: number) {
-    // First, ensure we're viewing the merchant's cards
-    // Click on the merchant if we're on the list view
+    // Ensure we're viewing the merchant's cards
     await this.expectGiftCardInList(merchant);
     await this.clickMerchant(merchant);
 
-    // Wait for the merchant detail view to load
-    await this.page.waitForTimeout(500);
-
-    // Use aria-label to find the delete button for a specific card
-    // Format: "Delete Amazon card ($50.00)"
+    // Find and click delete button
+    let deleteButton: Locator;
     if (cardAmount !== undefined) {
-      await this.page.getByRole('button', { name: `Delete ${merchant} card ($${cardAmount.toFixed(2)})` }).first().click();
+      deleteButton = this.page.getByRole('button', {
+        name: `Delete ${merchant} card ($${cardAmount.toFixed(2)})`
+      }).first();
     } else {
-      // Fall back to finding any delete button with the merchant name
-      await this.page.getByRole('button', { name: new RegExp(`Delete ${merchant}`, 'i') }).first().click();
+      deleteButton = this.page.getByRole('button', {
+        name: new RegExp(`Delete ${merchant}`, 'i')
+      }).first();
     }
 
-    // Confirm deletion if there's a confirmation dialog
+    await deleteButton.waitFor({ state: 'visible' });
+    await deleteButton.click();
+
+    // Handle confirmation dialog if present
     const confirmButton = this.page.getByRole('button', { name: /confirm|yes|delete/i });
+    const isConfirmVisible = await confirmButton.isVisible({ timeout: 1000 }).catch(() => false);
 
-    try {
-      await confirmButton.click({ timeout: 2000 });
-    } catch {
-      // No confirmation dialog, that's fine
+    if (isConfirmVisible) {
+      await confirmButton.click();
     }
 
-    await this.page.waitForTimeout(500);
+    // Wait for network to settle after deletion
+    await this.page.waitForLoadState('networkidle');
   }
 
   async expectMerchantSummary(merchant: string, totalAmount: number) {
