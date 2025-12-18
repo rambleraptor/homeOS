@@ -210,10 +210,10 @@ export function EventForm({
       </div>
 
       <div className="flex gap-3 justify-end">
-        <Button type="button" variant="secondary" onClick={onCancel}>
+        <Button type="button" variant="secondary" onClick={onCancel} data-testid="event-form-cancel">
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} data-testid="event-form-submit">
           {isSubmitting
             ? 'Saving...'
             : initialData

@@ -48,21 +48,15 @@ export function EventsHome() {
   };
 
   const handleUpdateEvent = async (data: EventFormData) => {
-    console.log('[EventsHome] handleUpdateEvent called with data:', data);
-    console.log('[EventsHome] editingEvent:', editingEvent);
     if (!editingEvent) {
-      console.error('[EventsHome] No editing event set, returning early');
       return;
     }
 
     try {
-      console.log('[EventsHome] Updating event:', editingEvent.id, data);
       await updateEvent.mutateAsync({ id: editingEvent.id, data });
-      console.log('[EventsHome] Update completed successfully');
       setEditingEvent(null);
       toast.success('Event updated successfully!');
     } catch (error) {
-      console.error('[EventsHome] Failed to update event:', error);
       toast.error(
         error instanceof Error
           ? error.message
@@ -160,7 +154,7 @@ export function EventsHome() {
             <Upload className="w-4 h-4 mr-2" />
             Import
           </Button>
-          <Button onClick={() => setIsCreateModalOpen(true)}>
+          <Button onClick={() => setIsCreateModalOpen(true)} data-testid="add-event-button">
             <Plus className="w-4 h-4 mr-2" />
             Add Event
           </Button>

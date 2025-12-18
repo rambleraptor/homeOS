@@ -16,7 +16,9 @@ export class EventsPage {
   }
 
   async clickAddEvent() {
-    await this.page.getByRole('button', { name: /add event|new event/i }).click();
+    const addButton = this.page.getByTestId('add-event-button');
+    await addButton.waitFor({ state: 'visible' });
+    await addButton.click();
   }
 
   async fillEventForm(data: {
@@ -56,12 +58,11 @@ export class EventsPage {
   }
 
   async submitEventForm() {
-    console.log(`[EventsPage] Looking for submit button`);
-    const submitButton = this.page.getByRole('button', { name: /create event|update event|saving/i });
-    const buttonText = await submitButton.textContent();
-    console.log(`[EventsPage] Found submit button with text: "${buttonText}"`);
+    const submitButton = this.page.getByTestId('event-form-submit');
+    await submitButton.waitFor({ state: 'visible' });
     await submitButton.click();
-    console.log(`[EventsPage] Submit button clicked`);
+    // Wait for modal/form to close
+    await submitButton.waitFor({ state: 'hidden' });
   }
 
   async createEvent(data: {
@@ -75,25 +76,29 @@ export class EventsPage {
     await this.clickAddEvent();
     await this.fillEventForm(data);
     await this.submitEventForm();
-    await this.page.waitForTimeout(500);
+    // Wait for network to settle after mutation
+    await this.page.waitForLoadState('networkidle');
   }
 
   async expectEventInList(eventName: string) {
     // Events can appear in multiple places (Upcoming Events and All Events sections)
-    // Just check that at least one instance is visible
     await expect(this.page.getByText(eventName).first()).toBeVisible();
   }
 
   async expectEventNotInList(eventName: string) {
-    await expect(this.page.getByText(eventName).first()).not.toBeVisible({ timeout: 2000 }).catch(() => {
-      // If the element doesn't exist at all, that's also fine
+    const eventLocator = this.page.getByText(eventName).first();
+    await expect(eventLocator).not.toBeVisible({ timeout: 2000 }).catch(() => {
+      // Element doesn't exist, which is fine
     });
   }
 
   async getEventCard(eventName: string): Promise<Locator> {
-    // Events are displayed as cards, not table rows
-    // Find the card by looking for an h3 heading with the event name, then get the card container
-    return this.page.getByRole('heading', { name: eventName, level: 3 }).locator('..').locator('..').locator('..');
+    // Events are displayed as cards
+    // Find by looking for the heading, then traverse to the card container
+    return this.page.getByRole('heading', { name: eventName, level: 3 })
+      .locator('..')
+      .locator('..')
+      .locator('..');
   }
 
   async editEvent(eventName: string, newData: Partial<{
@@ -104,33 +109,24 @@ export class EventsPage {
     event_type: 'birthday' | 'anniversary';
     people_involved: string;
   }>) {
-    // Wait for the event to be visible on the page first
+    // Wait for the event to be visible
     await this.expectEventInList(eventName);
 
-    console.log(`[EventsPage] Looking for edit button: "Edit ${eventName}"`);
-    // Buttons have aria-labels like "Edit Test Event"
+    // Click edit button
     const editButton = this.page.getByRole('button', { name: `Edit ${eventName}` }).first();
+    await editButton.waitFor({ state: 'visible' });
     await editButton.click();
-    console.log(`[EventsPage] Edit button clicked`);
 
-    // Wait for the modal/form to be visible and ready
-    console.log(`[EventsPage] Waiting for form fields to appear`);
-    await this.page.locator('#title').waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.locator('#event_date').waitFor({ state: 'visible', timeout: 5000 });
-    console.log(`[EventsPage] Form fields are visible`);
+    // Wait for form to appear
+    await this.page.locator('#title').waitFor({ state: 'visible' });
 
+    // Fill in changed fields
     if (newData.event_type) {
       await this.page.locator('#event_type').selectOption(newData.event_type);
     }
 
     if (newData.name) {
-      console.log(`[EventsPage] Filling title field with: ${newData.name}`);
-      const nameField = this.page.locator('#title');
-      const currentValue = await nameField.inputValue();
-      console.log(`[EventsPage] Current title value: ${currentValue}`);
-      await nameField.fill(newData.name);
-      const newValue = await nameField.inputValue();
-      console.log(`[EventsPage] New title value after fill: ${newValue}`);
+      await this.page.locator('#title').fill(newData.name);
     }
 
     if (newData.people_involved) {
@@ -143,7 +139,6 @@ export class EventsPage {
 
     if (newData.recurring !== undefined) {
       const recurringCheckbox = this.page.locator('#recurring_yearly');
-
       if (newData.recurring) {
         await recurringCheckbox.check();
       } else {
@@ -155,46 +150,28 @@ export class EventsPage {
       await this.page.locator('#details').fill(newData.notes);
     }
 
+    // Submit and wait for form to close
     await this.submitEventForm();
-
-    // Wait for the form/modal to close (look for the submit button to be hidden)
-    await this.page.getByRole('button', { name: /create event|update event|saving/i }).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {
-      // If button doesn't disappear, that's ok - continue anyway
-    });
-
-    // Wait for network to be idle to ensure mutation completed
-    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-
-    // Navigate back to main events view to force fresh data fetch
-    await this.goto();
-
-    // Wait for the main list to fully load and React Query to refetch
-    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-
-    // Additional wait to ensure React Query has time to refetch invalidated queries
-    // After query invalidation, React Query needs to:
-    // 1. Detect the invalidation
-    // 2. Trigger a background refetch
-    // 3. Re-render with new data
-    await this.page.waitForTimeout(1000);
   }
 
   async deleteEvent(eventName: string) {
-    // Wait for the event to be visible on the page first
+    // Wait for the event to be visible
     await this.expectEventInList(eventName);
 
-    // Buttons have aria-labels like "Delete Test Event"
-    await this.page.getByRole('button', { name: `Delete ${eventName}` }).first().click();
+    // Click delete button
+    const deleteButton = this.page.getByRole('button', { name: `Delete ${eventName}` }).first();
+    await deleteButton.waitFor({ state: 'visible' });
+    await deleteButton.click();
 
-    // Confirm deletion if there's a confirmation dialog
+    // Handle confirmation dialog if present
     const confirmButton = this.page.getByRole('button', { name: /confirm|yes|delete/i });
+    const isConfirmVisible = await confirmButton.isVisible({ timeout: 1000 }).catch(() => false);
 
-    try {
-      await confirmButton.click({ timeout: 2000 });
-    } catch {
-      // No confirmation dialog, that's fine
+    if (isConfirmVisible) {
+      await confirmButton.click();
     }
 
-    await this.page.waitForTimeout(500);
+    // Wait for network to settle after deletion
+    await this.page.waitForLoadState('networkidle');
   }
 }

@@ -303,6 +303,7 @@ export function GiftCardForm({
         <button
           type="submit"
           disabled={isSubmitting}
+          data-testid="gift-card-form-submit"
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
         >
           <Save className="w-4 h-4" />
@@ -312,6 +313,7 @@ export function GiftCardForm({
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
+          data-testid="gift-card-form-cancel"
           className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50"
         >
           <X className="w-4 h-4" />
