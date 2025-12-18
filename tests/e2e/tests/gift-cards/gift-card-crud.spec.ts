@@ -46,8 +46,12 @@ test.describe('Gift Cards CRUD', () => {
 
     await giftCardsPage.goto();
 
-    // Edit it - pass the original amount so the exact edit button can be found
+    // Wait for the created card to appear on the page
+    // This ensures we're not trying to edit stale/cached data
     const originalAmount = testGiftCards[0].amount;
+    await giftCardsPage.waitForCardToLoad(testGiftCards[0].merchant, originalAmount);
+
+    // Edit it - pass the original amount so the exact edit button can be found
     const newAmount = 75.00;
     await giftCardsPage.editGiftCard(
       testGiftCards[0].merchant,

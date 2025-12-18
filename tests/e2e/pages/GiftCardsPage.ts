@@ -74,6 +74,21 @@ export class GiftCardsPage {
     }
   }
 
+  async waitForCardToLoad(merchant: string, amount: number) {
+    // Wait for the merchant summary to appear with the correct total amount
+    // This ensures the card has been fetched from the database and is rendered
+    const formattedAmount = `$${amount.toFixed(2)}`;
+    console.log(`[GiftCardsPage] Waiting for ${merchant} with ${formattedAmount} to appear`);
+
+    // Wait for merchant name
+    await expect(this.page.getByText(merchant).first()).toBeVisible({ timeout: 10000 });
+
+    // Wait for the amount
+    await expect(this.page.getByText(formattedAmount).first()).toBeVisible({ timeout: 10000 });
+
+    console.log(`[GiftCardsPage] Found ${merchant} with ${formattedAmount}`);
+  }
+
   async expectGiftCardNotInList(merchant: string) {
     await expect(this.page.getByText(merchant).first()).not.toBeVisible({ timeout: 2000 }).catch(() => {
       // If the element doesn't exist at all, that's also fine
@@ -154,26 +169,16 @@ export class GiftCardsPage {
 
     await this.submitGiftCardForm();
 
-    // Wait for the form/modal to close (look for the submit button to be hidden)
-    await this.page.getByRole('button', { name: /add card|update|saving/i }).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {
-      // If button doesn't disappear, that's ok - continue anyway
-    });
+    // Wait for the form to close - the app uses client-side view state (not navigation)
+    // After submission, GiftCardHome.handleFormSubmit calls setView('list')
+    await this.page.getByRole('button', { name: /add card|update|saving/i }).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
 
-    // Wait for network to be idle to ensure mutation completed
+    // Wait for the mutation to complete and queries to be invalidated/refetched
     await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 
-    // Navigate back to main gift cards list view
-    await this.goto();
-
-    // Wait for the main list to fully load and React Query to refetch
-    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-
-    // Additional wait to ensure React Query has time to refetch invalidated queries
-    // After query invalidation, React Query needs to:
-    // 1. Detect the invalidation
-    // 2. Trigger a background refetch
-    // 3. Re-render with new data
-    await this.page.waitForTimeout(3000);
+    // The view should now be back at the 'list' view automatically
+    // React Query will have invalidated and refetched the gift cards
+    // No need to navigate - just wait for the data to refresh
   }
 
   async deleteGiftCard(merchant: string, cardAmount?: number) {
