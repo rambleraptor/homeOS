@@ -173,7 +173,7 @@ export class GiftCardsPage {
     // 1. Detect the invalidation
     // 2. Trigger a background refetch
     // 3. Re-render with new data
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForTimeout(3000);
   }
 
   async deleteGiftCard(merchant: string, cardAmount?: number) {
