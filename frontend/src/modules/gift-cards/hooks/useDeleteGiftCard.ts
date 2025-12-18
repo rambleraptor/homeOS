@@ -16,9 +16,12 @@ export function useDeleteGiftCard() {
       return await getCollection(Collections.GIFT_CARDS).delete(id);
     },
     onSuccess: async () => {
-      // Use refetchQueries instead of invalidateQueries to immediately refetch
-      // This ensures the UI updates without requiring a component remount
-      // Await the refetch to ensure data is loaded before mutation resolves
+      // Invalidate and refetch gift cards queries
+      // invalidateQueries marks as stale, refetchQueries triggers immediate refetch
+      // Both together ensure data is fresh before mutation resolves
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.module('gift-cards').all(),
+      });
       await queryClient.refetchQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
