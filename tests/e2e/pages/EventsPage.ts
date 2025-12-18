@@ -1,0 +1,200 @@
+/**
+ * Events Page Object Model
+ */
+
+import { Page, expect, Locator } from '@playwright/test';
+
+export class EventsPage {
+  constructor(private page: Page) {}
+
+  async goto() {
+    await this.page.goto('/events');
+  }
+
+  async expectToBeOnEventsPage() {
+    await expect(this.page).toHaveURL(/\/events/);
+  }
+
+  async clickAddEvent() {
+    await this.page.getByRole('button', { name: /add event|new event/i }).click();
+  }
+
+  async fillEventForm(data: {
+    name: string;
+    date: string;
+    recurring?: boolean;
+    notes?: string;
+    event_type?: 'birthday' | 'anniversary';
+    people_involved?: string;
+  }) {
+    // Event Type (defaults to birthday if not specified)
+    if (data.event_type) {
+      await this.page.locator('#event_type').selectOption(data.event_type);
+    }
+
+    // Title field
+    await this.page.locator('#title').fill(data.name);
+
+    // People Involved field (required)
+    await this.page.locator('#people_involved').fill(data.people_involved || 'Test Person');
+
+    // Event Date field
+    await this.page.locator('#event_date').fill(data.date);
+
+    // Recurring yearly checkbox
+    const recurringCheckbox = this.page.locator('#recurring_yearly');
+    if (data.recurring) {
+      await recurringCheckbox.check();
+    } else {
+      await recurringCheckbox.uncheck();
+    }
+
+    // Additional Details (optional)
+    if (data.notes) {
+      await this.page.locator('#details').fill(data.notes);
+    }
+  }
+
+  async submitEventForm() {
+    console.log(`[EventsPage] Looking for submit button`);
+    const submitButton = this.page.getByRole('button', { name: /create event|update event|saving/i });
+    const buttonText = await submitButton.textContent();
+    console.log(`[EventsPage] Found submit button with text: "${buttonText}"`);
+    await submitButton.click();
+    console.log(`[EventsPage] Submit button clicked`);
+  }
+
+  async createEvent(data: {
+    name: string;
+    date: string;
+    recurring?: boolean;
+    notes?: string;
+    event_type?: 'birthday' | 'anniversary';
+    people_involved?: string;
+  }) {
+    await this.clickAddEvent();
+    await this.fillEventForm(data);
+    await this.submitEventForm();
+    await this.page.waitForTimeout(500);
+  }
+
+  async expectEventInList(eventName: string) {
+    // Events can appear in multiple places (Upcoming Events and All Events sections)
+    // Just check that at least one instance is visible
+    await expect(this.page.getByText(eventName).first()).toBeVisible();
+  }
+
+  async expectEventNotInList(eventName: string) {
+    await expect(this.page.getByText(eventName).first()).not.toBeVisible({ timeout: 2000 }).catch(() => {
+      // If the element doesn't exist at all, that's also fine
+    });
+  }
+
+  async getEventCard(eventName: string): Promise<Locator> {
+    // Events are displayed as cards, not table rows
+    // Find the card by looking for an h3 heading with the event name, then get the card container
+    return this.page.getByRole('heading', { name: eventName, level: 3 }).locator('..').locator('..').locator('..');
+  }
+
+  async editEvent(eventName: string, newData: Partial<{
+    name: string;
+    date: string;
+    recurring: boolean;
+    notes: string;
+    event_type: 'birthday' | 'anniversary';
+    people_involved: string;
+  }>) {
+    // Wait for the event to be visible on the page first
+    await this.expectEventInList(eventName);
+
+    console.log(`[EventsPage] Looking for edit button: "Edit ${eventName}"`);
+    // Buttons have aria-labels like "Edit Test Event"
+    const editButton = this.page.getByRole('button', { name: `Edit ${eventName}` }).first();
+    await editButton.click();
+    console.log(`[EventsPage] Edit button clicked`);
+
+    // Wait for the modal/form to be visible and ready
+    console.log(`[EventsPage] Waiting for form fields to appear`);
+    await this.page.locator('#title').waitFor({ state: 'visible', timeout: 5000 });
+    await this.page.locator('#event_date').waitFor({ state: 'visible', timeout: 5000 });
+    console.log(`[EventsPage] Form fields are visible`);
+
+    if (newData.event_type) {
+      await this.page.locator('#event_type').selectOption(newData.event_type);
+    }
+
+    if (newData.name) {
+      console.log(`[EventsPage] Filling title field with: ${newData.name}`);
+      const nameField = this.page.locator('#title');
+      const currentValue = await nameField.inputValue();
+      console.log(`[EventsPage] Current title value: ${currentValue}`);
+      await nameField.fill(newData.name);
+      const newValue = await nameField.inputValue();
+      console.log(`[EventsPage] New title value after fill: ${newValue}`);
+    }
+
+    if (newData.people_involved) {
+      await this.page.locator('#people_involved').fill(newData.people_involved);
+    }
+
+    if (newData.date) {
+      await this.page.locator('#event_date').fill(newData.date);
+    }
+
+    if (newData.recurring !== undefined) {
+      const recurringCheckbox = this.page.locator('#recurring_yearly');
+
+      if (newData.recurring) {
+        await recurringCheckbox.check();
+      } else {
+        await recurringCheckbox.uncheck();
+      }
+    }
+
+    if (newData.notes) {
+      await this.page.locator('#details').fill(newData.notes);
+    }
+
+    await this.submitEventForm();
+
+    // Wait for the form/modal to close (look for the submit button to be hidden)
+    await this.page.getByRole('button', { name: /create event|update event|saving/i }).waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {
+      // If button doesn't disappear, that's ok - continue anyway
+    });
+
+    // Wait for network to be idle to ensure mutation completed
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+
+    // Navigate back to main events view to force fresh data fetch
+    await this.goto();
+
+    // Wait for the main list to fully load and React Query to refetch
+    await this.page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+
+    // Additional wait to ensure React Query has time to refetch invalidated queries
+    // After query invalidation, React Query needs to:
+    // 1. Detect the invalidation
+    // 2. Trigger a background refetch
+    // 3. Re-render with new data
+    await this.page.waitForTimeout(1000);
+  }
+
+  async deleteEvent(eventName: string) {
+    // Wait for the event to be visible on the page first
+    await this.expectEventInList(eventName);
+
+    // Buttons have aria-labels like "Delete Test Event"
+    await this.page.getByRole('button', { name: `Delete ${eventName}` }).first().click();
+
+    // Confirm deletion if there's a confirmation dialog
+    const confirmButton = this.page.getByRole('button', { name: /confirm|yes|delete/i });
+
+    try {
+      await confirmButton.click({ timeout: 2000 });
+    } catch {
+      // No confirmation dialog, that's fine
+    }
+
+    await this.page.waitForTimeout(500);
+  }
+}

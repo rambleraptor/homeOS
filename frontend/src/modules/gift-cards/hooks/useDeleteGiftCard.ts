@@ -15,8 +15,14 @@ export function useDeleteGiftCard() {
     mutationFn: async (id: string) => {
       return await getCollection(Collections.GIFT_CARDS).delete(id);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // Invalidate and refetch gift cards queries
+      // invalidateQueries marks as stale, refetchQueries triggers immediate refetch
+      // Both together ensure data is fresh before mutation resolves
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.module('gift-cards').all(),
+      });
+      await queryClient.refetchQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
     },

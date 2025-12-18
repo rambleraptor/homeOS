@@ -15,29 +15,45 @@ export function useCreateGiftCard() {
 
   return useMutation({
     mutationFn: async (data: GiftCardFormData) => {
-      const currentUser = getCurrentUser();
+      try {
+        const currentUser = getCurrentUser();
 
-      // Use FormData if files are present
-      const hasFiles = data.front_image || data.back_image;
+        // Use FormData if files are present
+        const hasFiles = data.front_image || data.back_image;
 
-      if (hasFiles) {
-        const formData = buildGiftCardFormData({
-          data,
-          createdBy: currentUser?.id,
-        });
-        return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(formData);
-      } else {
-        const cardData = buildGiftCardData({
-          data,
-          createdBy: currentUser?.id,
-        });
-        return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(cardData);
+        if (hasFiles) {
+          const formData = buildGiftCardFormData({
+            data,
+            createdBy: currentUser?.id,
+          });
+          return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(formData);
+        } else {
+          const cardData = buildGiftCardData({
+            data,
+            createdBy: currentUser?.id,
+          });
+          return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(cardData);
+        }
+      } catch (error) {
+        console.error('Failed to create gift card:', error);
+        console.error('Gift card data:', data);
+        console.error('Current user:', getCurrentUser());
+        throw error;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // Invalidate and refetch gift cards queries
+      // invalidateQueries marks as stale, refetchQueries triggers immediate refetch
+      // Both together ensure data is fresh before mutation resolves
+      await queryClient.invalidateQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.module('gift-cards').all(),
+      });
+    },
+    onError: (error) => {
+      console.error('Mutation error:', error);
     },
   });
 }

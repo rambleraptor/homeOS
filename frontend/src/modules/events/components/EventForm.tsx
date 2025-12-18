@@ -16,6 +16,17 @@ interface EventFormProps {
   isSubmitting?: boolean;
 }
 
+/**
+ * Convert PocketBase date format to HTML5 date input format
+ * PocketBase returns: "2026-01-06 00:00:00.000Z"
+ * HTML5 date input requires: "2026-01-06"
+ */
+function formatDateForInput(date: string | undefined): string {
+  if (!date) return '';
+  // Extract just the date portion (first 10 characters: YYYY-MM-DD)
+  return date.substring(0, 10);
+}
+
 export function EventForm({
   initialData,
   onSubmit,
@@ -26,7 +37,7 @@ export function EventForm({
     event_type: initialData?.event_type || 'birthday',
     title: initialData?.title || '',
     people_involved: initialData?.people_involved || '',
-    event_date: initialData?.event_date || '',
+    event_date: formatDateForInput(initialData?.event_date),
     recurring_yearly: initialData?.recurring_yearly ?? true,
     details: initialData?.details || '',
     notification_preferences: initialData?.notification_preferences || [

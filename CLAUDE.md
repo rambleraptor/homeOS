@@ -145,6 +145,36 @@ Located in `tests/migrations/`, these tests:
 
 See `tests/migrations/README.md` for more details.
 
+### End-to-End (E2E) Tests
+
+Located in `tests/e2e/`, these tests verify the full integration of HomeOS:
+
+- **Real browser testing** - Uses Playwright to test in actual browsers
+- **PocketBase integration** - Tests against real PocketBase instance
+- **Complete user flows** - Authentication, CRUD operations, navigation
+- **Comprehensive coverage** - Gift cards, events, settings, and more
+
+```bash
+# Run e2e tests
+make test-e2e
+
+# Run in UI mode (interactive debugging)
+make test-e2e-ui
+
+# Run specific test suite
+cd tests/e2e && npm run test:auth
+cd tests/e2e && npm run test:gift-cards
+```
+
+**What's tested:**
+- Authentication (login, logout, session persistence)
+- Gift Cards (create, read, update, delete, merchant summaries)
+- Events (CRUD, recurring events, date handling)
+- Settings (password changes, validation)
+- Navigation (routing, 404 handling, module switching)
+
+See `tests/e2e/README.md` for detailed documentation.
+
 ## Code Quality Standards
 
 ### TypeScript
@@ -304,6 +334,14 @@ make lint             # ESLint
 make type-check       # TypeScript
 make build            # Production build
 make test             # Frontend tests
+make test-migrations  # PocketBase migration tests
+make test-hooks       # PocketBase hook validation
+make test-e2e         # End-to-end tests
+make test-all         # All tests
+
+# E2E tests
+make test-e2e         # Run all e2e tests
+make test-e2e-ui      # Run e2e tests in UI mode
 
 # Clean build artifacts
 make clean

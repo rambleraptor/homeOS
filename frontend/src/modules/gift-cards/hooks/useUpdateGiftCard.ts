@@ -15,6 +15,7 @@ export function useUpdateGiftCard() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: GiftCardFormData }) => {
+      console.log('[useUpdateGiftCard] mutationFn called with:', { id, data });
       // Automatically archive if amount is 0
       const archived = data.amount === 0;
 
@@ -22,23 +23,50 @@ export function useUpdateGiftCard() {
       const hasFiles = data.front_image || data.back_image;
 
       if (hasFiles) {
+        console.log('[useUpdateGiftCard] Using FormData (has files)');
         const formData = buildGiftCardFormData({
           data,
           archived,
         });
-        return await getCollection<GiftCard>(Collections.GIFT_CARDS).update(id, formData);
+        const result = await getCollection<GiftCard>(Collections.GIFT_CARDS).update(id, formData);
+        console.log('[useUpdateGiftCard] Update successful (FormData):', result);
+
+        // VERIFY: Fetch from database to confirm
+        const verified = await getCollection<GiftCard>(Collections.GIFT_CARDS).getOne(id);
+        console.log('[useUpdateGiftCard] Database verification (FormData):', verified);
+
+        return result;
       } else {
+        console.log('[useUpdateGiftCard] Using plain object (no files)');
         const updateData = buildGiftCardData({
           data,
           archived,
         });
-        return await getCollection<GiftCard>(Collections.GIFT_CARDS).update(id, updateData);
+        console.log('[useUpdateGiftCard] updateData:', updateData);
+        const result = await getCollection<GiftCard>(Collections.GIFT_CARDS).update(id, updateData);
+        console.log('[useUpdateGiftCard] Update successful (plain object):', result);
+
+        // VERIFY: Fetch from database to confirm
+        const verified = await getCollection<GiftCard>(Collections.GIFT_CARDS).getOne(id);
+        console.log('[useUpdateGiftCard] Database verification (plain object):', verified);
+
+        return result;
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      console.log('[useUpdateGiftCard] onSuccess called, refetching queries');
+      // Invalidate and refetch gift cards queries
+      // invalidateQueries marks as stale, refetchQueries triggers immediate refetch
+      // Both together ensure data is fresh before mutation resolves
+      await queryClient.invalidateQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.module('gift-cards').all(),
+      });
+    },
+    onError: (error) => {
+      console.error('[useUpdateGiftCard] onError called:', error);
     },
   });
 }
