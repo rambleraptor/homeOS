@@ -46,8 +46,13 @@ test.describe('Gift Cards CRUD', () => {
     await giftCardsPage.fillGiftCardForm(testGiftCards[0]);
     await giftCardsPage.submitGiftCardForm();
 
-    // Wait for the form to close and network to settle
-    await page.waitForLoadState('networkidle');
+    // Wait for the form to close (button becomes hidden when form closes)
+    await page.getByRole('button', { name: /add card|update|saving/i })
+      .waitFor({ state: 'hidden', timeout: 10000 })
+      .catch(() => {});
+
+    // Wait for network to settle after refetch
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
 
     // Verify it was created in the UI
     const originalAmount = testGiftCards[0].amount;
