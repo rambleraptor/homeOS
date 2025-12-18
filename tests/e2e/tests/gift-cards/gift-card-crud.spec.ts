@@ -40,13 +40,18 @@ test.describe('Gift Cards CRUD', () => {
   });
 
   test('should edit existing gift card', async ({ page, userPocketbase }) => {
-    // Clean up any existing cards for this merchant from previous test runs
+    // Clean up any existing cards for this merchant created by this user
+    const currentUserId = userPocketbase.authStore.record?.id;
     const existingCards = await userPocketbase.collection('gift_cards').getFullList({
-      filter: `merchant = "${testGiftCards[0].merchant}"`
+      filter: `merchant = "${testGiftCards[0].merchant}" && created_by = "${currentUserId}"`
     });
-    console.log(`[TEST] Found ${existingCards.length} existing card(s) for ${testGiftCards[0].merchant}, cleaning up...`);
+    console.log(`[TEST] Found ${existingCards.length} existing card(s) for ${testGiftCards[0].merchant} by user ${currentUserId}, cleaning up...`);
     for (const card of existingCards) {
-      await userPocketbase.collection('gift_cards').delete(card.id);
+      try {
+        await userPocketbase.collection('gift_cards').delete(card.id);
+      } catch (error) {
+        console.log(`[TEST] Failed to delete card ${card.id}, may have been deleted already:`, error);
+      }
     }
 
     // Create a gift card via UI (not API) to avoid session/caching issues
@@ -57,12 +62,12 @@ test.describe('Gift Cards CRUD', () => {
 
     // FIRST: Check PocketBase to see if card was actually created
     const originalAmount = testGiftCards[0].amount;
-    console.log(`[TEST] Checking PocketBase for card with merchant: ${testGiftCards[0].merchant}`);
+    console.log(`[TEST] Checking PocketBase for card with merchant: ${testGiftCards[0].merchant} created by user ${currentUserId}`);
 
     const cardsBeforeEdit = await userPocketbase.collection('gift_cards').getFullList({
-      filter: `merchant = "${testGiftCards[0].merchant}"`
+      filter: `merchant = "${testGiftCards[0].merchant}" && created_by = "${currentUserId}"`
     });
-    console.log(`[TEST] Found ${cardsBeforeEdit.length} card(s) for ${testGiftCards[0].merchant} in PocketBase`);
+    console.log(`[TEST] Found ${cardsBeforeEdit.length} card(s) for ${testGiftCards[0].merchant} by user ${currentUserId} in PocketBase`);
     expect(cardsBeforeEdit.length).toBe(1);
     const createdCard = cardsBeforeEdit[0];
     console.log(`[TEST] Card in DB - ID: ${createdCard.id}, amount: ${createdCard.amount}, merchant: ${createdCard.merchant}`);
