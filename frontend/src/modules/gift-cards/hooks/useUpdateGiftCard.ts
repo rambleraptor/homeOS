@@ -53,11 +53,12 @@ export function useUpdateGiftCard() {
         return result;
       }
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       console.log('[useUpdateGiftCard] onSuccess called, refetching queries');
       // Use refetchQueries instead of invalidateQueries to immediately refetch
       // This ensures the UI updates without requiring a component remount
-      queryClient.refetchQueries({
+      // Await the refetch to ensure data is loaded before mutation resolves
+      await queryClient.refetchQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
     },

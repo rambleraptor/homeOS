@@ -15,10 +15,11 @@ export function useDeleteGiftCard() {
     mutationFn: async (id: string) => {
       return await getCollection(Collections.GIFT_CARDS).delete(id);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       // Use refetchQueries instead of invalidateQueries to immediately refetch
       // This ensures the UI updates without requiring a component remount
-      queryClient.refetchQueries({
+      // Await the refetch to ensure data is loaded before mutation resolves
+      await queryClient.refetchQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
     },
