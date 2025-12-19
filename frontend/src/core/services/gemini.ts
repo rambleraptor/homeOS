@@ -2,12 +2,11 @@
  * Gemini AI Service
  *
  * Integration with Google's Gemini AI for intelligent categorization
+ * Now uses backend API to keep API key secure
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '@/core/utils/logger';
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+import { pb } from '@/core/api/pocketbase';
 
 // Standard grocery store categories
 export const GROCERY_CATEGORIES = [
@@ -26,94 +25,115 @@ export const GROCERY_CATEGORIES = [
 
 export type GroceryCategory = typeof GROCERY_CATEGORIES[number];
 
-let genAI: GoogleGenerativeAI | null = null;
-
 /**
- * Initialize Gemini AI client
- */
-function initializeGemini(): GoogleGenerativeAI | null {
-  if (!API_KEY) {
-    logger.warn('Gemini API key not configured. AI categorization will be disabled.');
-    return null;
-  }
-
-  try {
-    return new GoogleGenerativeAI(API_KEY);
-  } catch (error) {
-    logger.error('Failed to initialize Gemini AI', error);
-    return null;
-  }
-}
-
-/**
- * Categorize a grocery item using Gemini AI
+ * Categorize a grocery item using backend Gemini API
  */
 export async function categorizeGroceryItem(itemName: string): Promise<GroceryCategory> {
-  // Initialize on first use
-  if (genAI === null) {
-    genAI = initializeGemini();
-  }
-
-  // Fallback to 'Other' if AI is not available
-  if (!genAI) {
-    logger.warn('Gemini AI not available, defaulting to "Other" category');
-    return 'Other';
-  }
-
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const response = await pb.send<{ name: string; category: GroceryCategory; message?: string }>(
+      '/api/groceries/categorize',
+      {
+        method: 'POST',
+        body: JSON.stringify({ name: itemName }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
-    const prompt = `You are a grocery store categorization assistant. Given a grocery item name, categorize it into one of these categories:
-
-${GROCERY_CATEGORIES.join(', ')}
-
-Item: "${itemName}"
-
-Rules:
-- Respond with ONLY the category name, nothing else
-- Choose the most specific and accurate category
-- If unsure, choose "Other"
-
-Category:`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const category = response.text().trim();
-
-    // Validate the response is a valid category
-    if (GROCERY_CATEGORIES.includes(category as GroceryCategory)) {
-      logger.debug(`Categorized "${itemName}" as "${category}"`);
-      return category as GroceryCategory;
+    if (response.message) {
+      logger.warn(response.message);
     }
 
-    // If invalid response, default to 'Other'
-    logger.warn(`Invalid category "${category}" returned for "${itemName}", defaulting to "Other"`);
-    return 'Other';
+    logger.debug(`Categorized "${itemName}" as "${response.category}"`);
+    return response.category;
   } catch (error) {
-    logger.error('Failed to categorize grocery item with Gemini', error);
+    logger.error('Failed to categorize grocery item', error);
     return 'Other';
   }
 }
 
 /**
  * Batch categorize multiple grocery items
+ * Items are processed in batches by the backend
  */
 export async function categorizeGroceryItems(
   items: string[]
 ): Promise<Map<string, GroceryCategory>> {
   const results = new Map<string, GroceryCategory>();
 
-  // Process items in parallel with rate limiting
-  const categorizations = await Promise.all(
-    items.map(async (item) => {
-      const category = await categorizeGroceryItem(item);
-      return { item, category };
-    })
-  );
+  // Backend handles rate limiting, but we'll still process in reasonable batches
+  const BATCH_SIZE = 10;
 
-  categorizations.forEach(({ item, category }) => {
-    results.set(item, category);
-  });
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    const categorizations = await Promise.all(
+      batch.map(async (item) => {
+        const category = await categorizeGroceryItem(item);
+        return { item, category };
+      })
+    );
+
+    categorizations.forEach(({ item, category }) => {
+      results.set(item, category);
+    });
+  }
 
   return results;
+}
+
+/**
+ * Convert an image file to base64 string
+ */
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Remove the data URL prefix (e.g., "data:image/png;base64,")
+      const base64Data = (reader.result as string).split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export interface ExtractedGroceryItem {
+  name: string;
+  category: GroceryCategory;
+}
+
+/**
+ * Extract and categorize grocery items from an image using backend Gemini Vision API
+ */
+export async function extractGroceryItemsFromImage(
+  imageFile: File
+): Promise<ExtractedGroceryItem[]> {
+  try {
+    logger.info('Sending image to backend for processing');
+
+    // Convert image to base64
+    const base64Image = await fileToBase64(imageFile);
+
+    // Send to backend API
+    const response = await pb.send<{
+      items: ExtractedGroceryItem[];
+      message: string;
+    }>('/api/groceries/process-image', {
+      method: 'POST',
+      body: JSON.stringify({
+        image: base64Image,
+        mimeType: imageFile.type,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    logger.info(response.message);
+    return response.items;
+  } catch (error) {
+    logger.error('Failed to extract grocery items from image', error);
+    throw new Error('Failed to extract grocery items from image. Please try again.');
+  }
 }
