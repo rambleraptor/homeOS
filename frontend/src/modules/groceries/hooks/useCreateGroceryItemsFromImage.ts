@@ -2,68 +2,80 @@
  * Create Grocery Items from Image Hook
  *
  * Mutation for extracting and creating grocery items from an uploaded image
+ * Uses backend API for secure Gemini Vision processing
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/core/api/queryClient';
 import { Collections, getCollection } from '@/core/api/pocketbase';
-import { extractGroceryItemsFromImage, categorizeGroceryItems } from '@/core/services/gemini';
+import { extractGroceryItemsFromImage } from '@/core/services/gemini';
 import { logger } from '@/core/utils/logger';
 import type { GroceryItem } from '../types';
 
 export interface CreateFromImageResult {
-  extractedItems: string[];
+  extractedCount: number;
   createdItems: GroceryItem[];
+  failedItems: string[];
 }
 
 export function useCreateGroceryItemsFromImage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (imageFile: File): Promise<CreateFromImageResult> => {
-      logger.info('Extracting grocery items from image');
+    mutationFn: async (imageFile: File) => {
+      logger.info('Extracting and categorizing grocery items from image');
 
-      // Step 1: Extract items from image using Gemini Vision
+      // Extract and categorize items using backend API
+      // Backend handles both vision extraction and categorization
       const extractedItems = await extractGroceryItemsFromImage(imageFile);
 
       if (extractedItems.length === 0) {
         logger.warn('No items extracted from image');
-        return { extractedItems: [], createdItems: [] };
+        return {
+          extractedCount: 0,
+          createdItems: [],
+          failedItems: [],
+        };
       }
 
-      logger.info(`Extracted ${extractedItems.length} items, categorizing...`);
+      logger.info(`Extracted ${extractedItems.length} items, creating in database...`);
 
-      // Step 2: Batch categorize all items
-      const categorizations = await categorizeGroceryItems(extractedItems);
-
-      logger.info(`Categorized ${categorizations.size} items, creating in database...`);
-
-      // Step 3: Create all items in PocketBase
+      // Create all items in PocketBase
       const createdItems: GroceryItem[] = [];
+      const failedItems: string[] = [];
       const collection = getCollection<GroceryItem>(Collections.GROCERIES);
 
-      for (const itemName of extractedItems) {
-        const category = categorizations.get(itemName) || 'Other';
+      for (const extractedItem of extractedItems) {
         try {
           const item = await collection.create({
-            name: itemName,
+            name: extractedItem.name,
             notes: '',
-            category,
+            category: extractedItem.category,
             checked: false,
           });
           createdItems.push(item);
         } catch (error) {
-          logger.error(`Failed to create item: ${itemName}`, error);
+          logger.error(`Failed to create item: ${extractedItem.name}`, error);
+          failedItems.push(extractedItem.name);
           // Continue with other items even if one fails
         }
       }
 
-      logger.info(`Successfully created ${createdItems.length} grocery items from image`);
+      logger.info(
+        `Successfully created ${createdItems.length} of ${extractedItems.length} grocery items from image`
+      );
 
-      return {
-        extractedItems,
+      if (failedItems.length > 0) {
+        logger.warn(`Failed to create ${failedItems.length} items: ${failedItems.join(', ')}`);
+      }
+
+      const result: CreateFromImageResult = {
+        extractedCount: extractedItems.length,
         createdItems,
+        failedItems,
       };
+
+      return result;
     },
     onSuccess: () => {
       // Invalidate groceries list to refresh

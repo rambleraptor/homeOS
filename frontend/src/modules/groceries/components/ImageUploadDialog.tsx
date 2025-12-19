@@ -14,10 +14,15 @@ interface ImageUploadDialogProps {
   onClose: () => void;
 }
 
+const SUCCESS_AUTO_CLOSE_DELAY_MS = 2000;
+
 export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [extractedItems, setExtractedItems] = useState<string[]>([]);
+  const [extractedCount, setExtractedCount] = useState(0);
+  const [createdCount, setCreatedCount] = useState(0);
+  const [failedItems, setFailedItems] = useState<string[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createMutation = useCreateGroceryItemsFromImage();
@@ -28,12 +33,22 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      logger.error('Invalid file type. Please select an image.');
+      setFileError('Invalid file type. Please select an image.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError('File too large. Maximum size is 5MB.');
       return;
     }
 
     setSelectedFile(file);
-    setExtractedItems([]);
+    setExtractedCount(0);
+    setCreatedCount(0);
+    setFailedItems([]);
+    setFileError(null);
 
     // Create preview URL
     const url = URL.createObjectURL(file);
@@ -45,12 +60,16 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
 
     try {
       const result = await createMutation.mutateAsync(selectedFile);
-      setExtractedItems(result.extractedItems);
+      setExtractedCount(result.extractedCount);
+      setCreatedCount(result.createdItems.length);
+      setFailedItems(result.failedItems);
 
-      // Close dialog after successful upload
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
+      // Close dialog after successful upload (if all succeeded)
+      if (result.failedItems.length === 0 && result.createdItems.length > 0) {
+        setTimeout(() => {
+          handleClose();
+        }, SUCCESS_AUTO_CLOSE_DELAY_MS);
+      }
     } catch (error) {
       logger.error('Failed to process image', error);
     }
@@ -63,7 +82,10 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
     }
     setSelectedFile(null);
     setPreviewUrl(null);
-    setExtractedItems([]);
+    setExtractedCount(0);
+    setCreatedCount(0);
+    setFailedItems([]);
+    setFileError(null);
     createMutation.reset();
     onClose();
   };
@@ -95,6 +117,14 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* File Error */}
+          {fileError && (
+            <div className="flex items-center gap-3 p-4 bg-red-50 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <p className="text-red-900">{fileError}</p>
+            </div>
+          )}
+
           {/* File Input */}
           {!previewUrl && (
             <div
@@ -104,7 +134,7 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
             >
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
               <p className="text-gray-600 mb-1">Click to upload a grocery list image</p>
-              <p className="text-sm text-gray-500">Supports JPG, PNG, and other image formats</p>
+              <p className="text-sm text-gray-500">Supports JPG, PNG (max 5MB)</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -156,24 +186,46 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
               {/* Success Status */}
               {isSuccess && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <div
+                    className={`flex items-center gap-3 p-4 rounded-lg ${
+                      failedItems.length > 0 ? 'bg-amber-50' : 'bg-green-50'
+                    }`}
+                  >
+                    {failedItems.length > 0 ? (
+                      <AlertCircle className="w-5 h-5 text-amber-600" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    )}
                     <div>
-                      <p className="font-medium text-green-900">
-                        Successfully added {extractedItems.length} items!
+                      <p
+                        className={`font-medium ${
+                          failedItems.length > 0 ? 'text-amber-900' : 'text-green-900'
+                        }`}
+                      >
+                        {failedItems.length > 0
+                          ? `Added ${createdCount} of ${extractedCount} items`
+                          : `Successfully added ${createdCount} items!`}
                       </p>
-                      <p className="text-sm text-green-700">Items have been categorized and added to your list</p>
+                      <p
+                        className={`text-sm ${
+                          failedItems.length > 0 ? 'text-amber-700' : 'text-green-700'
+                        }`}
+                      >
+                        {failedItems.length > 0
+                          ? `${failedItems.length} items could not be added`
+                          : 'Items have been categorized and added to your list'}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Extracted Items List */}
-                  {extractedItems.length > 0 && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="font-medium text-gray-900 mb-2">Extracted Items:</p>
+                  {/* Failed Items List */}
+                  {failedItems.length > 0 && (
+                    <div className="bg-red-50 rounded-lg p-4">
+                      <p className="font-medium text-red-900 mb-2">Failed to add:</p>
                       <ul className="space-y-1">
-                        {extractedItems.map((item, index) => (
-                          <li key={index} className="text-gray-700 flex items-center gap-2">
-                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        {failedItems.map((item, index) => (
+                          <li key={index} className="text-red-700 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-red-600" />
                             {item}
                           </li>
                         ))}
