@@ -33,7 +33,7 @@ export function NotificationsHome() {
   };
 
   const getNotificationIcon = (notification: Notification) => {
-    if (notification.event_id) {
+    if (notification.person_id) {
       return <Calendar className="w-5 h-5 text-blue-500" />;
     }
     return <Bell className="w-5 h-5 text-gray-500" />;

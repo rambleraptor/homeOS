@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getCollection, Collections } from '@/core/api/pocketbase';
 import { queryKeys } from '@/core/api/queryClient';
-import type { Notification } from '../types';
+import type { Notification } from '@/modules/notifications/types';
 
 /**
  * Hook to fetch unread notifications for the current user

@@ -30,7 +30,7 @@ export const Collections = {
   AUDIT_LOG: 'audit_log',
   GIFT_CARDS: 'gift_cards',
   GIFT_CARD_TRANSACTIONS: 'gift_card_transactions',
-  EVENTS: 'events',
+  PEOPLE: 'people',
   NOTIFICATIONS: 'notifications',
   NOTIFICATION_SUBSCRIPTIONS: 'notification_subscriptions',
   GROCERIES: 'groceries',
