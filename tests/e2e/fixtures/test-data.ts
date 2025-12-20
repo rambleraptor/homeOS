@@ -46,61 +46,24 @@ export const testGiftCards = [
   },
 ];
 
-export const testEvents = [
+export const testPeople = [
   {
-    name: "Mom's Birthday",
-    date: '1965-06-15',
-    recurring: true,
-    recurrence_type: 'yearly',
+    name: 'John Smith',
+    address: '123 Main St, Anytown, USA',
+    birthday: '1990-01-15',
+    anniversary: '2015-06-20',
   },
   {
-    name: "Dad's Birthday",
-    date: '1963-03-20',
-    recurring: true,
-    recurrence_type: 'yearly',
+    name: 'Jane Doe',
+    address: '456 Oak Ave, Someplace, USA',
+    birthday: '1992-03-22',
   },
   {
-    name: 'Anniversary',
-    date: '1995-08-12',
-    recurring: true,
-    recurrence_type: 'yearly',
-  },
-  {
-    name: 'One-time Event',
-    date: getFutureDate(30),
-    recurring: false,
+    name: 'Peter Jones',
+    address: '789 Pine Ln, Elsewhere, USA',
+    anniversary: '2010-09-05',
   },
 ];
-
-/**
- * Get a future date as YYYY-MM-DD string
- */
-export function getFutureDate(daysFromNow: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  return date.toISOString().split('T')[0];
-}
-
-/**
- * Get a past date as YYYY-MM-DD string
- */
-export function getPastDate(daysAgo: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  return date.toISOString().split('T')[0];
-}
-
-/**
- * Format date as displayed in UI (e.g., "Jun 15, 1965")
- */
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 /**
  * Test grocery items

@@ -6,16 +6,16 @@
 
 import { useAuth } from '@/core/auth/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Calendar, ArrowRight, Loader2 } from 'lucide-react';
+import { Bell, Users, ArrowRight, Loader2 } from 'lucide-react';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
-import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
+import { useUpcomingPeople } from '../hooks/useUpcomingPeople';
 import { formatDistanceToNow, format } from 'date-fns';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: notifications, isLoading: notificationsLoading } = useUnreadNotifications();
-  const { data: upcomingEvents, isLoading: eventsLoading } = useUpcomingEvents();
+  const { data: upcomingPeople, isLoading: peopleLoading } = useUpcomingPeople();
 
   return (
     <div className="space-y-6">
@@ -63,8 +63,8 @@ export function DashboardHome() {
                     key={notification.id}
                     className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                     onClick={() => {
-                      if (notification.event_id) {
-                        navigate('/events');
+                      if (notification.person_id) {
+                        navigate('/people');
                       }
                     }}
                   >
@@ -93,20 +93,20 @@ export function DashboardHome() {
           </div>
         </div>
 
-        {/* Upcoming Events Section */}
+        {/* Upcoming Birthdays & Anniversaries Section */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
-                  <Calendar className="w-5 h-5 text-purple-600" />
+                  <Users className="w-5 h-5 text-purple-600" />
                 </div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Upcoming Events
+                  Upcoming Birthdays & Anniversaries
                 </h2>
               </div>
               <button
-                onClick={() => navigate('/events')}
+                onClick={() => navigate('/people')}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
               >
                 View all
@@ -116,35 +116,31 @@ export function DashboardHome() {
           </div>
 
           <div className="p-6">
-            {eventsLoading ? (
+            {peopleLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
               </div>
-            ) : upcomingEvents && upcomingEvents.length > 0 ? (
+            ) : upcomingPeople && upcomingPeople.length > 0 ? (
               <div className="space-y-4">
-                {upcomingEvents.map((event) => {
-                  const eventDate = new Date(event.event_date);
+                {upcomingPeople.map(({ person, type, date }) => {
                   const daysUntil = Math.ceil(
-                    (eventDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                    (date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
                   );
 
                   return (
                     <div
-                      key={event.id}
+                      key={`${person.id}-${type}`}
                       className="p-4 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer"
-                      onClick={() => navigate('/events')}
+                      onClick={() => navigate('/people')}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-gray-900 truncate">
-                            {event.title}
+                            {person.name}
                           </h3>
-                          <p className="mt-1 text-sm text-gray-600">
-                            {event.people_involved}
-                          </p>
                           <div className="mt-2 flex items-center gap-2">
                             <span className="text-xs font-medium text-gray-700">
-                              {format(eventDate, 'MMM dd, yyyy')}
+                              {format(date, 'MMM dd, yyyy')}
                             </span>
                             <span className="text-xs text-gray-500">
                               {daysUntil === 0
@@ -157,12 +153,12 @@ export function DashboardHome() {
                         </div>
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            event.event_type === 'birthday'
+                            type === 'Birthday'
                               ? 'bg-pink-100 text-pink-700'
                               : 'bg-yellow-100 text-yellow-700'
                           }`}
                         >
-                          {event.event_type}
+                          {type}
                         </span>
                       </div>
                     </div>
@@ -171,8 +167,8 @@ export function DashboardHome() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No upcoming events in the next 30 days</p>
+                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No upcoming birthdays or anniversaries in the next 30 days</p>
               </div>
             )}
           </div>

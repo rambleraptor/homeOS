@@ -49,68 +49,50 @@ export async function createMultipleGiftCards(
 }
 
 /**
- * Create an event via PocketBase API
+ * Create a person via PocketBase API
  */
-export async function createEvent(
+export async function createPerson(
   pb: PocketBase,
   data: {
     name: string;
-    date: string;
-    recurring?: boolean;
-    notes?: string;
-    event_type?: 'birthday' | 'anniversary';
-    people_involved?: string;
+    address?: string;
+    birthday?: string;
+    anniversary?: string;
   }
 ) {
-  const eventData = {
-    title: data.name,
-    event_date: data.date,
-    recurring_yearly: data.recurring || false,
-    details: data.notes || '',
-    event_type: data.event_type || 'birthday',
-    people_involved: data.people_involved || 'Test Person',
+  const personData = {
+    name: data.name,
+    address: data.address || '',
+    birthday: data.birthday,
+    anniversary: data.anniversary,
     created_by: pb.authStore.model?.id,
   };
 
-  console.log('[createEvent] Attempting to create event:', eventData);
-  console.log('[createEvent] Auth state:', {
-    isValid: pb.authStore.isValid,
-    recordId: pb.authStore.model?.id,
-    recordEmail: pb.authStore.model?.email,
-  });
-
   try {
-    const result = await pb.collection('events').create(eventData);
-    console.log('[createEvent] Event created successfully:', result.id);
+    const result = await pb.collection('people').create(personData);
     return result;
   } catch (error) {
-    console.error('[createEvent] Failed to create event:', error);
-    console.error('[createEvent] Error details:', {
-      status: (error as any).status,
-      message: (error as any).message,
-      data: (error as any).data,
-    });
+    console.error('[createPerson] Failed to create person:', error);
     throw error;
   }
 }
 
 /**
- * Create multiple events
+ * Create multiple people
  */
-export async function createMultipleEvents(
+export async function createMultiplePeople(
   pb: PocketBase,
-  events: Array<{
+  people: Array<{
     name: string;
-    date: string;
-    recurring?: boolean;
-    recurrence_type?: 'daily' | 'weekly' | 'monthly' | 'yearly';
-    notes?: string;
+    address?: string;
+    birthday?: string;
+    anniversary?: string;
   }>
 ) {
   // Create sequentially to avoid PocketBase auto-cancellation
   const results = [];
-  for (const event of events) {
-    const result = await createEvent(pb, event);
+  for (const person of people) {
+    const result = await createPerson(pb, person);
     results.push(result);
   }
   return results;
@@ -131,8 +113,6 @@ export async function deleteAllGiftCards(pb: PocketBase) {
       await Promise.all(promises);
     }
   } catch (error: any) {
-    // If collection doesn't exist or no access (admin auth vs user auth),
-    // silently skip - this is expected for fresh test runs
     if (error.status === 404 || error.status === 403) {
       return;
     }
@@ -141,22 +121,20 @@ export async function deleteAllGiftCards(pb: PocketBase) {
 }
 
 /**
- * Delete all events (family-wide, not filtered by user)
+ * Delete all people (family-wide, not filtered by user)
  * Silently handles cases where collection doesn't exist or no access
  */
-export async function deleteAllEvents(pb: PocketBase) {
+export async function deleteAllPeople(pb: PocketBase) {
   try {
-    const records = await pb.collection('events').getFullList();
+    const records = await pb.collection('people').getFullList();
 
     if (records.length > 0) {
       const promises = records.map(record =>
-        pb.collection('events').delete(record.id)
+        pb.collection('people').delete(record.id)
       );
       await Promise.all(promises);
     }
   } catch (error: any) {
-    // If collection doesn't exist or no access (admin auth vs user auth),
-    // silently skip - this is expected for fresh test runs
     if (error.status === 404 || error.status === 403) {
       return;
     }
@@ -216,8 +194,6 @@ export async function deleteAllGroceryItems(pb: PocketBase) {
       await Promise.all(promises);
     }
   } catch (error: any) {
-    // If collection doesn't exist or no access (admin auth vs user auth),
-    // silently skip - this is expected for fresh test runs
     if (error.status === 404 || error.status === 403) {
       return;
     }
@@ -231,7 +207,7 @@ export async function deleteAllGroceryItems(pb: PocketBase) {
 export async function cleanupUserData(pb: PocketBase) {
   await Promise.all([
     deleteAllGiftCards(pb),
-    deleteAllEvents(pb),
+    deleteAllPeople(pb),
     deleteAllGroceryItems(pb),
   ]);
 }

@@ -1,9 +1,9 @@
 /// <reference path="../pb_data/types.d.ts" />
 
 /**
- * PocketBase Hook: Event Notification Sender
+ * PocketBase Hook: People Notification Sender
  *
- * This hook runs daily to check for events that need notifications
+ * This hook runs daily to check for upcoming birthdays and anniversaries
  * and sends push notifications to subscribed users.
  *
  * Environment variables required:
@@ -18,27 +18,23 @@
 /**
  * Check if a notification should be sent based on preferences
  */
-function shouldSendNotification(eventDate, notificationPref, recurringYearly) {
+function shouldSendNotification(eventDate, notificationPref) {
   const now = new Date();
   const event = new Date(eventDate);
 
-  // For recurring events, use this year's occurrence
-  let nextOccurrence = event;
-  if (recurringYearly) {
+  let nextOccurrence = new Date(
+    now.getFullYear(),
+    event.getMonth(),
+    event.getDate()
+  );
+
+  // If already passed this year, use next year
+  if (nextOccurrence < now) {
     nextOccurrence = new Date(
-      now.getFullYear(),
+      now.getFullYear() + 1,
       event.getMonth(),
       event.getDate()
     );
-
-    // If already passed this year, use next year
-    if (nextOccurrence < now) {
-      nextOccurrence = new Date(
-        now.getFullYear() + 1,
-        event.getMonth(),
-        event.getDate()
-      );
-    }
   }
 
   // Check if we should send based on preference
@@ -71,7 +67,7 @@ function isSameDay(date1, date2) {
 /**
  * Format event date for display
  */
-function formatEventDate(dateStr) {
+function formatDate(dateStr) {
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', {
     month: 'long',
@@ -81,9 +77,9 @@ function formatEventDate(dateStr) {
 }
 
 /**
- * Send push notifications for an event
+ * Send push notifications for a person's event (birthday/anniversary)
  */
-function sendEventNotifications(event, webpush) {
+function sendPersonNotifications(person, eventType, eventDate, webpush) {
   try {
     // Get all active notification subscriptions
     const subscriptions = $app.dao().findRecordsByFilter(
@@ -98,12 +94,12 @@ function sendEventNotifications(event, webpush) {
       return;
     }
 
-    const title = event.get('event_type') === 'birthday'
+    const title = eventType === 'Birthday'
       ? '🎂 Birthday Reminder'
       : '💝 Anniversary Reminder';
 
-    const eventDateStr = formatEventDate(event.get('event_date'));
-    const body = `${event.get('title')} - ${event.get('people_involved')} on ${eventDateStr}`;
+    const eventDateStr = formatDate(eventDate);
+    const body = `${person.get('name')}'s ${eventType.toLowerCase()} is on ${eventDateStr}`;
 
     let sentCount = 0;
     let failedCount = 0;
@@ -118,10 +114,10 @@ function sendEventNotifications(event, webpush) {
           body,
           icon: '/icon-192.png',
           badge: '/badge-72.png',
-          tag: `event-${event.getId()}`,
+          tag: `person-${person.getId()}-${eventType}`,
           data: {
-            url: '/events',
-            eventId: event.getId(),
+            url: '/people',
+            personId: person.getId(),
             timestamp: new Date().toISOString(),
           },
         });
@@ -136,9 +132,9 @@ function sendEventNotifications(event, webpush) {
               $app.dao().findCollectionByNameOrId('notifications')
             );
             notification.set('user_id', sub.get('user_id'));
-            notification.set('event_id', event.getId());
+            notification.set('person_id', person.getId());
             notification.set('title', title);
-            notification.set('body', body);
+            notification.set('message', body);
             notification.set('read', false);
             notification.set('sent_at', new Date().toISOString());
 
@@ -170,75 +166,86 @@ function sendEventNotifications(event, webpush) {
       }
     });
 
-    console.log(`Notification summary for "${event.get('title')}":`, {
+    console.log(`Notification summary for "${person.get('name')}'s ${eventType}":`, {
       sent: sentCount,
       failed: failedCount,
       expired: expiredCount,
       total: subscriptions.length,
     });
   } catch (error) {
-    console.error('Error in sendEventNotifications:', error);
+    console.error('Error in sendPersonNotifications:', error);
   }
 }
 
 /**
- * Main function to check and send event notifications
+ * Main function to check and send people notifications
  */
-function checkAndSendEventNotifications(webpush) {
+function checkAndSendPeopleNotifications(webpush) {
   try {
     const now = new Date();
-    console.log(`[${now.toISOString()}] Checking for events needing notifications...`);
+    console.log(`[${now.toISOString()}] Checking for people needing notifications...`);
 
-    // Get all events (active and recurring)
-    const events = $app.dao().findRecordsByFilter(
-      'events',
-      '', // Get all events
-      '-event_date',
+    // Get all people
+    const people = $app.dao().findRecordsByFilter(
+      'people',
+      '', 
+      '-created',
       1000
     );
 
-    if (events.length === 0) {
-      console.log('No events found');
+    if (people.length === 0) {
+      console.log('No people found');
       return;
     }
 
-    console.log(`Found ${events.length} events to check`);
+    console.log(`Found ${people.length} people to check`);
 
     let notificationsSent = 0;
 
-    events.forEach((event) => {
-      const eventDate = event.get('event_date');
-      const recurringYearly = event.get('recurring_yearly') || false;
-      const notificationPreferences = event.get('notification_preferences') || [];
+    people.forEach((person) => {
+      const notificationPreferences = person.get('notification_preferences') || [];
 
       if (notificationPreferences.length === 0) {
-        return; // Skip events with no notification preferences
+        return; // Skip people with no notification preferences
       }
 
-      // Check each notification preference
-      notificationPreferences.forEach((pref) => {
-        if (shouldSendNotification(eventDate, pref, recurringYearly)) {
-          console.log(`Sending ${pref} notification for: ${event.get('title')}`);
-          sendEventNotifications(event, webpush);
-          notificationsSent++;
-        }
-      });
+      // Check for birthday
+      const birthday = person.get('birthday');
+      if (birthday) {
+        notificationPreferences.forEach((pref) => {
+          if (shouldSendNotification(birthday, pref)) {
+            console.log(`Sending ${pref} birthday notification for: ${person.get('name')}`);
+            sendPersonNotifications(person, 'Birthday', birthday, webpush);
+            notificationsSent++;
+          }
+        });
+      }
+
+      // Check for anniversary
+      const anniversary = person.get('anniversary');
+      if (anniversary) {
+        notificationPreferences.forEach((pref) => {
+          if (shouldSendNotification(anniversary, pref)) {
+            console.log(`Sending ${pref} anniversary notification for: ${person.get('name')}`);
+            sendPersonNotifications(person, 'Anniversary', anniversary, webpush);
+            notificationsSent++;
+          }
+        });
+      }
     });
 
     if (notificationsSent === 0) {
       console.log('No notifications needed today');
     } else {
-      console.log(`Processed ${notificationsSent} event notifications`);
+      console.log(`Processed ${notificationsSent} person notifications`);
     }
   } catch (error) {
-    console.error('Error in checkAndSendEventNotifications:', error);
+    console.error('Error in checkAndSendPeopleNotifications:', error);
   }
 }
 
 /**
  * Initialize the notification system
- *
- * This function is called when PocketBase starts
  */
 onAfterBootstrap((e) => {
   try {
@@ -272,24 +279,20 @@ onAfterBootstrap((e) => {
       vapidPrivateKey
     );
 
-    console.log('✅ Event notifications system initialized');
+    console.log('✅ People notifications system initialized');
     console.log(`   VAPID email: ${vapidEmail}`);
     console.log(`   Public key: ${vapidPublicKey.substring(0, 20)}...`);
 
     // Schedule daily check at 9:00 AM
     // Cron format: minute hour day month weekday
-    cronAdd('send-event-notifications', '0 9 * * *', () => {
-      checkAndSendEventNotifications(webpush);
+    cronAdd('send-people-notifications', '0 9 * * *', () => {
+      checkAndSendPeopleNotifications(webpush);
     });
 
     console.log('✅ Cron job registered: Daily at 9:00 AM');
 
-    // Optional: Run immediately on startup for testing
-    // Uncomment the line below to test notifications on startup
-    // checkAndSendEventNotifications(webpush);
-
   } catch (error) {
-    console.error('❌ Error initializing event notifications:', error);
+    console.error('❌ Error initializing people notifications:', error);
   }
 });
 
@@ -319,7 +322,7 @@ routerAdd('POST', '/api/send-test-notification', (c) => {
     const webpush = require('web-push');
     webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 
-    checkAndSendEventNotifications(webpush);
+    checkAndSendPeopleNotifications(webpush);
 
     return c.json(200, {
       success: true,

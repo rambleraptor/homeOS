@@ -3,7 +3,7 @@ export type NotificationType = 'day_of' | 'day_before' | 'week_before' | 'system
 export interface Notification {
   id: string;
   user_id: string;
-  event_id?: string;
+  person_id?: string;
   title: string;
   message: string;
   notification_type: NotificationType;
