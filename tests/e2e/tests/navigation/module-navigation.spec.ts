@@ -18,9 +18,9 @@ test.describe('Module Navigation', () => {
     await expect(authenticatedPage).toHaveURL(/\/gift-cards/);
   });
 
-  test('should navigate to Events module', async ({ authenticatedPage }) => {
-    await dashboardPage.navigateToModule(/event/i);
-    await expect(authenticatedPage).toHaveURL(/\/events/);
+  test('should navigate to People module', async ({ authenticatedPage }) => {
+    await dashboardPage.navigateToModule(/people/i);
+    await expect(authenticatedPage).toHaveURL(/\/people/);
   });
 
   test('should navigate to Settings module', async ({ authenticatedPage }) => {
@@ -36,9 +36,9 @@ test.describe('Module Navigation', () => {
     await dashboardPage.navigateToModule(/gift card/i);
     await expect(authenticatedPage).toHaveURL(/\/gift-cards/);
 
-    // Go to events
-    await authenticatedPage.getByRole('navigation').getByRole('link', { name: /event/i }).click();
-    await expect(authenticatedPage).toHaveURL(/\/events/);
+    // Go to people
+    await authenticatedPage.getByRole('navigation').getByRole('link', { name: /people/i }).click();
+    await expect(authenticatedPage).toHaveURL(/\/people/);
 
     // Go to settings
     await authenticatedPage.getByRole('navigation').getByRole('link', { name: /setting/i }).click();
