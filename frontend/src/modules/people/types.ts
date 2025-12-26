@@ -9,9 +9,17 @@ export interface Person {
   birthday?: string;
   anniversary?: string;
   notification_preferences: NotificationPreference[];
+  partner_id?: string;
   created_by: string;
   created: string;
   updated: string;
+}
+
+// Person with expanded partner relation
+export interface PersonWithPartner extends Person {
+  expand?: {
+    partner_id?: Person;
+  };
 }
 
 export interface PersonFormData {
@@ -20,6 +28,7 @@ export interface PersonFormData {
   birthday?: string;
   anniversary?: string;
   notification_preferences: NotificationPreference[];
+  partner_id?: string;
 }
 
 export interface PeopleStats {
