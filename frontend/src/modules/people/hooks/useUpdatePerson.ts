@@ -1,12 +1,28 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCollection, Collections } from '@/core/api/pocketbase';
 import { queryKeys } from '@/core/api/queryClient';
-import type { Person, PersonFormData } from '../types';
-import { syncPartnerRelationship } from '../utils/partnerSync';
+import type { PersonFormData, NotificationPreference } from '../types';
+import {
+  findSharedDataForPerson,
+  updateSharedData,
+  createSharedData,
+  setPartner,
+  removePartner,
+} from '../utils/sharedDataSync';
 
 interface UpdatePersonData {
   id: string;
   data: PersonFormData;
+}
+
+interface PersonRecord {
+  id: string;
+  name: string;
+  birthday?: string;
+  notification_preferences: NotificationPreference[];
+  created_by: string;
+  created: string;
+  updated: string;
 }
 
 export function useUpdatePerson() {
@@ -16,31 +32,59 @@ export function useUpdatePerson() {
     mutationFn: async ({ id, data }: UpdatePersonData) => {
       console.log('[useUpdatePerson] mutationFn called with:', { id, data });
 
-      // Fetch current person data to know old partner_id
-      const peopleCollection = getCollection<Person>(Collections.PEOPLE);
-      const oldPerson = await peopleCollection.getOne(id);
+      // Get current shared data to determine old partner
+      const oldSharedData = await findSharedDataForPerson(id);
+      const oldPartnerId = oldSharedData
+        ? (oldSharedData.person_a === id ? oldSharedData.person_b : oldSharedData.person_a)
+        : undefined;
 
-      // Update the person
-      const person = await peopleCollection.update(id, data);
-      console.log('[useUpdatePerson] Update successful:', person);
+      // Update person record (without address/anniversary)
+      const personRecord = await getCollection<PersonRecord>(Collections.PEOPLE).update(id, {
+        name: data.name,
+        birthday: data.birthday,
+        notification_preferences: data.notification_preferences,
+      });
+      console.log('[useUpdatePerson] Update successful:', personRecord);
 
-      // Sync partner relationship and shared fields if partner changed or shared fields changed
-      const partnerChanged = oldPerson.partner_id !== person.partner_id;
-      const hasPartner = !!person.partner_id;
+      // Handle shared data updates
+      const newPartnerId = data.partner_id;
+      const partnerChanged = oldPartnerId !== newPartnerId;
 
-      if (partnerChanged || hasPartner) {
-        await syncPartnerRelationship(
-          person.id,
-          person.partner_id,
-          oldPerson.partner_id,
-          {
+      if (partnerChanged) {
+        // Partner changed
+        if (oldPartnerId && !newPartnerId) {
+          // Removing partner
+          await removePartner(id, oldPartnerId);
+        } else if (!oldPartnerId && newPartnerId) {
+          // Adding partner
+          await setPartner(id, newPartnerId, {
             address: data.address,
             anniversary: data.anniversary,
-          }
-        );
+          });
+        } else if (oldPartnerId && newPartnerId && oldPartnerId !== newPartnerId) {
+          // Changing partner
+          await removePartner(id, oldPartnerId);
+          await setPartner(id, newPartnerId, {
+            address: data.address,
+            anniversary: data.anniversary,
+          });
+        }
+      } else if (oldSharedData) {
+        // Partner didn't change, just update shared fields
+        await updateSharedData(oldSharedData.id, {
+          address: data.address,
+          anniversary: data.anniversary,
+        });
+      } else if (data.address || data.anniversary) {
+        // No shared data exists, create it
+        await createSharedData({
+          personId: id,
+          address: data.address,
+          anniversary: data.anniversary,
+        });
       }
 
-      return person;
+      return personRecord;
     },
     onSuccess: (_, variables) => {
       console.log('[useUpdatePerson] onSuccess called, invalidating queries');

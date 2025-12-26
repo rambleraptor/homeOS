@@ -1,12 +1,12 @@
 import { Cake, Heart, Edit, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
-import type { PersonWithPartner } from '../types';
+import type { Person } from '../types';
 
 interface PersonCardProps {
-  person: PersonWithPartner;
-  onEdit: (person: PersonWithPartner) => void;
-  onDelete: (person: PersonWithPartner) => void;
+  person: Person;
+  onEdit: (person: Person) => void;
+  onDelete: (person: Person) => void;
 }
 
 export function PersonCard({
@@ -14,11 +14,7 @@ export function PersonCard({
   onEdit,
   onDelete,
 }: PersonCardProps) {
-  const partner = person.expand?.partner_id;
-
-  // Shared fields: use partner's data if current person doesn't have it
-  const effectiveAddress = person.address || partner?.address;
-  const effectiveAnniversary = person.anniversary || partner?.anniversary;
+  const partner = person.partner;
 
   const formatDate = (dateString: string) => {
     // Extract just the date portion (YYYY-MM-DD) from PocketBase format (YYYY-MM-DD HH:MM:SS.sssZ)
@@ -33,9 +29,9 @@ export function PersonCard({
     });
   };
 
-  const googleMapsUrl = effectiveAddress
+  const googleMapsUrl = person.address
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        effectiveAddress
+        person.address
       )}`
     : '';
 
@@ -61,18 +57,18 @@ export function PersonCard({
                 </p>
               </div>
             )}
-            {effectiveAnniversary && (
+            {person.anniversary && (
               <div className="flex items-center gap-2 mt-1">
                 <Heart className="w-5 h-5 text-red-500" aria-label="Heart icon" />
                 <p className="text-sm text-gray-500">
-                  {formatDate(effectiveAnniversary)}
-                  {!person.anniversary && partner?.anniversary && (
+                  {formatDate(person.anniversary)}
+                  {partner && (
                     <span className="ml-1 text-xs text-gray-400">(shared)</span>
                   )}
                 </p>
               </div>
             )}
-            {effectiveAddress && (
+            {person.address && (
               <div className="flex items-center gap-2 mt-1">
                 <MapPin className="w-5 h-5 text-blue-500" aria-label="Map pin icon" />
                 <a
@@ -81,8 +77,8 @@ export function PersonCard({
                   rel="noopener noreferrer"
                   className="text-sm text-blue-500 hover:underline"
                 >
-                  {effectiveAddress}
-                  {!person.address && partner?.address && (
+                  {person.address}
+                  {partner && (
                     <span className="ml-1 text-xs text-gray-400">(shared)</span>
                   )}
                 </a>

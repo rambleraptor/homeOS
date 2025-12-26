@@ -43,7 +43,7 @@ export function PersonForm({
     notification_preferences: initialData?.notification_preferences || [
       'day_of',
     ],
-    partner_id: initialData?.partner_id || '',
+    partner_id: initialData?.partner?.id || '',
   });
 
   // Filter out the current person from partner options
