@@ -10,7 +10,6 @@ import {
   validateBirthday,
   validateAnniversary,
   validateNotificationPreferences,
-  validateOptionalString,
   validatePartnerName,
   validateWifiNetwork,
   validateWifiPassword,
@@ -24,11 +23,6 @@ const REQUIRED_HEADERS = ['name'] as const;
 
 const OPTIONAL_HEADERS = [
   'address',
-  'address_line2',
-  'address_city',
-  'address_state',
-  'address_postal_code',
-  'address_country',
   'wifi_network',
   'wifi_password',
   'birthday',
@@ -44,15 +38,15 @@ const ALL_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS] as const;
  */
 function generateTemplate(): string {
   const headers = ALL_HEADERS.join(',');
-  // Example 1: John with full address, WiFi, birthday, and partner
+  // Example 1: John with address, WiFi, dates, and partner
   const example1 =
-    'John Doe,123 Main St,Apt 4B,Anytown,CA,12345,USA,HomeWiFi,password123,1990-06-15,2015-08-20,"day_of,week_before",Jane Doe';
-  // Example 2: Jane with simple address, partner (no WiFi info)
+    'John Doe,"123 Main St, Anytown, CA 12345",HomeWiFi,password123,06/15/1990,08/20/2015,"day_of,week_before",Jane Doe';
+  // Example 2: Jane with address and partner
   const example2 =
-    'Jane Doe,456 Oak Ave,,,,,,,1992-03-15,2015-08-20,day_of,John Doe';
-  // Example 3: No partner, minimal data
+    'Jane Doe,"456 Oak Ave, Springfield, IL",,,,08/20/2015,day_of,John Doe';
+  // Example 3: Solo person, minimal data
   const example3 =
-    'Peter Jones,789 Pine Ln,,Elsewhere,NY,54321,USA,,,1985-12-01,,day_of,';
+    'Peter Jones,"789 Pine Ln, Boston, MA",,,1985-12-01,,day_of,';
 
   return `${headers}\n${example1}\n${example2}\n${example3}`;
 }
@@ -74,37 +68,7 @@ export const peopleImportSchema: BulkImportSchema<PersonFormData> = {
       name: 'address',
       required: false,
       validator: validateAddress,
-      description: 'Street address line 1 (max 500 characters)',
-    },
-    {
-      name: 'address_line2',
-      required: false,
-      validator: validateOptionalString(200),
-      description: 'Address line 2 - Apt, Suite, etc. (max 200 characters)',
-    },
-    {
-      name: 'address_city',
-      required: false,
-      validator: validateOptionalString(100),
-      description: 'City (max 100 characters)',
-    },
-    {
-      name: 'address_state',
-      required: false,
-      validator: validateOptionalString(100),
-      description: 'State/Province (max 100 characters)',
-    },
-    {
-      name: 'address_postal_code',
-      required: false,
-      validator: validateOptionalString(20),
-      description: 'Postal/ZIP code (max 20 characters)',
-    },
-    {
-      name: 'address_country',
-      required: false,
-      validator: validateOptionalString(100),
-      description: 'Country (max 100 characters)',
+      description: 'Full address (max 500 characters)',
     },
     {
       name: 'wifi_network',

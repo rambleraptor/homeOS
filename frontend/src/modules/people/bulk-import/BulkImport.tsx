@@ -156,12 +156,7 @@ export function BulkImport() {
                 <div>
                   <h3 className="font-medium mb-2">Optional Headers:</h3>
                   <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                    <li><code className="bg-muted px-1 py-0.5 rounded">address</code> - Street address line 1 (max 500 characters)</li>
-                    <li><code className="bg-muted px-1 py-0.5 rounded">address_line2</code> - Apt, Suite, etc.</li>
-                    <li><code className="bg-muted px-1 py-0.5 rounded">address_city</code> - City</li>
-                    <li><code className="bg-muted px-1 py-0.5 rounded">address_state</code> - State/Province</li>
-                    <li><code className="bg-muted px-1 py-0.5 rounded">address_postal_code</code> - Postal/ZIP code</li>
-                    <li><code className="bg-muted px-1 py-0.5 rounded">address_country</code> - Country</li>
+                    <li><code className="bg-muted px-1 py-0.5 rounded">address</code> - Full address (max 500 characters)</li>
                     <li><code className="bg-muted px-1 py-0.5 rounded">wifi_network</code> - WiFi network name</li>
                     <li><code className="bg-muted px-1 py-0.5 rounded">wifi_password</code> - WiFi password</li>
                     <li><code className="bg-muted px-1 py-0.5 rounded">birthday</code> - Birthday (YYYY-MM-DD or MM/DD/YYYY)</li>

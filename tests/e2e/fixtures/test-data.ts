@@ -89,19 +89,14 @@ Bob Williams
 Carol Davis`,
 
   // Full data import with all fields
-  fullDataImport: `name,address,address_line2,address_city,address_state,address_postal_code,address_country,wifi_network,wifi_password,birthday,anniversary,notification_preferences,partner_name
-John Smith,123 Main St,Apt 4B,Springfield,IL,62701,USA,HomeNetwork,pass123,1985-06-15,2010-08-20,"day_of,week_before",Jane Smith
-Jane Smith,123 Main St,Apt 4B,Springfield,IL,62701,USA,HomeNetwork,pass123,1987-03-22,2010-08-20,day_of,John Smith`,
+  fullDataImport: `name,address,wifi_network,wifi_password,birthday,anniversary,notification_preferences,partner_name
+John Smith,"123 Main St, Springfield, IL 62701",HomeNetwork,pass123,06/15/1985,08/20/2010,"day_of,week_before",Jane Smith
+Jane Smith,"123 Main St, Springfield, IL 62701",HomeNetwork,pass123,03/22/1987,08/20/2010,day_of,John Smith`,
 
   // Partner import - two people linked
   partnerImport: `name,address,birthday,partner_name
 Mike Brown,456 Oak Ave,1990-01-15,Sarah Brown
 Sarah Brown,456 Oak Ave,1992-05-20,Mike Brown`,
-
-  // Structured address import
-  structuredAddressImport: `name,address,address_line2,address_city,address_state,address_postal_code,address_country
-Tom Wilson,789 Pine Ln,Suite 100,Chicago,IL,60601,USA
-Emma Garcia,321 Elm St,,Boston,MA,02101,USA`,
 
   // WiFi info import
   wifiInfoImport: `name,address,wifi_network,wifi_password
@@ -121,3 +116,4 @@ Person Too Long Name ${'X'.repeat(200)},1980-06-30,Invalid Name`,
 Valid Name,invalid-date,2020-01-01
 Another Name,1990-01-01,not-a-date`,
 };
+
