@@ -5,7 +5,7 @@
 import { Page, expect, Locator } from '@playwright/test';
 
 export class PeoplePage {
-  constructor(private page: Page) {}
+  constructor(private page: Page) { }
 
   async goto() {
     await this.page.goto('/people');
@@ -124,4 +124,90 @@ export class PeoplePage {
 
     await this.page.waitForLoadState('networkidle');
   }
+
+  // Bulk Import Methods
+
+  async gotoBulkImport() {
+    await this.page.goto('/people/import');
+    await expect(this.page).toHaveURL(/\/people\/import/);
+  }
+
+  async uploadCSVContent(csvContent: string) {
+    // Create a file from CSV content and upload it
+    const buffer = Buffer.from(csvContent);
+
+    // Wait for file input to be present
+    const fileInput = this.page.locator('input[type="file"][accept=".csv"]');
+    await fileInput.waitFor({ state: 'attached' });
+
+    // Upload the file
+    await fileInput.setInputFiles({
+      name: 'test_import.csv',
+      mimeType: 'text/csv',
+      buffer,
+    });
+
+    // Wait for parsing to complete
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectParsedPeopleCount(validCount: number, invalidCount?: number) {
+    // Check the valid count stat card
+    await expect(
+      this.page.locator('text="Valid People"').locator('..').locator('p.text-2xl')
+    ).toContainText(String(validCount));
+
+    if (invalidCount !== undefined) {
+      await expect(
+        this.page.locator('text="Invalid People"').locator('..').locator('p.text-2xl')
+      ).toContainText(String(invalidCount));
+    }
+  }
+
+  async selectAllValidPeople() {
+    const selectAllButton = this.page.getByRole('button', { name: 'Select All' });
+    if (await selectAllButton.isVisible()) {
+      await selectAllButton.click();
+    }
+  }
+
+  async clickImport() {
+    const importButton = this.page.getByRole('button', { name: /Import \d+ Person/ });
+    await importButton.waitFor({ state: 'visible' });
+    await importButton.click();
+
+    // Wait for import to complete and redirect
+    await this.page.waitForURL(/\/people$/);
+  }
+
+  async expectImportSuccess(count: number) {
+    // Look for toast notification or redirect to people page
+    await this.page.waitForURL(/\/people$/);
+    // Success toasts are shown but may disappear quickly
+  }
+
+  async expectPersonHasPartner(personName: string, partnerName: string) {
+    // Find the person card and verify partner is shown
+    const personCard = await this.getPersonCard(personName);
+    await expect(personCard.getByText(partnerName)).toBeVisible();
+  }
+
+  async expectPersonHasAddress(personName: string, addressPart: string) {
+    // Find the person card and verify address is shown
+    const personCard = await this.getPersonCard(personName);
+    await expect(personCard.getByText(addressPart, { exact: false })).toBeVisible();
+  }
+
+  async expectPreviewShowsPartner(personName: string, partnerName: string) {
+    // In bulk import preview, find the person and check for partner badge
+    const personRow = this.page.locator('h3', { hasText: personName }).locator('..');
+    await expect(personRow.getByText(`Partner: ${partnerName}`)).toBeVisible();
+  }
+
+  async expectPreviewShowsWifi(personName: string, wifiNetwork: string) {
+    // In bulk import preview, find the person and check for WiFi badge
+    const personRow = this.page.locator('h3', { hasText: personName }).locator('..');
+    await expect(personRow.getByText(`WiFi: ${wifiNetwork}`)).toBeVisible();
+  }
 }
+

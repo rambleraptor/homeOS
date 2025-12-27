@@ -46,13 +46,12 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
 
   return (
     <Card
-      className={`p-4 transition-colors ${
-        item.isValid
+      className={`p-4 transition-colors ${item.isValid
           ? isSelected
             ? 'border-primary bg-primary/5'
             : 'hover:border-primary/50'
           : 'border-destructive/50 bg-destructive/5 opacity-75'
-      }`}
+        }`}
     >
       <div className="flex items-start gap-4">
         {/* Checkbox (only for valid people) */}
@@ -120,6 +119,24 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
                 ))}
               </div>
             )}
+
+          {/* Partner Name */}
+          {person.partner_name && item.isValid && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                💑 Partner: {person.partner_name}
+              </span>
+            </div>
+          )}
+
+          {/* WiFi Info */}
+          {person.address?.wifi_network && item.isValid && (
+            <div className="flex flex-wrap gap-1 mb-2">
+              <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                📶 WiFi: {person.address.wifi_network}
+              </span>
+            </div>
+          )}
 
           {/* Error Messages */}
           {!item.isValid && item.errors.length > 0 && (

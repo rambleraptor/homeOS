@@ -60,6 +60,7 @@ export interface PersonFormData {
   anniversary?: string;
   notification_preferences: NotificationPreference[];
   partner_id?: string; // Used in form to select partner
+  partner_name?: string; // Used in bulk import to resolve partner by name
 }
 
 export interface PeopleStats {

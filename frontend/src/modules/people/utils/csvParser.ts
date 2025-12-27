@@ -19,9 +19,17 @@ const REQUIRED_HEADERS = ['name'];
 
 const OPTIONAL_HEADERS = [
   'address',
+  'address_line2',
+  'address_city',
+  'address_state',
+  'address_postal_code',
+  'address_country',
+  'wifi_network',
+  'wifi_password',
   'birthday',
   'anniversary',
   'notification_preferences',
+  'partner_name',
 ];
 
 const ALL_HEADERS = [...REQUIRED_HEADERS, ...OPTIONAL_HEADERS];
@@ -130,13 +138,39 @@ function parsePersonRow(row: Record<string, string>, rowNumber: number): ParsedP
     errors.push('name must be 200 characters or less');
   }
 
-  // Parse address (optional) - convert string to address object for backwards compatibility with CSV
-  const addressString = row.address?.trim() || undefined;
-  const address = addressString
-    ? { line1: addressString }
-    : undefined;
-  if (addressString && addressString.length > 500) {
+  // Parse address (optional) - support both simple string and structured address
+  const addressLine1 = row.address?.trim() || undefined;
+  const addressLine2 = row.address_line2?.trim() || undefined;
+  const addressCity = row.address_city?.trim() || undefined;
+  const addressState = row.address_state?.trim() || undefined;
+  const addressPostalCode = row.address_postal_code?.trim() || undefined;
+  const addressCountry = row.address_country?.trim() || undefined;
+  const wifiNetwork = row.wifi_network?.trim() || undefined;
+  const wifiPassword = row.wifi_password?.trim() || undefined;
+
+  // Validate address line1 length
+  if (addressLine1 && addressLine1.length > 500) {
     errors.push('address must be 500 characters or less');
+  }
+
+  // Validate WiFi fields
+  if (wifiPassword && !wifiNetwork) {
+    errors.push('wifi_network is required when wifi_password is provided');
+  }
+
+  // Build address object if any address field is provided
+  let address: PersonFormData['address'] = undefined;
+  if (addressLine1 || addressLine2 || addressCity || addressState || addressPostalCode || addressCountry || wifiNetwork || wifiPassword) {
+    address = {
+      line1: addressLine1 || '',
+      line2: addressLine2,
+      city: addressCity,
+      state: addressState,
+      postal_code: addressPostalCode,
+      country: addressCountry,
+      wifi_network: wifiNetwork,
+      wifi_password: wifiPassword,
+    };
   }
 
   // Parse birthday (optional)
@@ -173,6 +207,9 @@ function parsePersonRow(row: Record<string, string>, rowNumber: number): ParsedP
     }
   }
 
+  // Parse partner_name (optional) - will be resolved to partner_id during import
+  const partnerName = row.partner_name?.trim() || undefined;
+
   return {
     data: {
       name,
@@ -180,6 +217,7 @@ function parsePersonRow(row: Record<string, string>, rowNumber: number): ParsedP
       birthday,
       anniversary,
       notification_preferences: notificationPreferences,
+      partner_name: partnerName,
     },
     rowNumber,
     isValid: errors.length === 0,
@@ -212,10 +250,14 @@ function isValidDate(dateString: string): boolean {
  */
 function generatePeopleCSVTemplate(): string {
   const headers = ALL_HEADERS.join(',');
-  const example1 = 'John Doe,"123 Main St, Anytown, USA",1990-06-15,,"day_of,week_before"';
-  const example2 = 'Jane Smith,"456 Oak Ave, Someplace, USA",,2015-08-20,"day_of"';
+  // Example 1: John with full address, WiFi, birthday, and partner
+  const example1 = 'John Doe,123 Main St,Apt 4B,Anytown,CA,12345,USA,HomeWiFi,password123,1990-06-15,2015-08-20,"day_of,week_before",Jane Doe';
+  // Example 2: Jane with simple address, partner (no WiFi info)
+  const example2 = 'Jane Doe,456 Oak Ave,,,,,,,1992-03-15,2015-08-20,day_of,John Doe';
+  // Example 3: No partner, minimal data
+  const example3 = 'Peter Jones,789 Pine Ln,,Elsewhere,NY,54321,USA,,,1985-12-01,,day_of,';
 
-  return `${headers}\n${example1}\n${example2}`;
+  return `${headers}\n${example1}\n${example2}\n${example3}`;
 }
 
 /**
