@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCollection, getCurrentUser, Collections } from '@/core/api/pocketbase';
 import { queryKeys } from '@/core/api/queryClient';
-import type { PersonFormData, NotificationPreference } from '../types';
+import type { PersonCSVData, NotificationPreference } from '../types';
 import { createSharedData, setPartner } from '../utils/sharedDataSync';
 import { logger } from '@/core/utils/logger';
 import type { ParsedItem, BulkImportResult } from '@/shared/bulk-import/types';
@@ -32,7 +32,7 @@ export function useBulkImportPeople() {
   const currentUser = getCurrentUser();
 
   return useMutation({
-    mutationFn: async (items: ParsedItem<PersonFormData>[]): Promise<BulkImportResult> => {
+    mutationFn: async (items: ParsedItem<PersonCSVData>[]): Promise<BulkImportResult> => {
       const results: BulkImportResult = {
         successful: 0,
         failed: 0,
@@ -57,21 +57,12 @@ export function useBulkImportPeople() {
             created_by: currentUser?.id,
           });
 
-          // Build address object from flat fields if wifi_network or address is present
-          // Address can be a string (from CSV) or an object (from form)
-          const addressString = typeof personData.address === 'string'
-            ? personData.address
-            : personData.address?.line1 || '';
-          const wifiNetwork = personData.wifi_network ||
-            (typeof personData.address === 'object' ? personData.address?.wifi_network : undefined);
-          const wifiPassword = personData.wifi_password ||
-            (typeof personData.address === 'object' ? personData.address?.wifi_password : undefined);
-
-          const hasAddressData = addressString || wifiNetwork;
+          // Build address data from flat fields
+          const hasAddressData = personData.address || personData.wifi_network;
           const addressData = hasAddressData ? {
-            line1: addressString,
-            wifi_network: wifiNetwork,
-            wifi_password: wifiPassword,
+            line1: personData.address || '',
+            wifi_network: personData.wifi_network,
+            wifi_password: personData.wifi_password,
           } : undefined;
 
           // Create shared data if address or anniversary provided (without partner for now)

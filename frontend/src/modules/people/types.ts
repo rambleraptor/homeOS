@@ -46,25 +46,27 @@ export interface Person {
 
 export interface PersonFormData {
   name: string;
-  // Nested address object (used by form)
-  address?: {
-    line1: string;
-    line2?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-    wifi_network?: string;
-    wifi_password?: string;
-  } | string; // Can also be a string from CSV import
+  address?: string; // Single address field
+  wifi_network?: string;
+  wifi_password?: string;
+  birthday?: string;
+  anniversary?: string;
+  notification_preferences: NotificationPreference[];
+  partner_id?: string; // Used in form to select partner
+}
+
+/**
+ * CSV import data - flat structure matching CSV columns
+ */
+export interface PersonCSVData {
+  name: string;
+  address?: string;
+  wifi_network?: string;
+  wifi_password?: string;
   birthday?: string;
   anniversary?: string;
   notification_preferences?: NotificationPreference[];
-  partner_id?: string; // Used in form to select partner
-  partner_name?: string; // Used in bulk import to resolve partner by name
-  // Flat wifi fields for CSV import
-  wifi_network?: string;
-  wifi_password?: string;
+  partner_name?: string; // Partner name for matching
 }
 
 export interface PeopleStats {

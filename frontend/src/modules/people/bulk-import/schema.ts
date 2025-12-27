@@ -3,7 +3,7 @@
  */
 
 import type { BulkImportSchema } from '@/shared/bulk-import';
-import type { PersonFormData } from '../types';
+import type { PersonCSVData } from '../types';
 import {
   validateName,
   validateAddress,
@@ -54,7 +54,7 @@ function generateTemplate(): string {
 /**
  * People bulk import schema
  */
-export const peopleImportSchema: BulkImportSchema<PersonFormData> = {
+export const peopleImportSchema: BulkImportSchema<PersonCSVData> = {
   requiredFields: [
     {
       name: 'name',

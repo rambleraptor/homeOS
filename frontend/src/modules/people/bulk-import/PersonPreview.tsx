@@ -7,10 +7,10 @@ import { Card } from '@/shared/components/Card';
 import { Checkbox } from '@/shared/components/Checkbox';
 import { logger } from '@/core/utils/logger';
 import type { ParsedItem } from '@/shared/bulk-import';
-import type { PersonFormData } from '../types';
+import type { PersonCSVData } from '../types';
 
 interface PersonPreviewProps {
-  item: ParsedItem<PersonFormData>;
+  item: ParsedItem<PersonCSVData>;
   isSelected: boolean;
   onToggle: () => void;
 }
@@ -47,10 +47,10 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
   return (
     <Card
       className={`p-4 transition-colors ${item.isValid
-          ? isSelected
-            ? 'border-primary bg-primary/5'
-            : 'hover:border-primary/50'
-          : 'border-destructive/50 bg-destructive/5 opacity-75'
+        ? isSelected
+          ? 'border-primary bg-primary/5'
+          : 'hover:border-primary/50'
+        : 'border-destructive/50 bg-destructive/5 opacity-75'
         }`}
     >
       <div className="flex items-start gap-4">
@@ -81,12 +81,7 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
               </h3>
               {person.address && (
                 <p className="text-sm text-muted-foreground mb-1">
-                  {person.address.line1}
-                  {person.address.line2 && `, ${person.address.line2}`}
-                  {person.address.city && `, ${person.address.city}`}
-                  {person.address.state && `, ${person.address.state}`}
-                  {person.address.postal_code && ` ${person.address.postal_code}`}
-                  {person.address.country && `, ${person.address.country}`}
+                  {person.address}
                 </p>
               )}
               {person.birthday && (
@@ -130,32 +125,26 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
           )}
 
           {/* WiFi Info */}
-          {person.address?.wifi_network && item.isValid && (
+          {person.wifi_network && item.isValid && (
             <div className="flex flex-wrap gap-1 mb-2">
               <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                📶 WiFi: {person.address.wifi_network}
+                📶 WiFi: {person.wifi_network}
               </span>
             </div>
           )}
 
-          {/* Error Messages */}
-          {!item.isValid && item.errors.length > 0 && (
-            <div className="mt-3 p-3 bg-destructive/10 rounded-md border border-destructive/20">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-destructive mb-1">
-                    Row {item.rowNumber} - Cannot import this person:
-                  </p>
-                  <ul className="list-disc list-inside space-y-1">
-                    {item.errors.map((error, idx) => (
-                      <li key={idx} className="text-xs text-destructive/90">
-                        {error}
-                      </li>
-                    ))}
-                  </ul>
+          {/* Validation Errors */}
+          {item.errors.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {item.errors.map((error, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-2 text-sm text-destructive"
+                >
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
-              </div>
+              ))}
             </div>
           )}
         </div>
