@@ -33,7 +33,7 @@ test.describe('People Bulk Import', () => {
         await authenticatedPage.getByRole('button', { name: 'Select All' }).click();
 
         // Click the import button (which shows selected count)
-        await authenticatedPage.getByRole('button', { name: /Import.*Person/ }).click();
+        await authenticatedPage.getByTestId('import-button').click();
 
         // Wait for redirect to people page
         await authenticatedPage.waitForURL(/\/people$/);
@@ -55,7 +55,7 @@ test.describe('People Bulk Import', () => {
 
         // Click Select All and Import
         await authenticatedPage.getByRole('button', { name: 'Select All' }).click();
-        await authenticatedPage.getByRole('button', { name: /Import.*Person/ }).click();
+        await authenticatedPage.getByTestId('import-button').click();
 
         // Wait for redirect
         await authenticatedPage.waitForURL(/\/people$/);
@@ -91,7 +91,7 @@ test.describe('People Bulk Import', () => {
 
         // Click Select All and Import
         await authenticatedPage.getByRole('button', { name: 'Select All' }).click();
-        await authenticatedPage.getByRole('button', { name: /Import.*Person/ }).click();
+        await authenticatedPage.getByTestId('import-button').click();
 
         // Wait for redirect
         await authenticatedPage.waitForURL(/\/people$/);
@@ -128,7 +128,7 @@ test.describe('People Bulk Import', () => {
 
         // Click Select All and Import
         await authenticatedPage.getByRole('button', { name: 'Select All' }).click();
-        await authenticatedPage.getByRole('button', { name: /Import.*Person/ }).click();
+        await authenticatedPage.getByTestId('import-button').click();
 
         // Wait for redirect
         await authenticatedPage.waitForURL(/\/people$/);
@@ -159,7 +159,7 @@ test.describe('People Bulk Import', () => {
 
         // Click Select All and Import (only valid will be selected)
         await authenticatedPage.getByRole('button', { name: 'Select All' }).click();
-        await authenticatedPage.getByRole('button', { name: /Import.*Person/ }).click();
+        await authenticatedPage.getByTestId('import-button').click();
 
         // Wait for redirect
         await authenticatedPage.waitForURL(/\/people$/);

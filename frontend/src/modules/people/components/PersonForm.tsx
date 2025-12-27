@@ -230,7 +230,7 @@ export function PersonForm({
       </div>
 
       <div className="flex gap-3 pt-4">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} data-testid="person-form-submit">
           {isSubmitting ? 'Saving...' : initialData ? 'Update' : 'Create'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
