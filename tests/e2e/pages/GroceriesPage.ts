@@ -15,34 +15,22 @@ export class GroceriesPage {
     await expect(this.page).toHaveURL(/\/groceries/);
   }
 
-  async clickAddItem() {
-    const addButton = this.page.getByTestId('add-grocery-item-button');
+  async createItem(data: { name: string; notes?: string }) {
+    // Use the quick-add input to create an item
+    const input = this.page.getByTestId('quick-add-input');
+    await input.waitFor({ state: 'visible' });
+    await input.fill(data.name);
+
+    // Click the add button
+    const addButton = this.page.getByTestId('quick-add-button');
     await addButton.waitFor({ state: 'visible' });
     await addButton.click();
-  }
 
-  async fillItemForm(data: { name: string; notes?: string }) {
-    await this.page.locator('#name').fill(data.name);
-
-    if (data.notes) {
-      await this.page.locator('#notes').fill(data.notes);
-    }
-  }
-
-  async submitItemForm() {
-    const submitButton = this.page.getByTestId('grocery-form-submit');
-    await submitButton.waitFor({ state: 'visible' });
-    await submitButton.click();
-    // Wait for the submit button to disappear (form closed)
-    await submitButton.waitFor({ state: 'hidden' });
-  }
-
-  async createItem(data: { name: string; notes?: string }) {
-    await this.clickAddItem();
-    await this.fillItemForm(data);
-    await this.submitItemForm();
-    // Wait for network to settle after mutation
+    // Wait for the input to be cleared and network to settle
     await this.page.waitForLoadState('networkidle');
+
+    // Note: The quick-add doesn't support notes field
+    // If notes are needed, that feature would need to be added
   }
 
   async expectItemInList(name: string) {
@@ -93,14 +81,7 @@ export class GroceriesPage {
     await deleteButton.waitFor({ state: 'visible' });
     await deleteButton.click();
 
-    // Handle confirmation dialog
-    const confirmButton = this.page.getByRole('button', { name: /delete/i });
-    const isConfirmVisible = await confirmButton.isVisible({ timeout: 1000 }).catch(() => false);
-
-    if (isConfirmVisible) {
-      await confirmButton.click();
-    }
-
+    // No confirmation dialog - item is deleted immediately
     // Wait for network to settle after deletion
     await this.page.waitForLoadState('networkidle');
   }
