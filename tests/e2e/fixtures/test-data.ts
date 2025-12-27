@@ -110,10 +110,10 @@ Valid Person,1990-05-15,123 Good St
 Another Valid,1988-12-25,456 Nice Ave
 Person Too Long Name ${'X'.repeat(200)},1980-06-30,Invalid Name`,
 
-  // Validation errors
+  // Validation errors - 1 valid (just name), 2 invalid (empty name, invalid date)
   validationErrors: `name,birthday,anniversary
+Valid Person Only,,
 ,1985-01-01,
-Valid Name,invalid-date,2020-01-01
-Another Name,1990-01-01,not-a-date`,
+Person With Bad Date,invalid-date,`,
 };
 

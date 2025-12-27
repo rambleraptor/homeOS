@@ -158,18 +158,28 @@ function parsePersonRow(row: Record<string, string>, rowNumber: number): ParsedP
     };
   }
 
-  // Parse birthday (optional)
-  let birthday = row.birthday?.trim() || undefined;
-  if (birthday && !isValidDate(birthday)) {
-    errors.push('birthday must be in YYYY-MM-DD format');
-    birthday = undefined; // Clear invalid date
+  // Parse birthday (optional) - supports YYYY-MM-DD and MM/DD/YYYY formats
+  const rawBirthday = row.birthday?.trim() || undefined;
+  let birthday: string | undefined = undefined;
+  if (rawBirthday) {
+    const parsed = parseAndNormalizeDate(rawBirthday);
+    if (parsed) {
+      birthday = parsed;
+    } else {
+      errors.push('birthday must be in YYYY-MM-DD or MM/DD/YYYY format');
+    }
   }
 
-  // Parse anniversary (optional)
-  let anniversary = row.anniversary?.trim() || undefined;
-  if (anniversary && !isValidDate(anniversary)) {
-    errors.push('anniversary must be in YYYY-MM-DD format');
-    anniversary = undefined; // Clear invalid date
+  // Parse anniversary (optional) - supports YYYY-MM-DD and MM/DD/YYYY formats
+  const rawAnniversary = row.anniversary?.trim() || undefined;
+  let anniversary: string | undefined = undefined;
+  if (rawAnniversary) {
+    const parsed = parseAndNormalizeDate(rawAnniversary);
+    if (parsed) {
+      anniversary = parsed;
+    } else {
+      errors.push('anniversary must be in YYYY-MM-DD or MM/DD/YYYY format');
+    }
   }
 
   // Parse notification_preferences (optional, defaults to ['day_of'])
@@ -211,23 +221,40 @@ function parsePersonRow(row: Record<string, string>, rowNumber: number): ParsedP
 }
 
 /**
- * Validates a date string in YYYY-MM-DD format
+ * Parses and normalizes a date string from YYYY-MM-DD or MM/DD/YYYY format
+ * Returns the date in YYYY-MM-DD format if valid, or null if invalid
  */
-function isValidDate(dateString: string): boolean {
-  const regex = /^\d{4}-\d{2}-\d{2}$/;
-  if (!regex.test(dateString)) {
-    return false;
+function parseAndNormalizeDate(dateString: string): string | null {
+  const trimmed = dateString.trim();
+
+  // Check for YYYY-MM-DD format
+  const isoRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const isoMatch = trimmed.match(isoRegex);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    const date = new Date(`${year}-${month}-${day}T00:00:00`);
+    if (!isNaN(date.getTime()) && date.toISOString().startsWith(`${year}-${month}-${day}`)) {
+      return `${year}-${month}-${day}`;
+    }
+    return null;
   }
 
-  const date = new Date(dateString);
-  const timestamp = date.getTime();
-
-  if (typeof timestamp !== 'number' || Number.isNaN(timestamp)) {
-    return false;
+  // Check for MM/DD/YYYY format
+  const usRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+  const usMatch = trimmed.match(usRegex);
+  if (usMatch) {
+    const [, month, day, year] = usMatch;
+    const paddedMonth = month.padStart(2, '0');
+    const paddedDay = day.padStart(2, '0');
+    const isoDate = `${year}-${paddedMonth}-${paddedDay}`;
+    const date = new Date(`${isoDate}T00:00:00`);
+    if (!isNaN(date.getTime()) && date.toISOString().startsWith(isoDate)) {
+      return isoDate;
+    }
+    return null;
   }
 
-  // Ensure the date string matches the ISO string to catch invalid dates like '2024-02-30'
-  return date.toISOString().startsWith(dateString);
+  return null;
 }
 
 /**
