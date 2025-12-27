@@ -5,39 +5,42 @@
  */
 
 import { useState } from 'react';
-import { Plus, ShoppingCart, Loader2, AlertCircle, CheckCircle2, Image } from 'lucide-react';
+import { Plus, ShoppingCart, Loader2, AlertCircle, CheckCircle2, Image, ListRestart } from 'lucide-react';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useCreateGroceryItem } from '../hooks/useCreateGroceryItem';
 import { useUpdateGroceryItem } from '../hooks/useUpdateGroceryItem';
 import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
+import { useDeleteAllGroceries } from '../hooks/useDeleteAllGroceries';
 import { GroceryList } from './GroceryList';
-import { GroceryItemForm } from './GroceryItemForm';
 import { ImageUploadDialog } from './ImageUploadDialog';
-import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { logger } from '@/core/utils/logger';
-import type { GroceryItemFormData } from '../types';
 
 export function GroceriesHome() {
-  const [showForm, setShowForm] = useState(false);
+  const [itemName, setItemName] = useState('');
   const [showImageUpload, setShowImageUpload] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
   const { stats, isLoading, isError, error } = useGroupedGroceries();
   const createMutation = useCreateGroceryItem();
   const updateMutation = useUpdateGroceryItem();
   const deleteMutation = useDeleteGroceryItem();
+  const deleteAllMutation = useDeleteAllGroceries();
 
-  const handleAddItem = () => {
-    setShowForm(true);
-  };
+  const handleQuickAdd = async () => {
+    if (!itemName.trim()) return;
 
-  const handleFormSubmit = async (data: GroceryItemFormData) => {
     try {
-      await createMutation.mutateAsync(data);
-      setShowForm(false);
+      await createMutation.mutateAsync({
+        name: itemName.trim(),
+      });
+      setItemName('');
     } catch (err) {
       logger.error('Failed to create grocery item', err);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleQuickAdd();
     }
   };
 
@@ -49,16 +52,19 @@ export function GroceriesHome() {
     }
   };
 
-  const handleDeleteItem = (id: string) => {
-    setItemToDelete(id);
-    setDeleteConfirmOpen(true);
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id);
+    } catch (err) {
+      logger.error('Failed to delete grocery item', err);
+    }
   };
 
-  const handleConfirmDelete = async () => {
-    if (itemToDelete) {
-      await deleteMutation.mutateAsync(itemToDelete);
-      setDeleteConfirmOpen(false);
-      setItemToDelete(null);
+  const handleNewList = async () => {
+    try {
+      await deleteAllMutation.mutateAsync();
+    } catch (err) {
+      logger.error('Failed to delete all grocery items', err);
     }
   };
 
@@ -86,7 +92,7 @@ export function GroceriesHome() {
   }
 
   const isSubmitting = createMutation.isPending;
-  const isUpdating = updateMutation.isPending || deleteMutation.isPending;
+  const isUpdating = updateMutation.isPending || deleteMutation.isPending || deleteAllMutation.isPending;
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -107,36 +113,54 @@ export function GroceriesHome() {
           )}
         </div>
 
-        {!showForm && (
-          <div className="flex gap-2">
+        <div className="flex gap-2">
+          {stats.totalItems > 0 && (
             <button
-              onClick={() => setShowImageUpload(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2"
-              data-testid="upload-grocery-list-button"
+              onClick={handleNewList}
+              disabled={isUpdating}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-testid="new-grocery-list-button"
             >
-              <Image className="w-5 h-5" />
-              Upload List
+              <ListRestart className="w-5 h-5" />
+              New List
             </button>
-            <button
-              onClick={handleAddItem}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
-              data-testid="add-grocery-item-button"
-            >
-              <Plus className="w-5 h-5" />
-              Add Item
-            </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={() => setShowImageUpload(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2"
+            data-testid="upload-grocery-list-button"
+          >
+            <Image className="w-5 h-5" />
+            Upload List
+          </button>
+        </div>
       </div>
 
-      {/* Add Item Form */}
-      {showForm && (
-        <GroceryItemForm
-          onSubmit={handleFormSubmit}
-          onCancel={() => setShowForm(false)}
-          isSubmitting={isSubmitting}
-        />
-      )}
+      {/* Quick Add Item */}
+      <div className="bg-white rounded-lg border p-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={itemName}
+            onChange={(e) => setItemName(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="Add item..."
+            disabled={isSubmitting}
+            className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            data-testid="quick-add-input"
+            autoFocus
+          />
+          <button
+            onClick={handleQuickAdd}
+            disabled={isSubmitting || !itemName.trim()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            data-testid="quick-add-button"
+          >
+            <Plus className="w-5 h-5" />
+            Add
+          </button>
+        </div>
+      </div>
 
       {/* Grocery List */}
       <GroceryList
@@ -150,18 +174,6 @@ export function GroceriesHome() {
       <ImageUploadDialog
         isOpen={showImageUpload}
         onClose={() => setShowImageUpload(false)}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
-        onConfirm={handleConfirmDelete}
-        title="Delete Item"
-        message="Are you sure you want to delete this grocery item? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        variant="danger"
       />
     </div>
   );
