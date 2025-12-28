@@ -1,7 +1,7 @@
 /**
  * Merchant Logo Utilities
  *
- * Utilities for fetching and caching merchant logos using Clearbit Logo API
+ * Utilities for fetching and caching merchant logos using Logo.dev API
  */
 
 /**
@@ -28,11 +28,19 @@ export function extractDomain(merchantName: string): string {
 }
 
 /**
- * Get logo URL from Clearbit
- * Returns the Clearbit logo URL for the given domain
+ * Get logo URL from Logo.dev
+ * Returns the Logo.dev URL for the given domain if token is available
  */
-export function getClearbitLogoUrl(domain: string): string {
-  return `https://logo.clearbit.com/${domain}`;
+export function getLogoUrl(domain: string): string | null {
+  const logoDevToken = import.meta.env.VITE_LOGODEV_TOKEN;
+
+  if (logoDevToken) {
+    // Use Logo.dev API with token
+    return `https://img.logo.dev/${domain}?token=${logoDevToken}`;
+  }
+
+  // No token available, skip logo fetching
+  return null;
 }
 
 /**
@@ -49,11 +57,16 @@ export async function validateLogoUrl(url: string): Promise<boolean> {
 
 /**
  * Fetch logo URL for a merchant
- * Attempts to get logo from Clearbit and validates it
+ * Returns null if no Logo.dev token is configured
  */
 export async function fetchMerchantLogo(merchantName: string): Promise<string | null> {
   const domain = extractDomain(merchantName);
-  const logoUrl = getClearbitLogoUrl(domain);
+  const logoUrl = getLogoUrl(domain);
+
+  // Skip fetching if no token is configured
+  if (!logoUrl) {
+    return null;
+  }
 
   const isValid = await validateLogoUrl(logoUrl);
   return isValid ? logoUrl : null;
