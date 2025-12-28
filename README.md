@@ -141,8 +141,8 @@ The deployment package includes:
 # Quick deployment
 ./deployment/install-pocketbase.sh
 ./deployment/build.sh
-sudo ./deployment/setup-services.sh
-sudo ./deployment/start.sh
+sudo make setup-services
+sudo make start
 ```
 
 ## 📚 Documentation

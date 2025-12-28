@@ -7,11 +7,11 @@ Wants=network-online.target
 Type=oneshot
 User=homeosuser
 WorkingDirectory=/path/to/homeOS
-ExecStart=/path/to/homeOS/deployment/auto-update.sh
+ExecStart=/path/to/homeOS/deployment/deploy.sh --auto
 
 # Environment
-Environment="AUTO_UPDATE_BRANCH=main"
-Environment="AUTO_UPDATE_LOG_FILE=/path/to/homeOS/auto-update.log"
+Environment="DEPLOY_BRANCH=main"
+Environment="DEPLOY_LOG_FILE=/path/to/homeOS/deployment.log"
 
 # Security hardening
 NoNewPrivileges=true

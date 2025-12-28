@@ -1,194 +1,164 @@
 #!/bin/bash
 set -e
 
-# HomeOS Automated Deployment Script
-# This script deploys the latest version of HomeOS with PocketBase migration support
+# HomeOS Unified Deployment Script
+# Handles deployment, updates, and migrations with automatic rollback on failure
+#
+# Usage:
+#   ./deploy.sh           - Deploy current code
+#   ./deploy.sh --auto    - Check for updates, deploy if available (for systemd timer)
+#   ./deploy.sh --force   - Force rebuild even if no changes detected
 
-# Colors for output
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Configuration
+AUTO_MODE=false
+FORCE_BUILD=false
 BRANCH="${DEPLOY_BRANCH:-main}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LOG_FILE="${DEPLOY_LOG_FILE:-$PROJECT_ROOT/deployment.log}"
 
-echo -e "${BLUE}🚀 HomeOS Deployment Script${NC}"
-echo "================================"
-echo ""
+# Parse arguments
+for arg in "$@"; do
+  case $arg in
+    --auto) AUTO_MODE=true ;;
+    --force) FORCE_BUILD=true ;;
+    *) echo "Unknown argument: $arg"; exit 1 ;;
+  esac
+done
 
-# Change to project directory
+# Logging function
+log() {
+  echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "${BLUE}🚀 HomeOS Deployment${NC}"
 cd "$PROJECT_ROOT"
 
 # Get current commit
 PREVIOUS_COMMIT=$(git rev-parse HEAD)
-echo -e "${BLUE}📌 Current commit:${NC} $PREVIOUS_COMMIT"
+log "${BLUE}Current:${NC} $PREVIOUS_COMMIT"
 
-# Pull latest changes
-echo -e "${BLUE}📥 Pulling latest changes from $BRANCH...${NC}"
-git fetch origin
-git reset --hard origin/$BRANCH
+# Check for updates if in auto mode
+if [ "$AUTO_MODE" = true ]; then
+  log "${BLUE}🔍 Checking for updates...${NC}"
+  git fetch origin "$BRANCH" 2>&1 | tee -a "$LOG_FILE"
 
-# Get new commit
-NEW_COMMIT=$(git rev-parse HEAD)
-echo -e "${BLUE}📌 New commit:${NC} $NEW_COMMIT"
+  REMOTE_COMMIT=$(git rev-parse origin/$BRANCH)
+  log "${BLUE}Remote:${NC} $REMOTE_COMMIT"
 
-# Check if already up to date
-if [ "$PREVIOUS_COMMIT" = "$NEW_COMMIT" ]; then
-  echo -e "${GREEN}✅ Already up to date${NC}"
-  exit 0
+  if [ "$PREVIOUS_COMMIT" = "$REMOTE_COMMIT" ]; then
+    log "${GREEN}✅ Already up to date${NC}"
+    exit 0
+  fi
+
+  log "${YELLOW}📥 Updates available${NC}"
+  git log --oneline --graph --color $PREVIOUS_COMMIT..$REMOTE_COMMIT | tee -a "$LOG_FILE"
+  git reset --hard origin/$BRANCH 2>&1 | tee -a "$LOG_FILE"
+  NEW_COMMIT=$REMOTE_COMMIT
+else
+  # Manual mode - deploy current code
+  NEW_COMMIT=$PREVIOUS_COMMIT
 fi
 
-# Show changes
-echo ""
-echo -e "${BLUE}📝 Changes:${NC}"
-git log --oneline --graph --color $PREVIOUS_COMMIT..$NEW_COMMIT
-echo ""
+# Detect what changed
+MIGRATIONS_CHANGED=false
+FRONTEND_CHANGED=false
+DEPS_CHANGED=false
 
-# Check for migrations
-MIGRATIONS_UPDATED=false
-if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "pb_migrations/"; then
-  echo -e "${YELLOW}🔄 New PocketBase migrations detected${NC}"
-  MIGRATIONS_UPDATED=true
-else
-  echo -e "${GREEN}✓ No new migrations${NC}"
+if [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ] || [ "$FORCE_BUILD" = true ]; then
+  if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "pb_migrations/"; then
+    MIGRATIONS_CHANGED=true
+    log "${YELLOW}🔄 Migrations detected${NC}"
+  fi
+
+  if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "frontend/"; then
+    FRONTEND_CHANGED=true
+    log "${YELLOW}🔄 Frontend changes detected${NC}"
+  fi
+
+  if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "frontend/package.json"; then
+    DEPS_CHANGED=true
+    log "${YELLOW}📦 Dependencies changed${NC}"
+  fi
 fi
 
-# Check for frontend changes
-FRONTEND_UPDATED=false
-if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "frontend/"; then
-  echo -e "${YELLOW}🔄 Frontend changes detected${NC}"
-  FRONTEND_UPDATED=true
-else
-  echo -e "${GREEN}✓ No frontend changes${NC}"
-fi
-
-echo ""
-
-# Install dependencies if package.json changed
-if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "frontend/package.json"; then
-  echo -e "${BLUE}📦 Installing dependencies...${NC}"
-  cd frontend
-  npm ci
-  cd ..
-else
-  echo -e "${GREEN}✓ No dependency changes${NC}"
+# Install dependencies if needed
+if [ "$DEPS_CHANGED" = true ]; then
+  log "${BLUE}📦 Installing dependencies...${NC}"
+  cd frontend && npm ci 2>&1 | tee -a "$LOG_FILE" && cd ..
 fi
 
 # Build frontend if needed
-if [ "$FRONTEND_UPDATED" = true ]; then
-  echo -e "${BLUE}🔨 Building frontend...${NC}"
-  cd frontend
-  npm run build
-  cd ..
-  echo -e "${GREEN}✅ Frontend built successfully${NC}"
+if [ "$FRONTEND_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
+  log "${BLUE}🔨 Building frontend...${NC}"
+  cd frontend && npm run build 2>&1 | tee -a "$LOG_FILE" && cd ..
 fi
 
-echo ""
-echo -e "${BLUE}🛑 Stopping services...${NC}"
-
 # Stop frontend
-sudo systemctl stop homeos-frontend
-echo -e "${GREEN}✓ Frontend stopped${NC}"
+log "${BLUE}🛑 Stopping frontend...${NC}"
+sudo systemctl stop homeos-frontend 2>&1 | tee -a "$LOG_FILE"
 
 # Handle PocketBase and migrations
-if [ "$MIGRATIONS_UPDATED" = true ]; then
-  echo -e "${BLUE}🗄️ Stopping PocketBase to apply migrations...${NC}"
-  sudo systemctl stop homeos-pocketbase
+if [ "$MIGRATIONS_CHANGED" = true ]; then
+  log "${BLUE}🗄️  Applying migrations...${NC}"
+  sudo systemctl stop homeos-pocketbase 2>&1 | tee -a "$LOG_FILE"
 
-  # Create backup
+  # Backup database
   BACKUP_DIR="$PROJECT_ROOT/pocketbase/pb_data/backups"
   mkdir -p "$BACKUP_DIR"
   BACKUP_FILE="$BACKUP_DIR/data.db.backup.$(date +%Y%m%d_%H%M%S)"
 
-  echo -e "${BLUE}💾 Creating database backup...${NC}"
+  log "${BLUE}💾 Creating backup...${NC}"
   cp "$PROJECT_ROOT/pocketbase/pb_data/data.db" "$BACKUP_FILE"
-  echo -e "${GREEN}✓ Backup created: $BACKUP_FILE${NC}"
 
-  # Start PocketBase (migrations will auto-apply on startup)
-  echo -e "${BLUE}🔄 Starting PocketBase (migrations will auto-apply)...${NC}"
-  sudo systemctl start homeos-pocketbase
-
-  # Wait for PocketBase to start
-  echo -e "${BLUE}⏳ Waiting for PocketBase to start and apply migrations...${NC}"
+  # Start PocketBase (auto-applies migrations)
+  sudo systemctl start homeos-pocketbase 2>&1 | tee -a "$LOG_FILE"
   sleep 5
 
-  # Check if PocketBase started successfully
+  # Verify PocketBase started
   if ! sudo systemctl is-active --quiet homeos-pocketbase; then
-    echo -e "${RED}❌ ERROR: PocketBase failed to start!${NC}"
-    echo ""
-    echo -e "${RED}📋 PocketBase logs:${NC}"
-    sudo journalctl -u homeos-pocketbase -n 50 --no-pager
-    echo ""
+    log "${RED}❌ Migration failed!${NC}"
+    sudo journalctl -u homeos-pocketbase -n 50 --no-pager | tee -a "$LOG_FILE"
 
-    # Rollback database
-    echo -e "${YELLOW}🔄 Rolling back database...${NC}"
+    # Rollback
+    log "${YELLOW}⏮️  Rolling back...${NC}"
     sudo systemctl stop homeos-pocketbase
     cp "$BACKUP_FILE" "$PROJECT_ROOT/pocketbase/pb_data/data.db"
+    git reset --hard $PREVIOUS_COMMIT 2>&1 | tee -a "$LOG_FILE"
+    sudo systemctl start homeos-pocketbase homeos-frontend
 
-    # Rollback code
-    echo -e "${YELLOW}🔙 Rolling back code to previous commit...${NC}"
-    git reset --hard $PREVIOUS_COMMIT
-
-    echo -e "${RED}❌ Deployment failed - rolled back to previous version${NC}"
+    log "${RED}❌ Deployment failed${NC}"
     exit 1
   fi
 
-  echo -e "${GREEN}✅ PocketBase started successfully with migrations applied${NC}"
-
-  # Clean up old backups (keep last 10)
-  echo -e "${BLUE}🧹 Cleaning up old backups (keeping last 10)...${NC}"
+  # Cleanup old backups (keep last 10)
   ls -t "$BACKUP_DIR"/data.db.backup.* 2>/dev/null | tail -n +11 | xargs -r rm
-  echo -e "${GREEN}✓ Old backups cleaned${NC}"
+  log "${GREEN}✅ Migrations applied${NC}"
 else
   # Just restart PocketBase
-  echo -e "${BLUE}🔄 Restarting PocketBase...${NC}"
-  sudo systemctl restart homeos-pocketbase
-  sleep 3
-
-  if ! sudo systemctl is-active --quiet homeos-pocketbase; then
-    echo -e "${RED}❌ ERROR: PocketBase failed to start!${NC}"
-    sudo journalctl -u homeos-pocketbase -n 30 --no-pager
-    exit 1
-  fi
-  echo -e "${GREEN}✓ PocketBase restarted${NC}"
+  sudo systemctl restart homeos-pocketbase 2>&1 | tee -a "$LOG_FILE"
+  sleep 2
 fi
 
 # Start frontend
-echo -e "${BLUE}▶️ Starting frontend...${NC}"
-sudo systemctl start homeos-frontend
+log "${BLUE}▶️  Starting frontend...${NC}"
+sudo systemctl start homeos-frontend 2>&1 | tee -a "$LOG_FILE"
+sleep 2
 
-# Wait and verify
-sleep 3
-
-echo ""
-echo -e "${BLUE}🔍 Verifying services...${NC}"
-
-# Check PocketBase
-if sudo systemctl is-active --quiet homeos-pocketbase; then
-  echo -e "${GREEN}✓ PocketBase is running${NC}"
-else
-  echo -e "${RED}❌ PocketBase is not running!${NC}"
-  sudo journalctl -u homeos-pocketbase -n 30 --no-pager
+# Verify services
+if ! sudo systemctl is-active --quiet homeos-pocketbase || \
+   ! sudo systemctl is-active --quiet homeos-frontend; then
+  log "${RED}❌ Service verification failed${NC}"
+  sudo systemctl status homeos-pocketbase homeos-frontend --no-pager | tee -a "$LOG_FILE"
   exit 1
 fi
 
-# Check Frontend
-if sudo systemctl is-active --quiet homeos-frontend; then
-  echo -e "${GREEN}✓ Frontend is running${NC}"
-else
-  echo -e "${RED}❌ Frontend is not running!${NC}"
-  sudo journalctl -u homeos-frontend -n 30 --no-pager
-  exit 1
-fi
-
-echo ""
-echo -e "${GREEN}✅ Deployment successful!${NC}"
-echo -e "${BLUE}📌 Deployed commit:${NC} $NEW_COMMIT"
-echo -e "${BLUE}🌐 Services:${NC}"
-echo "  - PocketBase: http://localhost:8090"
-echo "  - Frontend: http://localhost:3000"
-echo ""
-echo -e "${GREEN}🎉 Deployment complete!${NC}"
+log "${GREEN}✅ Deployment successful!${NC}"
+log "${BLUE}PocketBase:${NC} http://localhost:8090"
+log "${BLUE}Frontend:${NC} http://localhost:3000"
