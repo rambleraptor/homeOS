@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check build test test-migrations test-hooks test-e2e test-all dev preview audit format all ci
+.PHONY: help install clean lint type-check build test test-migrations test-hooks test-e2e test-all dev preview audit format all ci deploy setup-services start stop restart status logs
 
 # Default target
 .DEFAULT_GOAL := help
@@ -77,3 +77,44 @@ all: install lint type-check build ## Run install, lint, type-check, and build
 
 ci: lint type-check build ## Run CI checks (lint, type-check, build)
 	@echo "All CI checks passed!"
+
+# Deployment targets
+deploy: ## Deploy HomeOS (run as sudo)
+	@./deployment/deploy.sh
+
+deploy-force: ## Force deploy with rebuild
+	@./deployment/deploy.sh --force
+
+setup-services: ## Set up systemd services (requires sudo)
+	@sudo ./deployment/setup-services.sh
+
+setup-auto-update: ## Set up automatic updates (requires sudo)
+	@sudo ./deployment/setup-auto-update.sh
+
+start: ## Start HomeOS services (requires sudo)
+	@echo "Starting HomeOS services..."
+	@sudo systemctl start homeos-pocketbase homeos-frontend
+	@echo "✅ Services started"
+
+stop: ## Stop HomeOS services (requires sudo)
+	@echo "Stopping HomeOS services..."
+	@sudo systemctl stop homeos-pocketbase homeos-frontend
+	@echo "✅ Services stopped"
+
+restart: ## Restart HomeOS services (requires sudo)
+	@echo "Restarting HomeOS services..."
+	@sudo systemctl restart homeos-pocketbase homeos-frontend
+	@echo "✅ Services restarted"
+
+status: ## Check service status
+	@sudo systemctl status homeos-pocketbase homeos-frontend
+
+logs: ## Follow service logs
+	@echo "Following logs (Ctrl+C to stop)..."
+	@sudo journalctl -u homeos-pocketbase -u homeos-frontend -f
+
+logs-pocketbase: ## Follow PocketBase logs
+	@sudo journalctl -u homeos-pocketbase -f
+
+logs-frontend: ## Follow frontend logs
+	@sudo journalctl -u homeos-frontend -f

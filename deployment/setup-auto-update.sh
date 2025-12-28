@@ -33,11 +33,11 @@ Wants=network-online.target
 Type=oneshot
 User=$CURRENT_USER
 WorkingDirectory=$PROJECT_ROOT
-ExecStart=$PROJECT_ROOT/deployment/auto-update.sh
+ExecStart=$PROJECT_ROOT/deployment/deploy.sh --auto
 
 # Environment
-Environment="AUTO_UPDATE_BRANCH=main"
-Environment="AUTO_UPDATE_LOG_FILE=$PROJECT_ROOT/auto-update.log"
+Environment="DEPLOY_BRANCH=main"
+Environment="DEPLOY_LOG_FILE=$PROJECT_ROOT/deployment.log"
 
 # Security hardening
 NoNewPrivileges=true
@@ -86,7 +86,7 @@ echo "  sudo systemctl list-timers homeos-auto-update.timer"
 echo ""
 echo "To view auto-update logs:"
 echo "  sudo journalctl -u homeos-auto-update.service -f"
-echo "  tail -f $PROJECT_ROOT/auto-update.log"
+echo "  tail -f $PROJECT_ROOT/deployment.log"
 echo ""
 echo "To manually trigger an update check:"
 echo "  sudo systemctl start homeos-auto-update.service"
