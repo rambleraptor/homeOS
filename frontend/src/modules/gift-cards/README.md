@@ -5,6 +5,7 @@ The Gift Cards module allows you to manage and track household gift cards, organ
 ## Features
 
 - **Add Gift Cards**: Input gift card numbers, PINs, amounts, and merchant information
+- **Merchant Logos**: Automatically fetches and displays merchant logos for visual recognition
 - **Merchant View**: See all your gift cards organized by merchant with total balances
 - **Detailed View**: Click on a merchant to see individual gift cards with secure PIN/number display
 - **Edit & Delete**: Update gift card information or remove cards you've used
@@ -39,6 +40,38 @@ In the merchant detail view, you can:
 - **Edit cards**: Click the edit icon to update card information
 - **Delete cards**: Click the trash icon to remove a card
 
+## Merchant Logos
+
+The module automatically fetches and displays logos for merchants to make visual identification easier.
+
+### Configuration
+
+Merchant logos are fetched using **Logo.dev** API. To enable logo display:
+
+1. Sign up at [https://logo.dev](https://logo.dev) for a free API token
+2. Add the token to your `.env` file:
+   ```bash
+   VITE_LOGODEV_TOKEN=your_token_here
+   ```
+
+**Without a Logo.dev token**, logos will not be fetched and a default store icon will be displayed for all merchants.
+
+### How It Works
+
+- When you view your gift cards, the system automatically fetches logos for merchants
+- Logos are cached in the `merchants` collection to avoid repeated API calls
+- If a logo can't be found, a default store icon is displayed
+- The logo extraction tries to intelligently derive domains from merchant names (e.g., "Amazon Inc" → "amazon.com")
+
+### Merchant Collection Schema
+
+The `merchants` collection stores:
+- `name` (text, required): Merchant name
+- `domain` (text, optional): Extracted domain (e.g., "amazon.com")
+- `logo_url` (text, optional): URL to the merchant's logo
+
+**Migration**: `pb_migrations/1766907011_create_merchants_collection.js`
+
 ## Technical Details
 
 ### Database Schema
@@ -71,7 +104,9 @@ See the full schema documentation in `docs/POCKETBASE_SCHEMA.md`.
 ### Hooks
 
 - **useGiftCards**: Fetches all gift cards using React Query (sorted by ID descending)
-- **useMerchantSummaries**: Computes merchant summaries and statistics from gift cards
+- **useMerchants**: Fetches all merchants with their logo URLs
+- **useMerchantSummaries**: Computes merchant summaries and statistics from gift cards, including logos
+- **useMerchantLogo**: Mutation hook for fetching and caching merchant logos
 - **useCreateGiftCard**: Mutation hook for creating new gift cards
 - **useUpdateGiftCard**: Mutation hook for updating existing gift cards
 - **useDeleteGiftCard**: Mutation hook for deleting gift cards
