@@ -165,6 +165,8 @@ onBootstrap((e) => {
     }
   } catch (error) {
     console.error('❌ Error initializing grocery image processor:', error);
+  } finally {
+    e.next();
   }
 });
 
@@ -251,7 +253,7 @@ routerAdd('POST', '/api/groceries/categorize', (c) => {
       message: 'Error occurred, defaulted to Other',
     });
   }
-}, $apis.requireRecordAuth());
+});
 
 /**
  * API Endpoint: Process Grocery List Image
@@ -367,4 +369,4 @@ routerAdd('POST', '/api/groceries/process-image', (c) => {
       message: error.message,
     });
   }
-}, $apis.requireRecordAuth());
+});
