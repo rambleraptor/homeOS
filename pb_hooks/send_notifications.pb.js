@@ -294,6 +294,8 @@ onBootstrap((e) => {
 
   } catch (error) {
     console.error('❌ Error initializing people notifications:', error);
+  } finally {
+    e.next();
   }
 });
 
@@ -334,4 +336,4 @@ routerAdd('POST', '/api/send-test-notification', (c) => {
     console.error('Error in test notification endpoint:', error);
     return c.json(500, { error: error.message });
   }
-}, $apis.requireAdminAuth());
+});
