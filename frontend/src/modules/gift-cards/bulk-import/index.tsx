@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Gift Cards Bulk Import Component
  */

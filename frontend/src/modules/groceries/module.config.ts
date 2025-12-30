@@ -6,7 +6,6 @@
 
 import type { HomeModule } from '../types';
 import { ShoppingCart } from 'lucide-react';
-import { groceriesRoutes } from './routes';
 
 export const groceriesModule: HomeModule = {
   id: 'groceries',
@@ -14,7 +13,7 @@ export const groceriesModule: HomeModule = {
   description: 'Manage your grocery list with smart categorization',
   icon: ShoppingCart,
   basePath: '/groceries',
-  routes: groceriesRoutes,
+  routes: [{ path: '', index: true }],
   showInNav: true,
   navOrder: 3,
   enabled: true,

@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Sidebar Navigation Component
  *
@@ -5,8 +7,8 @@
  * based on user permissions and role.
  */
 
-
-import { NavLink } from 'react-router-dom';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Home, LogOut, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { getNavigationModules } from '../../modules/registry';
@@ -18,6 +20,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
 
   // Get modules available to current user
   const modules = user ? getNavigationModules() : [];
@@ -25,6 +28,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const handleLogout = () => {
     logout();
     onClose();
+  };
+
+  const isActive = (basePath: string) => {
+    return pathname === basePath || pathname.startsWith(basePath + '/');
   };
 
   return (
@@ -73,22 +80,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             ) : (
               modules.map((module) => {
                 const Icon = module.icon;
+                const active = isActive(module.basePath);
                 return (
-                  <NavLink
+                  <Link
                     key={module.id}
-                    to={module.basePath}
+                    href={module.basePath}
                     onClick={onClose}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-primary-100 text-primary-700'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`
-                    }
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                      active
+                        ? 'bg-primary-100 text-primary-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
                     <span className="font-medium">{module.name}</span>
-                  </NavLink>
+                  </Link>
                 );
               })
             )}

@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * People Bulk Import Component
  */

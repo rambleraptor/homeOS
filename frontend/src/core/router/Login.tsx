@@ -1,27 +1,32 @@
+'use client';
+
 /**
  * Login Page
  *
  * Authentication page for user login
  */
 
-import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../auth/useAuth';
 import { Home, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
-  const from = (location.state as { from?: Location })?.from?.pathname || '/dashboard';
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated && !isLoading) {
-    return <Navigate to={from} replace />;
-  }
+  useEffect(() => {
+    if (isAuthenticated && !isLoading) {
+      router.replace(decodeURIComponent(returnUrl));
+    }
+  }, [isAuthenticated, isLoading, router, returnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +41,11 @@ export function Login() {
       setLoading(false);
     }
   };
+
+  // Show nothing while redirecting
+  if (isAuthenticated && !isLoading) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 to-primary-800 px-4">

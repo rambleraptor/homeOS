@@ -8,7 +8,7 @@
 import PocketBase from 'pocketbase';
 import type { User } from '../auth/types';
 
-const PB_URL = import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090';
+const PB_URL = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090';
 
 /**
  * Typed PocketBase client with User type

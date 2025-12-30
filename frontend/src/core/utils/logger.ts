@@ -13,7 +13,7 @@ interface LogContext {
 }
 
 class Logger {
-  private isDevelopment = import.meta.env.DEV;
+  private isDevelopment = process.env.NODE_ENV !== 'production';
 
   private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString();

@@ -1,11 +1,13 @@
+'use client';
+
 /**
  * Dashboard Home Component
  *
  * Home screen showing important information: unread notifications and upcoming events
  */
 
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/core/auth/useAuth';
-import { useNavigate } from 'react-router-dom';
 import { Bell, Users, ArrowRight, Loader2 } from 'lucide-react';
 import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
 import { useUpcomingPeople } from '../hooks/useUpcomingPeople';
@@ -13,7 +15,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 
 export function DashboardHome() {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: notifications, isLoading: notificationsLoading } = useUnreadNotifications();
   const { data: upcomingPeople, isLoading: peopleLoading } = useUpcomingPeople();
 
@@ -64,7 +66,7 @@ export function DashboardHome() {
                     className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                     onClick={() => {
                       if (notification.person_id) {
-                        navigate('/people');
+                        router.push('/people');
                       }
                     }}
                   >
@@ -106,7 +108,7 @@ export function DashboardHome() {
                 </h2>
               </div>
               <button
-                onClick={() => navigate('/people')}
+                onClick={() => router.push('/people')}
                 className="text-sm text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
               >
                 View all
@@ -131,7 +133,7 @@ export function DashboardHome() {
                     <div
                       key={`${person.id}-${type}`}
                       className="p-4 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors cursor-pointer"
-                      onClick={() => navigate('/people')}
+                      onClick={() => router.push('/people')}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">

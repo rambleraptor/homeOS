@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Gift Card Home Component
  *
@@ -5,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Plus, Gift, Loader2, AlertCircle, Upload } from 'lucide-react';
 import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
 import { useCreateGiftCard } from '../hooks/useCreateGiftCard';
@@ -21,7 +23,7 @@ import type { GiftCard, GiftCardFormData } from '../types';
 type View = 'list' | 'detail' | 'form';
 
 export function GiftCardHome() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [view, setView] = useState<View>('list');
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
@@ -131,7 +133,7 @@ export function GiftCardHome() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => navigate('/gift-cards/import')}
+                onClick={() => router.push('/gift-cards/import')}
                 data-testid="import-gift-cards-button"
                 className="flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-900 rounded-lg font-medium transition-colors shadow-md"
               >

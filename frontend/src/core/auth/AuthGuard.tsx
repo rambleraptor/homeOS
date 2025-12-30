@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * AuthGuard Component
  *
@@ -5,8 +7,8 @@
  * Redirects unauthenticated users to login page.
  */
 
-
-import { Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from './useAuth';
 
 interface AuthGuardProps {
@@ -29,7 +31,16 @@ export function AuthGuard({
   showLoading = true,
 }: AuthGuardProps) {
   const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      // Save the location they were trying to access via query param
+      const returnUrl = encodeURIComponent(pathname);
+      router.replace(`${redirectTo}?returnUrl=${returnUrl}`);
+    }
+  }, [isLoading, isAuthenticated, router, pathname, redirectTo]);
 
   if (isLoading) {
     if (!showLoading) return null;
@@ -45,8 +56,8 @@ export function AuthGuard({
   }
 
   if (!isAuthenticated) {
-    // Save the location they were trying to access
-    return <Navigate to={redirectTo} state={{ from: location }} replace />;
+    // Return null while redirect is happening
+    return null;
   }
 
   return <>{children}</>;

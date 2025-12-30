@@ -7,7 +7,6 @@
 
 import { Settings } from 'lucide-react';
 import type { HomeModule } from '../types';
-import { settingsRoutes } from './routes';
 
 export const settingsModule: HomeModule = {
   id: 'settings',
@@ -15,7 +14,7 @@ export const settingsModule: HomeModule = {
   description: 'Manage your preferences and notifications',
   icon: Settings,
   basePath: '/settings',
-  routes: settingsRoutes,
+  routes: [{ path: '', index: true }],
   showInNav: true,
   navOrder: 100,
   enabled: true,

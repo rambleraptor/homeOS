@@ -1,5 +1,7 @@
+'use client';
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Users, Cake, Heart, Plus, Upload, Search } from 'lucide-react';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';
@@ -19,7 +21,7 @@ import { PersonCard } from './PersonCard';
 import type { Person, PersonFormData } from '../types';
 
 export function PeopleHome() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: people, isLoading } = usePeople();
   const { data: stats } = usePeopleStats();
   const createPerson = useCreatePerson();
@@ -142,7 +144,7 @@ export function PeopleHome() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => navigate('/people/import')}>
+          <Button variant="secondary" onClick={() => router.push('/people/import')}>
             <Upload className="w-4 h-4 mr-2" />
             Import
           </Button>

@@ -4,12 +4,12 @@
 
 import { logger } from './logger';
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
 if (!VAPID_PUBLIC_KEY) {
   logger.error(
-    'VITE_VAPID_PUBLIC_KEY is not set. Web push notifications will not work. ' +
-      'Please set this environment variable in your .env file. ' +
+    'NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set. Web push notifications will not work. ' +
+      'Please set this environment variable in your .env.local file. ' +
       'You can generate VAPID keys using: npx web-push generate-vapid-keys'
   );
 }

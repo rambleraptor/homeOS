@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Merchant Detail Component
  *
