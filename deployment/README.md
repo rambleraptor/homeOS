@@ -124,7 +124,27 @@ git reset --hard HEAD~1
 sudo systemctl start homeos-pocketbase homeos-frontend
 ```
 
-## Tailscale Access (Optional)
+## Remote Access Options
+
+### Option 1: Cloudflare Tunnels (Recommended for Public Access)
+
+Expose HomeOS to the internet securely with Cloudflare Tunnels:
+
+**Benefits:**
+- ✅ No port forwarding required
+- ✅ Built-in DDoS protection
+- ✅ Free SSL/TLS certificates
+- ✅ Works behind NAT/CGNAT
+- ✅ Zero trust security with Cloudflare Access
+
+**Quick setup:**
+```bash
+./deployment/setup-cloudflare-tunnel.sh
+```
+
+See the complete guide: **[Cloudflare Tunnels Setup](CLOUDFLARE_TUNNELS.md)**
+
+### Option 2: Tailscale (Recommended for Private Access)
 
 Access HomeOS from anywhere on your Tailscale network:
 
@@ -146,6 +166,8 @@ sudo make restart
 # 5. Access from any Tailscale device
 http://YOUR_TAILSCALE_IP:3000
 ```
+
+**Pro tip:** Use both! Cloudflare Tunnels for public access and Tailscale for admin tasks.
 
 ## Configuration
 

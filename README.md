@@ -124,15 +124,18 @@ Now you can log in!
 
 ## 🚀 Production Deployment
 
-For deploying HomeOS on a local machine (accessible via Tailscale), see the comprehensive deployment guide:
+Deploy HomeOS with secure remote access:
 
 **[📖 Deployment Guide](deployment/README.md)** - Complete deployment instructions
+
+**[🌐 Cloudflare Tunnels Setup](deployment/CLOUDFLARE_TUNNELS.md)** - Secure public access (no port forwarding!)
 
 **[⚡ Quick Start](deployment/QUICKSTART.md)** - Get running in 5 minutes
 
 The deployment package includes:
 - Scripts for installing PocketBase and building the frontend
 - Systemd service configurations for automatic startup
+- Cloudflare Tunnels integration for secure public access
 - Sample production environment files
 - Management scripts (start, stop, restart, update, status)
 - Detailed troubleshooting guide
@@ -143,12 +146,17 @@ The deployment package includes:
 ./deployment/build.sh
 sudo make setup-services
 sudo make start
+
+# Optional: Set up Cloudflare Tunnel for public access
+./deployment/setup-cloudflare-tunnel.sh
 ```
 
 ## 📚 Documentation
 
 - [**PocketBase Schema**](docs/POCKETBASE_SCHEMA.md) - Database structure and API rules
 - [**Architecture**](PROJECT_STRUCTURE.md) - File structure and design decisions
+- [**Cloudflare Tunnels**](deployment/CLOUDFLARE_TUNNELS.md) - Secure public access setup
+- [**Deployment Guide**](deployment/README.md) - Production deployment instructions
 - [**Module Guide**](docs/MODULE_GUIDE.md) - How to create new modules *(coming soon)*
 
 ## 🧩 Creating Your First Module
