@@ -10,7 +10,6 @@ import { Modal } from '@/shared/components/Modal';
 import { Spinner } from '@/shared/components/Spinner';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { useToast } from '@/shared/components/ToastProvider';
-import { getNextOccurrence, isUpcoming } from '@/shared/utils/dateUtils';
 import { usePeople } from '../hooks/usePeople';
 import { useCreatePerson } from '../hooks/useCreatePerson';
 import { useUpdatePerson } from '../hooks/useUpdatePerson';
@@ -94,23 +93,6 @@ export function PeopleHome() {
     }
   };
 
-  const getUpcomingPeople = () => {
-    if (!people) return [];
-
-    return people
-      .filter((person) => {
-        const hasUpcomingBirthday = person.birthday && isUpcoming(new Date(person.birthday), 30);
-        const hasUpcomingAnniversary = person.anniversary && isUpcoming(new Date(person.anniversary), 30);
-        return hasUpcomingBirthday || hasUpcomingAnniversary;
-      })
-      .sort((a, b) => {
-        const nextA = getNextOccurrence(a.birthday ? new Date(a.birthday) : new Date(a.anniversary!));
-        const nextB = getNextOccurrence(b.birthday ? new Date(b.birthday) : new Date(b.anniversary!));
-        return nextA.getTime() - nextB.getTime();
-      });
-  };
-
-  const upcomingPeople = getUpcomingPeople();
 
   const filteredPeople = people?.filter((person) => {
     if (!nameFilter.trim()) return true;
@@ -200,30 +182,6 @@ export function PeopleHome() {
           </Card>
         </div>
       )}
-
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Upcoming (Next 30 Days)
-        </h2>
-        {upcomingPeople.length === 0 ? (
-          <Card>
-            <p className="text-center text-gray-600 py-8">
-              No upcoming birthdays or anniversaries in the next 30 days
-            </p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {upcomingPeople.map((person) => (
-              <PersonCard
-                key={person.id}
-                person={person}
-                onEdit={setEditingPerson}
-                onDelete={handleDeleteClick}
-              />
-            ))}
-          </div>
-        )}
-      </div>
 
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
