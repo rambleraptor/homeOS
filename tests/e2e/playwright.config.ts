@@ -80,6 +80,8 @@ export default defineConfig({
       env: {
         // Point frontend to test PocketBase instance on port 8092
         NEXT_PUBLIC_POCKETBASE_URL: 'http://127.0.0.1:8092',
+        // Disable Next.js dev overlay to prevent it from blocking test interactions
+        __NEXT_DISABLE_OVERLAY: '1',
       },
     },
   ],
