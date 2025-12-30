@@ -152,7 +152,7 @@ export function getUpcomingEvents(
   const futureDate = new Date(now);
   futureDate.setDate(now.getDate() + days);
 
-  if (birthday) {
+  if (birthday && birthday.trim() !== '') {
     const birthdayDate = new Date(birthday);
     const nextBirthday = getNextOccurrence(birthdayDate);
     if (nextBirthday >= now && nextBirthday <= futureDate) {
@@ -160,7 +160,7 @@ export function getUpcomingEvents(
     }
   }
 
-  if (anniversary) {
+  if (anniversary && anniversary.trim() !== '') {
     const anniversaryDate = new Date(anniversary);
     const nextAnniversary = getNextOccurrence(anniversaryDate);
     if (nextAnniversary >= now && nextAnniversary <= futureDate) {
