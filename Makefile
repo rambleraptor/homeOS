@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check build test test-migrations test-hooks test-e2e test-all dev preview audit format all ci deploy setup-services start stop restart status logs
+.PHONY: help install clean lint type-check build test test-migrations test-hooks test-e2e test-all dev start audit format all ci deploy setup-services start-services stop restart status logs
 
 # Default target
 .DEFAULT_GOAL := help
@@ -17,7 +17,7 @@ install: ## Install all dependencies
 
 clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
-	rm -rf $(FRONTEND_DIR)/dist
+	rm -rf $(FRONTEND_DIR)/.next
 	rm -rf $(FRONTEND_DIR)/node_modules
 	@echo "Cleaning migration test artifacts..."
 	cd tests/migrations && npm run clean 2>/dev/null || true
@@ -38,9 +38,9 @@ dev: ## Start development server
 	@echo "Starting development server..."
 	cd $(FRONTEND_DIR) && npm run dev
 
-preview: ## Preview production build
-	@echo "Previewing production build..."
-	cd $(FRONTEND_DIR) && npm run preview
+start: ## Start production server
+	@echo "Starting production server..."
+	cd $(FRONTEND_DIR) && npm run start
 
 test: ## Run frontend tests with Vitest
 	@echo "Running frontend tests..."
@@ -91,7 +91,7 @@ setup-services: ## Set up systemd services (requires sudo)
 setup-auto-update: ## Set up automatic updates (requires sudo)
 	@sudo ./deployment/setup-auto-update.sh
 
-start: ## Start HomeOS services (requires sudo)
+start-services: ## Start HomeOS services (requires sudo)
 	@echo "Starting HomeOS services..."
 	@sudo systemctl start homeos-pocketbase homeos-frontend
 	@echo "✅ Services started"

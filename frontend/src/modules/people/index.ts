@@ -5,7 +5,6 @@
  */
 
 export { peopleModule } from './module.config';
-export { peopleRoutes } from './routes';
 export type {
   Person,
   PersonEventType,

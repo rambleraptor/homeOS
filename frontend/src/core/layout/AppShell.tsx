@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * AppShell Component
  *
@@ -6,12 +8,15 @@
  */
 
 import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { AuthGuard } from '../auth/AuthGuard';
 
-export function AppShell() {
+interface AppShellProps {
+  children: React.ReactNode;
+}
+
+export function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
@@ -31,7 +36,7 @@ export function AppShell() {
           {/* Page content */}
           <main className="flex-1 overflow-y-auto">
             <div className="container mx-auto p-4 lg:p-6 max-w-7xl">
-              <Outlet />
+              {children}
             </div>
           </main>
         </div>

@@ -80,22 +80,22 @@ class ModuleRegistryImpl implements ModuleRegistry {
     const ids = new Set<string>();
     const paths = new Set<string>();
 
-    for (const module of this.modules) {
-      if (ids.has(module.id)) {
-        logger.warn(`Duplicate module ID detected: ${module.id}`, { moduleId: module.id });
+    for (const mod of this.modules) {
+      if (ids.has(mod.id)) {
+        logger.warn(`Duplicate module ID detected: ${mod.id}`, { moduleId: mod.id });
       }
-      ids.add(module.id);
+      ids.add(mod.id);
 
-      if (paths.has(module.basePath)) {
-        logger.warn(`Duplicate base path detected: ${module.basePath}`, { basePath: module.basePath });
+      if (paths.has(mod.basePath)) {
+        logger.warn(`Duplicate base path detected: ${mod.basePath}`, { basePath: mod.basePath });
       }
-      paths.add(module.basePath);
+      paths.add(mod.basePath);
 
       // Validate base path starts with /
-      if (!module.basePath.startsWith('/')) {
-        logger.warn(`Module "${module.id}" base path should start with /`, {
-          moduleId: module.id,
-          basePath: module.basePath
+      if (!mod.basePath.startsWith('/')) {
+        logger.warn(`Module "${mod.id}" base path should start with /`, {
+          moduleId: mod.id,
+          basePath: mod.basePath
         });
       }
     }

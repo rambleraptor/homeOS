@@ -7,7 +7,6 @@
 
 import { Users } from 'lucide-react';
 import type { HomeModule } from '../types';
-import { peopleRoutes } from './routes';
 
 export const peopleModule: HomeModule = {
   id: 'people',
@@ -15,7 +14,10 @@ export const peopleModule: HomeModule = {
   description: 'Manage contact information and important dates for people you know',
   icon: Users,
   basePath: '/people',
-  routes: peopleRoutes,
+  routes: [
+    { path: '', index: true },
+    { path: 'import' },
+  ],
   showInNav: true,
   navOrder: 3,
   enabled: true,

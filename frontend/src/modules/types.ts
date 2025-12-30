@@ -5,8 +5,24 @@
  * All modules registered in the system must implement the HomeModule interface.
  */
 
-import type { RouteObject } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
+
+/**
+ * Route definition for Next.js App Router
+ * Each route maps to a page under app/(app)/[basePath]/...
+ */
+export interface ModuleRoute {
+  /**
+   * Path relative to the module's basePath
+   * Empty string for the index route
+   */
+  path: string;
+
+  /**
+   * Whether this is the index route
+   */
+  index?: boolean;
+}
 
 /**
  * Core Module Configuration
@@ -42,10 +58,10 @@ export interface HomeModule {
   basePath: string;
 
   /**
-   * React Router route definitions for this module
-   * These will be automatically integrated into the main router
+   * Route definitions for this module
+   * Routes are now defined by the Next.js App Router file structure
    */
-  routes: RouteObject[];
+  routes: ModuleRoute[];
 
   /**
    * Whether this module should appear in the main navigation

@@ -13,7 +13,7 @@ import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
 const defaultQueryOptions: DefaultOptions = {
   queries: {
     // Refetch on window focus in development, not in production
-    refetchOnWindowFocus: import.meta.env.DEV,
+    refetchOnWindowFocus: process.env.NODE_ENV !== 'production',
 
     // Retry failed queries 1 time
     retry: 1,

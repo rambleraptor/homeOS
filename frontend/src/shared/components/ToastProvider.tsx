@@ -1,4 +1,5 @@
-/* eslint-disable react-refresh/only-export-components */
+'use client';
+
 import { createContext, useContext, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { toast as sonnerToast } from 'sonner';

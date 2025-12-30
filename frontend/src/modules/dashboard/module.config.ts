@@ -5,16 +5,8 @@
  * Displays welcome message, statistics, and getting started guide.
  */
 
-/**
- * Dashboard Module Configuration
- *
- * This file defines the Dashboard module for HomeOS.
- * It demonstrates the pattern that all modules should follow.
- */
-
 import type { HomeModule } from '../types';
 import { LayoutDashboard } from 'lucide-react';
-import { dashboardRoutes } from './routes';
 
 export const dashboardModule: HomeModule = {
   id: 'dashboard',
@@ -22,8 +14,8 @@ export const dashboardModule: HomeModule = {
   description: 'Overview of your HomeOS system',
   icon: LayoutDashboard,
   basePath: '/dashboard',
-  routes: dashboardRoutes,
+  routes: [{ path: '', index: true }],
   showInNav: true,
-  navOrder: 1, // First item in navigation
+  navOrder: 1,
   enabled: true,
 };

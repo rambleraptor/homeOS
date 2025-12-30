@@ -1,12 +1,13 @@
+'use client';
+
 /**
  * Header Component
  *
  * Top navigation bar with menu toggle and breadcrumbs
  */
 
-
+import { useRouter } from 'next/navigation';
 import { Menu, Bell } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useNotificationStats } from '../../modules/notifications/hooks/useNotificationStats';
 
 interface HeaderProps {
@@ -14,11 +15,11 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { data: stats } = useNotificationStats();
 
   const handleNotificationsClick = () => {
-    navigate('/notifications');
+    router.push('/notifications');
   };
 
   return (

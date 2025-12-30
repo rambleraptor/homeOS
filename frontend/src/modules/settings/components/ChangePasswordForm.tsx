@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { Card } from '@/shared/components/Card';

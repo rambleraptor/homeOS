@@ -1,3 +1,5 @@
+'use client';
+
 import { Cake, Heart, Edit, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@/shared/components/Card';
 import { Button } from '@/shared/components/Button';

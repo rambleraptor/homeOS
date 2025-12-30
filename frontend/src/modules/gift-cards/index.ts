@@ -5,7 +5,6 @@
  */
 
 export { giftCardsModule } from './module.config';
-export { giftCardRoutes } from './routes';
 export type {
   GiftCard,
   GiftCardFormData,
