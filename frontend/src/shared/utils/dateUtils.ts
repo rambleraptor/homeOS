@@ -2,6 +2,21 @@
  * Date formatting and manipulation utilities
  */
 
+/**
+ * Parse a date string safely, avoiding timezone issues
+ * PocketBase returns dates in "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS.sssZ" format
+ * This function extracts the date portion and creates a Date in local time
+ * @param dateString Date string from PocketBase
+ * @returns Date object in local time
+ */
+function parseDateString(dateString: string): Date {
+  // Extract just the date portion (YYYY-MM-DD)
+  const datePortion = dateString.substring(0, 10);
+  const [year, month, day] = datePortion.split('-').map(Number);
+  // Create date in local time (month is 0-indexed)
+  return new Date(year, month - 1, day);
+}
+
 export function formatDate(dateString: string, options?: Intl.DateTimeFormatOptions): string {
   const date = new Date(dateString);
   const defaultOptions: Intl.DateTimeFormatOptions = {
@@ -153,7 +168,7 @@ export function getUpcomingEvents(
   futureDate.setDate(now.getDate() + days);
 
   if (birthday && birthday.trim() !== '') {
-    const birthdayDate = new Date(birthday);
+    const birthdayDate = parseDateString(birthday);
     const nextBirthday = getNextOccurrence(birthdayDate);
     if (nextBirthday >= now && nextBirthday <= futureDate) {
       events.push({ type: 'Birthday', date: nextBirthday });
@@ -161,7 +176,7 @@ export function getUpcomingEvents(
   }
 
   if (anniversary && anniversary.trim() !== '') {
-    const anniversaryDate = new Date(anniversary);
+    const anniversaryDate = parseDateString(anniversary);
     const nextAnniversary = getNextOccurrence(anniversaryDate);
     if (nextAnniversary >= now && nextAnniversary <= futureDate) {
       events.push({ type: 'Anniversary', date: nextAnniversary });
