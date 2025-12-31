@@ -98,7 +98,7 @@ describe('GiftCardForm', () => {
 
     renderWithToast(<GiftCardForm onSubmit={onSubmit} onCancel={onCancel} />);
 
-    const cancelButton = screen.getByRole('button', { name: '' }); // Cancel button has X icon, no text
+    const cancelButton = screen.getByRole('button', { name: 'Cancel' }); // Cancel button has X icon with screen reader label
     await user.click(cancelButton);
 
     expect(onCancel).toHaveBeenCalledTimes(1);
