@@ -42,11 +42,18 @@ async function verifyAuth(request: NextRequest) {
   const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090');
 
   try {
+    // Load the token into authStore
     pb.authStore.save(token);
-    // Verify the token is valid
+
+    // Verify the token is structurally valid and not expired
     if (!pb.authStore.isValid) {
       return null;
     }
+
+    // Actually verify the token by making an authenticated request
+    // This will throw if the token is invalid
+    await pb.collection('users').authRefresh();
+
     return pb.authStore.model;
   } catch (error) {
     console.error('Auth verification failed:', error);
@@ -59,7 +66,7 @@ async function verifyAuth(request: NextRequest) {
  */
 async function categorizeGroceryItem(itemName: string, genAI: GoogleGenerativeAI): Promise<GroceryCategory> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `You are a grocery store categorization assistant. Given a grocery item name, categorize it into one of these categories:
 

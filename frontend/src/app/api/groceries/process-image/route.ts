@@ -47,11 +47,18 @@ async function verifyAuth(request: NextRequest) {
   const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090');
 
   try {
+    // Load the token into authStore
     pb.authStore.save(token);
-    // Verify the token is valid
+
+    // Verify the token is structurally valid and not expired
     if (!pb.authStore.isValid) {
       return null;
     }
+
+    // Actually verify the token by making an authenticated request
+    // This will throw if the token is invalid
+    await pb.collection('users').authRefresh();
+
     return pb.authStore.model;
   } catch (error) {
     console.error('Auth verification failed:', error);
@@ -68,7 +75,7 @@ async function extractGroceryItemsFromImage(
   genAI: GoogleGenerativeAI
 ): Promise<string[]> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const imagePart = {
       inlineData: {
@@ -80,20 +87,23 @@ async function extractGroceryItemsFromImage(
     const prompt = `You are a grocery list reader. Analyze this image of a handwritten or printed grocery list and extract all the grocery items.
 
 Rules:
-- Extract ONLY the grocery item names
+- Extract grocery item names WITH quantities if they are specified
 - Return one item per line
-- Ignore quantities, checkmarks, or other annotations
+- Include quantities in natural format (e.g., "2 gallons milk", "3 lbs chicken breast", "1 bunch bananas")
+- If no quantity is specified, just include the item name
 - If an item is crossed out or checked, still include it
 - Clean up any messy handwriting to readable item names
+- Do not include checkmarks or other annotations
 - Do not include any other text, explanations, or formatting
 - If the image doesn't contain a grocery list, return an empty response
 
 Example output format:
-Milk
-Bread
-Eggs
-Chicken breast
-Lettuce`;
+2 gallons milk
+1 loaf bread
+1 dozen eggs
+3 lbs chicken breast
+Lettuce
+6 apples`;
 
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
@@ -126,7 +136,7 @@ async function categorizeGroceryItem(
   genAI: GoogleGenerativeAI
 ): Promise<GroceryCategory> {
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `You are a grocery store categorization assistant. Given a grocery item name, categorize it into one of these categories:
 
