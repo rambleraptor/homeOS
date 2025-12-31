@@ -31,11 +31,14 @@ export function GiftCardForm({
     merchant: initialData?.merchant || '',
     card_number: initialData?.card_number || '',
     pin: initialData?.pin || '',
-    amount: initialData?.amount || 0,
+    amount: initialData?.amount ?? 0,
     notes: initialData?.notes || '',
     front_image: null,
     back_image: null,
   });
+
+  // Track if amount has been set by user (to avoid showing 0 initially)
+  const [amountTouched, setAmountTouched] = useState(!!initialData?.amount);
 
   const [frontImagePreview, setFrontImagePreview] = useState<string | null>(
     initialData?.front_image
@@ -57,10 +60,19 @@ export function GiftCardForm({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'amount' ? parseFloat(value) || 0 : value,
-    }));
+
+    if (name === 'amount') {
+      setAmountTouched(true);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: parseFloat(value) || 0,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const handleImageChange = (
@@ -187,7 +199,7 @@ export function GiftCardForm({
             type="number"
             id="amount"
             name="amount"
-            value={formData.amount}
+            value={formData.amount === 0 && !amountTouched ? '' : formData.amount}
             onChange={handleChange}
             required
             min="0"
@@ -301,12 +313,12 @@ export function GiftCardForm({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pt-4">
+      <div className="flex gap-3 pt-6 border-t border-gray-200 mt-6">
         <button
           type="submit"
           disabled={isSubmitting}
           data-testid="gift-card-form-submit"
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors shadow-sm"
         >
           <Save className="w-4 h-4" />
           {isSubmitting ? 'Saving...' : initialData ? 'Update' : 'Add Card'}
@@ -316,9 +328,10 @@ export function GiftCardForm({
           onClick={onCancel}
           disabled={isSubmitting}
           data-testid="gift-card-form-cancel"
-          className="px-4 py-2 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-medium transition-colors disabled:opacity-50 shadow-sm"
         >
           <X className="w-4 h-4" />
+          <span className="sr-only">Cancel</span>
         </button>
       </div>
     </form>

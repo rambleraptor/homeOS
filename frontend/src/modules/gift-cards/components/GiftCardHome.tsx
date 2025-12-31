@@ -228,7 +228,7 @@ export function GiftCardHome() {
 
       {/* Form View */}
       {view === 'form' && (
-        <div className="max-w-2xl">
+        <div className="max-w-2xl mx-auto">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">
             {editingCard ? 'Edit Gift Card' : 'Add New Gift Card'}
           </h2>
