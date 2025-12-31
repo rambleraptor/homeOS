@@ -37,8 +37,8 @@ describe('PersonCard', () => {
     render(<PersonCard person={mockPerson} onEdit={onEdit} onDelete={onDelete} />);
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText(/June 20, 1990/)).toBeInTheDocument(); // Birthday
-    expect(screen.getByText(/October 25, 2015/)).toBeInTheDocument(); // Anniversary
+    expect(screen.getByText(/June 20/)).toBeInTheDocument(); // Birthday (no year for annual events)
+    expect(screen.getByText(/October 25/)).toBeInTheDocument(); // Anniversary (no year for annual events)
     expect(screen.getByText('123 Main St, Anytown, USA')).toBeInTheDocument(); // Address
   });
 
