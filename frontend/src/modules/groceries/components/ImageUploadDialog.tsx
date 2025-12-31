@@ -33,16 +33,27 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
+    // Validate file type - support standard image formats and HEIC/HEIF
+    const validImageTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/heic',
+      'image/heif',
+    ];
+
+    const isValidType = file.type.startsWith('image/') || validImageTypes.includes(file.type.toLowerCase());
+    if (!isValidType) {
       setFileError('Invalid file type. Please select an image.');
       return;
     }
 
-    // Validate file size (max 5MB)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    // Validate file size (max 20MB to support larger iPhone images)
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
     if (file.size > MAX_FILE_SIZE) {
-      setFileError('File too large. Maximum size is 5MB.');
+      setFileError('File too large. Maximum size is 20MB.');
       return;
     }
 
@@ -136,11 +147,11 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
             >
               <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
               <p className="text-gray-600 mb-1">Click to upload a grocery list image</p>
-              <p className="text-sm text-gray-500">Supports JPG, PNG (max 5MB)</p>
+              <p className="text-sm text-gray-500">Supports JPG, PNG, HEIC (max 20MB)</p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 onChange={handleFileSelect}
                 className="hidden"
                 data-testid="image-upload-input"
