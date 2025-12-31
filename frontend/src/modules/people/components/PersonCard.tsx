@@ -25,10 +25,10 @@ export function PersonCard({
     // Parse the date string to avoid timezone issues
     const [year, month, day] = datePortion.split('-').map(Number);
     const date = new Date(year, month - 1, day);
+    // Don't show year for annual events (birthdays and anniversaries)
     return date.toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
-      year: 'numeric',
     });
   };
 

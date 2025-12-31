@@ -9,19 +9,27 @@ export class LoginPage {
 
   async goto() {
     await this.page.goto('/login');
+    // Wait for the page to be fully loaded and hydrated
+    await this.page.waitForLoadState('networkidle');
   }
 
   async login(email: string, password: string) {
-    await this.page.getByLabel(/email/i).fill(email);
-    await this.page.getByLabel(/password/i).fill(password);
+    // Wait for the email field to be stable before interacting
+    const emailField = this.page.getByLabel(/email/i);
+    await emailField.waitFor({ state: 'visible' });
+    await emailField.fill(email);
+
+    const passwordField = this.page.getByLabel(/password/i);
+    await passwordField.waitFor({ state: 'visible' });
+    await passwordField.fill(password);
 
     // Click login button and wait for navigation or error
     const loginButton = this.page.getByRole('button', { name: /login|sign in/i });
     await loginButton.click();
 
-    // Wait a bit for the async login to complete
+    // Wait for the async login to complete
     // The page will either redirect (success) or show an error (failure)
-    await this.page.waitForTimeout(1000);
+    await this.page.waitForLoadState('networkidle');
   }
 
   async expectLoginError(message?: string | RegExp) {

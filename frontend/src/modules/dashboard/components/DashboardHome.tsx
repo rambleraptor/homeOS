@@ -3,20 +3,18 @@
 /**
  * Dashboard Home Component
  *
- * Home screen showing important information: unread notifications and upcoming events
+ * Home screen showing upcoming birthdays and anniversaries
  */
 
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/core/auth/useAuth';
-import { Bell, Users, ArrowRight, Loader2 } from 'lucide-react';
-import { useUnreadNotifications } from '../hooks/useUnreadNotifications';
+import { Users, ArrowRight, Loader2 } from 'lucide-react';
 import { useUpcomingPeople } from '../hooks/useUpcomingPeople';
-import { formatDistanceToNow, format } from 'date-fns';
+import { format } from 'date-fns';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const router = useRouter();
-  const { data: notifications, isLoading: notificationsLoading } = useUnreadNotifications();
   const { data: upcomingPeople, isLoading: peopleLoading } = useUpcomingPeople();
 
   return (
@@ -31,70 +29,8 @@ export function DashboardHome() {
         </p>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Unread Notifications Section */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Bell className="w-5 h-5 text-blue-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Notifications
-                </h2>
-                {notifications && notifications.length > 0 && (
-                  <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
-                    {notifications.length}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6">
-            {notificationsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
-              </div>
-            ) : notifications && notifications.length > 0 ? (
-              <div className="space-y-4">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className="p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
-                    onClick={() => {
-                      if (notification.person_id) {
-                        router.push('/people');
-                      }
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">
-                          {notification.title}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-600 line-clamp-2">
-                          {notification.message}
-                        </p>
-                        <p className="mt-2 text-xs text-gray-500">
-                          {formatDistanceToNow(new Date(notification.created), { addSuffix: true })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-gray-500">No unread notifications</p>
-              </div>
-            )}
-          </div>
-        </div>
-
+      {/* Main Content */}
+      <div className="max-w-3xl">
         {/* Upcoming Birthdays & Anniversaries Section */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200">
           <div className="p-6 border-b border-gray-200">
@@ -142,7 +78,7 @@ export function DashboardHome() {
                           </h3>
                           <div className="mt-2 flex items-center gap-2">
                             <span className="text-xs font-medium text-gray-700">
-                              {format(date, 'MMM dd, yyyy')}
+                              {format(date, 'MMM dd')}
                             </span>
                             <span className="text-xs text-gray-500">
                               {daysUntil === 0
