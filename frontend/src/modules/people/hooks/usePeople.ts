@@ -47,7 +47,26 @@ export function usePeople() {
       // Enrich with shared data (no async calls needed)
       const people: Person[] = peopleRecords.map((record) => {
         const sharedData = sharedDataByPersonA.get(record.id) || sharedDataByPersonB.get(record.id);
-        const address = sharedData?.address_id ? addressesById.get(sharedData.address_id) : undefined;
+
+        // Get addresses from both sources (primary + additional)
+        const addresses: Address[] = [];
+
+        if (sharedData) {
+          // 1. Get primary address from address_id
+          if (sharedData.address_id) {
+            const primaryAddress = addressesById.get(sharedData.address_id);
+            if (primaryAddress) {
+              addresses.push(primaryAddress);
+            }
+          }
+
+          // 2. Get additional addresses where shared_data_id matches
+          for (const address of allAddresses) {
+            if (address.shared_data_id === sharedData.id && address.id !== sharedData.address_id) {
+              addresses.push(address);
+            }
+          }
+        }
 
         // Find partner if shared data exists
         let partner: Person | undefined;
@@ -60,7 +79,7 @@ export function usePeople() {
           if (partnerRecord) {
             partner = {
               ...partnerRecord,
-              address,
+              addresses, // Partners share addresses
               anniversary: sharedData?.anniversary,
               partner: undefined, // Avoid circular reference
             };
@@ -69,7 +88,7 @@ export function usePeople() {
 
         return {
           ...record,
-          address,
+          addresses,
           anniversary: sharedData?.anniversary,
           partner,
         };
