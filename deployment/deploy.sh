@@ -122,8 +122,14 @@ if [ "$DEPS_CHANGED" = true ]; then
   cd "$PROJECT_ROOT"
 fi
 
+# Check if dist directory exists
+if [ ! -d "$PROJECT_ROOT/frontend/dist" ]; then
+  log "${YELLOW}⚠️  Frontend dist directory missing${NC}"
+  FRONTEND_CHANGED=true
+fi
+
 # Build frontend if needed
-if [ "$FRONTEND_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
+if [ "$FRONTEND_CHANGED" = true ] || [ "$DEPS_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
   log "${BLUE}🔨 Building frontend...${NC}"
   if ! cd frontend && npm run build 2>&1 | tee -a "$LOG_FILE"; then
     log "${RED}❌ Frontend build failed${NC}"
@@ -134,10 +140,6 @@ if [ "$FRONTEND_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
   fi
   cd "$PROJECT_ROOT"
 fi
-
-# Stop frontend
-log "${BLUE}🛑 Stopping frontend...${NC}"
-sudo systemctl stop homeos-frontend 2>&1 | tee -a "$LOG_FILE"
 
 # Handle PocketBase and migrations
 if [ "$MIGRATIONS_CHANGED" = true ]; then
@@ -176,15 +178,20 @@ if [ "$MIGRATIONS_CHANGED" = true ]; then
   ls -t "$BACKUP_DIR"/data.db.backup.* 2>/dev/null | tail -n +11 | xargs -r rm
   log "${GREEN}✅ Migrations applied${NC}"
 else
-  # Just restart PocketBase
-  sudo systemctl restart homeos-pocketbase 2>&1 | tee -a "$LOG_FILE"
-  sleep 2
+  # Restart PocketBase only if there were any changes
+  if [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ] || [ "$FORCE_BUILD" = true ]; then
+    log "${BLUE}🔄 Restarting PocketBase...${NC}"
+    sudo systemctl restart homeos-pocketbase 2>&1 | tee -a "$LOG_FILE"
+    sleep 2
+  fi
 fi
 
-# Start frontend
-log "${BLUE}▶️  Starting frontend...${NC}"
-sudo systemctl start homeos-frontend 2>&1 | tee -a "$LOG_FILE"
-sleep 2
+# Restart frontend only if it was rebuilt
+if [ "$FRONTEND_CHANGED" = true ] || [ "$DEPS_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
+  log "${BLUE}🔄 Restarting frontend...${NC}"
+  sudo systemctl restart homeos-frontend 2>&1 | tee -a "$LOG_FILE"
+  sleep 2
+fi
 
 # Verify services
 if ! sudo systemctl is-active --quiet homeos-pocketbase || \
