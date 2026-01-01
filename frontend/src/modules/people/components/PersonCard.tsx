@@ -79,9 +79,6 @@ export function PersonCard({
                 <Heart className="w-5 h-5 text-red-500" aria-label="Heart icon" />
                 <p className="text-sm text-gray-500">
                   {formatDate(person.anniversary)}
-                  {partner && (
-                    <span className="ml-1 text-xs text-gray-400">(shared)</span>
-                  )}
                 </p>
               </div>
             )}
@@ -96,9 +93,6 @@ export function PersonCard({
                     className="text-sm text-blue-500 hover:underline"
                   >
                     {addressString}
-                    {partner && (
-                      <span className="ml-1 text-xs text-gray-400">(shared)</span>
-                    )}
                   </a>
                 </div>
                 {person.address.wifi_network && (
