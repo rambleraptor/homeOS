@@ -139,6 +139,9 @@ if [ "$FRONTEND_CHANGED" = true ] || [ "$DEPS_CHANGED" = true ] || [ "$FORCE_BUI
     exit 1
   fi
   cd "$PROJECT_ROOT"
+  log "${GREEN}✅ Frontend build complete${NC}"
+else
+  log "${BLUE}⏭️  Skipping frontend build (no changes detected)${NC}"
 fi
 
 # Handle PocketBase and migrations
