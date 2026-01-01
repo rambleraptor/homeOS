@@ -93,6 +93,7 @@ FRONTEND_CHANGED=false
 DEPS_CHANGED=false
 
 if [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ] || [ "$FORCE_BUILD" = true ]; then
+  # Auto mode - check committed changes between commits
   if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "pb_migrations/"; then
     MIGRATIONS_CHANGED=true
     log "${YELLOW}🔄 Migrations detected${NC}"
@@ -106,6 +107,29 @@ if [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ] || [ "$FORCE_BUILD" = true ]; then
   if git diff --name-only $PREVIOUS_COMMIT..$NEW_COMMIT | grep -q "frontend/package.json"; then
     DEPS_CHANGED=true
     log "${YELLOW}📦 Dependencies changed${NC}"
+  fi
+elif [ "$AUTO_MODE" = false ]; then
+  # Manual mode - check for uncommitted changes in working directory
+  log "${BLUE}🔍 Checking for uncommitted changes...${NC}"
+
+  if git diff --name-only HEAD | grep -q "pb_migrations/" || \
+     git diff --cached --name-only | grep -q "pb_migrations/" || \
+     git ls-files --others --exclude-standard | grep -q "pb_migrations/"; then
+    MIGRATIONS_CHANGED=true
+    log "${YELLOW}🔄 Uncommitted migrations detected${NC}"
+  fi
+
+  if git diff --name-only HEAD | grep -q "frontend/" || \
+     git diff --cached --name-only | grep -q "frontend/" || \
+     git ls-files --others --exclude-standard | grep -q "frontend/"; then
+    FRONTEND_CHANGED=true
+    log "${YELLOW}🔄 Uncommitted frontend changes detected${NC}"
+  fi
+
+  if git diff --name-only HEAD | grep -q "frontend/package.json" || \
+     git diff --cached --name-only | grep -q "frontend/package.json"; then
+    DEPS_CHANGED=true
+    log "${YELLOW}📦 Uncommitted dependency changes detected${NC}"
   fi
 fi
 
