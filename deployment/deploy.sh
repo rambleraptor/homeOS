@@ -122,9 +122,9 @@ if [ "$DEPS_CHANGED" = true ]; then
   cd "$PROJECT_ROOT"
 fi
 
-# Check if dist directory exists
-if [ ! -d "$PROJECT_ROOT/frontend/dist" ]; then
-  log "${YELLOW}⚠️  Frontend dist directory missing${NC}"
+# Check if .next build directory exists (Next.js builds to .next, not dist)
+if [ ! -d "$PROJECT_ROOT/frontend/.next" ]; then
+  log "${YELLOW}⚠️  Frontend build directory (.next) missing${NC}"
   FRONTEND_CHANGED=true
 fi
 

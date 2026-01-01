@@ -21,7 +21,7 @@ fi
 echo "🔨 Building frontend..."
 npm run build
 
-echo "✅ Build complete! Frontend built to: frontend/dist/"
+echo "✅ Build complete! Frontend built to: frontend/.next/"
 echo ""
 echo "Next steps:"
 echo "  1. Set up PocketBase: ./deployment/install-pocketbase.sh"

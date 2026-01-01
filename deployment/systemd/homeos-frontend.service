@@ -7,7 +7,7 @@ Requires=homeos-pocketbase.service
 Type=simple
 User=homeosuser
 WorkingDirectory=/path/to/homeOS/frontend
-ExecStart=/usr/bin/npx serve -s dist -l 3000
+ExecStart=/usr/bin/npm start -- -p 3000
 Restart=on-failure
 RestartSec=5s
 
