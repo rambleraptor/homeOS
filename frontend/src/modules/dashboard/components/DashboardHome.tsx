@@ -11,18 +11,27 @@ import { useAuth } from '@/core/auth/useAuth';
 import { Users, ArrowRight, Loader2 } from 'lucide-react';
 import { useUpcomingPeople } from '../hooks/useUpcomingPeople';
 import { format } from 'date-fns';
+import { getTodaysHoliday } from '@/shared/utils/dateUtils';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const router = useRouter();
   const { data: upcomingPeople, isLoading: peopleLoading } = useUpcomingPeople();
+  const todaysHoliday = getTodaysHoliday();
+
+  const getGreeting = () => {
+    if (todaysHoliday) {
+      return todaysHoliday.message;
+    }
+    return user?.name ? `Welcome back, ${user.name}` : 'Welcome back';
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">
-          Welcome back, {user?.name || 'User'}
+          {getGreeting()}
         </h1>
         <p className="mt-2 text-gray-600">
           Here's what's happening

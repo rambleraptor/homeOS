@@ -193,3 +193,162 @@ export function getUpcomingEvents(
 
   return events.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
+
+/**
+ * Holiday type definition
+ */
+export interface Holiday {
+  name: string;
+  message: string;
+}
+
+/**
+ * Get the date for Easter Sunday using the Anonymous Gregorian algorithm
+ * @param year The year to calculate Easter for
+ * @returns Date object for Easter Sunday
+ */
+function getEasterDate(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-indexed
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+
+  return new Date(year, month, day);
+}
+
+/**
+ * Get the date for Mother's Day (2nd Sunday in May)
+ * @param year The year to calculate for
+ * @returns Date object for Mother's Day
+ */
+function getMothersDay(year: number): Date {
+  const firstDayOfMay = new Date(year, 4, 1); // May is month 4 (0-indexed)
+  const firstSunday = 1 + ((7 - firstDayOfMay.getDay()) % 7);
+  const secondSunday = firstSunday + 7;
+  return new Date(year, 4, secondSunday);
+}
+
+/**
+ * Get the date for Father's Day (3rd Sunday in June)
+ * @param year The year to calculate for
+ * @returns Date object for Father's Day
+ */
+function getFathersDay(year: number): Date {
+  const firstDayOfJune = new Date(year, 5, 1); // June is month 5 (0-indexed)
+  const firstSunday = 1 + ((7 - firstDayOfJune.getDay()) % 7);
+  const thirdSunday = firstSunday + 14;
+  return new Date(year, 5, thirdSunday);
+}
+
+/**
+ * Get the date for Thanksgiving (4th Thursday in November)
+ * @param year The year to calculate for
+ * @returns Date object for Thanksgiving
+ */
+function getThanksgiving(year: number): Date {
+  const firstDayOfNov = new Date(year, 10, 1); // November is month 10 (0-indexed)
+  const firstThursday = 1 + ((11 - firstDayOfNov.getDay()) % 7);
+  const fourthThursday = firstThursday + 21;
+  return new Date(year, 10, fourthThursday);
+}
+
+/**
+ * Get the date for Labor Day (1st Monday in September)
+ * @param year The year to calculate for
+ * @returns Date object for Labor Day
+ */
+function getLaborDay(year: number): Date {
+  const firstDayOfSept = new Date(year, 8, 1); // September is month 8 (0-indexed)
+  const firstMonday = 1 + ((8 - firstDayOfSept.getDay()) % 7);
+  return new Date(year, 8, firstMonday);
+}
+
+/**
+ * Get the date for Memorial Day (Last Monday in May)
+ * @param year The year to calculate for
+ * @returns Date object for Memorial Day
+ */
+function getMemorialDay(year: number): Date {
+  const lastDayOfMay = new Date(year, 5, 0); // Day 0 of June = last day of May
+  const lastMonday = lastDayOfMay.getDate() - ((lastDayOfMay.getDay() + 6) % 7);
+  return new Date(year, 4, lastMonday);
+}
+
+/**
+ * Check if a date matches today
+ * @param date The date to check
+ * @returns True if the date is today
+ */
+function isDateToday(date: Date): boolean {
+  const today = new Date();
+  return (
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+}
+
+/**
+ * Get today's holiday if there is one
+ * @returns Holiday object if today is a holiday, null otherwise
+ */
+export function getTodaysHoliday(): Holiday | null {
+  const today = new Date();
+  const month = today.getMonth(); // 0-indexed
+  const day = today.getDate();
+  const year = today.getFullYear();
+
+  // Fixed date holidays
+  const fixedHolidays: Record<string, Holiday> = {
+    '0-1': { name: "New Year's Day", message: "Happy New Year!" },
+    '1-14': { name: "Valentine's Day", message: "Happy Valentine's Day!" },
+    '2-17': { name: "St. Patrick's Day", message: "Happy St. Patrick's Day!" },
+    '6-4': { name: 'Independence Day', message: 'Happy 4th of July!' },
+    '9-31': { name: 'Halloween', message: 'Happy Halloween!' },
+    '11-24': { name: 'Christmas Eve', message: 'Merry Christmas Eve!' },
+    '11-25': { name: 'Christmas', message: 'Merry Christmas!' },
+    '11-31': { name: "New Year's Eve", message: "Happy New Year's Eve!" },
+  };
+
+  const key = `${month}-${day}`;
+  if (fixedHolidays[key]) {
+    return fixedHolidays[key];
+  }
+
+  // Variable date holidays
+  if (isDateToday(getEasterDate(year))) {
+    return { name: 'Easter', message: 'Happy Easter!' };
+  }
+
+  if (isDateToday(getMothersDay(year))) {
+    return { name: "Mother's Day", message: "Happy Mother's Day!" };
+  }
+
+  if (isDateToday(getFathersDay(year))) {
+    return { name: "Father's Day", message: "Happy Father's Day!" };
+  }
+
+  if (isDateToday(getMemorialDay(year))) {
+    return { name: 'Memorial Day', message: 'Happy Memorial Day!' };
+  }
+
+  if (isDateToday(getLaborDay(year))) {
+    return { name: 'Labor Day', message: 'Happy Labor Day!' };
+  }
+
+  if (isDateToday(getThanksgiving(year))) {
+    return { name: 'Thanksgiving', message: 'Happy Thanksgiving!' };
+  }
+
+  return null;
+}
