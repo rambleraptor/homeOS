@@ -147,7 +147,7 @@ async function setupPocketBase() {
 
   // Create data directory and copy migrations
   await mkdir(PB_DATA_DIR, { recursive: true });
-  const migrationsDir = join(PB_DATA_DIR, 'migrations');
+  const migrationsDir = join(PB_DATA_DIR, 'pb_migrations');
 
   console.log('📋 Copying migrations...');
   cpSync(MIGRATIONS_SOURCE, migrationsDir, { recursive: true });
@@ -186,7 +186,13 @@ async function startPocketBase() {
     pb.stdout.on('data', (data) => {
       const text = data.toString();
       output += text;
-      console.log(text.trim());
+
+      // Highlight migration-related output
+      if (text.includes('migration') || text.includes('Migration')) {
+        console.log('📝 ' + text.trim());
+      } else {
+        console.log(text.trim());
+      }
 
       // Check if server is ready
       if (text.includes('Server started') || text.includes(`http://127.0.0.1:${TEST_PORT}`)) {
