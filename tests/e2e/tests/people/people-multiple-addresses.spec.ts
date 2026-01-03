@@ -64,7 +64,8 @@ test.describe('People Multiple Addresses', () => {
     // Get primary address
     const primaryAddress = await userPocketbase.collection('addresses').getOne(sharedData.address_id);
     expect(primaryAddress.line1).toBe('123 Main St');
-    expect(primaryAddress.shared_data_id).toBeUndefined(); // Primary address should not have shared_data_id
+    // PocketBase returns empty string for unset optional fields
+    expect(primaryAddress.shared_data_id || undefined).toBeUndefined(); // Primary address should not have shared_data_id
 
     // Get additional addresses
     const additionalAddresses = await userPocketbase.collection('addresses').getFullList({
