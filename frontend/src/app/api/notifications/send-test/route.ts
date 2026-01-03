@@ -4,7 +4,7 @@
  * POST /api/notifications/send-test
  * Returns: { success: boolean, message: string, timestamp: string }
  *
- * Requires admin authentication (PocketBase admin token in Authorization header)
+ * Requires user authentication (PocketBase token in Authorization header)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,37 +13,44 @@ import PocketBase from 'pocketbase';
 import { checkAndSendPeopleNotifications } from '../utils/notification-sender';
 
 /**
- * Verify admin authentication using PocketBase token
+ * Verify user authentication using PocketBase token
  */
-async function verifyAdminAuth(request: NextRequest) {
+async function verifyAuth(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (!authHeader) {
-    return false;
+    return null;
   }
 
   const token = authHeader.replace('Bearer ', '');
   const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090');
 
   try {
+    // Load the token into authStore
     pb.authStore.save(token);
-    // Check if the authenticated user is an admin
-    // In PocketBase, admin tokens are stored differently
-    // We can verify by trying to list admins (only admins can do this)
-    await pb.admins.authRefresh();
-    return true;
+
+    // Verify the token is structurally valid and not expired
+    if (!pb.authStore.isValid) {
+      return null;
+    }
+
+    // Actually verify the token by making an authenticated request
+    // This will throw if the token is invalid
+    await pb.collection('users').authRefresh();
+
+    return pb.authStore.model;
   } catch (error) {
-    console.error('Admin auth verification failed:', error);
-    return false;
+    console.error('Auth verification failed:', error);
+    return null;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin authentication
-    const isAdmin = await verifyAdminAuth(request);
-    if (!isAdmin) {
+    // Verify user authentication
+    const authRecord = await verifyAuth(request);
+    if (!authRecord) {
       return NextResponse.json(
-        { error: 'Unauthorized - admin access required' },
+        { error: 'Unauthorized - authentication required' },
         { status: 401 }
       );
     }
