@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import PocketBase from 'pocketbase';
+import { logger } from '@/core/utils/logger';
 
 // Standard grocery store categories
 const GROCERY_CATEGORIES = [
@@ -66,7 +67,7 @@ async function verifyAuth(request: NextRequest) {
 
     return pb.authStore.model;
   } catch (error) {
-    console.error('Auth verification failed:', error);
+    logger.error('Auth verification failed', error);
     return null;
   }
 }
@@ -147,10 +148,10 @@ Response format (one category per line):`;
         if (GROCERY_CATEGORIES.includes(responseCategory as GroceryCategory)) {
           category = responseCategory as GroceryCategory;
         } else {
-          console.warn(`Invalid category "${responseCategory}" for "${item.name}", using "Other"`);
+          logger.warn('Invalid category returned, using "Other"', { category: responseCategory, itemName: item.name });
         }
       } else {
-        console.warn(`No category returned for "${item.name}", using "Other"`);
+        logger.warn('No category returned, using "Other"', { itemName: item.name });
       }
 
       categorized.push({
@@ -161,7 +162,7 @@ Response format (one category per line):`;
 
     return categorized;
   } catch (error) {
-    console.error('Failed to batch categorize grocery items:', error);
+    logger.error('Failed to batch categorize grocery items', error);
     throw error;
   }
 }
@@ -214,7 +215,7 @@ export async function POST(request: NextRequest) {
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    console.log(`Batch categorizing ${items.length} items for user ${authRecord.id}`);
+    logger.info('Batch categorizing items', { count: items.length, userId: authRecord.id });
 
     try {
       // Process items in batches to avoid rate limits and token limits
@@ -228,13 +229,13 @@ export async function POST(request: NextRequest) {
           const batchResult = await batchCategorizeGroceryItems(batch, genAI);
           categorized.push(...batchResult);
         } catch (error) {
-          console.error(`Failed to categorize batch starting at index ${i}:`, error);
+          logger.error('Failed to categorize batch', error, { startIndex: i });
           // Add failed items to the failed list
           batch.forEach((item) => failed.push(item.id));
         }
       }
 
-      console.log(`Successfully categorized ${categorized.length} of ${items.length} items`);
+      logger.info('Successfully categorized items', { categorized: categorized.length, total: items.length });
 
       return NextResponse.json({
         categorized,
@@ -242,7 +243,7 @@ export async function POST(request: NextRequest) {
         message: `Categorized ${categorized.length} of ${items.length} items`,
       });
     } catch (error) {
-      console.error('Error in batch categorization:', error);
+      logger.error('Error in batch categorization', error);
       return NextResponse.json(
         {
           error: 'Categorization failed',
@@ -252,7 +253,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error in batch categorization endpoint:', error);
+    logger.error('Error in batch categorization endpoint', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

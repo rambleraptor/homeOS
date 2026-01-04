@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import PocketBase from 'pocketbase';
+import { logger } from '@/core/utils/logger';
 
 interface ExtractedItem {
   name: string;
@@ -44,7 +45,7 @@ async function verifyAuth(request: NextRequest) {
 
     return pb.authStore.model;
   } catch (error) {
-    console.error('Auth verification failed:', error);
+    logger.error('Auth verification failed', error);
     return null;
   }
 }
@@ -107,10 +108,10 @@ Lettuce
         category: 'Other', // Will be categorized later by user action
       }));
 
-    console.log(`Extracted ${items.length} items from image`);
+    logger.info('Extracted items from image', { count: items.length });
     return items;
   } catch (error) {
-    console.error('Failed to extract grocery items from image:', error);
+    logger.error('Failed to extract grocery items from image', error);
     throw new Error('Failed to extract grocery items from image');
   }
 }
@@ -167,7 +168,7 @@ export async function POST(request: NextRequest) {
     // Initialize Gemini
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    console.log(`Processing grocery image for user ${authRecord.id}`);
+    logger.info('Processing grocery image', { userId: authRecord.id });
 
     try {
       // Extract items from image (without categorization)
@@ -180,14 +181,14 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      console.log(`Successfully extracted ${extractedItems.length} items`);
+      logger.info('Successfully extracted items', { count: extractedItems.length });
 
       return NextResponse.json({
         items: extractedItems,
         message: `Extracted ${extractedItems.length} items from image`,
       });
     } catch (error) {
-      console.error('Error processing image:', error);
+      logger.error('Error processing image', error);
       return NextResponse.json(
         {
           error: 'Processing failed',
@@ -197,7 +198,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Error in grocery image processor endpoint:', error);
+    logger.error('Error in grocery image processor endpoint', error);
     return NextResponse.json(
       {
         error: 'Internal server error',

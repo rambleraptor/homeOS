@@ -7,6 +7,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/core/api/queryClient';
 import { Collections, getCollection } from '@/core/api/pocketbase';
+import { logger } from '@/core/utils/logger';
 
 export function useDeleteGiftCard() {
   const queryClient = useQueryClient();
@@ -25,6 +26,9 @@ export function useDeleteGiftCard() {
       await queryClient.refetchQueries({
         queryKey: queryKeys.module('gift-cards').all(),
       });
+    },
+    onError: (error) => {
+      logger.error('Failed to delete gift card', error);
     },
   });
 }

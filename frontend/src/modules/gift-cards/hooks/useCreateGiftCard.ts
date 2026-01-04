@@ -16,31 +16,23 @@ export function useCreateGiftCard() {
 
   return useMutation({
     mutationFn: async (data: GiftCardFormData) => {
-      try {
-        const currentUser = getCurrentUser();
+      const currentUser = getCurrentUser();
 
-        // Use FormData if files are present
-        const hasFiles = data.front_image || data.back_image;
+      // Use FormData if files are present
+      const hasFiles = data.front_image || data.back_image;
 
-        if (hasFiles) {
-          const formData = buildGiftCardFormData({
-            data,
-            createdBy: currentUser?.id,
-          });
-          return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(formData);
-        } else {
-          const cardData = buildGiftCardData({
-            data,
-            createdBy: currentUser?.id,
-          });
-          return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(cardData);
-        }
-      } catch (error) {
-        logger.error('Failed to create gift card', error, {
-          giftCardData: data,
-          currentUser: getCurrentUser()
+      if (hasFiles) {
+        const formData = buildGiftCardFormData({
+          data,
+          createdBy: currentUser?.id,
         });
-        throw error;
+        return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(formData);
+      } else {
+        const cardData = buildGiftCardData({
+          data,
+          createdBy: currentUser?.id,
+        });
+        return await getCollection<GiftCard>(Collections.GIFT_CARDS).create(cardData);
       }
     },
     onSuccess: async () => {

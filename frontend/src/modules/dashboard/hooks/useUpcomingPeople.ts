@@ -2,17 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getCollection, Collections } from '@/core/api/pocketbase';
 import { queryKeys } from '@/core/api/queryClient';
 import { getUpcomingEvents } from '@/shared/utils/dateUtils';
-import type { Person, PersonSharedData, NotificationPreference } from '@/modules/people/types';
-
-interface PersonRecord {
-  id: string;
-  name: string;
-  birthday?: string;
-  notification_preferences: NotificationPreference[];
-  created_by: string;
-  created: string;
-  updated: string;
-}
+import type { Person, PersonSharedData, PersonRecord } from '@/modules/people/types';
 
 /**
  * Hook to fetch upcoming birthdays and anniversaries (next 30 days)

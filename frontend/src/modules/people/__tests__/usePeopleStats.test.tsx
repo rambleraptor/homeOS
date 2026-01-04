@@ -2,10 +2,10 @@
  * Tests for usePeopleStats hook
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
 import { usePeopleStats } from '../hooks/usePeopleStats';
 import type { Person } from '../types';
 import type { UseQueryResult } from '@tanstack/react-query';

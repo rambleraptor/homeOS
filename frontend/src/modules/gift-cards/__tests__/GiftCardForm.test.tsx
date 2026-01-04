@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import type { ReactElement } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -20,7 +21,7 @@ vi.mock('@/core/api/pocketbase', () => ({
 }));
 
 // Helper to render with ToastProvider
-const renderWithToast = (ui: React.ReactElement) => {
+const renderWithToast = (ui: ReactElement) => {
   return render(<ToastProvider>{ui}</ToastProvider>);
 };
 

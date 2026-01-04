@@ -2,10 +2,10 @@
  * Tests for useMerchantSummaries hook
  */
 
+import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
 import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
 import type { GiftCard } from '../types';
 

@@ -6,6 +6,7 @@
 
 import webpush from 'web-push';
 import PocketBase from 'pocketbase';
+import { logger } from '@/core/utils/logger';
 
 type NotificationPreference = 'day_of' | 'day_before' | 'week_before';
 
@@ -96,7 +97,7 @@ async function sendPersonNotifications(
       });
 
     if (subscriptions.length === 0) {
-      console.log('No active subscriptions found');
+      logger.info('No active subscriptions found');
       return;
     }
 
@@ -148,33 +149,32 @@ async function sendPersonNotifications(
             expiredCount++;
             try {
               await pb.collection('notification_subscriptions').delete(sub.id);
-              console.log(`Deleted expired subscription for user ${sub.user_id}`);
+              logger.info('Deleted expired subscription', { userId: sub.user_id });
             } catch (deleteError) {
-              console.error('Error deleting expired subscription:', deleteError);
+              logger.error('Error deleting expired subscription', deleteError);
             }
           } else {
             failedCount++;
-            console.error('Push notification error:', {
+            logger.error('Push notification error', err, {
               userId: sub.user_id,
-              error: err.message,
               statusCode: err.statusCode,
             });
           }
         }
       } catch (error) {
         failedCount++;
-        console.error('Error processing subscription:', error);
+        logger.error('Error processing subscription', error);
       }
     }
 
-    console.log(`Notification summary for "${person.name}'s ${eventType}":`, {
+    logger.info(`Notification summary for "${person.name}'s ${eventType}"`, {
       sent: sentCount,
       failed: failedCount,
       expired: expiredCount,
       total: subscriptions.length,
     });
   } catch (error) {
-    console.error('Error in sendPersonNotifications:', error);
+    logger.error('Error in sendPersonNotifications', error);
   }
 }
 
@@ -183,8 +183,7 @@ async function sendPersonNotifications(
  */
 export async function checkAndSendPeopleNotifications(): Promise<void> {
   try {
-    const now = new Date();
-    console.log(`[${now.toISOString()}] Checking for people needing notifications...`);
+    logger.info('Checking for people needing notifications...');
 
     // Initialize PocketBase with server credentials
     const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090');
@@ -194,7 +193,7 @@ export async function checkAndSendPeopleNotifications(): Promise<void> {
     const adminPassword = process.env.POCKETBASE_ADMIN_PASSWORD;
 
     if (!adminEmail || !adminPassword) {
-      console.error('POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD must be set');
+      logger.error('POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD must be set');
       return;
     }
 
@@ -206,11 +205,11 @@ export async function checkAndSendPeopleNotifications(): Promise<void> {
     });
 
     if (people.length === 0) {
-      console.log('No people found');
+      logger.info('No people found');
       return;
     }
 
-    console.log(`Found ${people.length} people to check`);
+    logger.info('Found people to check', { count: people.length });
 
     let notificationsSent = 0;
 
@@ -225,7 +224,7 @@ export async function checkAndSendPeopleNotifications(): Promise<void> {
       if (person.birthday) {
         for (const pref of notificationPreferences) {
           if (shouldSendNotification(person.birthday, pref)) {
-            console.log(`Sending ${pref} birthday notification for: ${person.name}`);
+            logger.info('Sending birthday notification', { preference: pref, personName: person.name });
             await sendPersonNotifications(person, 'Birthday', person.birthday, pb);
             notificationsSent++;
           }
@@ -236,7 +235,7 @@ export async function checkAndSendPeopleNotifications(): Promise<void> {
       if (person.anniversary) {
         for (const pref of notificationPreferences) {
           if (shouldSendNotification(person.anniversary, pref)) {
-            console.log(`Sending ${pref} anniversary notification for: ${person.name}`);
+            logger.info('Sending anniversary notification', { preference: pref, personName: person.name });
             await sendPersonNotifications(person, 'Anniversary', person.anniversary, pb);
             notificationsSent++;
           }
@@ -245,11 +244,11 @@ export async function checkAndSendPeopleNotifications(): Promise<void> {
     }
 
     if (notificationsSent === 0) {
-      console.log('No notifications needed today');
+      logger.info('No notifications needed today');
     } else {
-      console.log(`Processed ${notificationsSent} person notifications`);
+      logger.info('Processed person notifications', { count: notificationsSent });
     }
   } catch (error) {
-    console.error('Error in checkAndSendPeopleNotifications:', error);
+    logger.error('Error in checkAndSendPeopleNotifications', error);
   }
 }

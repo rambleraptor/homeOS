@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { checkAndSendPeopleNotifications } from '../utils/notification-sender';
+import { logger } from '@/core/utils/logger';
 
 /**
  * Verify the request is authorized to trigger the cron job
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
     const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@example.com';
 
     if (!vapidPublicKey || !vapidPrivateKey) {
-      console.error('VAPID keys not configured');
+      logger.error('VAPID keys not configured');
       return NextResponse.json(
         { error: 'VAPID keys not configured' },
         { status: 500 }
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
     // Configure VAPID details
     webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 
-    console.log('Running scheduled notification check...');
+    logger.info('Running scheduled notification check...');
 
     // Run the notification check
     await checkAndSendPeopleNotifications();
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Error in notification cron job:', error);
+    logger.error('Error in notification cron job', error);
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Unknown error',

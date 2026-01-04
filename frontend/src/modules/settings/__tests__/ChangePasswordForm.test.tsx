@@ -2,11 +2,11 @@
  * Tests for ChangePasswordForm component
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import React from 'react';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
 import * as useChangePasswordModule from '../hooks/useChangePassword';
 import * as useToastModule from '@/shared/components/ToastProvider';

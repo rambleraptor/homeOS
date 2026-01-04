@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCollection, Collections } from '@/core/api/pocketbase';
 import { queryKeys } from '@/core/api/queryClient';
+import { logger } from '@/core/utils/logger';
 
 export function useDeletePerson() {
   const queryClient = useQueryClient();
@@ -14,6 +15,9 @@ export function useDeletePerson() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.module('people').list(),
       });
+    },
+    onError: (error) => {
+      logger.error('Failed to delete person', error);
     },
   });
 }

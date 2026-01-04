@@ -1,5 +1,5 @@
-'use client';
 import React from 'react';
+'use client';
 
 import type { ReactNode } from 'react';
 import {

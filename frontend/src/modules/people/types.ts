@@ -2,6 +2,17 @@ export type PersonEventType = 'birthday' | 'anniversary';
 
 export type NotificationPreference = 'day_of' | 'day_before' | 'week_before';
 
+// PersonRecord - the raw database record (without addresses/anniversary from shared_data)
+export interface PersonRecord {
+  id: string;
+  name: string;
+  birthday?: string;
+  notification_preferences: NotificationPreference[];
+  created_by: string;
+  created: string;
+  updated: string;
+}
+
 // Address type
 export interface Address {
   id: string;

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCollection, Collections } from '@/core/api/pocketbase';
 import { queryKeys } from '@/core/api/queryClient';
 import { logger } from '@/core/utils/logger';
-import type { PersonFormData, NotificationPreference } from '../types';
+import type { PersonFormData, PersonRecord } from '../types';
 import {
   findSharedDataForPerson,
   updateSharedData,
@@ -14,16 +14,6 @@ import {
 interface UpdatePersonData {
   id: string;
   data: PersonFormData;
-}
-
-interface PersonRecord {
-  id: string;
-  name: string;
-  birthday?: string;
-  notification_preferences: NotificationPreference[];
-  created_by: string;
-  created: string;
-  updated: string;
 }
 
 export function useUpdatePerson() {
