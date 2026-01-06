@@ -87,6 +87,7 @@ describe('GiftCardForm', () => {
         notes: 'Gift from mom',
         front_image: null,
         back_image: null,
+        expiration_date: '',
       });
     });
   });

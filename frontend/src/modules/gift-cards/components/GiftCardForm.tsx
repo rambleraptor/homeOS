@@ -35,6 +35,7 @@ export function GiftCardForm({
     notes: initialData?.notes || '',
     front_image: null,
     back_image: null,
+    expiration_date: initialData?.expiration_date || '',
   });
 
   // Track if amount has been set by user (to avoid showing 0 initially)
@@ -208,6 +209,24 @@ export function GiftCardForm({
             placeholder="0.00"
           />
         </div>
+      </div>
+
+      {/* Expiration Date */}
+      <div>
+        <label
+          htmlFor="expiration_date"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Expiration Date
+        </label>
+        <input
+          type="date"
+          id="expiration_date"
+          name="expiration_date"
+          value={formData.expiration_date}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        />
       </div>
 
       {/* Notes */}

@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { ArrowLeft, CreditCard, Edit2, Trash2, Eye, EyeOff, ChevronDown, ChevronUp, Minus, Edit } from 'lucide-react';
+import { ArrowLeft, CreditCard, Edit2, Trash2, Eye, EyeOff, ChevronDown, ChevronUp, Minus, Edit, AlertCircle } from 'lucide-react';
 import { useCreateTransaction } from '../hooks/useCreateTransaction';
 import type { GiftCard } from '../types';
 import { pb } from '@/core/api/pocketbase';
@@ -20,6 +20,34 @@ interface MerchantDetailProps {
   onBack: () => void;
   onEdit: (card: GiftCard) => void;
   onDelete: (id: string) => void;
+}
+
+/**
+ * Helper function to get expiration status of a gift card
+ */
+function getExpirationStatus(expirationDate?: string): 'expired' | 'expiring-soon' | 'valid' | null {
+  if (!expirationDate) return null;
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0); // Reset to start of day for accurate comparison
+
+  const expDate = new Date(expirationDate);
+  expDate.setHours(0, 0, 0, 0);
+
+  // Check if expired
+  if (expDate < now) {
+    return 'expired';
+  }
+
+  // Check if expiring within 7 days
+  const sevenDaysFromNow = new Date(now);
+  sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+  if (expDate <= sevenDaysFromNow) {
+    return 'expiring-soon';
+  }
+
+  return 'valid';
 }
 
 export function MerchantDetail({
@@ -157,6 +185,32 @@ export function MerchantDetail({
                     <p className="text-xs text-gray-500">
                       Added {card.created ? new Date(card.created).toLocaleDateString() : 'Recently'}
                     </p>
+                    {card.expiration_date && (() => {
+                      const status = getExpirationStatus(card.expiration_date);
+                      const expDate = new Date(card.expiration_date).toLocaleDateString();
+
+                      if (status === 'expired') {
+                        return (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-red-700 font-medium">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Expired on {expDate}</span>
+                          </div>
+                        );
+                      } else if (status === 'expiring-soon') {
+                        return (
+                          <div className="flex items-center gap-1 mt-1 text-xs text-orange-700 font-medium">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>Expires on {expDate}</span>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Expires {expDate}
+                          </p>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -355,6 +409,32 @@ export function MerchantDetail({
                         <p className="text-xs text-gray-500">
                           Archived • Added {card.created ? new Date(card.created).toLocaleDateString() : 'Recently'}
                         </p>
+                        {card.expiration_date && (() => {
+                          const status = getExpirationStatus(card.expiration_date);
+                          const expDate = new Date(card.expiration_date).toLocaleDateString();
+
+                          if (status === 'expired') {
+                            return (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-red-700 font-medium">
+                                <AlertCircle className="w-3 h-3" />
+                                <span>Expired on {expDate}</span>
+                              </div>
+                            );
+                          } else if (status === 'expiring-soon') {
+                            return (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-orange-700 font-medium">
+                                <AlertCircle className="w-3 h-3" />
+                                <span>Expires on {expDate}</span>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Expires {expDate}
+                              </p>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                     <div className="flex gap-2">

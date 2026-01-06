@@ -14,6 +14,7 @@ export interface GiftCard {
   notes?: string;
   front_image?: string;
   back_image?: string;
+  expiration_date?: string;
   created_by?: string;
   created: string;
   updated: string;
@@ -31,6 +32,7 @@ export interface GiftCardFormData {
   notes?: string;
   front_image?: File | null;
   back_image?: File | null;
+  expiration_date?: string;
 }
 
 /**

@@ -5,7 +5,9 @@
  * Returns: { success: boolean, message: string, timestamp: string }
  *
  * This endpoint is designed to be called by Vercel Cron or an external scheduler
- * to send daily birthday/anniversary notifications.
+ * to send daily notifications for:
+ * - Birthdays and anniversaries
+ * - Gift cards expiring within a week
  *
  * For security, it requires either:
  * 1. A CRON_SECRET header matching the CRON_SECRET environment variable
@@ -23,6 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { checkAndSendPeopleNotifications } from '../utils/notification-sender';
+import { checkAndSendGiftCardNotifications } from '../utils/gift-card-notification-sender';
 
 /**
  * Verify the request is authorized to trigger the cron job
@@ -69,8 +72,9 @@ export async function GET(request: NextRequest) {
 
     console.log('Running scheduled notification check...');
 
-    // Run the notification check
+    // Run the notification checks
     await checkAndSendPeopleNotifications();
+    await checkAndSendGiftCardNotifications();
 
     return NextResponse.json({
       success: true,
