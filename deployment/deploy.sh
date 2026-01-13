@@ -197,7 +197,7 @@ if [ "$MIGRATIONS_CHANGED" = true ]; then
   # Apply migrations explicitly
   log "${BLUE}🔄 Running migrations...${NC}"
   cd "$PROJECT_ROOT/pocketbase"
-  if ./pocketbase migrate up --dir "$PROJECT_ROOT/pb_migrations" 2>&1 | tee -a "$LOG_FILE"; then
+  if ./pocketbase migrate --migrationsDir "$PROJECT_ROOT/pb_migrations" 2>&1 | tee -a "$LOG_FILE"; then
     log "${GREEN}✅ Migrations applied successfully${NC}"
   else
     log "${RED}❌ Migration failed!${NC}"
