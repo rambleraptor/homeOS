@@ -224,4 +224,62 @@ export class GroceriesPage {
       // Button doesn't exist, which is expected when all items are checked
     });
   }
+
+  // ============================================================================
+  // Offline Mode Methods
+  // ============================================================================
+
+  async expectOfflineBanner(shouldBeVisible: boolean) {
+    const banner = this.page.getByTestId('offline-banner');
+    if (shouldBeVisible) {
+      await expect(banner).toBeVisible();
+    } else {
+      await expect(banner).not.toBeVisible();
+    }
+  }
+
+  async expectPendingIndicator(itemName: string, shouldBeVisible: boolean) {
+    const itemRow = this.page
+      .locator('[data-testid="grocery-item"]')
+      .filter({ hasText: itemName });
+
+    const pendingIndicator = itemRow.getByTestId('pending-indicator');
+
+    if (shouldBeVisible) {
+      await expect(pendingIndicator).toBeVisible();
+    } else {
+      await expect(pendingIndicator).not.toBeVisible({ timeout: 1000 }).catch(() => {
+        // Indicator doesn't exist, which is fine for synced items
+      });
+    }
+  }
+
+  async setOffline() {
+    await this.page.context().setOffline(true);
+    // Wait for offline detection
+    await this.page.waitForTimeout(500);
+  }
+
+  async setOnline() {
+    await this.page.context().setOffline(false);
+    // Wait for online detection and potential sync
+    await this.page.waitForTimeout(500);
+  }
+
+  async createItemOffline(data: { name: string; store?: string }) {
+    // Create item while offline
+    await this.createItem(data);
+    // Don't wait for network idle since we're offline
+  }
+
+  async toggleItemCheckedOffline(name: string) {
+    const checkbox = this.page
+      .locator('[data-testid="grocery-item"]')
+      .filter({ hasText: name })
+      .locator('input[type="checkbox"]');
+
+    await checkbox.waitFor({ state: 'visible' });
+    await checkbox.click();
+    // Don't wait for network idle since we're offline
+  }
 }

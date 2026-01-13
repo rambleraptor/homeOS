@@ -1,14 +1,20 @@
 /**
  * Update Grocery Item Hook
  *
- * Mutation for updating grocery items (toggle checked, edit name/notes)
+ * Mutation for updating grocery items (toggle checked, edit name/notes) - online or offline
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/core/api/queryClient';
 import { Collections, getCollection } from '@/core/api/pocketbase';
+import { useOnlineStatus } from '@/core/hooks/useOnlineStatus';
 import { categorizeGroceryItem } from '@/core/services/gemini';
 import { logger } from '@/core/utils/logger';
+import {
+  getGroceriesLocally,
+  saveGroceriesLocally,
+  addPendingMutation,
+} from '../utils/offline-storage';
 import type { GroceryItem } from '../types';
 
 interface UpdateGroceryItemParams {
@@ -22,9 +28,29 @@ interface UpdateGroceryItemParams {
 
 export function useUpdateGroceryItem() {
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
 
   return useMutation({
     mutationFn: async ({ id, data }: UpdateGroceryItemParams) => {
+      logger.info(`Updating grocery item ${id} (${isOnline ? 'online' : 'offline'})`);
+
+      // When offline, queue the mutation
+      if (!isOnline) {
+        // Queue the mutation for later sync
+        await addPendingMutation({
+          id: crypto.randomUUID(),
+          type: 'update',
+          collection: 'groceries',
+          timestamp: Date.now(),
+          itemId: id,
+          data,
+        });
+
+        logger.info(`Queued offline update for item: ${id}`);
+        return { id, ...data };
+      }
+
+      // When online, update via PocketBase
       // If name is being updated, re-categorize the item
       if (data.name) {
         const category = await categorizeGroceryItem(data.name);
@@ -43,7 +69,16 @@ export function useUpdateGroceryItem() {
       const item = await getCollection<GroceryItem>(Collections.GROCERIES).update(id, data);
       return item;
     },
-    onSuccess: () => {
+    onSuccess: async (_, { id, data }) => {
+      // Optimistic update: modify local cache if offline
+      if (!isOnline) {
+        const cached = await getGroceriesLocally();
+        const updated = cached.map((item) =>
+          item.id === id ? { ...item, ...data, updated: new Date().toISOString() } : item
+        );
+        await saveGroceriesLocally(updated);
+      }
+
       queryClient.invalidateQueries({ queryKey: queryKeys.module('groceries').list() });
     },
     onError: (error) => {
