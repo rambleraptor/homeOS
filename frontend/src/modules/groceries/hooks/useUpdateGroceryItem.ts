@@ -28,14 +28,16 @@ interface UpdateGroceryItemParams {
 
 export function useUpdateGroceryItem() {
   const queryClient = useQueryClient();
-  const isOnline = useOnlineStatus();
+  useOnlineStatus(); // Subscribe to online status changes for re-renders
 
   return useMutation({
     mutationFn: async ({ id, data }: UpdateGroceryItemParams) => {
-      logger.info(`Updating grocery item ${id} (${isOnline ? 'online' : 'offline'})`);
+      // Check current online status at execution time
+      const isCurrentlyOnline = navigator.onLine;
+      logger.info(`Updating grocery item ${id} (${isCurrentlyOnline ? 'online' : 'offline'})`);
 
       // When offline, queue the mutation
-      if (!isOnline) {
+      if (!isCurrentlyOnline) {
         // Queue the mutation for later sync
         await addPendingMutation({
           id: crypto.randomUUID(),
@@ -71,7 +73,7 @@ export function useUpdateGroceryItem() {
     },
     onSuccess: async (_, { id, data }) => {
       // Optimistic update: modify local cache if offline
-      if (!isOnline) {
+      if (!navigator.onLine) {
         const cached = await getGroceriesLocally();
         const updated = cached.map((item) =>
           item.id === id ? { ...item, ...data, updated: new Date().toISOString() } : item

@@ -128,8 +128,8 @@ export function GroceriesHome() {
     );
   }
 
-  const isSubmitting = createMutation.isPending;
-  const isUpdating = updateMutation.isPending || deleteMutation.isPending || deleteAllMutation.isPending || markStoreCompletedMutation.isPending;
+  const isSubmitting = isOnline && createMutation.isPending;
+  const isUpdating = isOnline && (updateMutation.isPending || deleteMutation.isPending || deleteAllMutation.isPending || markStoreCompletedMutation.isPending);
   const isCategorizing = categorizeAllMutation.isPending;
 
   return (

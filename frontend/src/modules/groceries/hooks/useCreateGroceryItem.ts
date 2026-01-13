@@ -18,14 +18,16 @@ import type { GroceryItem, GroceryItemFormData } from '../types';
 
 export function useCreateGroceryItem() {
   const queryClient = useQueryClient();
-  const isOnline = useOnlineStatus();
+  useOnlineStatus(); // Subscribe to online status changes for re-renders
 
   return useMutation({
     mutationFn: async (data: GroceryItemFormData) => {
-      logger.info(`Creating grocery item: ${data.name} (${isOnline ? 'online' : 'offline'})`);
+      // Check current online status at execution time
+      const isCurrentlyOnline = navigator.onLine;
+      logger.info(`Creating grocery item: ${data.name} (${isCurrentlyOnline ? 'online' : 'offline'})`);
 
       // When offline, create temporary item and queue mutation
-      if (!isOnline) {
+      if (!isCurrentlyOnline) {
         const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(7)}`;
         const tempItem: GroceryItem = {
           id: tempId,
@@ -62,7 +64,7 @@ export function useCreateGroceryItem() {
     },
     onSuccess: async (newItem) => {
       // Optimistic update: add to local cache if offline
-      if (!isOnline) {
+      if (!navigator.onLine) {
         const cached = await getGroceriesLocally();
         await saveGroceriesLocally([...cached, newItem]);
       }
