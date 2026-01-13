@@ -31,6 +31,7 @@ export function useUpdateGroceryItem() {
   useOnlineStatus(); // Subscribe to online status changes for re-renders
 
   return useMutation({
+    networkMode: 'always', // Allow mutations to run even when offline
     mutationFn: async ({ id, data }: UpdateGroceryItemParams) => {
       // Check current online status at execution time
       const isCurrentlyOnline = navigator.onLine;
