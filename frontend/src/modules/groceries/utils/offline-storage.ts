@@ -206,3 +206,16 @@ export async function clearAllPendingMutations(): Promise<void> {
     console.error('Failed to clear all pending mutations:', error);
   }
 }
+
+/**
+ * Clear all offline data (for testing)
+ */
+export async function clearAllOfflineData(): Promise<void> {
+  try {
+    await saveGroceriesLocally([]);
+    await saveStoresLocally([]);
+    await clearAllPendingMutations();
+  } catch (error) {
+    console.error('Failed to clear all offline data:', error);
+  }
+}
