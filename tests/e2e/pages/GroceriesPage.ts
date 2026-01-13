@@ -255,14 +255,42 @@ export class GroceriesPage {
   }
 
   async setOffline() {
+    // Block network requests
     await this.page.context().setOffline(true);
-    // Wait for offline detection
+
+    // Simulate offline mode in the browser by modifying navigator.onLine and firing events
+    await this.page.evaluate(() => {
+      // Override navigator.onLine
+      Object.defineProperty(navigator, 'onLine', {
+        writable: true,
+        value: false,
+      });
+
+      // Dispatch offline event so React hooks pick it up
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    // Wait for React to process the state change
     await this.page.waitForTimeout(500);
   }
 
   async setOnline() {
+    // Re-enable network requests
     await this.page.context().setOffline(false);
-    // Wait for online detection and potential sync
+
+    // Simulate online mode in the browser
+    await this.page.evaluate(() => {
+      // Restore navigator.onLine
+      Object.defineProperty(navigator, 'onLine', {
+        writable: true,
+        value: true,
+      });
+
+      // Dispatch online event so React hooks pick it up
+      window.dispatchEvent(new Event('online'));
+    });
+
+    // Wait for React to process the state change and potential sync
     await this.page.waitForTimeout(500);
   }
 
