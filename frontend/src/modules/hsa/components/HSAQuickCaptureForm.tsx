@@ -1,11 +1,12 @@
 /**
  * HSA Quick Capture Form Component
  *
- * Form for adding new HSA receipts
+ * Form for adding new HSA receipts with AI-powered receipt parsing
  */
 
 import { useState } from 'react';
-import { Upload, X } from 'lucide-react';
+import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
+import { getAuthToken } from '@/core/api/pocketbase';
 import type { HSAReceiptFormData, ReceiptCategory } from '../types';
 
 interface HSAQuickCaptureFormProps {
@@ -30,6 +31,8 @@ export function HSAQuickCaptureForm({
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parseSuccess, setParseSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +55,75 @@ export function HSAQuickCaptureForm({
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save receipt');
+    }
+  };
+
+  const parseReceipt = async () => {
+    if (!selectedFile) return;
+
+    // Only parse images, not PDFs
+    if (selectedFile.type === 'application/pdf') {
+      setError('AI parsing is only available for image files. Please fill in the form manually.');
+      return;
+    }
+
+    setIsParsing(true);
+    setError(null);
+    setParseSuccess(false);
+
+    try {
+      // Convert file to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          // Remove data URL prefix
+          const base64Data = base64.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+      });
+
+      reader.readAsDataURL(selectedFile);
+      const base64Data = await base64Promise;
+
+      // Call API to parse receipt
+      const token = getAuthToken();
+      const response = await fetch('/api/hsa/parse-receipt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          image: base64Data,
+          mimeType: selectedFile.type,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to parse receipt');
+      }
+
+      const result = await response.json();
+
+      // Auto-fill form with parsed data
+      setFormData({
+        ...formData,
+        merchant: result.data.merchant,
+        service_date: result.data.service_date,
+        amount: result.data.amount,
+        category: result.data.category,
+        patient: result.data.patient || '',
+      });
+
+      setParseSuccess(true);
+      setTimeout(() => setParseSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to parse receipt');
+    } finally {
+      setIsParsing(false);
     }
   };
 
@@ -205,15 +277,47 @@ export function HSAQuickCaptureForm({
             />
           </label>
         ) : (
-          <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
-            <span className="text-sm text-gray-700 truncate">{selectedFile.name}</span>
-            <button
-              type="button"
-              onClick={handleRemoveFile}
-              className="ml-2 text-red-500 hover:text-red-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
+              <span className="text-sm text-gray-700 truncate">{selectedFile.name}</span>
+              <button
+                type="button"
+                onClick={handleRemoveFile}
+                className="ml-2 text-red-500 hover:text-red-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Parse Receipt Button - Only for images */}
+            {selectedFile.type.startsWith('image/') && (
+              <button
+                type="button"
+                onClick={parseReceipt}
+                disabled={isParsing}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isParsing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Parsing receipt...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Parse Receipt with AI
+                  </>
+                )}
+              </button>
+            )}
+            {/* Success Message */}
+            {parseSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-700 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Receipt parsed! Form fields have been auto-filled.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
