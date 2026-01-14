@@ -65,3 +65,62 @@ export async function reloadAndWait(page: Page) {
   await page.reload();
   await page.waitForLoadState('networkidle');
 }
+
+/**
+ * Set browser offline mode
+ */
+export async function setOffline(page: Page) {
+  await page.context().setOffline(true);
+}
+
+/**
+ * Set browser online mode
+ */
+export async function setOnline(page: Page) {
+  await page.context().setOffline(false);
+}
+
+/**
+ * Check if offline banner is visible
+ */
+export async function expectOfflineBanner(page: Page, shouldBeVisible: boolean) {
+  const banner = page.getByTestId('offline-banner');
+  if (shouldBeVisible) {
+    await expect(banner).toBeVisible();
+  } else {
+    await expect(banner).not.toBeVisible();
+  }
+}
+
+/**
+ * Check if pending indicator is visible on an item
+ */
+export async function expectPendingIndicator(page: Page, itemName: string, shouldBeVisible: boolean) {
+  const item = page.getByText(itemName).locator('..');
+  const pendingIndicator = item.getByTestId('pending-indicator');
+
+  if (shouldBeVisible) {
+    await expect(pendingIndicator).toBeVisible();
+  } else {
+    await expect(pendingIndicator).not.toBeVisible();
+  }
+}
+
+/**
+ * Simulate going offline, performing actions, then coming back online
+ * @param page - Playwright page
+ * @param offlineAction - Async function to execute while offline
+ */
+export async function simulateOfflineAction(page: Page, offlineAction: () => Promise<void>) {
+  // Go offline
+  await setOffline(page);
+  await page.waitForTimeout(500); // Wait for offline detection
+
+  // Perform the offline action
+  await offlineAction();
+
+  // Come back online
+  await setOnline(page);
+  await page.waitForTimeout(500); // Wait for online detection and sync
+  await page.waitForLoadState('networkidle'); // Wait for sync to complete
+}

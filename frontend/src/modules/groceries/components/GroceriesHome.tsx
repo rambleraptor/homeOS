@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { Plus, ShoppingCart, Loader2, AlertCircle, CheckCircle2, Image, ListRestart, Tags, Store as StoreIcon } from 'lucide-react';
+import { Plus, ShoppingCart, Loader2, AlertCircle, CheckCircle2, Image, ListRestart, Tags, Store as StoreIcon, WifiOff } from 'lucide-react';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useStores } from '../hooks/useStores';
 import { useCreateGroceryItem } from '../hooks/useCreateGroceryItem';
@@ -16,6 +16,7 @@ import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
 import { useDeleteAllGroceries } from '../hooks/useDeleteAllGroceries';
 import { useCategorizeAllGroceries } from '../hooks/useCategorizeAllGroceries';
 import { useMarkStoreCompleted } from '../hooks/useMarkStoreCompleted';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 import { GroceryList } from './GroceryList';
 import { ImageUploadDialog } from './ImageUploadDialog';
 import { StoreManagement } from './StoreManagement';
@@ -26,6 +27,9 @@ export function GroceriesHome() {
   const [selectedStore, setSelectedStore] = useState('');
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showStoreManagement, setShowStoreManagement] = useState(false);
+
+  // Enable offline sync
+  const { isOnline } = useOfflineSync();
 
   const { stats, isLoading, isError, error } = useGroupedGroceries();
   const { data: stores = [] } = useStores();
@@ -124,12 +128,27 @@ export function GroceriesHome() {
     );
   }
 
-  const isSubmitting = createMutation.isPending;
-  const isUpdating = updateMutation.isPending || deleteMutation.isPending || deleteAllMutation.isPending || markStoreCompletedMutation.isPending;
+  const isSubmitting = isOnline && createMutation.isPending;
+  const isUpdating = isOnline && (updateMutation.isPending || deleteMutation.isPending || deleteAllMutation.isPending || markStoreCompletedMutation.isPending);
   const isCategorizing = categorizeAllMutation.isPending;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md" data-testid="offline-banner">
+          <div className="flex items-center">
+            <WifiOff className="w-5 h-5 text-yellow-700 mr-3" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800">You&apos;re offline</p>
+              <p className="text-xs text-yellow-700 mt-1">
+                Changes will sync when you&apos;re back online
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -166,7 +185,7 @@ export function GroceriesHome() {
             className="bg-green-600 text-white px-3 py-2 sm:px-4 rounded-md hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             data-testid="upload-grocery-list-button"
           >
-            <Image className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Image className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
             <span className="hidden xs:inline">Upload List</span>
             <span className="xs:hidden">Upload</span>
           </button>

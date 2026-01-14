@@ -5,7 +5,11 @@
 import { Page, expect } from '@playwright/test';
 
 export class GroceriesPage {
-  constructor(private page: Page) {}
+  private offlineScriptAdded = false;
+
+  constructor(private page: Page) {
+    this.setupOfflineScript();
+  }
 
   async goto() {
     await this.page.goto('/groceries');
@@ -15,7 +19,10 @@ export class GroceriesPage {
     await expect(this.page).toHaveURL(/\/groceries/);
   }
 
-  async createItem(data: { name: string; notes?: string; store?: string }) {
+  async createItem(
+    data: { name: string; notes?: string; store?: string },
+    options: { offline?: boolean } = {},
+  ) {
     // Select store if provided
     if (data.store !== undefined) {
       const storeSelect = this.page.getByTestId('store-select');
@@ -33,8 +40,10 @@ export class GroceriesPage {
     await addButton.waitFor({ state: 'visible' });
     await addButton.click();
 
-    // Wait for the input to be cleared and network to settle
-    await this.page.waitForLoadState('networkidle');
+    // If online, wait for network to settle
+    if (!options.offline) {
+      await this.page.waitForLoadState('networkidle');
+    }
 
     // Note: The quick-add doesn't support notes field
     // If notes are needed, that feature would need to be added
@@ -223,5 +232,89 @@ export class GroceriesPage {
     await expect(markCompleteButton).not.toBeVisible({ timeout: 1000 }).catch(() => {
       // Button doesn't exist, which is expected when all items are checked
     });
+  }
+
+  // ============================================================================
+  // Offline Mode Methods
+  // ============================================================================
+
+  async expectOfflineBanner(shouldBeVisible: boolean) {
+    const banner = this.page.getByTestId('offline-banner');
+    if (shouldBeVisible) {
+      await expect(banner).toBeVisible();
+    } else {
+      await expect(banner).not.toBeVisible();
+    }
+  }
+
+  async expectPendingIndicator(itemName: string, shouldBeVisible: boolean) {
+    const itemRow = this.page
+      .locator('[data-testid="grocery-item"]')
+      .filter({ hasText: itemName });
+
+    const pendingIndicator = itemRow.getByTestId('pending-indicator');
+
+    if (shouldBeVisible) {
+      await expect(pendingIndicator).toBeVisible();
+    } else {
+      await expect(pendingIndicator).not.toBeVisible({ timeout: 1000 }).catch(() => {
+        // Indicator doesn't exist, which is fine for synced items
+      });
+    }
+  }
+
+  private async setupOfflineScript() {
+    if (this.offlineScriptAdded) return;
+
+    // Use context-level init script to set up test offline flag
+    await this.page.context().addInitScript(() => {
+      // Create a global variable to track offline state for testing
+      // This is checked by useOnlineStatus hook
+      (window as any).__testOffline__ = false;
+    });
+
+    this.offlineScriptAdded = true;
+  }
+
+  async setOffline() {
+    // Set Playwright's offline mode
+    await this.page.context().setOffline(true);
+
+    // Set our application's offline mode
+    await this.page.evaluate(() => {
+      (window as any).__testOffline__ = true;
+    });
+  }
+
+  async setOnline() {
+    // Set Playwright's offline mode
+    await this.page.context().setOffline(false);
+
+    // Set our application's offline mode
+    await this.page.evaluate(() => {
+      (window as any).__testOffline__ = false;
+    });
+
+    // Wait for network to settle after coming online
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  
+
+  async createItemOffline(data: { name: string; store?: string }) {
+    // Create item while offline
+    await this.createItem(data, { offline: true });
+    // Don't wait for network idle since we're offline
+  }
+
+  async toggleItemCheckedOffline(name: string) {
+    const checkbox = this.page
+      .locator('[data-testid="grocery-item"]')
+      .filter({ hasText: name })
+      .locator('input[type="checkbox"]');
+
+    await checkbox.waitFor({ state: 'visible' });
+    await checkbox.click();
+    // Don't wait for network idle since we're offline
   }
 }

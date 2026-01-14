@@ -123,6 +123,15 @@ function GroceryItemRow({ item, onToggle, onDelete, disabled = false }: GroceryI
           }`}
         >
           {item.name}
+          {item.id.startsWith('temp_') && (
+            <span
+              className="ml-2 text-xs text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full"
+              data-testid="pending-indicator"
+              title="This item will sync when you're back online"
+            >
+              pending
+            </span>
+          )}
         </p>
         {item.notes && (
           <p className="text-sm text-gray-600 mt-0.5">{item.notes}</p>
