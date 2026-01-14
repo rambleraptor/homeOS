@@ -258,8 +258,7 @@ test.describe('Groceries Offline Mode', () => {
     await groceriesPage.expectPendingIndicator(itemData.name, true);
 
     // Reload the page while still offline
-    await groceriesPage.page.reload();
-    await groceriesPage.page.waitForLoadState('domcontentloaded');
+    await groceriesPage.reloadWhileOffline();
 
     // Item should still be in the list with pending indicator
     await groceriesPage.expectOfflineBanner(true);

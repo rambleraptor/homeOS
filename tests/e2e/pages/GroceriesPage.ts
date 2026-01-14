@@ -260,10 +260,10 @@ export class GroceriesPage {
 
     // Simulate offline mode in the browser by modifying navigator.onLine and firing events
     await this.page.evaluate(() => {
-      // Override navigator.onLine
+      // Override navigator.onLine with a getter that always returns false
       Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: false,
+        configurable: true,
+        get: () => false,
       });
 
       // Dispatch offline event so React hooks pick it up
@@ -271,7 +271,7 @@ export class GroceriesPage {
     });
 
     // Wait for React to process the state change
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(1000);
   }
 
   async setOnline() {
@@ -280,10 +280,10 @@ export class GroceriesPage {
 
     // Simulate online mode in the browser
     await this.page.evaluate(() => {
-      // Restore navigator.onLine
+      // Restore navigator.onLine with a getter that always returns true
       Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: true,
+        configurable: true,
+        get: () => true,
       });
 
       // Dispatch online event so React hooks pick it up
@@ -291,7 +291,27 @@ export class GroceriesPage {
     });
 
     // Wait for React to process the state change and potential sync
-    await this.page.waitForTimeout(500);
+    await this.page.waitForTimeout(1000);
+  }
+
+  async reloadWhileOffline() {
+    // To reload while offline, we need to temporarily go online (to fetch the page),
+    // but immediately restore offline state in the browser context
+    await this.page.context().setOffline(false);
+
+    await this.page.reload({ waitUntil: 'domcontentloaded' });
+
+    // Immediately re-establish offline state
+    await this.page.context().setOffline(true);
+    await this.page.evaluate(() => {
+      Object.defineProperty(navigator, 'onLine', {
+        configurable: true,
+        get: () => false,
+      });
+      window.dispatchEvent(new Event('offline'));
+    });
+
+    await this.page.waitForTimeout(1000);
   }
 
   async createItemOffline(data: { name: string; store?: string }) {
