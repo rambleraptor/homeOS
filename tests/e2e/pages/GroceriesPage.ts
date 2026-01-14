@@ -273,12 +273,6 @@ export class GroceriesPage {
   async setOffline() {
     await this.setupOfflineScript();
 
-    // Use route interception to fail all network requests (simulates true offline)
-    // This is more realistic than context.setOffline() which can cause reload issues
-    await this.page.route('**/*', (route) => {
-      route.abort('failed');
-    });
-
     // Set the test offline flag and dispatch event
     // Ensure flag exists first, then set it and dispatch event
     await this.page.evaluate(() => {
@@ -298,9 +292,6 @@ export class GroceriesPage {
 
   async setOnline() {
     await this.setupOfflineScript();
-
-    // Remove all route interception to allow network requests again
-    await this.page.unroute('**/*');
 
     // Clear the test offline flag and dispatch event
     // Ensure flag exists first, then set it and dispatch event
@@ -322,17 +313,9 @@ export class GroceriesPage {
   async reloadWhileOffline() {
     await this.setupOfflineScript();
 
-    // Temporarily unblock requests to allow page reload
-    await this.page.unroute('**/*');
-
     await this.page.reload({ waitUntil: 'domcontentloaded' });
 
-    // Re-establish offline state with route interception
-    await this.page.route('**/*', (route) => {
-      route.abort('failed');
-    });
-
-    // Set the test offline flag and dispatch event
+    // Set the test offline flag and dispatch event after reload
     // Ensure flag exists first, then set it and dispatch event
     await this.page.evaluate(() => {
       // Initialize flag if it doesn't exist (should be set by init script, but ensure it)
