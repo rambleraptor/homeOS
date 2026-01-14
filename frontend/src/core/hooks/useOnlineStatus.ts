@@ -5,18 +5,34 @@ import { useState, useEffect } from 'react';
  * @returns boolean indicating if the browser is currently online
  */
 export function useOnlineStatus(): boolean {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Helper to get online status, checking test override first
+  const getOnlineStatus = () => {
+    // In E2E tests, allow overriding via window.__testOffline__ flag
+    if (typeof window !== 'undefined' && '__testOffline__' in window) {
+      return !(window as any).__testOffline__;
+    }
+    return navigator.onLine;
+  };
+
+  const [isOnline, setIsOnline] = useState(getOnlineStatus);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
+    // Handler for test-specific offline state changes
+    const handleTestOfflineChange = () => {
+      setIsOnline(getOnlineStatus());
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('test-offline-change', handleTestOfflineChange);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('test-offline-change', handleTestOfflineChange);
     };
   }, []);
 

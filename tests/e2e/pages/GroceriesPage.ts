@@ -260,38 +260,11 @@ export class GroceriesPage {
   private async setupOfflineScript() {
     if (this.offlineScriptAdded) return;
 
-    // Use context-level init script for more reliability
+    // Use context-level init script to set up test offline flag
     await this.page.context().addInitScript(() => {
-      // Store original navigator.onLine
-      const originalOnLine = Object.getOwnPropertyDescriptor(Navigator.prototype, 'onLine')
-        || Object.getOwnPropertyDescriptor(navigator, 'onLine');
-
-      // Create a global variable to track offline state
-      (window as any).__offline__ = false;
-
-      // Try to override on the prototype first (more reliable)
-      try {
-        if (Navigator.prototype) {
-          Object.defineProperty(Navigator.prototype, 'onLine', {
-            configurable: true,
-            get() {
-              return !(window as any).__offline__;
-            },
-          });
-        }
-      } catch (e) {
-        // Fallback: try to override on the instance
-        try {
-          Object.defineProperty(navigator, 'onLine', {
-            configurable: true,
-            get() {
-              return !(window as any).__offline__;
-            },
-          });
-        } catch (e2) {
-          console.warn('Could not override navigator.onLine', e2);
-        }
-      }
+      // Create a global variable to track offline state for testing
+      // This is checked by useOnlineStatus hook
+      (window as any).__testOffline__ = false;
     });
 
     this.offlineScriptAdded = true;
@@ -303,10 +276,11 @@ export class GroceriesPage {
     // Block network requests
     await this.page.context().setOffline(true);
 
-    // Set the offline flag and dispatch event
+    // Set the test offline flag and dispatch events
     await this.page.evaluate(() => {
-      (window as any).__offline__ = true;
+      (window as any).__testOffline__ = true;
       window.dispatchEvent(new Event('offline'));
+      window.dispatchEvent(new Event('test-offline-change'));
     });
 
     // Wait for React to process the state change
@@ -319,10 +293,11 @@ export class GroceriesPage {
     // Re-enable network requests
     await this.page.context().setOffline(false);
 
-    // Clear the offline flag and dispatch event
+    // Clear the test offline flag and dispatch events
     await this.page.evaluate(() => {
-      (window as any).__offline__ = false;
+      (window as any).__testOffline__ = false;
       window.dispatchEvent(new Event('online'));
+      window.dispatchEvent(new Event('test-offline-change'));
     });
 
     // Wait for React to process the state change and potential sync
@@ -341,11 +316,11 @@ export class GroceriesPage {
     // Immediately re-establish offline state
     await this.page.context().setOffline(true);
 
-    // The init script already set up the navigator.onLine override
-    // Just need to set the flag and dispatch event
+    // Set the test offline flag and dispatch events
     await this.page.evaluate(() => {
-      (window as any).__offline__ = true;
+      (window as any).__testOffline__ = true;
       window.dispatchEvent(new Event('offline'));
+      window.dispatchEvent(new Event('test-offline-change'));
     });
 
     // Wait longer for React Query to load IndexedDB data and React to render
