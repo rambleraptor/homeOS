@@ -49,14 +49,20 @@ export function useCreatePerson() {
           });
         }
 
-        // Sync recurring notifications for this person
-        await syncRecurringNotificationsForPerson(
-          personRecord.id,
-          personRecord.name,
-          data.birthday,
-          data.anniversary,
-          data.notification_preferences
-        );
+        // Sync recurring notifications for this person (non-blocking)
+        // This is a best-effort operation - if it fails, we still want the person to be created
+        try {
+          await syncRecurringNotificationsForPerson(
+            personRecord.id,
+            personRecord.name,
+            data.birthday,
+            data.anniversary,
+            data.notification_preferences
+          );
+        } catch (syncError) {
+          logger.error('Failed to sync recurring notifications', syncError, { personId: personRecord.id });
+          // Don't throw - notification sync failure shouldn't block person creation
+        }
 
         return personRecord;
       } catch (error) {

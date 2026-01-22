@@ -87,14 +87,20 @@ export function useUpdatePerson() {
         });
       }
 
-      // Sync recurring notifications for this person
-      await syncRecurringNotificationsForPerson(
-        id,
-        data.name,
-        data.birthday,
-        data.anniversary,
-        data.notification_preferences
-      );
+      // Sync recurring notifications for this person (non-blocking)
+      // This is a best-effort operation - if it fails, we still want the person to be updated
+      try {
+        await syncRecurringNotificationsForPerson(
+          id,
+          data.name,
+          data.birthday,
+          data.anniversary,
+          data.notification_preferences
+        );
+      } catch (syncError) {
+        logger.error('Failed to sync recurring notifications', syncError, { personId: id });
+        // Don't throw - notification sync failure shouldn't block person update
+      }
 
       return { personRecord, oldPartnerId, newPartnerId };
     },
