@@ -5,7 +5,7 @@
  * Returns: { success: boolean, message: string, timestamp: string }
  *
  * This endpoint is designed to be called by Vercel Cron or an external scheduler
- * to send daily birthday/anniversary notifications.
+ * to send daily notifications based on recurring notification configurations.
  *
  * For security, it requires either:
  * 1. A CRON_SECRET header matching the CRON_SECRET environment variable
@@ -22,7 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { checkAndSendPeopleNotifications } from '../utils/notification-sender';
+import { checkAndSendRecurringNotifications } from '../utils/notification-sender';
 
 /**
  * Verify the request is authorized to trigger the cron job
@@ -67,10 +67,10 @@ export async function GET(request: NextRequest) {
     // Configure VAPID details
     webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 
-    console.log('Running scheduled notification check...');
+    console.log('Running scheduled recurring notification check...');
 
     // Run the notification check
-    await checkAndSendPeopleNotifications();
+    await checkAndSendRecurringNotifications();
 
     return NextResponse.json({
       success: true,

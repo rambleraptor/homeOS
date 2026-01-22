@@ -10,6 +10,7 @@ import {
   setPartner,
   removePartner,
 } from '../utils/sharedDataSync';
+import { syncRecurringNotificationsForPerson } from '../utils/notificationSync';
 
 interface UpdatePersonData {
   id: string;
@@ -40,6 +41,7 @@ export function useUpdatePerson() {
         : undefined;
 
       // Update person record (without address/anniversary)
+      // notification_preferences is kept for backward compatibility but we'll also sync to recurring_notifications
       const personRecord = await getCollection<PersonRecord>(Collections.PEOPLE).update(id, {
         name: data.name,
         birthday: data.birthday,
@@ -85,6 +87,15 @@ export function useUpdatePerson() {
         });
       }
 
+      // Sync recurring notifications for this person
+      await syncRecurringNotificationsForPerson(
+        id,
+        data.name,
+        data.birthday,
+        data.anniversary,
+        data.notification_preferences
+      );
+
       return { personRecord, oldPartnerId, newPartnerId };
     },
     onSuccess: (result, variables) => {
@@ -96,6 +107,9 @@ export function useUpdatePerson() {
       });
       queryClient.invalidateQueries({
         queryKey: queryKeys.module('people').detail(variables.id),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.module(Collections.RECURRING_NOTIFICATIONS).list(),
       });
 
       // Invalidate new partner's cache (if partner was added or changed)

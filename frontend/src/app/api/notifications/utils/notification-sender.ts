@@ -1,20 +1,27 @@
 /**
- * People Notification Sender Utility
+ * Universal Notification Sender Utility
  *
- * Handles sending push notifications for birthdays and anniversaries
+ * Handles sending push notifications based on recurring notifications.
+ * The daily cron job checks all enabled recurring notifications and creates
+ * Notification instances when the timing matches.
  */
 
 import webpush from 'web-push';
 import PocketBase from 'pocketbase';
 
-type NotificationPreference = 'day_of' | 'day_before' | 'week_before';
+type NotificationTiming = 'day_of' | 'day_before' | 'week_before';
 
-interface Person {
+interface RecurringNotification {
   id: string;
-  name: string;
-  birthday?: string;
-  anniversary?: string;
-  notification_preferences?: NotificationPreference[];
+  user_id: string;
+  source_collection: string;
+  source_id: string;
+  title_template: string;
+  message_template: string;
+  reference_date_field: string;
+  timing: NotificationTiming;
+  enabled: boolean;
+  last_triggered?: string;
 }
 
 interface NotificationSubscription {
@@ -24,28 +31,45 @@ interface NotificationSubscription {
   enabled: boolean;
 }
 
+interface SourceRecord {
+  id: string;
+  name?: string;
+  [key: string]: unknown;
+}
+
 /**
- * Check if a notification should be sent based on preferences
+ * Check if a notification should be sent based on timing preference
  */
-function shouldSendNotification(eventDate: string, notificationPref: NotificationPreference): boolean {
+function shouldSendNotification(
+  eventDate: string,
+  timing: NotificationTiming
+): boolean {
   const now = new Date();
   const event = new Date(eventDate);
 
-  let nextOccurrence = new Date(now.getFullYear(), event.getMonth(), event.getDate());
+  let nextOccurrence = new Date(
+    now.getFullYear(),
+    event.getMonth(),
+    event.getDate()
+  );
 
   // If already passed this year, use next year
   if (nextOccurrence < now) {
-    nextOccurrence = new Date(now.getFullYear() + 1, event.getMonth(), event.getDate());
+    nextOccurrence = new Date(
+      now.getFullYear() + 1,
+      event.getMonth(),
+      event.getDate()
+    );
   }
 
-  // Check if we should send based on preference
-  if (notificationPref === 'day_of') {
+  // Check if we should send based on timing
+  if (timing === 'day_of') {
     return isSameDay(now, nextOccurrence);
-  } else if (notificationPref === 'day_before') {
+  } else if (timing === 'day_before') {
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     return isSameDay(tomorrow, nextOccurrence);
-  } else if (notificationPref === 'week_before') {
+  } else if (timing === 'week_before') {
     const nextWeek = new Date(now);
     nextWeek.setDate(nextWeek.getDate() + 7);
     return isSameDay(nextWeek, nextOccurrence);
@@ -78,36 +102,66 @@ function formatDate(dateStr: string): string {
 }
 
 /**
- * Send push notifications for a person's event (birthday/anniversary)
+ * Replace template placeholders with actual values
  */
-async function sendPersonNotifications(
-  person: Person,
-  eventType: 'Birthday' | 'Anniversary',
-  eventDate: string,
+function processTemplate(
+  template: string,
+  sourceRecord: SourceRecord,
+  referenceDateField: string
+): string {
+  let result = template;
+
+  // Replace {{name}} with the source record's name
+  if (sourceRecord.name) {
+    result = result.replace(/\{\{name\}\}/g, sourceRecord.name);
+  }
+
+  // Replace {{date}} with the formatted reference date
+  const dateValue = sourceRecord[referenceDateField];
+  if (typeof dateValue === 'string') {
+    result = result.replace(/\{\{date\}\}/g, formatDate(dateValue));
+  }
+
+  return result;
+}
+
+/**
+ * Send a notification based on a recurring notification configuration
+ */
+async function sendRecurringNotification(
+  recurringNotification: RecurringNotification,
+  sourceRecord: SourceRecord,
   pb: PocketBase
-): Promise<void> {
+): Promise<{ sent: number; failed: number; expired: number }> {
+  const stats = { sent: 0, failed: 0, expired: 0 };
+
   try {
-    // Get all active notification subscriptions
+    // Get push subscriptions for the user who owns this recurring notification
     const subscriptions = await pb
       .collection('notification_subscriptions')
       .getFullList<NotificationSubscription>({
-        filter: 'enabled = true',
+        filter: `user_id="${recurringNotification.user_id}" && enabled = true`,
         sort: '-created',
       });
 
     if (subscriptions.length === 0) {
-      console.log('No active subscriptions found');
-      return;
+      console.log(
+        `No active subscriptions for user ${recurringNotification.user_id}`
+      );
+      return stats;
     }
 
-    const title = eventType === 'Birthday' ? '🎂 Birthday Reminder' : '💝 Anniversary Reminder';
-
-    const eventDateStr = formatDate(eventDate);
-    const body = `${person.name}'s ${eventType.toLowerCase()} is on ${eventDateStr}`;
-
-    let sentCount = 0;
-    let failedCount = 0;
-    let expiredCount = 0;
+    // Process templates
+    const title = processTemplate(
+      recurringNotification.title_template,
+      sourceRecord,
+      recurringNotification.reference_date_field
+    );
+    const body = processTemplate(
+      recurringNotification.message_template,
+      sourceRecord,
+      recurringNotification.reference_date_field
+    );
 
     for (const sub of subscriptions) {
       try {
@@ -118,10 +172,12 @@ async function sendPersonNotifications(
           body,
           icon: '/icon-192.png',
           badge: '/badge-72.png',
-          tag: `person-${person.id}-${eventType}`,
+          tag: `recurring-${recurringNotification.id}`,
           data: {
-            url: '/people',
-            personId: person.id,
+            url: `/${recurringNotification.source_collection}`,
+            sourceCollection: recurringNotification.source_collection,
+            sourceId: recurringNotification.source_id,
+            recurringNotificationId: recurringNotification.id,
             timestamp: new Date().toISOString(),
           },
         });
@@ -129,14 +185,21 @@ async function sendPersonNotifications(
         // Send push notification
         try {
           await webpush.sendNotification(subscriptionData, payload);
-          sentCount++;
+          stats.sent++;
 
           // Create notification record
           await pb.collection('notifications').create({
             user_id: sub.user_id,
-            person_id: person.id,
+            recurring_notification_id: recurringNotification.id,
+            source_collection: recurringNotification.source_collection,
+            source_id: recurringNotification.source_id,
+            // Also set person_id for backward compatibility
+            ...(recurringNotification.source_collection === 'people'
+              ? { person_id: recurringNotification.source_id }
+              : {}),
             title: title,
             message: body,
+            notification_type: recurringNotification.timing,
             read: false,
             sent_at: new Date().toISOString(),
           });
@@ -145,7 +208,7 @@ async function sendPersonNotifications(
           // Handle subscription errors
           if (err.statusCode === 404 || err.statusCode === 410) {
             // Subscription expired or invalid
-            expiredCount++;
+            stats.expired++;
             try {
               await pb.collection('notification_subscriptions').delete(sub.id);
               console.log(`Deleted expired subscription for user ${sub.user_id}`);
@@ -153,7 +216,7 @@ async function sendPersonNotifications(
               console.error('Error deleting expired subscription:', deleteError);
             }
           } else {
-            failedCount++;
+            stats.failed++;
             console.error('Push notification error:', {
               userId: sub.user_id,
               error: err.message,
@@ -162,94 +225,203 @@ async function sendPersonNotifications(
           }
         }
       } catch (error) {
-        failedCount++;
+        stats.failed++;
         console.error('Error processing subscription:', error);
       }
     }
 
-    console.log(`Notification summary for "${person.name}'s ${eventType}":`, {
-      sent: sentCount,
-      failed: failedCount,
-      expired: expiredCount,
-      total: subscriptions.length,
+    // Update last_triggered on the recurring notification
+    await pb.collection('recurring_notifications').update(recurringNotification.id, {
+      last_triggered: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('Error in sendPersonNotifications:', error);
+    console.error('Error in sendRecurringNotification:', error);
   }
+
+  return stats;
 }
 
 /**
- * Main function to check and send people notifications
+ * Main function to check and send notifications based on recurring notifications.
+ * This is called by the daily cron job.
  */
-export async function checkAndSendPeopleNotifications(): Promise<void> {
+export async function checkAndSendRecurringNotifications(): Promise<void> {
   try {
     const now = new Date();
-    console.log(`[${now.toISOString()}] Checking for people needing notifications...`);
+    console.log(
+      `[${now.toISOString()}] Checking recurring notifications...`
+    );
 
     // Initialize PocketBase with server credentials
-    const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090');
+    const pb = new PocketBase(
+      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090'
+    );
 
-    // Authenticate as admin to access all people
+    // Authenticate as admin to access all data
     const adminEmail = process.env.POCKETBASE_ADMIN_EMAIL;
     const adminPassword = process.env.POCKETBASE_ADMIN_PASSWORD;
 
     if (!adminEmail || !adminPassword) {
-      console.error('POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD must be set');
+      console.error(
+        'POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD must be set'
+      );
       return;
     }
 
     await pb.admins.authWithPassword(adminEmail, adminPassword);
 
-    // Get all people
-    const people = await pb.collection('people').getFullList<Person>({
-      sort: '-created',
-    });
+    // Get all enabled recurring notifications
+    const recurringNotifications = await pb
+      .collection('recurring_notifications')
+      .getFullList<RecurringNotification>({
+        filter: 'enabled = true',
+        sort: '-created',
+      });
 
-    if (people.length === 0) {
-      console.log('No people found');
+    if (recurringNotifications.length === 0) {
+      console.log('No enabled recurring notifications found');
       return;
     }
 
-    console.log(`Found ${people.length} people to check`);
+    console.log(
+      `Found ${recurringNotifications.length} enabled recurring notifications to check`
+    );
 
-    let notificationsSent = 0;
+    let totalSent = 0;
+    let totalFailed = 0;
+    let totalExpired = 0;
 
-    for (const person of people) {
-      const notificationPreferences = person.notification_preferences || [];
+    // Group by source_collection and source_id for efficient fetching
+    const sourceCache = new Map<string, SourceRecord | null>();
 
-      if (notificationPreferences.length === 0) {
-        continue; // Skip people with no notification preferences
-      }
+    for (const recurring of recurringNotifications) {
+      const cacheKey = `${recurring.source_collection}:${recurring.source_id}`;
 
-      // Check for birthday
-      if (person.birthday) {
-        for (const pref of notificationPreferences) {
-          if (shouldSendNotification(person.birthday, pref)) {
-            console.log(`Sending ${pref} birthday notification for: ${person.name}`);
-            await sendPersonNotifications(person, 'Birthday', person.birthday, pb);
-            notificationsSent++;
-          }
+      // Get or fetch the source record
+      let sourceRecord = sourceCache.get(cacheKey);
+      if (sourceRecord === undefined) {
+        try {
+          sourceRecord = await pb
+            .collection(recurring.source_collection)
+            .getOne<SourceRecord>(recurring.source_id);
+          sourceCache.set(cacheKey, sourceRecord);
+        } catch {
+          console.error(
+            `Source record not found: ${recurring.source_collection}/${recurring.source_id}`
+          );
+          sourceCache.set(cacheKey, null);
+          continue;
         }
       }
 
-      // Check for anniversary
-      if (person.anniversary) {
-        for (const pref of notificationPreferences) {
-          if (shouldSendNotification(person.anniversary, pref)) {
-            console.log(`Sending ${pref} anniversary notification for: ${person.name}`);
-            await sendPersonNotifications(person, 'Anniversary', person.anniversary, pb);
-            notificationsSent++;
-          }
-        }
+      if (!sourceRecord) {
+        continue;
+      }
+
+      // Check if the reference date field exists and should trigger
+      const referenceDateValue = sourceRecord[recurring.reference_date_field];
+      if (typeof referenceDateValue !== 'string') {
+        continue;
+      }
+
+      if (shouldSendNotification(referenceDateValue, recurring.timing)) {
+        console.log(
+          `Triggering recurring notification ${recurring.id} for ${recurring.source_collection}/${recurring.source_id}`
+        );
+
+        const stats = await sendRecurringNotification(
+          recurring,
+          sourceRecord,
+          pb
+        );
+
+        totalSent += stats.sent;
+        totalFailed += stats.failed;
+        totalExpired += stats.expired;
       }
     }
 
-    if (notificationsSent === 0) {
-      console.log('No notifications needed today');
-    } else {
-      console.log(`Processed ${notificationsSent} person notifications`);
-    }
+    console.log('Recurring notification check complete:', {
+      sent: totalSent,
+      failed: totalFailed,
+      expired: totalExpired,
+    });
   } catch (error) {
-    console.error('Error in checkAndSendPeopleNotifications:', error);
+    console.error('Error in checkAndSendRecurringNotifications:', error);
+  }
+}
+
+/**
+ * @deprecated Use checkAndSendRecurringNotifications instead.
+ * This function is kept for backward compatibility.
+ */
+export async function checkAndSendPeopleNotifications(): Promise<void> {
+  return checkAndSendRecurringNotifications();
+}
+
+/**
+ * Send an immediate notification (not from a recurring notification).
+ * This is used for one-time notifications triggered by actions.
+ */
+export async function sendImmediateNotification(
+  pb: PocketBase,
+  options: {
+    userId: string;
+    title: string;
+    message: string;
+    sourceCollection?: string;
+    sourceId?: string;
+    notificationType?: 'system';
+  }
+): Promise<void> {
+  const { userId, title, message, sourceCollection, sourceId } = options;
+
+  try {
+    // Get push subscriptions for the user
+    const subscriptions = await pb
+      .collection('notification_subscriptions')
+      .getFullList<NotificationSubscription>({
+        filter: `user_id="${userId}" && enabled = true`,
+        sort: '-created',
+      });
+
+    for (const sub of subscriptions) {
+      try {
+        const payload = JSON.stringify({
+          title,
+          body: message,
+          icon: '/icon-192.png',
+          badge: '/badge-72.png',
+          tag: `immediate-${Date.now()}`,
+          data: {
+            url: sourceCollection ? `/${sourceCollection}` : '/notifications',
+            sourceCollection,
+            sourceId,
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        await webpush.sendNotification(sub.subscription_data, payload);
+      } catch (error: unknown) {
+        const err = error as { statusCode?: number };
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await pb.collection('notification_subscriptions').delete(sub.id);
+        }
+      }
+    }
+
+    // Create notification record
+    await pb.collection('notifications').create({
+      user_id: userId,
+      source_collection: sourceCollection,
+      source_id: sourceId,
+      title,
+      message,
+      notification_type: 'system',
+      read: false,
+      sent_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error sending immediate notification:', error);
   }
 }
