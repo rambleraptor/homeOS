@@ -20,7 +20,7 @@ migrate(
       'people',
       'notification_preferences != null && notification_preferences != "[]"',
       '-created',
-      0,
+      10000,
       0
     );
 
@@ -119,7 +119,7 @@ migrate(
       'notifications',
       'person_id != null && person_id != ""',
       '-created',
-      0,
+      10000,
       0
     );
 
@@ -147,7 +147,7 @@ migrate(
       'recurring_notifications',
       'source_collection = "people"',
       '-created',
-      0,
+      10000,
       0
     );
 
@@ -162,7 +162,7 @@ migrate(
       'notifications',
       'source_collection = "people"',
       '-created',
-      0,
+      10000,
       0
     );
 
