@@ -4,6 +4,11 @@
  * Handles syncing recurring notifications when people are created/updated.
  * This bridges the gap between the legacy notification_preferences field
  * and the new recurring_notifications system.
+ *
+ * IMPORTANT: Templates store placeholders ({{name}}, {{date}}) that are resolved
+ * at send-time from the source record. This ensures:
+ * 1. Name changes are automatically reflected in notifications
+ * 2. No template injection vulnerabilities from user-provided names
  */
 
 import { getCollection, pb, Collections } from '@/core/api/pocketbase';
@@ -13,6 +18,7 @@ import type {
   NotificationTiming,
 } from '@/modules/notifications/types';
 
+// Templates use placeholders that are resolved at send-time from the source record
 const BIRTHDAY_TEMPLATES = {
   title: 'Birthday Reminder - {{name}}',
   message: "{{name}}'s birthday is coming up on {{date}}!",
@@ -24,18 +30,27 @@ const ANNIVERSARY_TEMPLATES = {
 };
 
 /**
+ * Escape a value for use in PocketBase filter strings.
+ * Prevents filter injection attacks.
+ */
+function escapeFilterValue(value: string): string {
+  // Escape backslashes first, then double quotes
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
  * Sync recurring notifications for a person based on their notification preferences.
  * This creates/updates/deletes recurring notifications to match the desired timings.
  *
  * @param personId - The ID of the person
- * @param personName - The name of the person (for templates)
+ * @param _personName - Unused, kept for API compatibility (name resolved at send-time)
  * @param birthday - The person's birthday (optional)
  * @param anniversary - The person's anniversary (optional)
  * @param preferences - The notification timing preferences
  */
 export async function syncRecurringNotificationsForPerson(
   personId: string,
-  personName: string,
+  _personName: string,
   birthday: string | undefined,
   anniversary: string | undefined,
   preferences: NotificationPreference[]
@@ -48,27 +63,25 @@ export async function syncRecurringNotificationsForPerson(
   // Convert NotificationPreference to NotificationTiming (they're the same values)
   const desiredTimings = preferences as NotificationTiming[];
 
-  // Sync birthday notifications
-  await syncNotificationsForDateField(
-    userId,
-    personId,
-    personName,
-    'birthday',
-    birthday,
-    desiredTimings,
-    BIRTHDAY_TEMPLATES
-  );
-
-  // Sync anniversary notifications
-  await syncNotificationsForDateField(
-    userId,
-    personId,
-    personName,
-    'anniversary',
-    anniversary,
-    desiredTimings,
-    ANNIVERSARY_TEMPLATES
-  );
+  // Sync birthday and anniversary notifications in parallel
+  await Promise.all([
+    syncNotificationsForDateField(
+      userId,
+      personId,
+      'birthday',
+      birthday,
+      desiredTimings,
+      BIRTHDAY_TEMPLATES
+    ),
+    syncNotificationsForDateField(
+      userId,
+      personId,
+      'anniversary',
+      anniversary,
+      desiredTimings,
+      ANNIVERSARY_TEMPLATES
+    ),
+  ]);
 }
 
 /**
@@ -77,62 +90,79 @@ export async function syncRecurringNotificationsForPerson(
 async function syncNotificationsForDateField(
   userId: string,
   personId: string,
-  personName: string,
   dateField: 'birthday' | 'anniversary',
   dateValue: string | undefined,
   desiredTimings: NotificationTiming[],
   templates: { title: string; message: string }
 ): Promise<void> {
+  const escapedUserId = escapeFilterValue(userId);
+  const escapedPersonId = escapeFilterValue(personId);
+
   // Get existing recurring notifications for this person and date field
   const existing = await getCollection<RecurringNotification>(
     Collections.RECURRING_NOTIFICATIONS
   ).getFullList({
-    filter: `user_id="${userId}" && source_collection="people" && source_id="${personId}" && reference_date_field="${dateField}"`,
+    filter: `user_id="${escapedUserId}" && source_collection="people" && source_id="${escapedPersonId}" && reference_date_field="${dateField}"`,
   });
 
   const existingTimings = new Map(existing.map((n) => [n.timing, n]));
 
   // If there's no date value, delete all existing notifications for this field
   if (!dateValue) {
-    for (const notification of existing) {
-      await getCollection<RecurringNotification>(
-        Collections.RECURRING_NOTIFICATIONS
-      ).delete(notification.id);
+    if (existing.length > 0) {
+      await Promise.all(
+        existing.map((notification) =>
+          getCollection<RecurringNotification>(
+            Collections.RECURRING_NOTIFICATIONS
+          ).delete(notification.id)
+        )
+      );
     }
     return;
   }
 
-  // Process templates with the person's name
-  const titleTemplate = templates.title.replace('{{name}}', personName);
-  const messageTemplate = templates.message.replace('{{name}}', personName);
+  // Determine which notifications to create and delete
+  const toCreate: NotificationTiming[] = [];
+  const toDelete: RecurringNotification[] = [];
 
-  // Create missing notifications
   for (const timing of desiredTimings) {
     if (!existingTimings.has(timing)) {
-      await getCollection<RecurringNotification>(
+      toCreate.push(timing);
+    }
+  }
+
+  const desiredSet = new Set(desiredTimings);
+  for (const [timing, notification] of existingTimings) {
+    if (!desiredSet.has(timing)) {
+      toDelete.push(notification);
+    }
+  }
+
+  // Execute creates and deletes in parallel
+  await Promise.all([
+    // Create missing notifications
+    ...toCreate.map((timing) =>
+      getCollection<RecurringNotification>(
         Collections.RECURRING_NOTIFICATIONS
       ).create({
         user_id: userId,
         source_collection: 'people',
         source_id: personId,
-        title_template: titleTemplate,
-        message_template: messageTemplate,
+        // Store templates with placeholders - resolved at send-time
+        title_template: templates.title,
+        message_template: templates.message,
         reference_date_field: dateField,
         timing,
         enabled: true,
-      });
-    }
-  }
-
-  // Delete removed notifications
-  const desiredSet = new Set(desiredTimings);
-  for (const [timing, notification] of existingTimings) {
-    if (!desiredSet.has(timing)) {
-      await getCollection<RecurringNotification>(
+      })
+    ),
+    // Delete removed notifications
+    ...toDelete.map((notification) =>
+      getCollection<RecurringNotification>(
         Collections.RECURRING_NOTIFICATIONS
-      ).delete(notification.id);
-    }
-  }
+      ).delete(notification.id)
+    ),
+  ]);
 }
 
 /**
@@ -147,16 +177,23 @@ export async function deleteRecurringNotificationsForPerson(
     return;
   }
 
+  const escapedUserId = escapeFilterValue(userId);
+  const escapedPersonId = escapeFilterValue(personId);
+
   const notifications = await getCollection<RecurringNotification>(
     Collections.RECURRING_NOTIFICATIONS
   ).getFullList({
-    filter: `user_id="${userId}" && source_collection="people" && source_id="${personId}"`,
+    filter: `user_id="${escapedUserId}" && source_collection="people" && source_id="${escapedPersonId}"`,
   });
 
-  for (const notification of notifications) {
-    await getCollection<RecurringNotification>(
-      Collections.RECURRING_NOTIFICATIONS
-    ).delete(notification.id);
+  if (notifications.length > 0) {
+    await Promise.all(
+      notifications.map((notification) =>
+        getCollection<RecurringNotification>(
+          Collections.RECURRING_NOTIFICATIONS
+        ).delete(notification.id)
+      )
+    );
   }
 }
 
@@ -172,10 +209,13 @@ export async function getNotificationTimingsForPerson(
     return { birthday: [], anniversary: [] };
   }
 
+  const escapedUserId = escapeFilterValue(userId);
+  const escapedPersonId = escapeFilterValue(personId);
+
   const notifications = await getCollection<RecurringNotification>(
     Collections.RECURRING_NOTIFICATIONS
   ).getFullList({
-    filter: `user_id="${userId}" && source_collection="people" && source_id="${personId}"`,
+    filter: `user_id="${escapedUserId}" && source_collection="people" && source_id="${escapedPersonId}"`,
   });
 
   const result = { birthday: [] as NotificationTiming[], anniversary: [] as NotificationTiming[] };

@@ -413,6 +413,47 @@ export async function deleteAllHSAReceipts(pb: PocketBase) {
 }
 
 /**
+ * Get recurring notifications for a person
+ */
+export async function getRecurringNotificationsForPerson(pb: PocketBase, personId: string) {
+  try {
+    const filter = `source_collection = "people" && source_id = "${personId}"`;
+    const notifications = await pb.collection('recurring_notifications').getFullList({
+      filter,
+      sort: 'reference_date_field,timing',
+    });
+    return notifications;
+  } catch (error: any) {
+    if (error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
+}
+
+/**
+ * Delete all recurring notifications (family-wide, not filtered by user)
+ * Silently handles cases where collection doesn't exist or no access
+ */
+export async function deleteAllRecurringNotifications(pb: PocketBase) {
+  try {
+    const records = await pb.collection('recurring_notifications').getFullList();
+
+    if (records.length > 0) {
+      const promises = records.map(record =>
+        pb.collection('recurring_notifications').delete(record.id)
+      );
+      await Promise.all(promises);
+    }
+  } catch (error: any) {
+    if (error.status === 404 || error.status === 403) {
+      return;
+    }
+    throw error;
+  }
+}
+
+/**
  * Clean up all test data (for the entire family, not just one user)
  */
 export async function cleanupUserData(pb: PocketBase) {
@@ -423,5 +464,6 @@ export async function cleanupUserData(pb: PocketBase) {
     deleteAllGroceryItems(pb),
     deleteAllStores(pb),
     deleteAllHSAReceipts(pb),
+    deleteAllRecurringNotifications(pb),
   ]);
 }
