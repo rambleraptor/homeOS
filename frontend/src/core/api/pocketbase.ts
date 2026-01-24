@@ -38,6 +38,7 @@ export const Collections = {
   ADDRESSES: 'addresses',
   NOTIFICATIONS: 'notifications',
   NOTIFICATION_SUBSCRIPTIONS: 'notification_subscriptions',
+  RECURRING_NOTIFICATIONS: 'recurring_notifications',
   GROCERIES: 'groceries',
   STORES: 'stores',
   RECIPES: 'recipes',
