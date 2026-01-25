@@ -81,7 +81,6 @@ export function GroceryList({
                       item={item}
                       onToggle={onToggleItem}
                       onDelete={onDeleteItem}
-                      disabled={isUpdating}
                     />
                   ))}
                 </div>
