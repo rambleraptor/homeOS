@@ -125,7 +125,9 @@ export function GroceriesHome() {
   }
 
   const isSubmitting = createMutation.isPending;
-  const isUpdating = updateMutation.isPending || deleteMutation.isPending || deleteAllMutation.isPending || markStoreCompletedMutation.isPending;
+  // Only track bulk operations that should disable the entire UI
+  // Individual item updates/deletes should not disable other items
+  const isBulkUpdating = deleteAllMutation.isPending || markStoreCompletedMutation.isPending;
   const isCategorizing = categorizeAllMutation.isPending;
 
   return (
@@ -174,7 +176,7 @@ export function GroceriesHome() {
             <>
               <button
                 onClick={handleCategorizeAll}
-                disabled={isCategorizing || isUpdating}
+                disabled={isCategorizing || isBulkUpdating}
                 className="bg-purple-600 text-white px-3 py-2 sm:px-4 rounded-md hover:bg-purple-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 data-testid="categorize-all-button"
               >
@@ -188,7 +190,7 @@ export function GroceriesHome() {
               </button>
               <button
                 onClick={handleNewList}
-                disabled={isUpdating || isCategorizing}
+                disabled={isBulkUpdating || isCategorizing}
                 className="bg-red-600 text-white px-3 py-2 sm:px-4 rounded-md hover:bg-red-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 data-testid="new-grocery-list-button"
               >
@@ -250,7 +252,7 @@ export function GroceriesHome() {
         onToggleItem={handleToggleItem}
         onDeleteItem={handleDeleteItem}
         onMarkStoreCompleted={handleMarkStoreCompleted}
-        isUpdating={isUpdating}
+        isUpdating={isBulkUpdating}
       />
 
       {/* Image Upload Dialog */}
