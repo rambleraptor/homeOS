@@ -184,7 +184,8 @@ export function NotificationsHome() {
         </div>
       )}
 
-      {!notifications || notifications.length === 0 ? (
+      {!notifications ||
+      (unreadNotifications.length === 0 && readNotifications.length === 0) ? (
         <Card>
           <div className="text-center py-12">
             <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
