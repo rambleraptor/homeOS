@@ -132,7 +132,7 @@ function GroceryItemRow({ item, onToggle, onDelete, disabled = false }: GroceryI
       <button
         onClick={() => onDelete(item.id)}
         disabled={disabled}
-        className="opacity-0 group-hover:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50 transition-opacity"
+        className="p-2 text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
         aria-label={`Delete ${item.name}`}
         data-testid="delete-grocery-item"
       >
