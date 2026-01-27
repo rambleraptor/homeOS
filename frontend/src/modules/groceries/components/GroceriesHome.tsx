@@ -6,7 +6,7 @@
  * Main grocery list interface
  */
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Plus, ShoppingCart, Loader2, AlertCircle, CheckCircle2, Image, ListRestart, Tags, Store as StoreIcon } from 'lucide-react';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useStores } from '../hooks/useStores';
@@ -26,6 +26,7 @@ export function GroceriesHome() {
   const [selectedStore, setSelectedStore] = useState('');
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showStoreManagement, setShowStoreManagement] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { stats, isLoading, isError, error } = useGroupedGroceries();
   const { data: stores = [] } = useStores();
@@ -45,6 +46,7 @@ export function GroceriesHome() {
         store: selectedStore || undefined,
       });
       setItemName('');
+      inputRef.current?.focus();
     } catch (err) {
       logger.error('Failed to create grocery item', err);
     }
@@ -224,6 +226,7 @@ export function GroceriesHome() {
             ))}
           </select>
           <input
+            ref={inputRef}
             type="text"
             value={itemName}
             onChange={(e) => setItemName(e.target.value)}
