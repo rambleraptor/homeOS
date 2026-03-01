@@ -39,6 +39,7 @@ import { peopleModule } from './people/module.config';
 import { notificationsModule } from './notifications/module.config';
 import { settingsModule } from './settings/module.config';
 import { hsaModule } from './hsa/module.config';
+import { developerModule } from './developer/module.config';
 
 // =============================================================================
 // REGISTER MODULES HERE
@@ -57,6 +58,7 @@ const MODULES: HomeModule[] = [
   hsaModule,
   notificationsModule,
   settingsModule,
+  developerModule,
   // Add your modules here...
 ];
 

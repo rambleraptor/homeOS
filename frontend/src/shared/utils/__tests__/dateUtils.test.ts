@@ -5,6 +5,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getTodaysHoliday } from '../dateUtils';
 
+/** Create a local-time date to avoid UTC timezone offset issues */
+function localDate(year: number, month: number, day: number): Date {
+  return new Date(year, month - 1, day, 12, 0, 0);
+}
+
 describe('getTodaysHoliday', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -16,7 +21,7 @@ describe('getTodaysHoliday', () => {
 
   describe('Fixed date holidays', () => {
     it('should return New Year\'s Day on January 1', () => {
-      vi.setSystemTime(new Date('2024-01-01'));
+      vi.setSystemTime(localDate(2024, 1, 1));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: "New Year's Day",
@@ -25,7 +30,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return Valentine\'s Day on February 14', () => {
-      vi.setSystemTime(new Date('2024-02-14'));
+      vi.setSystemTime(localDate(2024, 2, 14));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: "Valentine's Day",
@@ -34,7 +39,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return St. Patrick\'s Day on March 17', () => {
-      vi.setSystemTime(new Date('2024-03-17'));
+      vi.setSystemTime(localDate(2024, 3, 17));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: "St. Patrick's Day",
@@ -43,7 +48,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return Independence Day on July 4', () => {
-      vi.setSystemTime(new Date('2024-07-04'));
+      vi.setSystemTime(localDate(2024, 7, 4));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Independence Day',
@@ -52,7 +57,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return Halloween on October 31', () => {
-      vi.setSystemTime(new Date('2024-10-31'));
+      vi.setSystemTime(localDate(2024, 10, 31));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Halloween',
@@ -61,7 +66,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return Christmas Eve on December 24', () => {
-      vi.setSystemTime(new Date('2024-12-24'));
+      vi.setSystemTime(localDate(2024, 12, 24));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Christmas Eve',
@@ -70,7 +75,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return Christmas on December 25', () => {
-      vi.setSystemTime(new Date('2024-12-25'));
+      vi.setSystemTime(localDate(2024, 12, 25));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Christmas',
@@ -79,7 +84,7 @@ describe('getTodaysHoliday', () => {
     });
 
     it('should return New Year\'s Eve on December 31', () => {
-      vi.setSystemTime(new Date('2024-12-31'));
+      vi.setSystemTime(localDate(2024, 12, 31));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: "New Year's Eve",
@@ -91,7 +96,7 @@ describe('getTodaysHoliday', () => {
   describe('Variable date holidays', () => {
     it('should return Easter on correct date (2024)', () => {
       // Easter 2024 is March 31
-      vi.setSystemTime(new Date('2024-03-31'));
+      vi.setSystemTime(localDate(2024, 3, 31));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Easter',
@@ -101,7 +106,7 @@ describe('getTodaysHoliday', () => {
 
     it('should return Easter on correct date (2025)', () => {
       // Easter 2025 is April 20
-      vi.setSystemTime(new Date('2025-04-20'));
+      vi.setSystemTime(localDate(2025, 4, 20));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Easter',
@@ -111,7 +116,7 @@ describe('getTodaysHoliday', () => {
 
     it('should return Mother\'s Day on 2nd Sunday in May (2024)', () => {
       // Mother's Day 2024 is May 12
-      vi.setSystemTime(new Date('2024-05-12'));
+      vi.setSystemTime(localDate(2024, 5, 12));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: "Mother's Day",
@@ -121,7 +126,7 @@ describe('getTodaysHoliday', () => {
 
     it('should return Father\'s Day on 3rd Sunday in June (2024)', () => {
       // Father's Day 2024 is June 16
-      vi.setSystemTime(new Date('2024-06-16'));
+      vi.setSystemTime(localDate(2024, 6, 16));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: "Father's Day",
@@ -131,7 +136,7 @@ describe('getTodaysHoliday', () => {
 
     it('should return Memorial Day on last Monday in May (2024)', () => {
       // Memorial Day 2024 is May 27
-      vi.setSystemTime(new Date('2024-05-27'));
+      vi.setSystemTime(localDate(2024, 5, 27));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Memorial Day',
@@ -141,7 +146,7 @@ describe('getTodaysHoliday', () => {
 
     it('should return Labor Day on 1st Monday in September (2024)', () => {
       // Labor Day 2024 is September 2
-      vi.setSystemTime(new Date('2024-09-02'));
+      vi.setSystemTime(localDate(2024, 9, 2));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Labor Day',
@@ -151,7 +156,7 @@ describe('getTodaysHoliday', () => {
 
     it('should return Thanksgiving on 4th Thursday in November (2024)', () => {
       // Thanksgiving 2024 is November 28
-      vi.setSystemTime(new Date('2024-11-28'));
+      vi.setSystemTime(localDate(2024, 11, 28));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Thanksgiving',
@@ -162,19 +167,19 @@ describe('getTodaysHoliday', () => {
 
   describe('Non-holiday dates', () => {
     it('should return null on a regular day', () => {
-      vi.setSystemTime(new Date('2024-06-15'));
+      vi.setSystemTime(localDate(2024, 6, 15));
       const holiday = getTodaysHoliday();
       expect(holiday).toBeNull();
     });
 
     it('should return null on day before holiday', () => {
-      vi.setSystemTime(new Date('2024-12-24').getTime() - 24 * 60 * 60 * 1000);
+      vi.setSystemTime(localDate(2024, 12, 23));
       const holiday = getTodaysHoliday();
       expect(holiday).toBeNull();
     });
 
     it('should return null on day after holiday', () => {
-      vi.setSystemTime(new Date('2024-12-26'));
+      vi.setSystemTime(localDate(2024, 12, 26));
       const holiday = getTodaysHoliday();
       expect(holiday).toBeNull();
     });
@@ -182,7 +187,7 @@ describe('getTodaysHoliday', () => {
 
   describe('Edge cases', () => {
     it('should work correctly in different years for fixed holidays', () => {
-      vi.setSystemTime(new Date('2025-07-04'));
+      vi.setSystemTime(localDate(2025, 7, 4));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Independence Day',
@@ -192,7 +197,7 @@ describe('getTodaysHoliday', () => {
 
     it('should correctly calculate variable holidays in different years', () => {
       // Thanksgiving 2025 is November 27
-      vi.setSystemTime(new Date('2025-11-27'));
+      vi.setSystemTime(localDate(2025, 11, 27));
       const holiday = getTodaysHoliday();
       expect(holiday).toEqual({
         name: 'Thanksgiving',

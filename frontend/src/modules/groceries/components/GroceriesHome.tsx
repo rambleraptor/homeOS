@@ -210,7 +210,7 @@ export function GroceriesHome() {
             className="bg-green-600 text-white px-3 py-2 sm:px-4 rounded-md hover:bg-green-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             data-testid="upload-grocery-list-button"
           >
-            <Image className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Image className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
             <span className="hidden xs:inline">Upload List</span>
             <span className="xs:hidden">Upload</span>
           </button>

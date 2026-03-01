@@ -124,4 +124,21 @@ export function getCollection<T = unknown>(name: string) {
   };
 }
 
+/**
+ * Server-side: create a PocketBase instance authenticated via request header
+ */
+export function getPocketBase(request: { headers: { get(name: string): string | null } }): PocketBase {
+  const serverPb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://127.0.0.1:8090');
+  const token = request.headers.get('Authorization') || '';
+  serverPb.authStore.save(token, null);
+  return serverPb;
+}
+
+/**
+ * Client-side hook: returns the singleton PocketBase instance
+ */
+export function usePocketBase(): PocketBase {
+  return pb;
+}
+
 export default pb;
