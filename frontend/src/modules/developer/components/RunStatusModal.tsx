@@ -57,7 +57,7 @@ export function RunStatusModal({ runId, onClose }: RunStatusModalProps) {
 
   if (!run) {
     return (
-      <Modal isOpen onClose={onClose}>
+      <Modal isOpen onClose={onClose} title="Action Run">
         <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -68,7 +68,7 @@ export function RunStatusModal({ runId, onClose }: RunStatusModalProps) {
   const isDone = run.status === 'success' || run.status === 'error';
 
   return (
-    <Modal isOpen onClose={onClose}>
+    <Modal isOpen onClose={onClose} title={STATUS_LABELS[run.status]}>
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -135,11 +135,11 @@ export function RunStatusModal({ runId, onClose }: RunStatusModalProps) {
         {run.result && (
           <div className="rounded-lg bg-green-50 p-3 dark:bg-green-950/20">
             <p className="text-sm font-medium text-green-900 dark:text-green-100">
-              {run.result.message || 'Action completed successfully'}
+              {String(run.result.message || 'Action completed successfully')}
             </p>
             {run.result.clipped !== undefined && (
               <p className="mt-1 text-sm text-green-700 dark:text-green-300">
-                Clipped {run.result.clipped} of {run.result.total} coupons
+                Clipped {String(run.result.clipped)} of {String(run.result.total)} coupons
               </p>
             )}
           </div>

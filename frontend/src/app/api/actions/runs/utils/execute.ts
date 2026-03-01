@@ -105,12 +105,13 @@ export async function executeScript(
 
     logger.log('✅ Action completed successfully');
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     const duration = Date.now() - startTime;
-    logger.error(`Script failed: ${err.message}`);
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Script failed: ${message}`);
 
     // Check if this is a user input request
-    if (err.message && err.message.includes('2FA verification required')) {
+    if (message.includes('2FA verification required')) {
       logger.log('⏸️  Waiting for user input (2FA code)');
 
       await pb.collection('action_runs').update(runId, {
@@ -131,7 +132,7 @@ export async function executeScript(
       status: 'error',
       completed_at: new Date().toISOString(),
       duration_ms: duration,
-      error: err.message,
+      error: message,
       logs: logger.logs,
     });
 

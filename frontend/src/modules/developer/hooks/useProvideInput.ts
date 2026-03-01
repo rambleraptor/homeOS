@@ -10,7 +10,7 @@ export function useProvideInput() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ runId, input }: { runId: string; input: Record<string, any> }) => {
+    mutationFn: async ({ runId, input }: { runId: string; input: Record<string, unknown> }) => {
       const response = await fetch(`/api/actions/runs/${runId}`, {
         method: 'POST',
         headers: {

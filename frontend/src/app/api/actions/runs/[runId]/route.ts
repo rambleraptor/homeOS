@@ -6,7 +6,7 @@
  *
  * POST /api/actions/runs/[runId]
  * Provides user input for an awaiting_input run
- * Body: { input: Record<string, any> }
+ * Body: { input: Record<string, unknown> }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,11 +14,11 @@ import { getPocketBase } from '@/core/api/pocketbase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { runId: string } }
+  { params }: { params: Promise<{ runId: string }> }
 ) {
   try {
     const pb = getPocketBase(request);
-    const { runId } = params;
+    const { runId } = await params;
 
     const run = await pb.collection('action_runs').getOne(runId, {
       expand: 'action',
@@ -37,11 +37,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { runId: string } }
+  { params }: { params: Promise<{ runId: string }> }
 ) {
   try {
     const pb = getPocketBase(request);
-    const { runId } = params;
+    const { runId } = await params;
     const { input } = await request.json();
 
     if (!input) {

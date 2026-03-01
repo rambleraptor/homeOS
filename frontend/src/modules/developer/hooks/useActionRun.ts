@@ -27,9 +27,10 @@ export function useActionRun(runId: string | null, options?: { enabled?: boolean
       return response.json() as Promise<ActionRun>;
     },
     enabled: !!runId && (options?.enabled !== false),
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Poll every 2 seconds while running or awaiting input
-      if (data && (data.status === 'running' || data.status === 'awaiting_input')) {
+      const run = query.state.data;
+      if (run && (run.status === 'running' || run.status === 'awaiting_input')) {
         return 2000;
       }
       // Stop polling when done

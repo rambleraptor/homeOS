@@ -12,11 +12,11 @@ import { getPocketBase } from '@/core/api/pocketbase';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { actionId: string } }
+  { params }: { params: Promise<{ actionId: string }> }
 ) {
   try {
     const pb = getPocketBase(request);
-    const { actionId } = params;
+    const { actionId } = await params;
 
     // Verify action exists
     const action = await pb.collection('actions').getOne(actionId);
