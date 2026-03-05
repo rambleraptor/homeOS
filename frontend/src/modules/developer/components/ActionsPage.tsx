@@ -7,7 +7,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Plus, Loader2, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Play, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { useActions } from '../hooks/useActions';
 import { useRunAction } from '../hooks/useRunAction';
@@ -49,34 +50,25 @@ export function ActionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Actions</h1>
-          <p className="text-muted-foreground">Manage automated scripts and actions</p>
-        </div>
-        <Button onClick={() => console.log('TODO: Create action')}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Action
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">Actions</h1>
+        <p className="text-muted-foreground">Manage automated scripts and actions</p>
       </div>
 
       {!actions || actions.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <h3 className="mb-2 text-lg font-medium">No actions yet</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Get started by creating your first automated action.
+          <p className="text-sm text-muted-foreground">
+            Actions will appear here once configured.
           </p>
-          <Button onClick={() => console.log('TODO: Create action')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Action
-          </Button>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {actions.map((action) => (
-            <div
+            <Link
               key={action.id}
-              className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm"
+              href={`/developer/${action.id}`}
+              className="rounded-lg border bg-card p-6 text-card-foreground shadow-sm transition-colors hover:bg-muted/50"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -90,7 +82,11 @@ export function ActionsPage() {
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => handleRunAction(action)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRunAction(action);
+                  }}
                   disabled={runActionMutation.isPending}
                   className="ml-2"
                 >
@@ -101,7 +97,7 @@ export function ActionsPage() {
                   )}
                 </Button>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
