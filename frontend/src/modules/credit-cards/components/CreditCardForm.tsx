@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import type { CreditCardFormData, CardType, ResetMode, CreditCard } from '../types';
+import type { CreditCardFormData, ResetMode, CreditCard } from '../types';
 
 interface CreditCardFormProps {
   initialData?: CreditCard;
@@ -24,7 +24,6 @@ export function CreditCardForm({
     name: initialData?.name ?? '',
     issuer: initialData?.issuer ?? '',
     last_four: initialData?.last_four ?? '',
-    card_type: initialData?.card_type ?? 'personal',
     annual_fee: initialData?.annual_fee ?? 0,
     anniversary_date: initialData?.anniversary_date?.split('T')[0] ?? '',
     reset_mode: initialData?.reset_mode ?? 'calendar_year',
@@ -114,23 +113,6 @@ export function CreditCardForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             placeholder="1234"
           />
-        </div>
-
-        {/* Card Type */}
-        <div>
-          <label htmlFor="card-type" className="block text-sm font-medium text-gray-700 mb-1">
-            Card Type <span className="text-red-500">*</span>
-          </label>
-          <select
-            id="card-type"
-            required
-            value={formData.card_type}
-            onChange={(e) => setFormData({ ...formData, card_type: e.target.value as CardType })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value="personal">Personal</option>
-            <option value="business">Business</option>
-          </select>
         </div>
 
         {/* Annual Fee */}

@@ -3,11 +3,6 @@
  */
 
 /**
- * Card type
- */
-export type CardType = 'personal' | 'business';
-
-/**
  * Reset mode for perk periods
  */
 export type ResetMode = 'calendar_year' | 'anniversary';
@@ -30,7 +25,6 @@ export interface CreditCard {
   name: string;
   issuer: string;
   last_four?: string;
-  card_type: CardType;
   annual_fee: number;
   anniversary_date: string;
   reset_mode: ResetMode;
@@ -48,7 +42,6 @@ export interface CreditCardFormData {
   name: string;
   issuer: string;
   last_four?: string;
-  card_type: CardType;
   annual_fee: number;
   anniversary_date: string;
   reset_mode: ResetMode;

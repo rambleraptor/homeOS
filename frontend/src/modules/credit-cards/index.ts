@@ -12,7 +12,6 @@ export type {
   PerkFormData,
   PerkRedemption,
   RedemptionFormData,
-  CardType,
   ResetMode,
   PerkFrequency,
   PerkCategory,
