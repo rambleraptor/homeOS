@@ -18,6 +18,7 @@ export const peopleModule: HomeModule = {
     { path: '', index: true },
     { path: 'import' },
   ],
+  section: 'Relationships',
   showInNav: true,
   navOrder: 3,
   enabled: true,

@@ -18,6 +18,7 @@ export const developerModule: HomeModule = {
     { path: '', index: true },
     { path: ':actionId' },
   ],
+  section: 'General',
   showInNav: true,
   navOrder: 100, // Show at the end of navigation
   enabled: true,

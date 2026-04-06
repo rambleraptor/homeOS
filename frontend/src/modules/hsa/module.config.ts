@@ -18,6 +18,6 @@ export const hsaModule: HomeModule = {
   ],
   showInNav: true,
   navOrder: 4,
-  section: 'Finance',
+  section: 'Money',
   enabled: true,
 };
