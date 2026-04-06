@@ -68,9 +68,6 @@ export function CardList({
                       ····{card.last_four}
                     </span>
                   )}
-                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                    {card.card_type}
-                  </span>
                   {card.archived && (
                     <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">
                       archived

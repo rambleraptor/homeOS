@@ -11,7 +11,6 @@ resource "aep_aep-resource-definition" "credit_card" {
       name             = { type = "string" }
       issuer           = { type = "string" }
       last_four        = { type = "string" }
-      card_type        = { type = "string", description = "one of: personal, business" }
       annual_fee       = { type = "number" }
       anniversary_date = { type = "string", format = "date-time" }
       reset_mode       = { type = "string", description = "one of: calendar_year, anniversary" }
@@ -19,7 +18,7 @@ resource "aep_aep-resource-definition" "credit_card" {
       archived         = { type = "boolean" }
       created_by       = { type = "string" }
     }
-    required = ["name", "issuer", "card_type", "annual_fee", "anniversary_date", "reset_mode"]
+    required = ["name", "issuer", "annual_fee", "anniversary_date", "reset_mode"]
   })
 }
 

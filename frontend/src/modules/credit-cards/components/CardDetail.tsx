@@ -107,7 +107,6 @@ export function CardDetail({
             </div>
             <p className="text-gray-500 mt-1">{card.issuer}</p>
             <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-              <span className="px-2 py-0.5 bg-gray-100 rounded-full">{card.card_type}</span>
               <span>Reset: {card.reset_mode === 'calendar_year' ? 'Calendar Year' : 'Anniversary'}</span>
               {card.archived && (
                 <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">archived</span>
