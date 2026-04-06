@@ -18,6 +18,6 @@ export const creditCardsModule: HomeModule = {
   ],
   showInNav: true,
   navOrder: 5,
-  section: 'Finance',
+  section: 'Money',
   enabled: true,
 };

@@ -15,6 +15,7 @@ export const dashboardModule: HomeModule = {
   icon: LayoutDashboard,
   basePath: '/dashboard',
   routes: [{ path: '', index: true }],
+  section: 'General',
   showInNav: true,
   navOrder: 1,
   enabled: true,

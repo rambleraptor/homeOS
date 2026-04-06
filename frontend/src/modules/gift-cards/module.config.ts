@@ -19,6 +19,6 @@ export const giftCardsModule: HomeModule = {
   ],
   showInNav: true,
   navOrder: 4,
-  section: 'Finance',
+  section: 'Money',
   enabled: true,
 };

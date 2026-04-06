@@ -35,11 +35,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     return acc;
   }, {} as Record<string, typeof modules>);
 
-  // Get sections in order: named sections first (sorted alphabetically), then unsectioned
+  // Get sections in a defined order, with any unlisted sections at the end
+  const sectionOrder = ['Money', 'Food', 'Relationships', 'General'];
   const sections = Object.keys(modulesBySection).sort((a, b) => {
-    if (a === '') return 1; // Empty section (unsectioned) goes last
-    if (b === '') return -1;
-    return a.localeCompare(b);
+    const aIndex = sectionOrder.indexOf(a);
+    const bIndex = sectionOrder.indexOf(b);
+    const aOrder = aIndex === -1 ? sectionOrder.length : aIndex;
+    const bOrder = bIndex === -1 ? sectionOrder.length : bIndex;
+    return aOrder - bOrder || a.localeCompare(b);
   });
 
   const handleLogout = () => {
