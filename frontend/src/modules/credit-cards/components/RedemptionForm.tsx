@@ -6,9 +6,9 @@
  * handles current-period redemptions separately.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
-import { getCurrentPeriod } from '../utils/periodUtils';
+import { getCurrentPeriod, getPeriodsInRange, formatPeriod } from '../utils/periodUtils';
 import type {
   CreditCardPerk,
   CreditCard,
@@ -77,6 +77,23 @@ function RedemptionFormBody({
   );
   const [error, setError] = useState<string | null>(null);
 
+  const selectedPerk = perks.find((p) => p.id === formData.perk);
+
+  // Generate period options: ~1 year back + 1 period forward from today
+  const periodOptions = useMemo(() => {
+    if (!selectedPerk) return [];
+    const now = new Date();
+    const rangeStart = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+    const rangeEnd = new Date(now.getFullYear() + 1, now.getMonth(), 0);
+    return getPeriodsInRange(
+      selectedPerk.frequency,
+      card.reset_mode,
+      card.anniversary_date,
+      rangeStart,
+      rangeEnd,
+    );
+  }, [selectedPerk, card.reset_mode, card.anniversary_date]);
+
   const handlePerkChange = (perkId: string) => {
     const perk = perks.find((p) => p.id === perkId);
     if (!perk) {
@@ -94,6 +111,16 @@ function RedemptionFormBody({
     });
   };
 
+  const handlePeriodChange = (value: string) => {
+    if (!value) return;
+    const [start, end] = value.split('|');
+    setFormData({ ...formData, period_start: start, period_end: end });
+  };
+
+  const periodSelectValue = formData.period_start && formData.period_end
+    ? `${formData.period_start}|${formData.period_end}`
+    : '';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -103,11 +130,7 @@ function RedemptionFormBody({
       return;
     }
     if (!formData.period_start || !formData.period_end) {
-      setError('Period start and end dates are required');
-      return;
-    }
-    if (formData.period_start > formData.period_end) {
-      setError('Period start must be before period end');
+      setError('Please select a period');
       return;
     }
     if (!formData.redeemed_at) {
@@ -156,37 +179,30 @@ function RedemptionFormBody({
         </select>
       </div>
 
+      {/* Period selector */}
+      <div>
+        <label htmlFor="redemption-period" className="block text-sm font-medium text-gray-700 mb-1">
+          Period <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="redemption-period"
+          required
+          value={periodSelectValue}
+          onChange={(e) => handlePeriodChange(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+        >
+          {periodOptions.map((period) => {
+            const key = `${toISODate(period.start)}|${toISODate(period.end)}`;
+            return (
+              <option key={key} value={key}>
+                {selectedPerk ? formatPeriod(period, selectedPerk.frequency) : key}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Period Start */}
-        <div>
-          <label htmlFor="redemption-period-start" className="block text-sm font-medium text-gray-700 mb-1">
-            Period Start <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="date"
-            id="redemption-period-start"
-            required
-            value={formData.period_start}
-            onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-        </div>
-
-        {/* Period End */}
-        <div>
-          <label htmlFor="redemption-period-end" className="block text-sm font-medium text-gray-700 mb-1">
-            Period End <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="date"
-            id="redemption-period-end"
-            required
-            value={formData.period_end}
-            onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          />
-        </div>
-
         {/* Redeemed At */}
         <div>
           <label htmlFor="redemption-redeemed-at" className="block text-sm font-medium text-gray-700 mb-1">
