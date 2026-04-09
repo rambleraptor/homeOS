@@ -204,122 +204,6 @@ export async function deleteAllAddresses(pb: PocketBase) {
 }
 
 /**
- * Create a grocery item via PocketBase API
- */
-export async function createGroceryItem(
-  pb: PocketBase,
-  data: {
-    name: string;
-    notes?: string;
-    checked?: boolean;
-    category?: string;
-    store?: string;
-  }
-) {
-  return await pb.collection('groceries').create({
-    name: data.name,
-    notes: data.notes || '',
-    checked: data.checked || false,
-    category: data.category || 'Other',
-    store: data.store || '',
-    created_by: pb.authStore.model?.id,
-  });
-}
-
-/**
- * Create multiple grocery items
- */
-export async function createMultipleGroceryItems(
-  pb: PocketBase,
-  items: Array<{ name: string; notes?: string; checked?: boolean; category?: string; store?: string }>
-) {
-  // Create sequentially to avoid PocketBase auto-cancellation
-  const results = [];
-  for (const item of items) {
-    const result = await createGroceryItem(pb, item);
-    results.push(result);
-  }
-  return results;
-}
-
-/**
- * Create a store via PocketBase API
- */
-export async function createStore(
-  pb: PocketBase,
-  data: {
-    name: string;
-    sort_order?: number;
-  }
-) {
-  return await pb.collection('stores').create({
-    name: data.name,
-    sort_order: data.sort_order ?? 0,
-    created_by: pb.authStore.model?.id,
-  });
-}
-
-/**
- * Create multiple stores
- */
-export async function createMultipleStores(
-  pb: PocketBase,
-  stores: Array<{ name: string; sort_order?: number }>
-) {
-  // Create sequentially to avoid PocketBase auto-cancellation
-  const results = [];
-  for (const store of stores) {
-    const result = await createStore(pb, store);
-    results.push(result);
-  }
-  return results;
-}
-
-/**
- * Delete all stores (family-wide, not filtered by user)
- * Silently handles cases where collection doesn't exist or no access
- */
-export async function deleteAllStores(pb: PocketBase) {
-  try {
-    const records = await pb.collection('stores').getFullList();
-
-    if (records.length > 0) {
-      const promises = records.map(record =>
-        pb.collection('stores').delete(record.id)
-      );
-      await Promise.all(promises);
-    }
-  } catch (error: any) {
-    if (error.status === 404 || error.status === 403) {
-      return;
-    }
-    throw error;
-  }
-}
-
-/**
- * Delete all grocery items (family-wide, not filtered by user)
- * Silently handles cases where collection doesn't exist or no access
- */
-export async function deleteAllGroceryItems(pb: PocketBase) {
-  try {
-    const records = await pb.collection('groceries').getFullList();
-
-    if (records.length > 0) {
-      const promises = records.map(record =>
-        pb.collection('groceries').delete(record.id)
-      );
-      await Promise.all(promises);
-    }
-  } catch (error: any) {
-    if (error.status === 404 || error.status === 403) {
-      return;
-    }
-    throw error;
-  }
-}
-
-/**
  * Create an HSA receipt via PocketBase API
  * Note: receipt_file is not created in tests (would require file upload)
  */
@@ -461,8 +345,6 @@ export async function cleanupUserData(pb: PocketBase) {
     deleteAllGiftCards(pb),
     deleteAllPeople(pb),
     deleteAllAddresses(pb),
-    deleteAllGroceryItems(pb),
-    deleteAllStores(pb),
     deleteAllHSAReceipts(pb),
     deleteAllRecurringNotifications(pb),
   ]);
