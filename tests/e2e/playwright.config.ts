@@ -22,7 +22,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
 
   /* Opt out of parallel tests on CI */
-  workers: process.env.CI ? 1 : 1, // Single worker to avoid DB conflicts
+  workers: process.env.CI ? 2 : 4,
 
   /* Reporter to use */
   reporter: [

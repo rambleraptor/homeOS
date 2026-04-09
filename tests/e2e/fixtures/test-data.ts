@@ -66,29 +66,6 @@ export const testPeople = [
 ];
 
 /**
- * Test grocery items
- */
-export const testGroceryItems = [
-  { name: 'Milk', notes: '2% organic', category: 'Dairy & Eggs' },
-  { name: 'Apples', notes: 'Honeycrisp', category: 'Produce' },
-  { name: 'Chicken Breast', notes: '2 lbs', category: 'Meat & Seafood' },
-  { name: 'Bread', notes: 'Whole wheat', category: 'Bakery' },
-  { name: 'Yogurt', notes: 'Greek yogurt', category: 'Dairy & Eggs' },
-  { name: 'Bananas', category: 'Produce' },
-  { name: 'Cereal', category: 'Pantry & Canned Goods' },
-];
-
-/**
- * Test stores for multi-store grocery list
- */
-export const testStores = [
-  { name: 'Whole Foods', sort_order: 0 },
-  { name: 'Costco', sort_order: 1 },
-  { name: 'Target', sort_order: 2 },
-  { name: 'Trader Joes', sort_order: 3 },
-];
-
-/**
  * Test HSA receipts
  */
 export const testHSAReceipts = [
