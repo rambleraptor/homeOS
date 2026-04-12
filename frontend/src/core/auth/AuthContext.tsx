@@ -1,16 +1,18 @@
 /**
  * Authentication Provider Component
  *
- * Provides authentication state and methods throughout the application.
- * Talks to aepbase via the thin client wrapper at `core/api/aepbase`.
+ * Branches on the `auth` backend flag:
+ *  - PocketBase mode (default): uses pb.collection('users').authWithPassword
+ *    and the PB authStore, exactly as before the migration. This is what
+ *    the e2e suite and CI use, since they only spin up PocketBase.
+ *  - aepbase mode: uses the thin wrapper at `core/api/aepbase` (POST
+ *    `/users/:login`, Bearer token persisted in localStorage). Opt in with
+ *    `NEXT_PUBLIC_USE_AEPBASE_AUTH=true`.
  *
- * Differences from the previous PocketBase implementation:
- *  - No `register`. aepbase has no signup endpoint; users are provisioned
- *    out-of-band (initial superuser is printed to stdout on first start).
- *  - `refreshUser` re-fetches both the aepbase user record AND the user's
- *    `preferences` child resource, merging `map_provider` into the User
- *    view model so existing consumers (settings, people module) keep
- *    working without changes.
+ * `register` is gone — aepbase has no signup endpoint, and dropping it lets
+ * the type stay backend-agnostic. `refreshUser` re-fetches the user record
+ * AND the user's `preferences` so the settings module can write
+ * `map_provider` and have it visible everywhere via `useAuth().user`.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -23,7 +25,13 @@ import type {
 } from './types';
 import { AuthContext } from './context';
 import { aepbase, AepCollections } from '../api/aepbase';
-import { pb, Collections } from '../api/pocketbase';
+import {
+  pb,
+  Collections,
+  getCurrentUser as pbGetCurrentUser,
+  clearAuth as pbClearAuth,
+  onAuthChange as pbOnAuthChange,
+} from '../api/pocketbase';
 import { isAepbaseEnabled } from '../api/backend';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { logger } from '../utils/logger';
@@ -45,12 +53,11 @@ interface PbUserRecord {
 
 /**
  * Merge per-user settings (currently just `map_provider`) into the User view
- * model. The lookup branches on the `settings` backend flag so the read side
- * sees whatever backend the WRITE side just wrote to:
+ * model. Branches on the `settings` flag, NOT the `auth` flag — read side
+ * goes wherever the write side wrote.
  *
- *  - aepbase mode: list `/users/{id}/preferences` and use the first record.
- *  - PB mode: fetch the PocketBase user by email (PB and aepbase ids are
- *    independent, but emails match for any user that exists in both).
+ * Caveat: PB-auth + aepbase-settings is unsupported because the user's PB
+ * id won't exist in aepbase. Stick to consistent pairings.
  */
 async function hydrateUserPreferences(user: User): Promise<User> {
   try {
@@ -65,7 +72,8 @@ async function hydrateUserPreferences(user: User): Promise<User> {
       return user;
     }
 
-    // PocketBase path: look up by email since PB ids ≠ aepbase ids.
+    // PB settings path: look up by email since PB ids ≠ aepbase ids when
+    // the auth backends differ.
     const pbUser = await pb
       .collection(Collections.USERS)
       .getFirstListItem<PbUserRecord>(`email = "${user.email}"`)
@@ -74,15 +82,12 @@ async function hydrateUserPreferences(user: User): Promise<User> {
       return { ...user, map_provider: pbUser.map_provider };
     }
   } catch (error) {
-    // Don't block login on a preferences fetch failure — just log it.
     logger.error('Failed to fetch user preferences', error);
   }
   return user;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  // Initialize with neutral state to avoid hydration mismatch.
-  // We sync with the aepbase auth store after mount.
   const [state, setState] = useState<AuthState>({
     user: null,
     token: null,
@@ -90,41 +95,55 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading: true,
   });
 
-  /**
-   * Initialize auth state from the aepbase auth store after mount. The store
-   * itself is hydrated from localStorage in its constructor; we just read it
-   * here to avoid an SSR/client mismatch on first paint.
-   */
+  // Hydrate from whichever auth store is active after mount. localStorage
+  // only exists on the client, so we defer to an effect to avoid SSR drift.
   useEffect(() => {
-    const user = aepbase.getCurrentUser();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setState({
-      user,
-      token: aepbase.authStore.token || null,
-      isAuthenticated: aepbase.authStore.isValid,
-      isLoading: false,
-    });
-  }, []);
-
-  /**
-   * Subscribe to auth store changes so login/logout from anywhere in the
-   * app (including direct wrapper calls) flows back into React state.
-   */
-  useEffect(() => {
-    const unsubscribe = aepbase.authStore.onChange((token, user) => {
+    if (isAepbaseEnabled('auth')) {
+      const user = aepbase.getCurrentUser();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState({
         user,
-        token: token || null,
-        isAuthenticated: !!token && !!user,
+        token: aepbase.authStore.token || null,
+        isAuthenticated: aepbase.authStore.isValid,
         isLoading: false,
       });
+    } else {
+      const user = pbGetCurrentUser();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setState({
+        user,
+        token: pb.authStore.token || null,
+        isAuthenticated: pb.authStore.isValid,
+        isLoading: false,
+      });
+    }
+  }, []);
 
-      if (!user) {
-        queryClient.clear();
-      } else {
-        queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
-      }
-    });
+  // Subscribe to whichever store is active so login/logout from anywhere in
+  // the app flows back into React state.
+  useEffect(() => {
+    const useAep = isAepbaseEnabled('auth');
+    const unsubscribe = useAep
+      ? aepbase.authStore.onChange((token, user) => {
+          setState({
+            user,
+            token: token || null,
+            isAuthenticated: !!token && !!user,
+            isLoading: false,
+          });
+          if (!user) queryClient.clear();
+          else queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
+        })
+      : pbOnAuthChange((token, model) => {
+          setState({
+            user: model,
+            token: token || null,
+            isAuthenticated: !!token && !!model,
+            isLoading: false,
+          });
+          if (!model) queryClient.clear();
+          else queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
+        });
 
     return () => {
       unsubscribe();
@@ -135,11 +154,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      const baseUser = await aepbase.login(credentials.email, credentials.password);
-      const hydrated = await hydrateUserPreferences(baseUser);
-      // Re-save through the store so onChange listeners (and React state) see
-      // the merged map_provider field.
-      aepbase.authStore.save(aepbase.authStore.token, hydrated);
+      let baseUser: User;
+      if (isAepbaseEnabled('auth')) {
+        baseUser = await aepbase.login(credentials.email, credentials.password);
+        const hydrated = await hydrateUserPreferences(baseUser);
+        aepbase.authStore.save(aepbase.authStore.token, hydrated);
+      } else {
+        const authData = await pb
+          .collection(Collections.USERS)
+          .authWithPassword(credentials.email, credentials.password);
+        baseUser = authData.record as unknown as User;
+        // hydrate happens automatically via PB authStore.onChange + the
+        // useEffect above; we still want map_provider merged in so do it
+        // explicitly and write it back to the local React state.
+        const hydrated = await hydrateUserPreferences(baseUser);
+        setState({
+          user: hydrated,
+          token: pb.authStore.token || null,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
 
       await queryClient.invalidateQueries();
     } catch (error) {
@@ -149,7 +184,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const logout = useCallback(() => {
-    aepbase.logout();
+    if (isAepbaseEnabled('auth')) {
+      aepbase.logout();
+    } else {
+      pbClearAuth();
+    }
     setState({
       user: null,
       token: null,
@@ -159,24 +198,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     queryClient.clear();
   }, []);
 
-  /**
-   * Re-fetch the user record and preferences from the server. Used by the
-   * settings module after writing `map_provider` to make the new value visible
-   * everywhere that reads `useAuth().user`.
-   */
   const refreshUser = useCallback(async () => {
-    if (!aepbase.authStore.isValid) return;
-
     try {
-      const baseUser = await aepbase.refreshCurrentUser();
-      if (!baseUser) return;
-      const hydrated = await hydrateUserPreferences(baseUser);
-      aepbase.authStore.save(aepbase.authStore.token, hydrated);
-
+      if (isAepbaseEnabled('auth')) {
+        if (!aepbase.authStore.isValid) return;
+        const baseUser = await aepbase.refreshCurrentUser();
+        if (!baseUser) return;
+        const hydrated = await hydrateUserPreferences(baseUser);
+        aepbase.authStore.save(aepbase.authStore.token, hydrated);
+      } else {
+        if (!pb.authStore.isValid) return;
+        await pb.collection(Collections.USERS).authRefresh();
+        const baseUser = pbGetCurrentUser();
+        if (!baseUser) return;
+        const hydrated = await hydrateUserPreferences(baseUser);
+        setState((prev) => ({ ...prev, user: hydrated }));
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
     } catch (error) {
       logger.error('Failed to refresh user', error);
-      // Token might be invalid or user deleted — drop the session.
       logout();
     }
   }, [logout]);

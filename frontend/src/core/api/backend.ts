@@ -21,6 +21,7 @@
  */
 
 export type BackendModule =
+  | 'auth'
   | 'gift-cards'
   | 'credit-cards'
   | 'people'
@@ -32,6 +33,10 @@ export type BackendModule =
   | 'settings';
 
 const ENABLED: Record<BackendModule, boolean> = {
+  // `auth` controls login/logout/refresh in AuthContext. Default is PB so
+  // the existing e2e suite (which only spins up PocketBase) keeps working
+  // unchanged. Flip to `true` to log in via aepbase locally.
+  auth: process.env.NEXT_PUBLIC_USE_AEPBASE_AUTH === 'true',
   'gift-cards': process.env.NEXT_PUBLIC_USE_AEPBASE_GIFT_CARDS === 'true',
   'credit-cards': process.env.NEXT_PUBLIC_USE_AEPBASE_CREDIT_CARDS === 'true',
   people: process.env.NEXT_PUBLIC_USE_AEPBASE_PEOPLE === 'true',
