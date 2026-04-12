@@ -44,3 +44,5 @@ pocketbase/
 
 # Scripts
 scripts/node_modules/
+
+aepbase/terraform/terraform.lock.hcl
