@@ -78,17 +78,13 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
     let ready = false;
     let password: string | null = null;
 
-    aepbaseProcess.stdout?.on('data', async (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      process.stdout.write(`[aepbase] ${text}`);
-
+    const handleOutput = async (text: string) => {
       // Parse "  Password: <16 hex chars>"
       const match = text.match(/Password:\s+([a-f0-9]{16})/);
       if (match) password = match[1];
 
       // aepbase logs something like "aepbase listening on :8092"
-      if (text.includes('listening on') || text.includes('Listening on')) {
+      if (!ready && (text.includes('listening on') || text.includes('Listening on'))) {
         if (!password) {
           // Wait briefly in case the password line lags
           await new Promise((r) => setTimeout(r, 200));
@@ -102,10 +98,20 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
         await writeFile(credsFile, JSON.stringify(creds, null, 2));
         resolve(creds);
       }
+    };
+
+    aepbaseProcess.stdout?.on('data', (chunk) => {
+      const text = chunk.toString();
+      stdout += text;
+      process.stdout.write(`[aepbase] ${text}`);
+      void handleOutput(text);
     });
 
     aepbaseProcess.stderr?.on('data', (chunk) => {
-      process.stderr.write(`[aepbase ERR] ${chunk.toString()}`);
+      const text = chunk.toString();
+      stdout += text;
+      process.stderr.write(`[aepbase ERR] ${text}`);
+      void handleOutput(text);
     });
 
     aepbaseProcess.on('error', (err) => reject(err));
