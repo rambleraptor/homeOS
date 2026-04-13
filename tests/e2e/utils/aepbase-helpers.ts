@@ -311,10 +311,7 @@ export async function createHSAReceipt(
   if (data.notes) resource.notes = data.notes;
 
   const formData = new FormData();
-  formData.append(
-    'resource',
-    new Blob([JSON.stringify(resource)], { type: 'application/json' }),
-  );
+  formData.append('resource', JSON.stringify(resource));
   formData.append('receipt_file', blob, 'test-receipt.jpg');
 
   return aepCreateMultipart<HSAReceiptRecord>(token, 'hsa-receipts', formData);

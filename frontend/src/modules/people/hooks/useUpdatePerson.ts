@@ -48,8 +48,8 @@ export function useUpdatePerson() {
         birthday: data.birthday,
       });
 
-      const newPartnerId = data.partner_id;
-      const partnerChanged = oldPartnerId !== newPartnerId;
+      const newPartnerId = data.partner_id || undefined;
+      const partnerChanged = (oldPartnerId || undefined) !== newPartnerId;
 
       if (partnerChanged) {
         if (oldPartnerId && !newPartnerId) {

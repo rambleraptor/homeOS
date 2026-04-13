@@ -25,7 +25,7 @@ export function useCreateHSAReceipt() {
       if (userId) resource.created_by = `users/${userId}`;
 
       const formData = new FormData();
-      formData.append('resource', new Blob([JSON.stringify(resource)], { type: 'application/json' }));
+      formData.append('resource', JSON.stringify(resource));
       if (data.receipt_file) formData.append('receipt_file', data.receipt_file);
 
       return await aepbase.create<HSAReceipt>(AepCollections.HSA_RECEIPTS, formData);
