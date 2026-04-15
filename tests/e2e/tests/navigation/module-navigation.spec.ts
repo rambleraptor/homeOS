@@ -44,8 +44,9 @@ test.describe('Module Navigation', () => {
     await authenticatedPage.getByRole('navigation').getByRole('link', { name: /setting/i }).click();
     await expect(authenticatedPage).toHaveURL(/\/settings/);
 
-    // Go back to dashboard
-    await authenticatedPage.getByRole('navigation').getByRole('link', { name: /dashboard|home/i }).click();
+    // Go back to dashboard via the HomeOS brand link in the sidebar header.
+    // (The Dashboard module was removed from the nav in favor of this link.)
+    await authenticatedPage.getByTestId('sidebar-home-link').click();
     await dashboardPage.expectToBeOnDashboard();
   });
 
