@@ -22,6 +22,12 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: [],
 
+  // Hide the Next.js dev-mode indicator (bottom-left overlay). It overlaps
+  // the sidebar's logout button at the default Playwright viewport and
+  // intercepts pointer events during E2E tests. The indicator adds no value
+  // to our normal dev workflow either.
+  devIndicators: false,
+
   env: {
     NEXT_PUBLIC_COMMIT_HASH: commitHash,
     NEXT_PUBLIC_COMMIT_DATE: commitDate,

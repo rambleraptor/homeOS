@@ -22,10 +22,17 @@ export class DashboardPage {
   async logout() {
     // Use data-testid for reliable selection (preferred method)
     const logoutButton = this.page.getByTestId('logout-button');
-    // Use force: true to bypass Next.js dev overlay that may intercept clicks
-    await logoutButton.click({ force: true });
-    // Wait for logout to redirect to login page
-    await this.page.waitForURL(/\/login/, { timeout: 10000 });
+    // Wait for the button to be attached + visible before clicking. The
+    // sidebar mounts as soon as the shell renders, but giving this an
+    // explicit auto-wait makes the failure mode more legible if it
+    // regresses.
+    await logoutButton.waitFor({ state: 'visible' });
+    await logoutButton.scrollIntoViewIfNeeded();
+    await logoutButton.click();
+    // Wait for logout to redirect to the login page. The redirect is
+    // driven by the AuthGuard's useEffect after auth state clears, so we
+    // give it a generous budget in case dev-mode rebuilds are in flight.
+    await this.page.waitForURL(/\/login/, { timeout: 15000 });
   }
 
   async navigateToModule(moduleName: string | RegExp) {

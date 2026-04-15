@@ -122,7 +122,10 @@ export const test = base.extend<AepbaseFixtures>({
     await page.getByLabel(/email/i).fill(testUser.email);
     await page.getByLabel(/password/i).fill(testUser.password);
     await page.getByRole('button', { name: /login|sign in/i }).click();
-    await page.waitForURL('/dashboard', { timeout: 5000 });
+    // Generous timeout: Next.js dev mode can take several seconds to compile
+    // /dashboard on first hit within a worker, and CI runs the dev server
+    // shared across two workers.
+    await page.waitForURL('/dashboard', { timeout: 20000 });
 
     await use(page);
   },
@@ -136,7 +139,7 @@ export const test = base.extend<AepbaseFixtures>({
     await page.getByLabel(/email/i).fill(adminCreds.email);
     await page.getByLabel(/password/i).fill(adminCreds.password);
     await page.getByRole('button', { name: /login|sign in/i }).click();
-    await page.waitForURL('/dashboard', { timeout: 5000 });
+    await page.waitForURL('/dashboard', { timeout: 20000 });
     await use(page);
   },
 });
