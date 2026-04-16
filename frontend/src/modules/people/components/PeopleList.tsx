@@ -9,7 +9,7 @@
  * that belongs to the module's full home page.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Card } from '@/shared/components/Card';
 import { Input } from '@/shared/components/Input';
@@ -18,6 +18,7 @@ import { Spinner } from '@/shared/components/Spinner';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { useToast } from '@/shared/components/ToastProvider';
 import { useOmniboxFilter } from '@/shared/omnibox/OmniboxContext';
+import { useModuleFlag } from '@/modules/settings/hooks/useModuleFlag';
 import { usePeople } from '../hooks/usePeople';
 import { useUpdatePerson } from '../hooks/useUpdatePerson';
 import { useDeletePerson } from '../hooks/useDeletePerson';
@@ -25,14 +26,45 @@ import { PersonForm } from './PersonForm';
 import { PersonCard } from './PersonCard';
 import type { Person, PersonFormData } from '../types';
 
+// Escape a user-entered word for embedding in a RE2 regex (used by CEL's
+// `matches()`). Keeps the search bar safe against accidental regex chars.
+function escapeRegex(term: string): string {
+  return term.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
+}
+
+// Build a CEL filter expression targeting aepbase's list endpoint. Mirrors
+// the client-side behavior: each whitespace-separated term must appear
+// somewhere in `name`, case-insensitive.
+function buildPeopleCelFilter(raw: string): string | undefined {
+  const terms = raw.trim().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return undefined;
+  return terms
+    .map((t) => `name.matches("(?i)${escapeRegex(t)}")`)
+    .join(' && ');
+}
+
 export function PeopleList() {
-  const { data: people, isLoading } = usePeople();
-  const updatePerson = useUpdatePerson();
-  const deletePerson = useDeletePerson();
-  const toast = useToast();
+  const { value: serverSearchFlag } = useModuleFlag<boolean>('people', 'server_search');
+  const useServerSearch = serverSearchFlag === true;
 
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [nameFilter, setNameFilter] = useState('');
+
+  // Debounce the filter going to the server so typing doesn't refetch on
+  // every keystroke. When the flag is off, we filter client-side and this
+  // path stays idle.
+  const [debouncedFilter, setDebouncedFilter] = useState('');
+  useEffect(() => {
+    if (!useServerSearch) return;
+    const handle = setTimeout(() => setDebouncedFilter(nameFilter), 250);
+    return () => clearTimeout(handle);
+  }, [nameFilter, useServerSearch]);
+
+  const celFilter = useServerSearch ? buildPeopleCelFilter(debouncedFilter) : undefined;
+  const { data: people, isLoading } = usePeople(celFilter);
+  const updatePerson = useUpdatePerson();
+  const deletePerson = useDeletePerson();
+  const toast = useToast();
 
   // Seed the name filter from an omnibox intent (no-op on the normal
   // /people route where there is no omnibox context).
@@ -90,17 +122,21 @@ export function PeopleList() {
     }
   };
 
-  const filteredPeople = people?.filter((person) => {
-    if (!nameFilter.trim()) return true;
+  // With the server-search flag on, the returned `people` is already
+  // narrowed by aepbase's CEL filter; otherwise fall back to the local
+  // substring match.
+  const filteredPeople = useServerSearch
+    ? people || []
+    : people?.filter((person) => {
+        if (!nameFilter.trim()) return true;
 
-    const searchTerms = nameFilter.toLowerCase().trim().split(/\s+/);
-    const nameWords = person.name.toLowerCase().split(/\s+/);
+        const searchTerms = nameFilter.toLowerCase().trim().split(/\s+/);
+        const nameWords = person.name.toLowerCase().split(/\s+/);
 
-    // Match if every search term matches at least one word in the name
-    return searchTerms.every(searchTerm =>
-      nameWords.some(nameWord => nameWord.includes(searchTerm))
-    );
-  }) || [];
+        return searchTerms.every((searchTerm) =>
+          nameWords.some((nameWord) => nameWord.includes(searchTerm))
+        );
+      }) || [];
 
   if (isLoading) {
     return (

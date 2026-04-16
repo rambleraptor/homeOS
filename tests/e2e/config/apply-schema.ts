@@ -397,6 +397,11 @@ const DEFINITIONS: ResourceDefinition[] = [
     schema: {
       type: 'object',
       properties: {
+        people__server_search: {
+          type: 'boolean',
+          description:
+            'Route the People search bar through the aepbase list endpoint via a CEL filter instead of filtering the fetched collection in the browser.',
+        },
         settings__omnibox_access: {
           type: 'string',
           description:

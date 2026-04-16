@@ -24,4 +24,13 @@ export const peopleModule: HomeModule = {
   navOrder: 3,
   enabled: true,
   omnibox: peopleOmnibox,
+  flags: {
+    server_search: {
+      type: 'boolean',
+      label: 'Server-side people search',
+      description:
+        'Route the People search bar through the aepbase list endpoint via a CEL filter instead of filtering the fetched collection in the browser.',
+      default: false,
+    },
+  },
 };
