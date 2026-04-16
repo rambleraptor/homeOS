@@ -8,7 +8,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@/core/api/aepbase';
+import { aepbase, AepCollections, AepbaseError } from '@/core/api/aepbase';
 import { getAllModuleFlagDefs } from '@/modules/registry';
 import { logger } from '@/core/utils/logger';
 import { unflatten, type ModuleFlagValues } from '../flags';
@@ -30,6 +30,11 @@ export interface UseModuleFlagsResult {
 export function useModuleFlags(): UseModuleFlagsResult {
   const query = useQuery({
     queryKey: MODULE_FLAGS_QUERY_KEY,
+    // This hook is on the hot path for every authenticated page (via
+    // Header → useCanUseOmnibox). Keep it quiet: don't retry on error,
+    // don't refetch on window focus — callers tolerate stale values.
+    retry: false,
+    refetchOnWindowFocus: false,
     queryFn: async (): Promise<ModuleFlagsRecord | null> => {
       try {
         const list = await aepbase.list<ModuleFlagsRecord>(
@@ -37,10 +42,13 @@ export function useModuleFlags(): UseModuleFlagsResult {
         );
         return list.length > 0 ? list[0] : null;
       } catch (error) {
-        // If the resource definition hasn't been registered yet (first
-        // run before the instrumentation hook has synced), surface a
-        // null record so callers still see defaults rather than
-        // crashing.
+        // 404 is the expected state when the resource definition hasn't
+        // been registered yet (no admin creds in the Next.js env).
+        // Treat that as "no flags set yet" silently. Other errors get
+        // a warning so regressions stay visible.
+        if (error instanceof AepbaseError && error.code === 404) {
+          return null;
+        }
         logger.warn('Failed to fetch module-flags singleton', {
           error: error instanceof Error ? error.message : String(error),
         });
