@@ -388,6 +388,23 @@ const DEFINITIONS: ResourceDefinition[] = [
       required: ['hole_number', 'par', 'scores'],
     },
   },
+  {
+    singular: 'module-flag',
+    plural: 'module-flags',
+    description:
+      'Household-wide singleton that stores current values for every declared module flag. Kept in sync at runtime by the Next.js instrumentation hook; declared here so e2e runs (which skip the runtime sync) can still write to it.',
+    user_settable_create: true,
+    schema: {
+      type: 'object',
+      properties: {
+        settings__omnibox_access: {
+          type: 'string',
+          description:
+            'Who can use the natural-language omnibox (⌘K / search bar). (one of: superuser, all)',
+        },
+      },
+    },
+  },
 ];
 
 export async function applySchema(adminToken: string): Promise<void> {
