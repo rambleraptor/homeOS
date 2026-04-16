@@ -5,29 +5,29 @@ import { Card } from '@/shared/components/Card';
 import { Input } from '@/shared/components/Input';
 import { Checkbox } from '@/shared/components/Checkbox';
 import { Spinner } from '@/shared/components/Spinner';
-import { getAllModuleSettingsDefs, getModuleById } from '@/modules/registry';
-import { useModuleSettings } from '../hooks/useModuleSettings';
-import { useUpdateModuleSetting } from '../hooks/useUpdateModuleSetting';
+import { getAllModuleFlagDefs, getModuleById } from '@/modules/registry';
+import { useModuleFlags } from '../hooks/useModuleFlags';
+import { useUpdateModuleFlag } from '../hooks/useUpdateModuleFlag';
 import { useToast } from '@/shared/components/ToastProvider';
 import { logger } from '@/core/utils/logger';
-import type { ModuleSettingDef, ModuleSettingValue } from '@/modules/types';
+import type { ModuleFlagDef, ModuleFlagValue } from '@/modules/types';
 
-export function ModuleSettingsSection() {
-  const defs = getAllModuleSettingsDefs();
-  const { values, isLoading } = useModuleSettings();
-  const update = useUpdateModuleSetting();
+export function ModuleFlagsSection() {
+  const defs = getAllModuleFlagDefs();
+  const { values, isLoading } = useModuleFlags();
+  const update = useUpdateModuleFlag();
   const toast = useToast();
 
   const handleChange = async (
     moduleId: string,
     key: string,
-    value: ModuleSettingValue,
+    value: ModuleFlagValue,
   ) => {
     try {
       await update.mutateAsync({ moduleId, key, value });
     } catch (error) {
-      logger.error('Failed to update module setting', error);
-      toast.error('Failed to save setting. Please try again.');
+      logger.error('Failed to update module flag', error);
+      toast.error('Failed to save flag. Please try again.');
     }
   };
 
@@ -37,18 +37,18 @@ export function ModuleSettingsSection() {
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">
-        Module Settings
+        Module Flags
       </h2>
 
       {isLoading ? (
         <Card>
           <div className="flex items-center gap-3 py-4">
             <Spinner size="sm" />
-            <span className="text-sm text-gray-600">Loading settings…</span>
+            <span className="text-sm text-gray-600">Loading flags…</span>
           </div>
         </Card>
       ) : (
-        <div className="space-y-4" data-testid="module-settings-section">
+        <div className="space-y-4" data-testid="module-flags-section">
           {moduleIds.map((moduleId) => {
             const moduleDefs = defs[moduleId];
             const mod = getModuleById(moduleId);
@@ -60,10 +60,10 @@ export function ModuleSettingsSection() {
                   <div className="flex-1 space-y-4">
                     <h3 className="font-semibold text-gray-900">{moduleName}</h3>
                     {Object.entries(moduleDefs).map(([key, def]) => (
-                      <SettingField
+                      <FlagField
                         key={key}
                         moduleId={moduleId}
-                        settingKey={key}
+                        flagKey={key}
                         def={def}
                         value={values[moduleId]?.[key]}
                         onChange={(next) => handleChange(moduleId, key, next)}
@@ -81,25 +81,25 @@ export function ModuleSettingsSection() {
   );
 }
 
-interface SettingFieldProps {
+interface FlagFieldProps {
   moduleId: string;
-  settingKey: string;
-  def: ModuleSettingDef;
-  value: ModuleSettingValue | undefined;
-  onChange: (value: ModuleSettingValue) => void;
+  flagKey: string;
+  def: ModuleFlagDef;
+  value: ModuleFlagValue | undefined;
+  onChange: (value: ModuleFlagValue) => void;
   isSaving: boolean;
 }
 
-function SettingField({
+function FlagField({
   moduleId,
-  settingKey,
+  flagKey,
   def,
   value,
   onChange,
   isSaving,
-}: SettingFieldProps) {
-  const fieldId = `module-setting-${moduleId}-${settingKey}`;
-  const testid = `module-setting-${moduleId}-${settingKey}`;
+}: FlagFieldProps) {
+  const fieldId = `module-flag-${moduleId}-${flagKey}`;
+  const testid = `module-flag-${moduleId}-${flagKey}`;
 
   switch (def.type) {
     case 'string':

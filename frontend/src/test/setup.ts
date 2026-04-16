@@ -79,7 +79,7 @@ vi.mock('@/core/api/aepbase', () => ({
     RECIPE_LOGS: 'logs',
     GAMES: 'games',
     GAME_HOLES: 'holes',
-    MODULE_SETTINGS: 'module-settings',
+    MODULE_FLAGS: 'module-flags',
   },
 }));
 

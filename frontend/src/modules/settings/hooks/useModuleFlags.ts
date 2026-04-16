@@ -1,39 +1,39 @@
 /**
- * Fetch the household-wide module-settings singleton and unflatten it
+ * Fetch the household-wide module-flags singleton and unflatten it
  * into a `{ moduleId: { key: value } }` tree, with declared defaults
- * merged in so every known setting has a value.
+ * merged in so every known flag has a value.
  *
  * This is the internal plumbing hook. Components should use
- * `useModuleSetting` for a typed single-setting accessor.
+ * `useModuleFlag` for a typed single-flag accessor.
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { aepbase, AepCollections } from '@/core/api/aepbase';
-import { getAllModuleSettingsDefs } from '@/modules/registry';
+import { getAllModuleFlagDefs } from '@/modules/registry';
 import { logger } from '@/core/utils/logger';
-import { unflatten, type ModuleSettingsValues } from '../schema';
+import { unflatten, type ModuleFlagValues } from '../flags';
 
-export const MODULE_SETTINGS_QUERY_KEY = ['module-settings'] as const;
+export const MODULE_FLAGS_QUERY_KEY = ['module-flags'] as const;
 
-export interface ModuleSettingsRecord {
+export interface ModuleFlagsRecord {
   id: string;
   [field: string]: unknown;
 }
 
-export interface UseModuleSettingsResult {
-  values: ModuleSettingsValues;
-  record: ModuleSettingsRecord | null;
+export interface UseModuleFlagsResult {
+  values: ModuleFlagValues;
+  record: ModuleFlagsRecord | null;
   isLoading: boolean;
   error: Error | null;
 }
 
-export function useModuleSettings(): UseModuleSettingsResult {
+export function useModuleFlags(): UseModuleFlagsResult {
   const query = useQuery({
-    queryKey: MODULE_SETTINGS_QUERY_KEY,
-    queryFn: async (): Promise<ModuleSettingsRecord | null> => {
+    queryKey: MODULE_FLAGS_QUERY_KEY,
+    queryFn: async (): Promise<ModuleFlagsRecord | null> => {
       try {
-        const list = await aepbase.list<ModuleSettingsRecord>(
-          AepCollections.MODULE_SETTINGS,
+        const list = await aepbase.list<ModuleFlagsRecord>(
+          AepCollections.MODULE_FLAGS,
         );
         return list.length > 0 ? list[0] : null;
       } catch (error) {
@@ -41,7 +41,7 @@ export function useModuleSettings(): UseModuleSettingsResult {
         // run before the instrumentation hook has synced), surface a
         // null record so callers still see defaults rather than
         // crashing.
-        logger.warn('Failed to fetch module-settings singleton', {
+        logger.warn('Failed to fetch module-flags singleton', {
           error: error instanceof Error ? error.message : String(error),
         });
         return null;
@@ -49,7 +49,7 @@ export function useModuleSettings(): UseModuleSettingsResult {
     },
   });
 
-  const defs = getAllModuleSettingsDefs();
+  const defs = getAllModuleFlagDefs();
   const values = unflatten(query.data ?? null, defs);
 
   return {

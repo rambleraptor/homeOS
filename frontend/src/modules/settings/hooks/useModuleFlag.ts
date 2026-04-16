@@ -1,8 +1,8 @@
 /**
- * Public hook for reading + writing a single module setting.
+ * Public hook for reading + writing a single module flag.
  *
  *   const { value, setValue } =
- *     useModuleSetting<'superuser' | 'all'>('settings', 'omnibox_access');
+ *     useModuleFlag<'superuser' | 'all'>('settings', 'omnibox_access');
  *
  * Returns the declared default when nothing has been saved yet, so
  * callers never have to guard against `undefined`. `setValue` upserts
@@ -11,11 +11,11 @@
  */
 
 import { useCallback } from 'react';
-import type { ModuleSettingValue } from '../../types';
-import { useModuleSettings } from './useModuleSettings';
-import { useUpdateModuleSetting } from './useUpdateModuleSetting';
+import type { ModuleFlagValue } from '../../types';
+import { useModuleFlags } from './useModuleFlags';
+import { useUpdateModuleFlag } from './useUpdateModuleFlag';
 
-export interface UseModuleSettingResult<T extends ModuleSettingValue> {
+export interface UseModuleFlagResult<T extends ModuleFlagValue> {
   value: T | undefined;
   setValue: (value: T) => Promise<void>;
   isLoading: boolean;
@@ -23,12 +23,12 @@ export interface UseModuleSettingResult<T extends ModuleSettingValue> {
   error: Error | null;
 }
 
-export function useModuleSetting<T extends ModuleSettingValue = ModuleSettingValue>(
+export function useModuleFlag<T extends ModuleFlagValue = ModuleFlagValue>(
   moduleId: string,
   key: string,
-): UseModuleSettingResult<T> {
-  const { values, isLoading, error } = useModuleSettings();
-  const mutation = useUpdateModuleSetting();
+): UseModuleFlagResult<T> {
+  const { values, isLoading, error } = useModuleFlags();
+  const mutation = useUpdateModuleFlag();
 
   const value = values[moduleId]?.[key] as T | undefined;
 

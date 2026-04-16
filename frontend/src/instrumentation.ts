@@ -2,9 +2,9 @@
  * Next.js instrumentation hook.
  *
  * Runs once when the server boots (dev + production `next start`). We
- * use it to push the aggregated `module-settings` resource definition
- * to aepbase so that each declared setting is a real field on the
- * singleton resource.
+ * use it to push the aggregated `module-flags` resource definition to
+ * aepbase so that each declared flag is a real field on the singleton
+ * resource.
  *
  * Env vars required:
  *   AEPBASE_URL             (default: http://127.0.0.1:8090)
@@ -13,7 +13,7 @@
  *
  * If the credentials aren't set (e.g. during `next build` in CI) the
  * sync is skipped with a warning. The app still works — callers of
- * `useModuleSettings` will see declared defaults until the schema is
+ * `useModuleFlag` will see declared defaults until the schema is
  * registered.
  */
 
@@ -29,31 +29,31 @@ export async function register(): Promise<void> {
 
   if (!email || !password) {
     console.warn(
-      '[module-settings] skipping schema sync — AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD not set',
+      '[module-flags] skipping schema sync — AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD not set',
     );
     return;
   }
 
   try {
-    const { getAllModuleSettingsDefs } = await import('@/modules/registry');
-    const { syncModuleSettingsSchema } = await import(
-      '@/core/module-settings/sync'
+    const { getAllModuleFlagDefs } = await import('@/modules/registry');
+    const { syncModuleFlagsSchema } = await import(
+      '@/core/module-flags/sync'
     );
 
     const token = await login(aepbaseUrl, email, password);
-    const defs = getAllModuleSettingsDefs();
-    const result = await syncModuleSettingsSchema({
+    const defs = getAllModuleFlagDefs();
+    const result = await syncModuleFlagsSchema({
       aepbaseUrl,
       token,
       defs,
     });
     if (result.action === 'noop') {
-      console.info('[module-settings] schema already in sync');
+      console.info('[module-flags] schema already in sync');
     }
   } catch (error) {
     // Don't crash the server on sync failure — callers still get
     // declared defaults. Log loudly so developers notice.
-    console.error('[module-settings] schema sync failed', error);
+    console.error('[module-flags] schema sync failed', error);
   }
 }
 

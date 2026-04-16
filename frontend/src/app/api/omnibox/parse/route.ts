@@ -15,7 +15,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { aepList, authenticate } from '../../_lib/aepbase-server';
 import { buildManifest } from '@/shared/omnibox/manifest';
 import { parseFallback } from '@/shared/omnibox/parseFallback';
-import { fieldName } from '@/modules/settings/schema';
+import { fieldName } from '@/modules/settings/flags';
 import type {
   OmniboxIntent,
   OmniboxParseResponse,
@@ -95,7 +95,7 @@ async function callGemini(
 }
 
 /**
- * Consult the household's module-settings singleton and return true if
+ * Consult the household's module-flags singleton and return true if
  * omnibox access has been opened up to all users. Returns false on any
  * failure (missing resource, empty singleton, network error) — the
  * default policy stays superuser-only.
@@ -103,7 +103,7 @@ async function callGemini(
 async function omniboxAllowedForAll(token: string): Promise<boolean> {
   try {
     const records = await aepList<Record<string, unknown>>(
-      'module-settings',
+      'module-flags',
       token,
     );
     if (records.length === 0) return false;

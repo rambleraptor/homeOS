@@ -14,7 +14,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/core/auth/useAuth';
 import { useCanUseOmnibox } from '@/shared/omnibox/useCanUseOmnibox';
-import { useModuleSettings } from '@/modules/settings/hooks/useModuleSettings';
+import { useModuleFlags } from '@/modules/settings/hooks/useModuleFlags';
 import { Spinner } from '@/shared/components/Spinner';
 import { OmniboxInput } from '@/shared/omnibox/OmniboxInput';
 import { OmniboxDispatcher } from '@/shared/omnibox/OmniboxDispatcher';
@@ -23,13 +23,13 @@ import type { OmniboxParseResponse } from '@/shared/omnibox/types';
 
 export default function SearchPage() {
   const { user, isLoading } = useAuth();
-  const { isLoading: isSettingsLoading } = useModuleSettings();
+  const { isLoading: isFlagsLoading } = useModuleFlags();
   const canUseOmnibox = useCanUseOmnibox();
   const router = useRouter();
 
-  // Once auth + settings have resolved, redirect anyone who isn't
+  // Once auth + flags have resolved, redirect anyone who isn't
   // allowed to use the omnibox back to the dashboard.
-  const isReady = !isLoading && !isSettingsLoading && !!user;
+  const isReady = !isLoading && !isFlagsLoading && !!user;
   useEffect(() => {
     if (isReady && !canUseOmnibox) {
       router.replace('/dashboard');

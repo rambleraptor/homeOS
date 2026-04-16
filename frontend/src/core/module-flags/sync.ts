@@ -1,19 +1,19 @@
 /**
- * Push the aggregated module-settings schema to aepbase.
+ * Push the aggregated module-flags schema to aepbase.
  *
- * Called from `src/instrumentation.ts` when the Next.js server boots
- * ("start time" in the plan). Idempotent: on repeat runs it PATCHes
- * the existing resource definition when the schema has drifted.
+ * Called from `src/instrumentation.ts` when the Next.js server boots.
+ * Idempotent: on repeat runs it PATCHes the existing resource
+ * definition when the schema has drifted.
  *
  * aepbase's `/resource-definitions` endpoint mirrors the shape used
  * by the terraform provider (singular/plural/schema/parents). See
  * `aepbase/terraform/*.tf` for equivalent HCL examples.
  */
 
-import { buildResourceSchema, type ModuleSettingsDefs } from '@/modules/settings/schema';
+import { buildResourceSchema, type ModuleFlagDefs } from '@/modules/settings/flags';
 
-const RESOURCE_SINGULAR = 'module-setting';
-const RESOURCE_PLURAL = 'module-settings';
+const RESOURCE_SINGULAR = 'module-flag';
+const RESOURCE_PLURAL = 'module-flags';
 
 interface AepResourceDefinition {
   singular?: string;
@@ -29,8 +29,8 @@ export interface SyncOptions {
   aepbaseUrl: string;
   /** Admin bearer token with permission to manage resource definitions. */
   token: string;
-  /** Defs from `getAllModuleSettingsDefs()`. */
-  defs: ModuleSettingsDefs;
+  /** Defs from `getAllModuleFlagDefs()`. */
+  defs: ModuleFlagDefs;
   /** Optional logger; defaults to console. */
   logger?: Pick<Console, 'info' | 'warn' | 'error'>;
 }
@@ -39,7 +39,7 @@ export interface SyncResult {
   action: 'created' | 'updated' | 'noop';
 }
 
-export async function syncModuleSettingsSchema(
+export async function syncModuleFlagsSchema(
   options: SyncOptions,
 ): Promise<SyncResult> {
   const { aepbaseUrl, token, defs, logger = console } = options;
@@ -49,8 +49,8 @@ export async function syncModuleSettingsSchema(
     singular: RESOURCE_SINGULAR,
     plural: RESOURCE_PLURAL,
     description:
-      'Household-wide module settings. Managed by the Next.js server via ' +
-      'getAllModuleSettingsDefs() — do not edit through terraform.',
+      'Household-wide module flags. Managed by the Next.js server via ' +
+      'getAllModuleFlagDefs() — do not edit through terraform.',
     user_settable_create: true,
     schema,
   };
@@ -60,7 +60,7 @@ export async function syncModuleSettingsSchema(
   if (!existing) {
     await createDefinition(aepbaseUrl, token, desired);
     logger.info(
-      `[module-settings] created resource definition with ${Object.keys(schema.properties).length} field(s)`,
+      `[module-flags] created resource definition with ${Object.keys(schema.properties).length} field(s)`,
     );
     return { action: 'created' };
   }
@@ -71,7 +71,7 @@ export async function syncModuleSettingsSchema(
 
   await patchDefinition(aepbaseUrl, token, { schema });
   logger.info(
-    `[module-settings] updated resource definition to ${Object.keys(schema.properties).length} field(s)`,
+    `[module-flags] updated resource definition to ${Object.keys(schema.properties).length} field(s)`,
   );
   return { action: 'updated' };
 }

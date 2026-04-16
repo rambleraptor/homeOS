@@ -27,7 +27,7 @@ export const settingsModule: HomeModule = {
     synonyms: ['settings', 'preferences', 'config', 'options'],
     listComponent: SettingsHome,
   },
-  settings: {
+  flags: {
     omnibox_access: {
       type: 'enum',
       label: 'Omnibox access',

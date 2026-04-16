@@ -429,11 +429,11 @@ export const AepCollections = {
   RECIPE_LOGS: 'logs', // child of recipes
   GAMES: 'games',
   GAME_HOLES: 'holes', // child of games
-  // Household-wide module settings singleton. Resource definition is
-  // pushed by `scripts/sync-module-settings-schema.ts` at build time
-  // rather than via terraform, because the schema is derived from
-  // each module's `module.config.ts`.
-  MODULE_SETTINGS: 'module-settings',
+  // Household-wide module flags singleton. Resource definition is
+  // pushed by the Next.js server at startup (see
+  // `src/instrumentation.ts`) rather than via terraform, because the
+  // schema is derived from each module's `module.config.ts`.
+  MODULE_FLAGS: 'module-flags',
 } as const;
 
 // ----------------------------------------------------------------------------

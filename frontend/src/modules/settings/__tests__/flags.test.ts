@@ -5,10 +5,10 @@ import {
   parseFieldName,
   unflatten,
   withDefaults,
-  type ModuleSettingsDefs,
-} from '../schema';
+  type ModuleFlagDefs,
+} from '../flags';
 
-const defs: ModuleSettingsDefs = {
+const defs: ModuleFlagDefs = {
   'gift-cards': {
     show_archived: { type: 'boolean', label: 'Show archived', default: false },
   },
@@ -98,7 +98,7 @@ describe('withDefaults', () => {
 });
 
 describe('buildResourceSchema', () => {
-  it('produces one alphabetically-sorted property per declared setting', () => {
+  it('produces one alphabetically-sorted property per declared flag', () => {
     const schema = buildResourceSchema(defs);
     expect(schema.type).toBe('object');
     expect(Object.keys(schema.properties)).toEqual([

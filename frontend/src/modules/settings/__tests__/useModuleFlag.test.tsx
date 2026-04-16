@@ -1,5 +1,5 @@
 /**
- * Tests for the public `useModuleSetting` hook.
+ * Tests for the public `useModuleFlag` hook.
  *
  * The hook composes the singleton fetcher + upsert mutation, so these
  * exercise the end-to-end read/write flow against a mocked aepbase.
@@ -10,7 +10,7 @@ import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { aepbase } from '@/core/api/aepbase';
-import { useModuleSetting } from '../hooks/useModuleSetting';
+import { useModuleFlag } from '../hooks/useModuleFlag';
 
 const createWrapper = () => {
   const client = new QueryClient({
@@ -24,7 +24,7 @@ const createWrapper = () => {
   );
 };
 
-describe('useModuleSetting', () => {
+describe('useModuleFlag', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -33,7 +33,7 @@ describe('useModuleSetting', () => {
     vi.mocked(aepbase.list).mockResolvedValue([]);
 
     const { result } = renderHook(
-      () => useModuleSetting<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('settings', 'omnibox_access'),
       { wrapper: createWrapper() },
     );
 
@@ -47,7 +47,7 @@ describe('useModuleSetting', () => {
     ]);
 
     const { result } = renderHook(
-      () => useModuleSetting<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('settings', 'omnibox_access'),
       { wrapper: createWrapper() },
     );
 
@@ -64,7 +64,7 @@ describe('useModuleSetting', () => {
     });
 
     const { result } = renderHook(
-      () => useModuleSetting<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('settings', 'omnibox_access'),
       { wrapper: createWrapper() },
     );
 
@@ -73,7 +73,7 @@ describe('useModuleSetting', () => {
       await result.current.setValue('all');
     });
 
-    expect(aepbase.update).toHaveBeenCalledWith('module-settings', 'rec-1', {
+    expect(aepbase.update).toHaveBeenCalledWith('module-flags', 'rec-1', {
       settings__omnibox_access: 'all',
     });
     expect(aepbase.create).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe('useModuleSetting', () => {
     });
 
     const { result } = renderHook(
-      () => useModuleSetting<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('settings', 'omnibox_access'),
       { wrapper: createWrapper() },
     );
 
@@ -96,7 +96,7 @@ describe('useModuleSetting', () => {
       await result.current.setValue('all');
     });
 
-    expect(aepbase.create).toHaveBeenCalledWith('module-settings', {
+    expect(aepbase.create).toHaveBeenCalledWith('module-flags', {
       settings__omnibox_access: 'all',
     });
   });

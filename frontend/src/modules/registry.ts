@@ -23,7 +23,7 @@
  * ```
  */
 
-import type { HomeModule, ModuleRegistry, ModuleSettingDef } from './types';
+import type { HomeModule, ModuleRegistry, ModuleFlagDef } from './types';
 import { logger } from '@/core/utils/logger';
 
 // =============================================================================
@@ -182,18 +182,18 @@ export function moduleExists(id: string): boolean {
 }
 
 /**
- * Collect every declared setting across all registered modules, keyed
- * by module id. Consumed by the settings UI, the aepbase schema syncer
- * script, and the `useModuleSetting` hook.
+ * Collect every declared flag across all registered modules, keyed by
+ * module id. Consumed by the settings UI, the aepbase schema syncer,
+ * and the `useModuleFlag` hook.
  */
-export function getAllModuleSettingsDefs(): Record<
+export function getAllModuleFlagDefs(): Record<
   string,
-  Record<string, ModuleSettingDef>
+  Record<string, ModuleFlagDef>
 > {
   return Object.fromEntries(
     moduleRegistry.modules
-      .filter((m) => m.settings && Object.keys(m.settings).length > 0)
-      .map((m) => [m.id, m.settings!]),
+      .filter((m) => m.flags && Object.keys(m.flags).length > 0)
+      .map((m) => [m.id, m.flags!]),
   );
 }
 

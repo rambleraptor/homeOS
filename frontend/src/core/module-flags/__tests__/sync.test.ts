@@ -1,15 +1,15 @@
 /**
- * Tests for the module-settings schema syncer.
+ * Tests for the module-flags schema syncer.
  *
  * The syncer is pure HTTP against aepbase's resource-definition API,
  * so these mock `fetch` directly and assert the request sequence.
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { syncModuleSettingsSchema } from '../sync';
-import type { ModuleSettingsDefs } from '@/modules/settings/schema';
+import { syncModuleFlagsSchema } from '../sync';
+import type { ModuleFlagDefs } from '@/modules/settings/flags';
 
-const defs: ModuleSettingsDefs = {
+const defs: ModuleFlagDefs = {
   settings: {
     omnibox_access: {
       type: 'enum',
@@ -24,7 +24,7 @@ const BASE = 'http://aepbase.test';
 const TOKEN = 'admin-token';
 const SILENT_LOGGER = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
-describe('syncModuleSettingsSchema', () => {
+describe('syncModuleFlagsSchema', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   const originalFetch = globalThis.fetch;
 
@@ -46,7 +46,7 @@ describe('syncModuleSettingsSchema', () => {
       new Response('{}', { status: 200 }),
     );
 
-    const result = await syncModuleSettingsSchema({
+    const result = await syncModuleFlagsSchema({
       aepbaseUrl: BASE,
       token: TOKEN,
       defs,
@@ -59,8 +59,8 @@ describe('syncModuleSettingsSchema', () => {
     expect(postUrl).toBe(`${BASE}/resource-definitions`);
     expect(postInit.method).toBe('POST');
     const body = JSON.parse(postInit.body as string);
-    expect(body.singular).toBe('module-setting');
-    expect(body.plural).toBe('module-settings');
+    expect(body.singular).toBe('module-flag');
+    expect(body.plural).toBe('module-flags');
     const schema = JSON.parse(body.schema);
     expect(schema.properties.settings__omnibox_access.type).toBe('string');
   });
@@ -78,14 +78,14 @@ describe('syncModuleSettingsSchema', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          singular: 'module-setting',
+          singular: 'module-flag',
           schema: JSON.stringify(existingSchema),
         }),
         { status: 200 },
       ),
     );
 
-    const result = await syncModuleSettingsSchema({
+    const result = await syncModuleFlagsSchema({
       aepbaseUrl: BASE,
       token: TOKEN,
       defs,
@@ -100,7 +100,7 @@ describe('syncModuleSettingsSchema', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          singular: 'module-setting',
+          singular: 'module-flag',
           schema: JSON.stringify({
             type: 'object',
             properties: { old_field: { type: 'string' } },
@@ -111,7 +111,7 @@ describe('syncModuleSettingsSchema', () => {
     );
     fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
 
-    const result = await syncModuleSettingsSchema({
+    const result = await syncModuleFlagsSchema({
       aepbaseUrl: BASE,
       token: TOKEN,
       defs,
@@ -121,7 +121,7 @@ describe('syncModuleSettingsSchema', () => {
     expect(result.action).toBe('updated');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const [patchUrl, patchInit] = fetchMock.mock.calls[1];
-    expect(patchUrl).toBe(`${BASE}/resource-definitions/module-setting`);
+    expect(patchUrl).toBe(`${BASE}/resource-definitions/module-flag`);
     expect(patchInit.method).toBe('PATCH');
     expect(patchInit.headers['Content-Type']).toBe(
       'application/merge-patch+json',
@@ -134,7 +134,7 @@ describe('syncModuleSettingsSchema', () => {
     );
 
     await expect(
-      syncModuleSettingsSchema({
+      syncModuleFlagsSchema({
         aepbaseUrl: BASE,
         token: TOKEN,
         defs,
