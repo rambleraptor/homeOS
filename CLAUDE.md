@@ -269,6 +269,26 @@ encoded in the URL path.
 - Realtime subscriptions (polling only)
 - Thumbnail generation for file fields
 
+### Module settings — not terraform
+
+The `module-settings` resource is an exception to the terraform rule.
+Each module can declare typed settings in its `module.config.ts`
+(`settings: { ... }`). At Next.js server startup,
+`frontend/src/instrumentation.ts` aggregates every declared setting
+(via `getAllModuleSettingsDefs` in `src/modules/registry.ts`), builds
+a JSON-schema payload, and POST/PATCHes it against aepbase's
+`/resource-definitions` endpoint. One record of `module-settings` is
+the household-wide singleton; fields are flattened as
+`${moduleId_snake}__${key}` on the wire.
+
+Set `AEPBASE_ADMIN_EMAIL` and `AEPBASE_ADMIN_PASSWORD` in the Next.js
+environment to enable the sync. Without them the app still works —
+the settings UI falls back to each declared default.
+
+Consumers: `useModuleSetting(moduleId, key)` from
+`@/modules/settings` is the one public hook for reading/writing a
+single setting from any component.
+
 ## Data Migration from PocketBase
 
 `aepbase/scripts/migrate_pb_to_aep.py` copies a PocketBase `pb_data/`

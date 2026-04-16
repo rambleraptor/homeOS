@@ -100,7 +100,55 @@ export interface HomeModule {
    * via the omnibox. See `@/shared/omnibox/types` for the shape.
    */
   omnibox?: OmniboxAdapter;
+
+  /**
+   * Optional module-scoped settings. Each entry declares a typed knob
+   * that a household member can tweak from the settings UI.
+   *
+   * The registry flattens all declared settings across modules into a
+   * single aepbase-backed singleton (`module-settings` resource) whose
+   * field names are `${moduleId_snake}__${key}`.
+   */
+  settings?: Record<string, ModuleSettingDef>;
 }
+
+/**
+ * Runtime value a setting can hold. Matches `ModuleSettingDef.type`
+ * one-to-one — `enum` settings store their selected option as a string.
+ */
+export type ModuleSettingValue = string | number | boolean;
+
+/**
+ * Declarative description of a single module setting. The settings UI
+ * renders the right input widget based on `type`; the aepbase schema
+ * syncer converts `type` into a JSON-schema property.
+ */
+export type ModuleSettingDef =
+  | {
+      type: 'string';
+      label: string;
+      description?: string;
+      default?: string;
+    }
+  | {
+      type: 'number';
+      label: string;
+      description?: string;
+      default?: number;
+    }
+  | {
+      type: 'boolean';
+      label: string;
+      description?: string;
+      default?: boolean;
+    }
+  | {
+      type: 'enum';
+      label: string;
+      description?: string;
+      options: readonly string[];
+      default?: string;
+    };
 
 /**
  * Module Registry

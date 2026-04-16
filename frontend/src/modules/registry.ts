@@ -23,7 +23,7 @@
  * ```
  */
 
-import type { HomeModule, ModuleRegistry } from './types';
+import type { HomeModule, ModuleRegistry, ModuleSettingDef } from './types';
 import { logger } from '@/core/utils/logger';
 
 // =============================================================================
@@ -179,6 +179,22 @@ export function getAllRoutes(): HomeModule['routes'] {
  */
 export function moduleExists(id: string): boolean {
   return moduleRegistry.getModule(id) !== undefined;
+}
+
+/**
+ * Collect every declared setting across all registered modules, keyed
+ * by module id. Consumed by the settings UI, the aepbase schema syncer
+ * script, and the `useModuleSetting` hook.
+ */
+export function getAllModuleSettingsDefs(): Record<
+  string,
+  Record<string, ModuleSettingDef>
+> {
+  return Object.fromEntries(
+    moduleRegistry.modules
+      .filter((m) => m.settings && Object.keys(m.settings).length > 0)
+      .map((m) => [m.id, m.settings!]),
+  );
 }
 
 /**
