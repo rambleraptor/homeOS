@@ -397,6 +397,11 @@ const DEFINITIONS: ResourceDefinition[] = [
     schema: {
       type: 'object',
       properties: {
+        people__server_search: {
+          type: 'string',
+          description:
+            'Who gets server-side People search (CEL filter on aepbase) instead of client-side filtering of the fetched collection. (one of: superuser, all, none)',
+        },
         settings__omnibox_access: {
           type: 'string',
           description:
