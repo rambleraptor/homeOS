@@ -6,6 +6,12 @@
  *   - 'superuser' (default): only superusers see Recipes in the sidebar
  *   - 'all':       every signed-in user sees it
  *   - 'none':      nobody sees it (no superuser bypass)
+ *
+ * All data operations use `adminToken` (the persistent superuser session
+ * loaded once per worker). Earlier runs that used a per-test `userToken`
+ * hit intermittent 401s — the regular test user is torn down between
+ * tests and its token can race against in-flight requests. The admin
+ * token survives the whole run, which mirrors the flag-management spec.
  */
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
@@ -30,19 +36,16 @@ interface RecipeRecord {
 test.describe('Recipes CRUD', () => {
   let recipesPage: RecipesPage;
 
-  test.beforeEach(async ({ adminToken, userToken, authenticatedAdminPage }) => {
-    // Make recipes visible to everyone for the CRUD specs so a regular
-    // authenticated user can drive the flow.
+  test.beforeEach(async ({ adminToken, authenticatedAdminPage }) => {
     await resetModuleFlags(adminToken);
-    await setModuleFlag(adminToken, 'recipes', 'visibility', 'all');
-    await deleteAllRecipes(userToken);
+    await deleteAllRecipes(adminToken);
 
     recipesPage = new RecipesPage(authenticatedAdminPage);
     await recipesPage.goto();
   });
 
-  test.afterEach(async ({ adminToken, userToken }) => {
-    await deleteAllRecipes(userToken);
+  test.afterEach(async ({ adminToken }) => {
+    await deleteAllRecipes(adminToken);
     await resetModuleFlags(adminToken);
   });
 
@@ -72,9 +75,9 @@ test.describe('Recipes CRUD', () => {
     );
   });
 
-  test('edits an existing recipe', async ({ userToken }) => {
+  test('edits an existing recipe', async ({ adminToken }) => {
     const seed = testRecipes[0];
-    const created = await createRecipe(userToken, {
+    const created = await createRecipe(adminToken, {
       title: seed.title,
       source_pointer: seed.source_pointer,
       parsed_ingredients: seed.parsed_ingredients,
@@ -91,13 +94,13 @@ test.describe('Recipes CRUD', () => {
     await recipesPage.expectRecipeInList(newTitle);
     await recipesPage.expectRecipeNotInList(seed.title);
 
-    const updated = await aepGet<RecipeRecord>(userToken, 'recipes', created.id);
+    const updated = await aepGet<RecipeRecord>(adminToken, 'recipes', created.id);
     expect(updated.title).toBe(newTitle);
   });
 
-  test('deletes a recipe', async ({ userToken }) => {
+  test('deletes a recipe', async ({ adminToken }) => {
     const seed = testRecipes[1];
-    await createRecipe(userToken, {
+    await createRecipe(adminToken, {
       title: seed.title,
       parsed_ingredients: seed.parsed_ingredients,
       method: seed.method,
