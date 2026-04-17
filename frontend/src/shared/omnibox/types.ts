@@ -23,6 +23,12 @@ export interface OmniboxFilterDecl {
   type: OmniboxFilterType;
   /** Permitted values for `enum` filters. */
   values?: string[];
+  /**
+   * Optional CEL field path. Defaults to `key` — set this when the LLM-
+   * facing filter name doesn't match the underlying record field (e.g.
+   * filter key `"name"` targeting a nested `profile.name` field).
+   */
+  field?: string;
   /** Optional hint shown to the LLM. */
   description?: string;
 }

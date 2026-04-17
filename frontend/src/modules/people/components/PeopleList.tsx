@@ -18,7 +18,7 @@ import { Spinner } from '@/shared/components/Spinner';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { useToast } from '@/shared/components/ToastProvider';
 import { useAuth } from '@/core/auth/useAuth';
-import { useOmniboxFilter } from '@/shared/omnibox/OmniboxContext';
+import { useOmniboxCelFilter } from '@/shared/omnibox/OmniboxContext';
 import { useModuleFlag } from '@/modules/settings/hooks/useModuleFlag';
 import { usePeople } from '../hooks/usePeople';
 import { useUpdatePerson } from '../hooks/useUpdatePerson';
@@ -57,6 +57,7 @@ export function PeopleList() {
 
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [nameFilter, setNameFilter] = useState('');
+  const [omniboxCel, setOmniboxCel] = useState<string | undefined>(undefined);
 
   // Debounce the filter going to the server so typing doesn't refetch on
   // every keystroke. When the flag is off, we filter client-side and this
@@ -68,19 +69,17 @@ export function PeopleList() {
     return () => clearTimeout(handle);
   }, [nameFilter, useServerSearch]);
 
-  const celFilter = useServerSearch ? buildPeopleCelFilter(debouncedFilter) : undefined;
+  // Receive the omnibox-built CEL filter. No-op on /people. When set, it
+  // takes precedence over the local search bar's CEL so the rendered list
+  // matches what the user asked the omnibox for.
+  useOmniboxCelFilter((cel) => setOmniboxCel(cel));
+
+  const localCel = useServerSearch ? buildPeopleCelFilter(debouncedFilter) : undefined;
+  const celFilter = omniboxCel ?? localCel;
   const { data: people, isLoading } = usePeople(celFilter);
   const updatePerson = useUpdatePerson();
   const deletePerson = useDeletePerson();
   const toast = useToast();
-
-  // Seed the name filter from an omnibox intent (no-op on the normal
-  // /people route where there is no omnibox context).
-  useOmniboxFilter((filters) => {
-    if (typeof filters.name === 'string') {
-      setNameFilter(filters.name);
-    }
-  });
 
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     isOpen: boolean;
@@ -130,10 +129,10 @@ export function PeopleList() {
     }
   };
 
-  // With the server-search flag on, the returned `people` is already
-  // narrowed by aepbase's CEL filter; otherwise fall back to the local
-  // substring match.
-  const filteredPeople = useServerSearch
+  // When the server already narrowed via CEL (server-search flag on, or
+  // an omnibox CEL is active) the returned `people` is the final set.
+  // Otherwise fall back to the local substring match.
+  const filteredPeople = useServerSearch || omniboxCel
     ? people || []
     : people?.filter((person) => {
         if (!nameFilter.trim()) return true;

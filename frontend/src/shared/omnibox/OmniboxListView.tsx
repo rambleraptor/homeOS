@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Renders the module's own list/home component with omnibox filters
- * available via `useOmniboxFilter()` inside the component.
+ * Renders the module's own list/home component with the omnibox CEL
+ * filter available via `useOmniboxCelFilter()` inside the component.
  */
 
 import React from 'react';
@@ -22,7 +22,11 @@ export function OmniboxListView({
 }: OmniboxListViewProps) {
   const ListComponent = adapter.listComponent;
   return (
-    <OmniboxFilterProvider moduleId={moduleId} filters={filters ?? {}}>
+    <OmniboxFilterProvider
+      moduleId={moduleId}
+      decls={adapter.filters ?? []}
+      values={filters ?? {}}
+    >
       <ListComponent />
     </OmniboxFilterProvider>
   );
