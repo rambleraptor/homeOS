@@ -407,6 +407,96 @@ export async function deleteAllGames(token: string) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Recipes
+// ---------------------------------------------------------------------------
+
+export interface RecipeIngredientInput {
+  item: string;
+  qty: number;
+  unit: string;
+  raw?: string;
+}
+
+export interface CreateRecipeInput {
+  title: string;
+  parsed_ingredients: RecipeIngredientInput[];
+  source_pointer?: string;
+  method?: string;
+  tags?: string[];
+}
+
+export interface RecipeRecord {
+  id: string;
+  title: string;
+  source_pointer?: string;
+  parsed_ingredients: RecipeIngredientInput[];
+  method?: string;
+  tags?: string[];
+}
+
+export async function createRecipe(
+  token: string,
+  data: CreateRecipeInput,
+): Promise<RecipeRecord> {
+  return aepCreate<RecipeRecord>(token, 'recipes', {
+    title: data.title,
+    source_pointer: data.source_pointer,
+    parsed_ingredients: data.parsed_ingredients.map((ing) => ({
+      ...ing,
+      raw: ing.raw ?? `${ing.qty} ${ing.unit} ${ing.item}`.trim(),
+    })),
+    method: data.method,
+    tags: data.tags,
+  });
+}
+
+export async function deleteAllRecipes(token: string) {
+  const items = await aepList<{ id: string }>(token, 'recipes');
+  for (const item of items) {
+    await aepRemove(token, 'recipes', item.id);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Module flags (household-wide singleton)
+// ---------------------------------------------------------------------------
+
+interface ModuleFlagsRecord {
+  id: string;
+  [field: string]: unknown;
+}
+
+/** Upsert a single module flag. Mirrors `useUpdateModuleFlag.upsertFlag`. */
+export async function setModuleFlag(
+  token: string,
+  moduleId: string,
+  key: string,
+  value: string | number | boolean,
+): Promise<void> {
+  const flatField = `${moduleId.replace(/-/g, '_')}__${key}`;
+  const payload = { [flatField]: value };
+  const existing = await aepList<ModuleFlagsRecord>(token, 'module-flags');
+  if (existing.length > 0) {
+    await aepUpdate<ModuleFlagsRecord>(
+      token,
+      'module-flags',
+      existing[0].id,
+      payload,
+    );
+    return;
+  }
+  await aepCreate<ModuleFlagsRecord>(token, 'module-flags', payload);
+}
+
+/** Delete every module-flags singleton record (resets all flags to defaults). */
+export async function resetModuleFlags(token: string) {
+  const records = await aepList<ModuleFlagsRecord>(token, 'module-flags');
+  for (const record of records) {
+    await aepRemove(token, 'module-flags', record.id);
+  }
+}
+
 /** Wipe everything the test user can see. */
 export async function cleanupUserData(token: string, userId: string) {
   await Promise.all([

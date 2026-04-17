@@ -65,6 +65,30 @@ export const testPeople = [
   },
 ];
 
+export const testRecipes = [
+  {
+    title: 'Garlic Pasta',
+    source_pointer: 'https://example.com/garlic-pasta',
+    parsed_ingredients: [
+      { item: 'spaghetti', qty: 200, unit: 'g', raw: '200g spaghetti' },
+      { item: 'garlic', qty: 4, unit: 'clove', raw: '4 cloves garlic' },
+      { item: 'olive oil', qty: 3, unit: 'tbsp', raw: '3 tbsp olive oil' },
+    ],
+    method: '1. Boil pasta. 2. Sauté garlic in oil. 3. Toss together.',
+    tags: ['dinner', 'vegetarian', 'pasta'],
+  },
+  {
+    title: 'Oat Milk Latte',
+    source_pointer: 'Book: Coffee Lab pg 42',
+    parsed_ingredients: [
+      { item: 'oat milk', qty: 1, unit: 'cup', raw: '1 cup oat milk' },
+      { item: 'espresso', qty: 2, unit: 'shot', raw: '2 shots espresso' },
+    ],
+    method: '1. Steam oat milk. 2. Pull espresso. 3. Pour over.',
+    tags: ['drink', 'breakfast'],
+  },
+];
+
 /**
  * Test HSA receipts
  */

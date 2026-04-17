@@ -3,30 +3,35 @@
 resource "aep_aep-resource-definition" "recipe" {
   singular             = "recipe"
   plural               = "recipes"
-  description          = "A recipe — digital, physical (e.g. cookbook page), or family-passed."
+  description          = "A culinary recipe with parsed ingredients for scaling."
   user_settable_create = true
   schema = jsonencode({
     type = "object"
     properties = {
-      title            = { type = "string" }
-      source_type      = { type = "string", description = "one of: digital, physical, family" }
-      source_reference = { type = "string" }
-      ingredients      = { type = "object" }
-      instructions     = { type = "string", description = "rich text (editor field in PB)" }
-      version          = { type = "number" }
-      changelog        = { type = "object" }
-      last_cooked      = { type = "string", format = "date-time" }
-      rating           = { type = "number", description = "1-10 scale" }
-      # File field — uploaded via multipart, served back as a download URL.
-      # PB used 5MB image/jpeg|png|webp uploads with no thumbnails.
-      image = {
-        type                   = "binary"
-        "x-aepbase-file-field" = true
-        description            = "Recipe image (jpeg/png/webp, <=5MB)"
+      title          = { type = "string", description = "Display name of the recipe." }
+      source_pointer = { type = "string", description = "URI or physical reference (e.g. 'https://...' or 'Book: Food Lab pg 124')." }
+      parsed_ingredients = {
+        type        = "array"
+        description = "Structured ingredient list separated from quantities for scaling."
+        items = {
+          type = "object"
+          properties = {
+            item = { type = "string", description = "Normalized ingredient name." }
+            qty  = { type = "number", description = "Numerical quantity (decimal for fractions)." }
+            unit = { type = "string", description = "Standardized unit (cup, tsp, g, whole, ...)." }
+            raw  = { type = "string", description = "Original unparsed ingredient string." }
+          }
+        }
       }
-      created_by = { type = "string" }
+      method = { type = "string", description = "Step-by-step instructions formatted as Markdown." }
+      tags = {
+        type        = "array"
+        items       = { type = "string" }
+        description = "Categorical tags for filtering and menu generation."
+      }
+      created_by = { type = "string", description = "users/{user_id}" }
     }
-    required = ["title", "source_type", "version"]
+    required = ["title", "parsed_ingredients"]
   })
 }
 

@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Home, LogOut, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { getNavigationModules } from '../../modules/registry';
+import { useCanUseRecipes } from '@/modules/recipes/hooks/useCanUseRecipes';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -76,10 +77,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Get modules available to current user. Modules can opt into a superuser
   // gate via `metadata.requiresSuperuser`, which hides them for regular users.
+  // The recipes module additionally consults its `recipes.visibility` flag
+  // (superuser / all / none) so households can hide it without a deploy.
+  const canUseRecipes = useCanUseRecipes();
   const modules = user
-    ? getNavigationModules().filter(
-        (m) => !m.metadata?.requiresSuperuser || user.type === 'superuser',
-      )
+    ? getNavigationModules().filter((m) => {
+        if (m.metadata?.requiresSuperuser && user.type !== 'superuser') return false;
+        if (m.id === 'recipes' && !canUseRecipes) return false;
+        return true;
+      })
     : [];
 
   // Group modules by section
