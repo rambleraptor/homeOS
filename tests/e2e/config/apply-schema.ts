@@ -389,6 +389,51 @@ const DEFINITIONS: ResourceDefinition[] = [
     },
   },
   {
+    singular: 'recipe',
+    plural: 'recipes',
+    description: 'A culinary recipe with parsed ingredients for scaling.',
+    user_settable_create: true,
+    schema: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'Display name of the recipe.',
+        },
+        source_pointer: {
+          type: 'string',
+          description:
+            "URI or physical reference (e.g. 'https://...' or 'Book: Food Lab pg 124').",
+        },
+        parsed_ingredients: {
+          type: 'array',
+          description:
+            'Structured ingredient list separated from quantities for scaling.',
+          items: {
+            type: 'object',
+            properties: {
+              item: { type: 'string' },
+              qty: { type: 'number' },
+              unit: { type: 'string' },
+              raw: { type: 'string' },
+            },
+          },
+        },
+        method: {
+          type: 'string',
+          description: 'Step-by-step instructions formatted as Markdown.',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Categorical tags for filtering and menu generation.',
+        },
+        created_by: { type: 'string', description: 'users/{user_id}' },
+      },
+      required: ['title', 'parsed_ingredients'],
+    },
+  },
+  {
     singular: 'module-flag',
     plural: 'module-flags',
     description:
@@ -401,6 +446,11 @@ const DEFINITIONS: ResourceDefinition[] = [
           type: 'string',
           description:
             'Who gets server-side People search (CEL filter on aepbase) instead of client-side filtering of the fetched collection. (default: none) (one of: superuser, all, none)',
+        },
+        recipes__visibility: {
+          type: 'string',
+          description:
+            "Who sees the Recipes module in navigation. 'superuser' shows it only to superusers; 'all' shows it to every signed-in user; 'none' hides it from everyone (including superusers). (default: superuser) (one of: superuser, all, none)",
         },
         settings__omnibox_access: {
           type: 'string',

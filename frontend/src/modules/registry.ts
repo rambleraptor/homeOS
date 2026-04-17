@@ -42,6 +42,7 @@ import { creditCardsModule } from './credit-cards/module.config';
 import { usersModule } from './users/module.config';
 import { minigolfModule } from './minigolf/module.config';
 import { flagManagementModule } from './flag-management/module.config';
+import { recipesModule } from './recipes/module.config';
 
 // =============================================================================
 // REGISTER MODULES HERE
@@ -55,6 +56,7 @@ const MODULES: HomeModule[] = [
   dashboardModule,
   giftCardsModule,
   groceriesModule,
+  recipesModule,
   peopleModule,
   hsaModule,
   creditCardsModule,
