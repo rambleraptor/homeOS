@@ -418,10 +418,14 @@ export interface RecipeIngredientInput {
   raw?: string;
 }
 
+export type RecipeSourceType = 'manual' | 'text' | 'url' | 'book';
+
 export interface CreateRecipeInput {
   title: string;
   parsed_ingredients: RecipeIngredientInput[];
+  source_type?: RecipeSourceType;
   source_pointer?: string;
+  version?: number;
   method?: string;
   tags?: string[];
 }
@@ -429,7 +433,9 @@ export interface CreateRecipeInput {
 export interface RecipeRecord {
   id: string;
   title: string;
+  source_type: RecipeSourceType;
   source_pointer?: string;
+  version: number;
   parsed_ingredients: RecipeIngredientInput[];
   method?: string;
   tags?: string[];
@@ -441,7 +447,9 @@ export async function createRecipe(
 ): Promise<RecipeRecord> {
   return aepCreate<RecipeRecord>(token, 'recipes', {
     title: data.title,
+    source_type: data.source_type ?? 'manual',
     source_pointer: data.source_pointer,
+    version: data.version ?? 1,
     parsed_ingredients: data.parsed_ingredients.map((ing) => ({
       ...ing,
       raw: ing.raw ?? `${ing.qty} ${ing.unit} ${ing.item}`.trim(),

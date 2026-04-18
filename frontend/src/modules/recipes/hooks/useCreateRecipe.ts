@@ -13,7 +13,9 @@ export function useCreateRecipe() {
       const createdBy = userId ? `users/${userId}` : undefined;
       return aepbase.create<Recipe>(AepCollections.RECIPES, {
         title: data.title,
+        source_type: data.source_type ?? 'manual',
         source_pointer: data.source_pointer,
+        version: data.version ?? 1,
         parsed_ingredients: data.parsed_ingredients,
         method: data.method,
         tags: data.tags,

@@ -400,10 +400,20 @@ const DEFINITIONS: ResourceDefinition[] = [
           type: 'string',
           description: 'Display name of the recipe.',
         },
+        source_type: {
+          type: 'string',
+          description:
+            'Origin category for source_pointer. One of: manual, text, url, book.',
+        },
         source_pointer: {
           type: 'string',
           description:
             "URI or physical reference (e.g. 'https://...' or 'Book: Food Lab pg 124').",
+        },
+        version: {
+          type: 'number',
+          description:
+            'Monotonically increasing revision counter; starts at 1 and bumps on each edit.',
         },
         parsed_ingredients: {
           type: 'array',
@@ -430,7 +440,7 @@ const DEFINITIONS: ResourceDefinition[] = [
         },
         created_by: { type: 'string', description: 'users/{user_id}' },
       },
-      required: ['title', 'parsed_ingredients'],
+      required: ['title', 'parsed_ingredients', 'source_type', 'version'],
     },
   },
   {

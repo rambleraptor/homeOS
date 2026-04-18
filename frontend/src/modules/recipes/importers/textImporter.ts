@@ -347,9 +347,12 @@ export const textImporter: RecipeImporter = {
 
     const method = buildMethod(directions, notes, nutrition, metadata);
 
+    const isUrl = !!source_pointer && /^https?:\/\//i.test(source_pointer);
     const data: RecipeFormData = {
       title,
+      source_type: isUrl ? 'url' : 'text',
       source_pointer,
+      version: 1,
       parsed_ingredients,
       method,
     };

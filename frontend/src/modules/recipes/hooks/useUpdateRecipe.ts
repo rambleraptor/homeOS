@@ -17,7 +17,9 @@ export function useUpdateRecipe() {
     }): Promise<Recipe> => {
       return aepbase.update<Recipe>(AepCollections.RECIPES, id, {
         title: data.title,
+        ...(data.source_type ? { source_type: data.source_type } : {}),
         source_pointer: data.source_pointer,
+        ...(data.version !== undefined ? { version: data.version } : {}),
         parsed_ingredients: data.parsed_ingredients,
         method: data.method,
         tags: data.tags,
