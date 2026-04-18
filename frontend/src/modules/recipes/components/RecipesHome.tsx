@@ -8,13 +8,14 @@
  */
 
 import { useState } from 'react';
-import { AlertCircle, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, Download, Loader2, Plus } from 'lucide-react';
 import { useRecipes } from '../hooks/useRecipes';
 import { useCreateRecipe } from '../hooks/useCreateRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
 import { useDeleteRecipe } from '../hooks/useDeleteRecipe';
 import { RecipesList } from './RecipesList';
 import { RecipeForm } from './RecipeForm';
+import { RecipeImportModal } from './RecipeImportModal';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { logger } from '@/core/utils/logger';
@@ -27,6 +28,7 @@ export function RecipesHome() {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: recipes, isLoading, isError, error } = useRecipes();
   const createMutation = useCreateRecipe();
@@ -75,6 +77,15 @@ export function RecipesHome() {
     setEditingRecipe(null);
   };
 
+  const handleImport = async (data: RecipeFormData) => {
+    try {
+      await createMutation.mutateAsync(data);
+      setImportOpen(false);
+    } catch (err) {
+      logger.error('Failed to import recipe', err);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -107,14 +118,24 @@ export function RecipesHome() {
             title="Recipes"
             subtitle="Manage household recipes with structured ingredients."
             actions={
-              <button
-                onClick={handleAddRecipe}
-                data-testid="add-recipe-button"
-                className="flex items-center gap-2 px-4 py-2 bg-accent-terracotta hover:bg-accent-terracotta-hover text-white rounded-lg font-medium font-body transition-colors shadow-sm"
-              >
-                <Plus className="w-5 h-5" />
-                Add Recipe
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setImportOpen(true)}
+                  data-testid="import-recipe-button"
+                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200"
+                >
+                  <Download className="w-5 h-5" />
+                  Import
+                </button>
+                <button
+                  onClick={handleAddRecipe}
+                  data-testid="add-recipe-button"
+                  className="flex items-center gap-2 px-4 py-2 bg-accent-terracotta hover:bg-accent-terracotta-hover text-white rounded-lg font-medium font-body transition-colors shadow-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Recipe
+                </button>
+              </div>
             }
           />
 
@@ -152,6 +173,13 @@ export function RecipesHome() {
         cancelLabel="Cancel"
         variant="danger"
         isLoading={deleteMutation.isPending}
+      />
+
+      <RecipeImportModal
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={handleImport}
+        isSubmitting={createMutation.isPending}
       />
     </div>
   );
