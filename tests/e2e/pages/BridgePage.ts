@@ -1,11 +1,12 @@
 /**
  * Bridge Page Object Model
  *
- * The bridge home page shows the hand entry form inline above the list
- * of saved hands, so adding a hand is a single scroll-free flow: fill
- * in the bids and save. Bridge data is persisted in `localStorage`
- * (key `bridge:hands`), so `goto()` clears it via an init script to
- * give every test a clean slate.
+ * The bridge home page shows a quick-entry form above the list of saved
+ * hands. Entry is three button taps per direction: level (1-7), suit,
+ * then the direction itself, which commits the bid. Once all four
+ * directions are entered the hand auto-saves. Bridge data is persisted
+ * in `localStorage` (key `bridge:hands`), so `goto()` clears it via an
+ * init script to give every test a clean slate.
  */
 
 import { Page, expect } from '@playwright/test';
@@ -34,19 +35,24 @@ export class BridgePage {
     ).toBeVisible();
   }
 
-  async setBid(direction: Direction, level: number, suit: Suit) {
-    await this.page.getByTestId(`bid-${direction}-level-${level}`).click();
-    await this.page.getByTestId(`bid-${direction}-suit`).selectOption(suit);
+  /** Enter a single direction's bid: level → suit → direction. */
+  async enterBid(direction: Direction, level: number, suit: Suit) {
+    await this.page.getByTestId(`level-${level}`).click();
+    await this.page.getByTestId(`suit-${suit}`).click();
+    await this.page.getByTestId(`direction-${direction}`).click();
   }
 
-  async setNotes(text: string) {
-    await this.page.getByTestId('hand-notes').fill(text);
-  }
-
-  async saveHand() {
-    const btn = this.page.getByTestId('save-hand-button');
-    await btn.waitFor({ state: 'visible' });
-    await btn.click();
+  /**
+   * Enter all four directions in N/E/S/W order. The hand auto-saves
+   * when the fourth direction is committed.
+   */
+  async enterHand(
+    bids: Record<Direction, { level: number; suit: Suit }>,
+  ) {
+    const order: Direction[] = ['north', 'east', 'south', 'west'];
+    for (const dir of order) {
+      await this.enterBid(dir, bids[dir].level, bids[dir].suit);
+    }
   }
 
   async expectHandInList() {
