@@ -1,6 +1,7 @@
 /**
- * Bridge E2E Tests — drives the UI end-to-end. Bridge persists hands in
- * localStorage, so the POM clears it before each navigation.
+ * Bridge E2E Tests — drives the quick-entry UI end-to-end. Bridge
+ * persists hands in localStorage, so the POM clears it before each
+ * navigation.
  */
 
 import { test } from '../../fixtures/aepbase.fixture';
@@ -17,12 +18,12 @@ test.describe('Bridge CRUD', () => {
     await bridgePage.goto();
     await bridgePage.expectToBeOnBridgePage();
 
-    await bridgePage.setBid('north', 3, 'spades');
-    await bridgePage.setBid('east', 4, 'no-trump');
-    await bridgePage.setBid('south', 2, 'hearts');
-    await bridgePage.setBid('west', 7, 'diamonds');
-    await bridgePage.setNotes('doubled by East');
-    await bridgePage.saveHand();
+    await bridgePage.enterHand({
+      north: { level: 3, suit: 'spades' },
+      east: { level: 4, suit: 'no-trump' },
+      south: { level: 2, suit: 'hearts' },
+      west: { level: 7, suit: 'diamonds' },
+    });
 
     await bridgePage.expectHandInList();
     await bridgePage.expectCardCount(1);
@@ -35,18 +36,21 @@ test.describe('Bridge CRUD', () => {
   test('lists multiple hands newest-first', async () => {
     await bridgePage.goto();
 
-    // First hand — defaults are all 1♣, so just save.
-    await bridgePage.saveHand();
+    await bridgePage.enterHand({
+      north: { level: 1, suit: 'clubs' },
+      east: { level: 1, suit: 'clubs' },
+      south: { level: 1, suit: 'clubs' },
+      west: { level: 1, suit: 'clubs' },
+    });
 
-    // Second hand
-    await bridgePage.setBid('north', 5, 'hearts');
-    await bridgePage.setBid('east', 6, 'spades');
-    await bridgePage.setBid('south', 7, 'no-trump');
-    await bridgePage.setBid('west', 2, 'diamonds');
-    await bridgePage.saveHand();
+    await bridgePage.enterHand({
+      north: { level: 5, suit: 'hearts' },
+      east: { level: 6, suit: 'spades' },
+      south: { level: 7, suit: 'no-trump' },
+      west: { level: 2, suit: 'diamonds' },
+    });
 
     await bridgePage.expectCardCount(2);
-    // Newest hand renders first.
     await bridgePage.expectFirstCardBid('north', '5♥');
     await bridgePage.expectFirstCardBid('south', '7 NT');
   });

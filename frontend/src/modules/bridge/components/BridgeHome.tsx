@@ -1,9 +1,9 @@
 'use client';
 
 /**
- * Bridge module root — shows the hand entry form inline above the list
- * of saved hands so new hands can be recorded without leaving the page.
- * The form is remounted via a `key` after each save to reset its state.
+ * Bridge module root — quick-entry form on top, saved hands as tables
+ * below. The form resets itself after each hand is submitted, so the
+ * parent only needs to handle persistence + errors.
  */
 
 import React, { useState } from 'react';
@@ -18,7 +18,6 @@ import { HandForm } from './HandForm';
 import type { HandFormData } from '../types';
 
 export function BridgeHome() {
-  const [formKey, setFormKey] = useState(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: hands, isLoading, isError, error } = useHands();
@@ -28,7 +27,6 @@ export function BridgeHome() {
   const handleSubmit = async (data: HandFormData) => {
     try {
       await createHand.mutateAsync(data);
-      setFormKey((k) => k + 1);
     } catch (err) {
       logger.error('Failed to save bridge hand', err);
     }
@@ -73,11 +71,10 @@ export function BridgeHome() {
     <div className="space-y-6">
       <PageHeader
         title="Bridge"
-        subtitle="Record each hand's final bids by direction."
+        subtitle="Tap level, suit, then each direction to log a hand."
       />
 
       <HandForm
-        key={formKey}
         onSubmit={handleSubmit}
         isSubmitting={createHand.isPending}
       />

@@ -1,116 +1,172 @@
 'use client';
 
 /**
- * Hand entry form — captures the final bid for all four cardinal
- * directions in a single deal, plus optional notes. Rendered inline on
- * the bridge home page so new hands can be entered without navigating
- * away from the list; parent remounts the form (via `key`) to reset
- * after a successful save.
+ * Quick-entry hand form. Three button rows at the top: level (1-7), suit
+ * (clubs/diamonds/hearts/spades/no-trump), and direction (N/E/S/W).
+ *
+ * Flow: pick a level + suit, then tap a direction to commit that bid for
+ * the direction. Direction buttons disable once used, so a direction
+ * can't repeat until the next hand. When the fourth direction is tapped
+ * all four bids are submitted and the form resets for the next hand.
  */
 
 import React, { useState } from 'react';
 import type {
+  BridgeDirection,
   BridgeLevel,
   BridgeSuit,
   HandFormData,
 } from '../types';
-import { BRIDGE_DIRECTIONS } from '../types';
-import { BidEntry } from './BidEntry';
+import {
+  BRIDGE_DIRECTIONS,
+  BRIDGE_LEVELS,
+  BRIDGE_SUITS,
+} from '../types';
+import { DIRECTION_SHORT, SUIT_SYMBOL, SUIT_LABEL, formatBid } from '../utils';
 
 interface HandFormProps {
   onSubmit: (data: HandFormData) => void;
   isSubmitting?: boolean;
 }
 
-interface BidState {
+interface DirBid {
   level: BridgeLevel;
   suit: BridgeSuit;
 }
 
-const DEFAULT_BID: BidState = { level: 1, suit: 'clubs' };
+const DIRECTION_ORDER: BridgeDirection[] = ['north', 'east', 'south', 'west'];
+
+function toFormData(entered: Record<BridgeDirection, DirBid>): HandFormData {
+  return {
+    north_level: entered.north.level,
+    north_suit: entered.north.suit,
+    east_level: entered.east.level,
+    east_suit: entered.east.suit,
+    south_level: entered.south.level,
+    south_suit: entered.south.suit,
+    west_level: entered.west.level,
+    west_suit: entered.west.suit,
+  };
+}
 
 export function HandForm({ onSubmit, isSubmitting }: HandFormProps) {
-  const [bids, setBids] = useState<Record<string, BidState>>({
-    north: { ...DEFAULT_BID },
-    east: { ...DEFAULT_BID },
-    south: { ...DEFAULT_BID },
-    west: { ...DEFAULT_BID },
-  });
-  const [notes, setNotes] = useState('');
+  const [level, setLevel] = useState<BridgeLevel>(1);
+  const [suit, setSuit] = useState<BridgeSuit>('clubs');
+  const [entered, setEntered] = useState<Partial<Record<BridgeDirection, DirBid>>>({});
 
-  const updateBid = (
-    direction: string,
-    patch: Partial<BidState>,
-  ) => {
-    setBids((prev) => ({
-      ...prev,
-      [direction]: { ...prev[direction], ...patch },
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSubmitting) return;
-    onSubmit({
-      north_level: bids.north.level,
-      north_suit: bids.north.suit,
-      south_level: bids.south.level,
-      south_suit: bids.south.suit,
-      east_level: bids.east.level,
-      east_suit: bids.east.suit,
-      west_level: bids.west.level,
-      west_suit: bids.west.suit,
-      notes: notes.trim() || undefined,
-    });
+  const handleDirection = (dir: BridgeDirection) => {
+    if (entered[dir] || isSubmitting) return;
+    const next = { ...entered, [dir]: { level, suit } };
+    const complete = BRIDGE_DIRECTIONS.every((d) => next[d]);
+    if (complete) {
+      onSubmit(toFormData(next as Record<BridgeDirection, DirBid>));
+      setEntered({});
+      setLevel(1);
+      setSuit('clubs');
+      return;
+    }
+    setEntered(next);
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4"
+    <section
       data-testid="hand-form"
+      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4"
     >
-      <h2 className="text-lg font-semibold text-gray-900">New Hand</h2>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {BRIDGE_DIRECTIONS.map((direction) => (
-          <BidEntry
-            key={direction}
-            direction={direction}
-            level={bids[direction].level}
-            suit={bids[direction].suit}
-            onLevelChange={(level) => updateBid(direction, { level })}
-            onSuitChange={(suit) => updateBid(direction, { suit })}
-          />
-        ))}
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-gray-600">Level</div>
+        <div
+          role="radiogroup"
+          aria-label="Level"
+          className="grid grid-cols-7 gap-1"
+        >
+          {BRIDGE_LEVELS.map((lvl) => {
+            const active = lvl === level;
+            return (
+              <button
+                key={lvl}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setLevel(lvl)}
+                data-testid={`level-${lvl}`}
+                className={`h-12 rounded-md text-base font-semibold border transition-colors ${
+                  active
+                    ? 'bg-accent-terracotta border-accent-terracotta text-white'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {lvl}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-2">
-        <label
-          htmlFor="hand-notes"
-          className="block text-sm font-semibold text-gray-900"
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-gray-600">Suit</div>
+        <div
+          role="radiogroup"
+          aria-label="Suit"
+          className="grid grid-cols-5 gap-1"
         >
-          Notes <span className="text-xs font-normal text-gray-500">(optional)</span>
-        </label>
-        <textarea
-          id="hand-notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          placeholder="e.g. doubled by East, slam made"
-          data-testid="hand-notes"
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
-        />
-      </section>
+          {BRIDGE_SUITS.map((s) => {
+            const active = s === suit;
+            return (
+              <button
+                key={s}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                aria-label={SUIT_LABEL[s]}
+                onClick={() => setSuit(s)}
+                data-testid={`suit-${s}`}
+                className={`h-12 rounded-md text-lg font-semibold border transition-colors ${
+                  active
+                    ? 'bg-accent-terracotta border-accent-terracotta text-white'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {SUIT_SYMBOL[s]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        data-testid="save-hand-button"
-        className="w-full h-14 rounded-lg bg-accent-terracotta hover:bg-accent-terracotta-hover disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-lg shadow-md transition-colors"
-      >
-        {isSubmitting ? 'Saving…' : 'Save Hand'}
-      </button>
-    </form>
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-gray-600">Direction</div>
+        <div className="grid grid-cols-4 gap-1">
+          {DIRECTION_ORDER.map((dir) => {
+            const bid = entered[dir];
+            const done = Boolean(bid);
+            return (
+              <button
+                key={dir}
+                type="button"
+                disabled={done || isSubmitting}
+                onClick={() => handleDirection(dir)}
+                data-testid={`direction-${dir}`}
+                className={`h-14 rounded-md text-base font-semibold border transition-colors flex flex-col items-center justify-center gap-0.5 ${
+                  done
+                    ? 'bg-gray-100 border-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-accent-terracotta border-accent-terracotta text-white hover:bg-accent-terracotta-hover disabled:opacity-40'
+                }`}
+              >
+                <span>{DIRECTION_SHORT[dir]}</span>
+                {bid && (
+                  <span
+                    className="text-xs font-normal"
+                    data-testid={`direction-${dir}-bid`}
+                  >
+                    {formatBid(bid.level, bid.suit)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
