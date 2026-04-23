@@ -6,32 +6,14 @@
  * prompt construction, dispatch, form rendering, submit wiring, list
  * filtering, toast on success, swap-to-list after success) lives in the
  * shared infra under this directory. See `parsed-booping-treasure.md`.
+ *
+ * Filter declarations are *not* part of the omnibox adapter — they live
+ * at the module top level (`HomeModule.filters`) so both the visible
+ * `<FilterBar>` and the omnibox manifest read from the same source.
  */
 
 import type { ComponentType, ReactNode } from 'react';
 import type { z } from 'zod';
-
-/** Filter types the LLM is allowed to produce. */
-export type OmniboxFilterType = 'text' | 'enum' | 'boolean' | 'dateRange';
-
-export interface OmniboxFilterDecl {
-  /** Stable key used both in the LLM manifest and in `filters[key]`. */
-  key: string;
-  /** Human-readable label shown in the banner and to the LLM. */
-  label: string;
-  /** Filter shape. `enum` requires `values`. */
-  type: OmniboxFilterType;
-  /** Permitted values for `enum` filters. */
-  values?: string[];
-  /**
-   * Optional CEL field path. Defaults to `key` — set this when the LLM-
-   * facing filter name doesn't match the underlying record field (e.g.
-   * filter key `"name"` targeting a nested `profile.name` field).
-   */
-  field?: string;
-  /** Optional hint shown to the LLM. */
-  description?: string;
-}
 
 /**
  * Declarative description of an action form.
@@ -79,8 +61,6 @@ export interface OmniboxForm<TValues = Record<string, unknown>> {
 export interface OmniboxAdapter {
   /** Words the LLM uses to match user queries to this module. */
   synonyms: string[];
-  /** Fields this module supports filtering on via the omnibox. */
-  filters?: OmniboxFilterDecl[];
   /** The module's main list/home component (e.g. `PeopleHome`). */
   listComponent: ComponentType;
   /** Declarative catalog of forms the omnibox can open for this module. */

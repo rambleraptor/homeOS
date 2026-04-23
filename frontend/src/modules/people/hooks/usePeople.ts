@@ -32,15 +32,14 @@ function toPerson(
 }
 
 // Joins people + person_shared_data + addresses client-side — aepbase doesn't
-// support server-side joining. A CEL `filter` is applied server-side to the
-// people collection only; shared data + addresses still fetch in full so the
-// join works for the filtered subset.
-export function usePeople(filter?: string) {
+// support server-side joining. Filtering happens in the list component via
+// the shared FilterBar; this hook always returns the full collection.
+export function usePeople() {
   return useQuery({
-    queryKey: queryKeys.module('people').list(filter ? { filter } : undefined),
+    queryKey: queryKeys.module('people').list(),
     queryFn: async () => {
       const [peopleRecords, allSharedData, allAddresses] = await Promise.all([
-        aepbase.list<PersonRecord>(AepCollections.PEOPLE, filter ? { filter } : undefined),
+        aepbase.list<PersonRecord>(AepCollections.PEOPLE),
         aepbase.list<PersonSharedData>(AepCollections.PERSON_SHARED_DATA),
         aepbase.list<Address>(AepCollections.ADDRESSES),
       ]);

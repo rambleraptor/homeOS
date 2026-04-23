@@ -141,7 +141,6 @@ export const groceriesOmnibox: OmniboxAdapter = {
     'produce',
     'supermarket',
   ],
-  filters: [],
   listComponent: GroceriesList,
   forms: [
     {

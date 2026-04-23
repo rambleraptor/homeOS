@@ -24,4 +24,8 @@ export const recipesModule: HomeModule = {
   section: 'Food',
   enabled: true,
   defaultEnabled: 'superusers',
+  filters: [
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'tags', label: 'Tags', type: 'enum', multi: true },
+  ],
 };

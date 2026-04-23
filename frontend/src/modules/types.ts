@@ -8,6 +8,7 @@
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { OmniboxAdapter } from '@/shared/omnibox/types';
+import type { ModuleFilterDecl } from '@/shared/filters/types';
 import type { ModuleVisibility } from './settings/visibility';
 
 /**
@@ -124,6 +125,14 @@ export interface HomeModule {
    * via the omnibox. See `@/shared/omnibox/types` for the shape.
    */
   omnibox?: OmniboxAdapter;
+
+  /**
+   * Optional filterable fields for the module's list view. A shared
+   * `<FilterBar>` renders one input per decl and the list is filtered
+   * in-memory client-side — no server round-trip. The same decls are
+   * forwarded to the omnibox manifest so the LLM can set values.
+   */
+  filters?: ModuleFilterDecl[];
 
   /**
    * Optional module-scoped flags. Each entry declares a typed knob

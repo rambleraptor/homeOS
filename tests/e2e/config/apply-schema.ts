@@ -442,11 +442,6 @@ const DEFINITIONS: ResourceDefinition[] = [
     schema: {
       type: 'object',
       properties: {
-        people__server_search: {
-          type: 'string',
-          description:
-            'Who gets server-side People search (CEL filter on aepbase) instead of client-side filtering of the fetched collection. (default: none) (one of: superuser, all, none)',
-        },
         recipes__visibility: {
           type: 'string',
           description:
