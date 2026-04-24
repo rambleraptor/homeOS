@@ -11,10 +11,8 @@
 import type { z } from 'zod';
 import { getAllModules } from '@/modules/registry';
 import type { HomeModule } from '@/modules/types';
-import type {
-  OmniboxFilterDecl,
-  OmniboxForm,
-} from '@/shared/omnibox/types';
+import type { ModuleFilterDecl } from '@/shared/filters/types';
+import type { OmniboxForm } from '@/shared/omnibox/types';
 
 export interface ManifestForm {
   id: string;
@@ -29,7 +27,7 @@ export interface ManifestModule {
   name: string;
   description: string;
   synonyms: string[];
-  filters: OmniboxFilterDecl[];
+  filters: ModuleFilterDecl[];
   forms: ManifestForm[];
 }
 
@@ -90,7 +88,7 @@ function moduleToManifest(mod: HomeModule): ManifestModule | null {
     name: mod.name,
     description: mod.description,
     synonyms: mod.omnibox.synonyms,
-    filters: mod.omnibox.filters ?? [],
+    filters: mod.filters ?? [],
     forms: (mod.omnibox.forms ?? []).map(formToManifest),
   };
 }

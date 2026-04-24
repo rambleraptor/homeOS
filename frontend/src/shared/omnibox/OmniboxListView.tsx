@@ -1,13 +1,14 @@
 'use client';
 
 /**
- * Renders the module's own list/home component with the omnibox CEL
- * filter available via `useOmniboxCelFilter()` inside the component.
+ * Renders the module's own list/home component with the omnibox-parsed
+ * filter values seeded via context. The list component's inner
+ * `<ModuleFiltersProvider>` picks the seed up as `initialValues`.
  */
 
 import React from 'react';
 import type { OmniboxAdapter } from '@/shared/omnibox/types';
-import { OmniboxFilterProvider } from '@/shared/omnibox/OmniboxContext';
+import { OmniboxFilterSeedProvider } from '@/shared/filters';
 
 interface OmniboxListViewProps {
   moduleId: string;
@@ -16,18 +17,13 @@ interface OmniboxListViewProps {
 }
 
 export function OmniboxListView({
-  moduleId,
   adapter,
   filters,
 }: OmniboxListViewProps) {
   const ListComponent = adapter.listComponent;
   return (
-    <OmniboxFilterProvider
-      moduleId={moduleId}
-      decls={adapter.filters ?? []}
-      values={filters ?? {}}
-    >
+    <OmniboxFilterSeedProvider values={filters}>
       <ListComponent />
-    </OmniboxFilterProvider>
+    </OmniboxFilterSeedProvider>
   );
 }

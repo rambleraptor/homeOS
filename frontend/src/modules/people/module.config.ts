@@ -10,10 +10,6 @@ import type { HomeModule } from '../types';
 import { peopleOmnibox } from './omnibox';
 import { UpcomingEventsWidget } from './components/UpcomingEventsWidget';
 
-export const PEOPLE_SERVER_SEARCH_OPTIONS = ['superuser', 'all', 'none'] as const;
-export type PeopleServerSearchAccess =
-  (typeof PEOPLE_SERVER_SEARCH_OPTIONS)[number];
-
 export const peopleModule: HomeModule = {
   id: 'people',
   name: 'People',
@@ -29,16 +25,15 @@ export const peopleModule: HomeModule = {
   navOrder: 3,
   enabled: true,
   omnibox: peopleOmnibox,
-  flags: {
-    server_search: {
-      type: 'enum',
-      label: 'Server-side people search',
+  filters: [
+    {
+      key: 'name',
+      label: 'Name',
+      type: 'text',
       description:
-        'Who gets server-side People search (CEL filter on aepbase) instead of client-side filtering of the fetched collection.',
-      options: PEOPLE_SERVER_SEARCH_OPTIONS,
-      default: 'none',
+        "A substring of the person's name. Used by the People list's name filter.",
     },
-  },
+  ],
   widgets: [
     {
       id: 'people-upcoming-events',

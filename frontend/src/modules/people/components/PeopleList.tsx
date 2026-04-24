@@ -3,80 +3,60 @@
 /**
  * People List Component
  *
- * Renders the searchable list of people with per-row edit / delete. Used by
- * `PeopleHome` and by the omnibox list view — it deliberately omits the page
- * header and the "Add Person" button so the omnibox doesn't render chrome
- * that belongs to the module's full home page.
+ * Renders the people list with the shared `<FilterBar>` for client-side
+ * filtering. Used by `PeopleHome` and by the omnibox list view — it
+ * deliberately omits the page header and "Add Person" button so the
+ * omnibox doesn't render chrome that belongs to the module's full home
+ * page.
  */
 
-import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { useState } from 'react';
 import { Card } from '@/shared/components/Card';
-import { Input } from '@/shared/components/Input';
 import { Modal } from '@/shared/components/Modal';
 import { Spinner } from '@/shared/components/Spinner';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { useToast } from '@/shared/components/ToastProvider';
-import { useAuth } from '@/core/auth/useAuth';
-import { useOmniboxCelFilter } from '@/shared/omnibox/OmniboxContext';
-import { useModuleFlag } from '@/modules/settings/hooks/useModuleFlag';
+import {
+  FilterBar,
+  ModuleFiltersProvider,
+  useFilteredItems,
+  useOmniboxFilterSeed,
+} from '@/shared/filters';
 import { usePeople } from '../hooks/usePeople';
 import { useUpdatePerson } from '../hooks/useUpdatePerson';
 import { useDeletePerson } from '../hooks/useDeletePerson';
-import type { PeopleServerSearchAccess } from '../module.config';
+import { peopleModule } from '../module.config';
 import { PersonForm } from './PersonForm';
 import { PersonCard } from './PersonCard';
 import type { Person, PersonFormData } from '../types';
 
-// Escape a user-entered word for embedding in a RE2 regex (used by CEL's
-// `matches()`). Keeps the search bar safe against accidental regex chars.
-function escapeRegex(term: string): string {
-  return term.replace(/[.^$*+?()[\]{}|\\]/g, '\\$&');
-}
-
-// Build a CEL filter expression targeting aepbase's list endpoint. Mirrors
-// the client-side behavior: each whitespace-separated term must appear
-// somewhere in `name`, case-insensitive.
-function buildPeopleCelFilter(raw: string): string | undefined {
-  const terms = raw.trim().split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return undefined;
-  return terms
-    .map((t) => `name.matches("(?i)${escapeRegex(t)}")`)
-    .join(' && ');
-}
-
 export function PeopleList() {
-  const { user } = useAuth();
-  const { value: serverSearchAccess } = useModuleFlag<PeopleServerSearchAccess>(
-    'people',
-    'server_search',
+  const { data: people, isLoading } = usePeople();
+  const seed = useOmniboxFilterSeed();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  return (
+    <ModuleFiltersProvider
+      moduleId={peopleModule.id}
+      decls={peopleModule.filters ?? []}
+      items={people ?? []}
+      initialValues={seed}
+    >
+      <PeopleListInner hasAny={(people?.length ?? 0) > 0} />
+    </ModuleFiltersProvider>
   );
-  const useServerSearch =
-    serverSearchAccess === 'all' ||
-    (serverSearchAccess === 'superuser' && user?.type === 'superuser');
+}
 
+function PeopleListInner({ hasAny }: { hasAny: boolean }) {
+  const filteredPeople = useFilteredItems<Person>();
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
-  const [nameFilter, setNameFilter] = useState('');
-  const [omniboxCel, setOmniboxCel] = useState<string | undefined>(undefined);
-
-  // Debounce the filter going to the server so typing doesn't refetch on
-  // every keystroke. When the flag is off, we filter client-side and this
-  // path stays idle.
-  const [debouncedFilter, setDebouncedFilter] = useState('');
-  useEffect(() => {
-    if (!useServerSearch) return;
-    const handle = setTimeout(() => setDebouncedFilter(nameFilter), 250);
-    return () => clearTimeout(handle);
-  }, [nameFilter, useServerSearch]);
-
-  // Receive the omnibox-built CEL filter. No-op on /people. When set, it
-  // takes precedence over the local search bar's CEL so the rendered list
-  // matches what the user asked the omnibox for.
-  useOmniboxCelFilter((cel) => setOmniboxCel(cel));
-
-  const localCel = useServerSearch ? buildPeopleCelFilter(debouncedFilter) : undefined;
-  const celFilter = omniboxCel ?? localCel;
-  const { data: people, isLoading } = usePeople(celFilter);
   const updatePerson = useUpdatePerson();
   const deletePerson = useDeletePerson();
   const toast = useToast();
@@ -129,49 +109,13 @@ export function PeopleList() {
     }
   };
 
-  // When the server already narrowed via CEL (server-search flag on, or
-  // an omnibox CEL is active) the returned `people` is the final set.
-  // Otherwise fall back to the local substring match.
-  const filteredPeople = useServerSearch || omniboxCel
-    ? people || []
-    : people?.filter((person) => {
-        if (!nameFilter.trim()) return true;
-
-        const searchTerms = nameFilter.toLowerCase().trim().split(/\s+/);
-        const nameWords = person.name.toLowerCase().split(/\s+/);
-
-        return searchTerms.every((searchTerm) =>
-          nameWords.some((nameWord) => nameWord.includes(searchTerm))
-        );
-      }) || [];
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">
         All People
       </h2>
-      <div className="mb-4 relative">
-        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-          <Search className="w-4 h-4 text-gray-400" />
-        </div>
-        <Input
-          type="text"
-          placeholder="Search people by name..."
-          value={nameFilter}
-          onChange={(e) => setNameFilter(e.target.value)}
-          className="pl-10"
-          data-testid="people-name-filter"
-        />
-      </div>
-      {!people || people.length === 0 ? (
+      <FilterBar />
+      {!hasAny ? (
         <Card>
           <p className="text-center text-gray-600 py-8">
             No people yet. Add your first person to get started!
@@ -180,7 +124,7 @@ export function PeopleList() {
       ) : filteredPeople.length === 0 ? (
         <Card>
           <p className="text-center text-gray-600 py-8">
-            No people found matching "{nameFilter}"
+            No people match the current filters
           </p>
         </Card>
       ) : (

@@ -36,15 +36,6 @@ export const peopleOmnibox: OmniboxAdapter = {
     'anniversary',
     'anniversaries',
   ],
-  filters: [
-    {
-      key: 'name',
-      label: 'Name',
-      type: 'text',
-      description:
-        "A substring of the person's name. Used by the People list's name filter.",
-    },
-  ],
   listComponent: PeopleList,
   forms: [
     {

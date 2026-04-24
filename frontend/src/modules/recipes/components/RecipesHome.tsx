@@ -18,7 +18,13 @@ import { RecipeForm } from './RecipeForm';
 import { RecipeImportModal } from './RecipeImportModal';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { PageHeader } from '@/shared/components/PageHeader';
+import {
+  FilterBar,
+  ModuleFiltersProvider,
+  useFilteredItems,
+} from '@/shared/filters';
 import { logger } from '@/core/utils/logger';
+import { recipesModule } from '../module.config';
 import type { Recipe, RecipeFormData } from '../types';
 
 type View = 'list' | 'form';
@@ -139,11 +145,17 @@ export function RecipesHome() {
             }
           />
 
-          <RecipesList
-            recipes={recipes ?? []}
-            onEdit={handleEditRecipe}
-            onDelete={handleDeleteRecipe}
-          />
+          <ModuleFiltersProvider
+            moduleId={recipesModule.id}
+            decls={recipesModule.filters ?? []}
+            items={recipes ?? []}
+          >
+            <FilterBar />
+            <FilteredRecipesList
+              onEdit={handleEditRecipe}
+              onDelete={handleDeleteRecipe}
+            />
+          </ModuleFiltersProvider>
         </>
       )}
 
@@ -182,5 +194,22 @@ export function RecipesHome() {
         isSubmitting={createMutation.isPending}
       />
     </div>
+  );
+}
+
+function FilteredRecipesList({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: (recipe: Recipe) => void;
+  onDelete: (id: string) => void;
+}) {
+  const filteredRecipes = useFilteredItems<Recipe>();
+  return (
+    <RecipesList
+      recipes={filteredRecipes}
+      onEdit={onEdit}
+      onDelete={onDelete}
+    />
   );
 }
