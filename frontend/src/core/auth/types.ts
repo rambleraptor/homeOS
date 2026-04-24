@@ -1,5 +1,5 @@
 /**
- * Core Authentication Types for HomeOS
+ * Core Authentication Types for Homestead
  */
 
 export type MapProvider = 'google' | 'apple';

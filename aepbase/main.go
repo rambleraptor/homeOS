@@ -1,4 +1,4 @@
-// Command aepbase runs the HomeOS aepbase server.
+// Command aepbase runs the Homestead aepbase server.
 //
 // It is a thin wrapper around github.com/rambleraptor/aepbase used as a
 // library. The wrapper exists so we can opt into features that are
@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 
 	// Library-only opt-ins. These are intentionally not exposed as flags by
-	// upstream — HomeOS needs both, so we hardcode them on.
+	// upstream — Homestead needs both, so we hardcode them on.
 	opts.EnableUsers = true
 	opts.EnableFileFields = true
 

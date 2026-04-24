@@ -23,7 +23,7 @@ import type {
 
 const MIN_CONFIDENCE = 0.5;
 
-const SYSTEM_PROMPT = `You are the intent parser for a household management app called HomeOS.
+const SYSTEM_PROMPT = `You are the intent parser for a household management app called Homestead.
 You receive a natural-language query and a manifest of modules the app
 exposes. Each module has synonyms, optional filters, and an optional set
 of forms.

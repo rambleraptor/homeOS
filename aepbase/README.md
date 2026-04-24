@@ -1,6 +1,6 @@
 # aepbase
 
-This directory is the staging area for migrating HomeOS off PocketBase and onto
+This directory is the staging area for migrating Homestead off PocketBase and onto
 **aepbase** — a dynamic, AEP-compliant REST backend (https://github.com/rambleraptor/aepbase).
 
 The schema is managed with **Terraform** using the `aep-dev/aep` provider.

@@ -54,7 +54,7 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ steps.pr.outputs.number }}
 
-            This is a modular HomeOS application built with:
+            This is a modular Homestead application built with:
             - React 19 + TypeScript + Next.js
             - PocketBase backend
             - Module Registry pattern for extensibility

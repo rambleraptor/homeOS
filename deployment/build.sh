@@ -1,12 +1,12 @@
 #!/bin/bash
 set -e
 
-# HomeOS Build Script
+# Homestead Build Script
 # Builds the frontend application for production.
 
 export PATH="/opt/node22/bin:$PATH"
 
-echo "🏗️  Building HomeOS for production..."
+echo "🏗️  Building Homestead for production..."
 
 cd "$(dirname "$0")/.."
 

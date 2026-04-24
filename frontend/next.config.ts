@@ -2,7 +2,7 @@ import { execSync } from 'child_process';
 import type { NextConfig } from 'next';
 
 // Capture git commit info at build time so the settings screen can display
-// which revision of homeOS is running. Falls back to 'unknown' if git is
+// which revision of Homestead is running. Falls back to 'unknown' if git is
 // unavailable (e.g. a shallow Docker build without the .git directory).
 function readGit(args: string): string {
   try {

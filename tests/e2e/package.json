@@ -1,7 +1,7 @@
 {
-  "name": "homeos-e2e-tests",
+  "name": "homestead-e2e-tests",
   "version": "1.0.0",
-  "description": "End-to-end tests for HomeOS using Playwright",
+  "description": "End-to-end tests for Homestead using Playwright",
   "private": true,
   "type": "module",
   "scripts": {

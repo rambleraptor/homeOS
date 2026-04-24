@@ -20,7 +20,7 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const COLLAPSED_SECTIONS_STORAGE_KEY = 'homeos.sidebar.collapsedSections';
+const COLLAPSED_SECTIONS_STORAGE_KEY = 'homestead.sidebar.collapsedSections';
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
@@ -141,7 +141,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             >
               <Home className="w-6 h-6 text-brand-navy" />
               <h1 className="text-xl font-display font-bold text-brand-navy tracking-tight">
-                HomeOS
+                Homestead
               </h1>
             </Link>
             <button

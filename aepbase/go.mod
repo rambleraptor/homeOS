@@ -1,4 +1,4 @@
-module homeos/aepbase
+module homestead/aepbase
 
 go 1.25.1
 
