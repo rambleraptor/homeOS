@@ -1,6 +1,6 @@
-# HomeOS Frontend
+# Homestead Frontend
 
-This is the frontend application for HomeOS, built with Next.js, React, and TypeScript.
+This is the frontend application for Homestead, built with Next.js, React, and TypeScript.
 
 ## Tech Stack
 
@@ -43,7 +43,7 @@ Copy `.env.example` to `.env` and configure:
 
 ```bash
 NEXT_PUBLIC_POCKETBASE_URL=http://127.0.0.1:8090
-NEXT_PUBLIC_APP_NAME=HomeOS
+NEXT_PUBLIC_APP_NAME=Homestead
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
 ```
 

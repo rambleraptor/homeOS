@@ -1,5 +1,5 @@
 /**
- * Playwright Configuration for HomeOS E2E Tests.
+ * Playwright Configuration for Homestead E2E Tests.
  *
  * The dev server is started with AEPBASE_URL pointing at the test
  * aepbase instance spun up in global-setup (on port 8092 so it doesn't

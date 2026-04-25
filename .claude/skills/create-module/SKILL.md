@@ -1,11 +1,11 @@
 ---
 name: create-module
-description: Scaffold a new HomeOS feature module end-to-end — terraform resource definition(s), aepbase collection constants, the `src/modules/<feature>/` directory (types, hooks, components, config, tests), registry wiring, Next.js App Router pages, and e2e Page Object + CRUD spec. Use when the user asks to "create a module", "add a new module", "scaffold a feature", or to "wire up <feature> end-to-end".
+description: Scaffold a new Homestead feature module end-to-end — terraform resource definition(s), aepbase collection constants, the `src/modules/<feature>/` directory (types, hooks, components, config, tests), registry wiring, Next.js App Router pages, and e2e Page Object + CRUD spec. Use when the user asks to "create a module", "add a new module", "scaffold a feature", or to "wire up <feature> end-to-end".
 ---
 
-# Create a HomeOS Module
+# Create a Homestead Module
 
-HomeOS features are self-contained modules. Adding one touches (at minimum) the
+Homestead features are self-contained modules. Adding one touches (at minimum) the
 terraform schema, the frontend module directory, the registry, the Next.js
 route, and the e2e tests. This skill walks through every step so nothing gets
 skipped.

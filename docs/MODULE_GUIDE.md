@@ -1,6 +1,6 @@
 # Module Development Guide
 
-This guide will walk you through creating a new module for HomeOS from scratch.
+This guide will walk you through creating a new module for Homestead from scratch.
 
 ## Table of Contents
 
@@ -14,7 +14,7 @@ This guide will walk you through creating a new module for HomeOS from scratch.
 
 ## Understanding Modules
 
-A **module** in HomeOS is a self-contained feature with:
+A **module** in Homestead is a self-contained feature with:
 
 - **Own UI components** - No dependencies on other modules
 - **Own routes** - Integrated into the main router automatically
@@ -331,7 +331,7 @@ In PocketBase Admin UI (`http://127.0.0.1:8090/_/`):
 3. Click it to navigate to `/chores`
 4. Your ChoresHome component should render
 
-**Congratulations! 🎉** You've created your first HomeOS module!
+**Congratulations! 🎉** You've created your first Homestead module!
 
 ---
 

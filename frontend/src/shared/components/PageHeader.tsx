@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
 /**
  * PageHeader
  *
- * Standard page title for any top-level module screen. Encodes the HomeOS
+ * Standard page title for any top-level module screen. Encodes the Homestead
  * design system typography rules:
  *   - Page Title: text-3xl font-display font-bold text-brand-navy tracking-tight
  *   - Subtitle:   text-base font-body text-text-muted mt-1

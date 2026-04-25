@@ -6,7 +6,7 @@
 FRONTEND_DIR := frontend
 
 help: ## Show this help message
-	@echo "HomeOS - Available Make Targets"
+	@echo "Homestead - Available Make Targets"
 	@echo "================================"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
@@ -68,7 +68,7 @@ ci: lint type-check build ## Run CI checks (lint, type-check, build)
 	@echo "All CI checks passed!"
 
 # Deployment targets
-deploy: ## Deploy HomeOS (run as sudo)
+deploy: ## Deploy Homestead (run as sudo)
 	@./deployment/deploy.sh
 
 deploy-force: ## Force deploy with rebuild
@@ -80,18 +80,18 @@ setup-services: ## Set up systemd services (requires sudo)
 setup-auto-update: ## Set up automatic updates (requires sudo)
 	@sudo ./deployment/setup-auto-update.sh
 
-start-services: ## Start HomeOS services (requires sudo)
-	@echo "Starting HomeOS services..."
+start-services: ## Start Homestead services (requires sudo)
+	@echo "Starting Homestead services..."
 	@sudo systemctl start homeos-aepbase homeos-frontend
 	@echo "✅ Services started"
 
-stop: ## Stop HomeOS services (requires sudo)
-	@echo "Stopping HomeOS services..."
+stop: ## Stop Homestead services (requires sudo)
+	@echo "Stopping Homestead services..."
 	@sudo systemctl stop homeos-aepbase homeos-frontend
 	@echo "✅ Services stopped"
 
-restart: ## Restart HomeOS services (requires sudo)
-	@echo "Restarting HomeOS services..."
+restart: ## Restart Homestead services (requires sudo)
+	@echo "Restarting Homestead services..."
 	@sudo systemctl restart homeos-aepbase homeos-frontend
 	@echo "✅ Services restarted"
 

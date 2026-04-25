@@ -3,7 +3,7 @@
  *
  * CENTRAL MODULE REGISTRATION
  * ===========================
- * This is the ONLY file you need to modify to add a new module to HomeOS.
+ * This is the ONLY file you need to modify to add a new module to Homestead.
  *
  * To add a new module:
  * 1. Create your module directory in src/modules/your-module/

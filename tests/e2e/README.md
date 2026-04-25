@@ -1,10 +1,10 @@
-# HomeOS End-to-End Tests
+# Homestead End-to-End Tests
 
-Comprehensive end-to-end tests for HomeOS using Playwright and PocketBase.
+Comprehensive end-to-end tests for Homestead using Playwright and PocketBase.
 
 ## Overview
 
-These tests verify the full integration of the HomeOS application, testing both the React frontend and PocketBase backend together in a real browser environment.
+These tests verify the full integration of the Homestead application, testing both the React frontend and PocketBase backend together in a real browser environment.
 
 ### What's Tested
 
@@ -419,4 +419,4 @@ When adding new features:
 
 - [Playwright Documentation](https://playwright.dev)
 - [PocketBase Documentation](https://pocketbase.io/docs)
-- [HomeOS CLAUDE.md](../../CLAUDE.md) - Project guidelines
+- [Homestead CLAUDE.md](../../CLAUDE.md) - Project guidelines

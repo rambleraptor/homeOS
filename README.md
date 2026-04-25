@@ -1,6 +1,6 @@
-# homeOS
+# Homestead
 
-homeOS is my opinionated app for doing things at home.
+Homestead is my opinionated app for doing things at home.
 
 It's built on top of [aepbase](https://www.github.com/rambleraptor/aepbase).
 
@@ -24,7 +24,7 @@ It's built on top of [aepbase](https://www.github.com/rambleraptor/aepbase).
 
 ```bash
 git clone <your-repo-url>
-cd homeOS
+cd homestead
 ```
 
 2. **Build and start aepbase**
@@ -101,7 +101,7 @@ Every feature is a **module** with its own:
 
 ## 🚀 Production Deployment
 
-For deploying HomeOS on a local machine (accessible via Tailscale), see:
+For deploying Homestead on a local machine (accessible via Tailscale), see:
 
 **[📖 Deployment Guide](deployment/README.md)** - Complete deployment instructions
 

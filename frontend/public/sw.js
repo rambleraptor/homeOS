@@ -20,7 +20,7 @@ self.addEventListener('push', (event) => {
   console.log('[SW] Push data:', event.data ? event.data.text() : 'No data');
 
   let data = {
-    title: 'HomeOS Notification',
+    title: 'Homestead Notification',
     body: 'You have a new notification',
     icon: '/logo.png',
     badge: '/badge.png',

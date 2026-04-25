@@ -1,7 +1,7 @@
-# HomeOS Project Structure
+# Homestead Project Structure
 
 ```
-homeOS/
+homestead/
 ├── .github/
 │   └── workflows/
 │       └── code-review.yml          # Claude Code review automation

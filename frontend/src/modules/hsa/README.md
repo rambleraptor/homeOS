@@ -82,7 +82,7 @@ http://127.0.0.1:8090/api/files/<collection>/<record_id>/<filename>
 
 ### Backup Considerations
 
-When backing up your HomeOS data, make sure to include the entire `pb_data/` directory:
+When backing up your Homestead data, make sure to include the entire `pb_data/` directory:
 - `pb_data/data.db` - SQLite database with receipt metadata
 - `pb_data/storage/` - Actual receipt files
 
@@ -165,7 +165,7 @@ Collection: `hsa_receipts`
 
 ### Adding New Features
 
-The module follows the standard HomeOS module pattern:
+The module follows the standard Homestead module pattern:
 
 ```
 src/modules/hsa/

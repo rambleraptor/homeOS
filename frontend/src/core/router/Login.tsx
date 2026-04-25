@@ -3,7 +3,7 @@
 /**
  * Login Page
  *
- * Authentication page for user login. Uses the HomeOS design system:
+ * Authentication page for user login. Uses the Homestead design system:
  * brand-navy accents, Outfit display font for the title, Inter body
  * font everywhere else, and a pearl/white panel instead of a bold
  * gradient so the login surface matches the rest of the app.
@@ -59,7 +59,7 @@ export function Login() {
             <Home className="w-8 h-8 text-brand-navy" />
           </div>
           <h1 className="text-3xl font-display font-bold text-brand-navy tracking-tight">
-            Welcome to HomeOS
+            Welcome to Homestead
           </h1>
           <p className="text-base font-body text-text-muted mt-1">
             Sign in to access your home dashboard

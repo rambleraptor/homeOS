@@ -1,7 +1,7 @@
-# Claude AI Assistant Guidelines for HomeOS
+# Claude AI Assistant Guidelines for Homestead
 
 This document gives both Claude and human contributors the ground rules for
-working on the HomeOS repo. The backend is **aepbase** (an AEP-compliant
+working on the Homestead repo. The backend is **aepbase** (an AEP-compliant
 dynamic REST server). The frontend is a Next.js app that talks to aepbase
 through a same-origin `/api/aep` proxy.
 

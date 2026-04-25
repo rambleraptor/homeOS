@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the HomeOS aepbase wrapper into ./bin/aepbase.
+# Build the Homestead aepbase wrapper into ./bin/aepbase.
 #
 # This is a thin Go wrapper around github.com/rambleraptor/aepbase imported
 # as a library (see main.go). It enables features that are library-only

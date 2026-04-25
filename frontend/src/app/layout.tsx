@@ -16,7 +16,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'HomeOS',
+  title: 'Homestead',
   description: 'Personal home management system',
 };
 
