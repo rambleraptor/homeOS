@@ -31,20 +31,15 @@ export function GroceriesList() {
   const markStoreCompletedMutation = useMarkStoreCompleted();
   const { isOffline } = useOnlineStatus();
 
-  const handleToggleItem = async (id: string, checked: boolean) => {
-    try {
-      await updateMutation.mutateAsync({ id, data: { checked } });
-    } catch (err) {
-      logger.error('Failed to toggle grocery item', err);
-    }
+  // Fire-and-forget — optimistic onMutate updates the cache synchronously,
+  // so awaiting the mutation would just leak a hanging promise when the
+  // mutation pauses while offline.
+  const handleToggleItem = (id: string, checked: boolean) => {
+    updateMutation.mutate({ id, data: { checked } });
   };
 
-  const handleDeleteItem = async (id: string) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (err) {
-      logger.error('Failed to delete grocery item', err);
-    }
+  const handleDeleteItem = (id: string) => {
+    deleteMutation.mutate(id);
   };
 
   const handleMarkStoreCompleted = (storeId: string | null) => {

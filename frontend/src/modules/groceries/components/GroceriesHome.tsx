@@ -37,19 +37,19 @@ export function GroceriesHome() {
   const notifyMutation = useSendGroceryNotification();
   const { isOffline } = useOnlineStatus();
 
-  const handleQuickAdd = async () => {
-    if (!itemName.trim()) return;
+  const handleQuickAdd = () => {
+    const trimmed = itemName.trim();
+    if (!trimmed) return;
 
-    try {
-      await createMutation.mutateAsync({
-        name: itemName.trim(),
-        store: selectedStore || undefined,
-      });
-      setItemName('');
-      inputRef.current?.focus();
-    } catch (err) {
-      logger.error('Failed to create grocery item', err);
-    }
+    // Fire-and-forget: optimistic onMutate puts the row in the cache
+    // immediately, so we don't need to await. Awaiting would deadlock the
+    // input while offline (the mutation stays paused until reconnect).
+    createMutation.mutate({
+      name: trimmed,
+      store: selectedStore || undefined,
+    });
+    setItemName('');
+    inputRef.current?.focus();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -79,7 +79,9 @@ export function GroceriesHome() {
     }
   };
 
-  const isSubmitting = createMutation.isPending;
+  // Treat paused (offline) mutations as not-submitting — the optimistic
+  // update has already shown the new row, so the input shouldn't lock up.
+  const isSubmitting = createMutation.isPending && !createMutation.isPaused;
   const isBulkUpdating = deleteAllMutation.isPending;
 
   const offlineBadge = isOffline ? (
