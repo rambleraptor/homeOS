@@ -17,7 +17,9 @@ import { ImageUploadDialog } from './ImageUploadDialog';
 import { StoreManagement } from './StoreManagement';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { Badge } from '@/shared/components/Badge';
 import { useSendGroceryNotification } from '../hooks/useSendGroceryNotification';
+import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import { logger } from '@/core/utils/logger';
 
 export function GroceriesHome() {
@@ -33,20 +35,21 @@ export function GroceriesHome() {
   const createMutation = useCreateGroceryItem();
   const deleteAllMutation = useDeleteAllGroceries();
   const notifyMutation = useSendGroceryNotification();
+  const { isOffline } = useOnlineStatus();
 
-  const handleQuickAdd = async () => {
-    if (!itemName.trim()) return;
+  const handleQuickAdd = () => {
+    const trimmed = itemName.trim();
+    if (!trimmed) return;
 
-    try {
-      await createMutation.mutateAsync({
-        name: itemName.trim(),
-        store: selectedStore || undefined,
-      });
-      setItemName('');
-      inputRef.current?.focus();
-    } catch (err) {
-      logger.error('Failed to create grocery item', err);
-    }
+    // Fire-and-forget: optimistic onMutate puts the row in the cache
+    // immediately, so we don't need to await. Awaiting would deadlock the
+    // input while offline (the mutation stays paused until reconnect).
+    createMutation.mutate({
+      name: trimmed,
+      store: selectedStore || undefined,
+    });
+    setItemName('');
+    inputRef.current?.focus();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -76,8 +79,20 @@ export function GroceriesHome() {
     }
   };
 
-  const isSubmitting = createMutation.isPending;
+  // Treat paused (offline) mutations as not-submitting — the optimistic
+  // update has already shown the new row, so the input shouldn't lock up.
+  const isSubmitting = createMutation.isPending && !createMutation.isPaused;
   const isBulkUpdating = deleteAllMutation.isPending;
+
+  const offlineBadge = isOffline ? (
+    <Badge
+      variant="warning"
+      data-testid="groceries-offline-badge"
+      aria-live="polite"
+    >
+      Offline — changes will sync on reconnect
+    </Badge>
+  ) : null;
 
   const subtitle =
     stats.totalItems > 0 ? (
@@ -86,10 +101,16 @@ export function GroceriesHome() {
         {stats.checkedItems === stats.totalItems && (
           <CheckCircle2 className="w-4 h-4 text-green-600" />
         )}
+        {offlineBadge}
       </span>
     ) : (
-      'Plan and track items across your stores.'
+      <span className="inline-flex items-center gap-2">
+        Plan and track items across your stores.
+        {offlineBadge}
+      </span>
     );
+
+  const offlineDisabledTitle = isOffline ? 'Available when online' : undefined;
 
   return (
     <div className="space-y-6">
@@ -108,7 +129,8 @@ export function GroceriesHome() {
             </button>
             <button
               onClick={handleNotify}
-              disabled={notifyMutation.isPending}
+              disabled={notifyMutation.isPending || isOffline}
+              title={offlineDisabledTitle}
               data-testid="notify-grocery-button"
               className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -121,7 +143,8 @@ export function GroceriesHome() {
             </button>
             <button
               onClick={() => setShowImageUpload(true)}
-              disabled={isBulkUpdating}
+              disabled={isBulkUpdating || isOffline}
+              title={offlineDisabledTitle}
               data-testid="upload-grocery-list-button"
               className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -131,7 +154,8 @@ export function GroceriesHome() {
             {stats.totalItems > 0 && (
               <button
                 onClick={handleNewList}
-                disabled={isBulkUpdating}
+                disabled={isBulkUpdating || isOffline}
+                title={offlineDisabledTitle}
                 data-testid="new-grocery-list-button"
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium font-body transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >

@@ -19,6 +19,7 @@ import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
 import { useMarkStoreCompleted } from '../hooks/useMarkStoreCompleted';
 import { GroceryList } from './GroceryList';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
 import { logger } from '@/core/utils/logger';
 
 export function GroceriesList() {
@@ -28,21 +29,17 @@ export function GroceriesList() {
   const updateMutation = useUpdateGroceryItem();
   const deleteMutation = useDeleteGroceryItem();
   const markStoreCompletedMutation = useMarkStoreCompleted();
+  const { isOffline } = useOnlineStatus();
 
-  const handleToggleItem = async (id: string, checked: boolean) => {
-    try {
-      await updateMutation.mutateAsync({ id, data: { checked } });
-    } catch (err) {
-      logger.error('Failed to toggle grocery item', err);
-    }
+  // Fire-and-forget — optimistic onMutate updates the cache synchronously,
+  // so awaiting the mutation would just leak a hanging promise when the
+  // mutation pauses while offline.
+  const handleToggleItem = (id: string, checked: boolean) => {
+    updateMutation.mutate({ id, data: { checked } });
   };
 
-  const handleDeleteItem = async (id: string) => {
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (err) {
-      logger.error('Failed to delete grocery item', err);
-    }
+  const handleDeleteItem = (id: string) => {
+    deleteMutation.mutate(id);
   };
 
   const handleMarkStoreCompleted = (storeId: string | null) => {
@@ -95,7 +92,8 @@ export function GroceriesList() {
         onToggleItem={handleToggleItem}
         onDeleteItem={handleDeleteItem}
         onMarkStoreCompleted={handleMarkStoreCompleted}
-        isUpdating={isBulkUpdating}
+        // Mark Complete is a bulk delete — online-only, like New List.
+        isUpdating={isBulkUpdating || isOffline}
       />
 
       <ConfirmDialog

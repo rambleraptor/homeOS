@@ -11,7 +11,6 @@ import { Plus, Trash2, Loader2, Store as StoreIcon, X } from 'lucide-react';
 import { useStores } from '../hooks/useStores';
 import { useCreateStore } from '../hooks/useCreateStore';
 import { useDeleteStore } from '../hooks/useDeleteStore';
-import { logger } from '@/core/utils/logger';
 
 interface StoreManagementProps {
   onClose?: () => void;
@@ -23,30 +22,26 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
   const createMutation = useCreateStore();
   const deleteMutation = useDeleteStore();
 
-  const handleAddStore = async () => {
-    if (!storeName.trim()) return;
+  // Treat paused (offline) mutations as not-busy — the optimistic record is
+  // already in the cache, so the inputs shouldn't lock up offline.
+  const isCreating = createMutation.isPending && !createMutation.isPaused;
+  const isDeleting = deleteMutation.isPending && !deleteMutation.isPaused;
 
-    try {
-      await createMutation.mutateAsync({
-        name: storeName.trim(),
-        sort_order: stores.length,
-      });
-      setStoreName('');
-    } catch (err) {
-      logger.error('Failed to create store', err);
-    }
+  // Fire-and-forget — optimistic updates keep the UI in sync immediately.
+  // Awaiting would lock the input when offline since paused mutations never
+  // resolve until the connection returns.
+  const handleAddStore = () => {
+    const trimmed = storeName.trim();
+    if (!trimmed) return;
+    createMutation.mutate({ name: trimmed, sort_order: stores.length });
+    setStoreName('');
   };
 
-  const handleDeleteStore = async (id: string) => {
+  const handleDeleteStore = (id: string) => {
     if (!confirm('Are you sure you want to delete this store? Items assigned to this store will be moved to "No Store".')) {
       return;
     }
-
-    try {
-      await deleteMutation.mutateAsync(id);
-    } catch (err) {
-      logger.error('Failed to delete store', err);
-    }
+    deleteMutation.mutate(id);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -84,13 +79,13 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
           onChange={(e) => setStoreName(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Add store..."
-          disabled={createMutation.isPending}
+          disabled={isCreating}
           data-testid="add-store-input"
           className="flex-1 px-3 py-2 border border-gray-200 rounded-lg font-body text-brand-navy placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-terracotta focus:border-transparent disabled:opacity-50 text-sm sm:text-base"
         />
         <button
           onClick={handleAddStore}
-          disabled={createMutation.isPending || !storeName.trim()}
+          disabled={isCreating || !storeName.trim()}
           data-testid="add-store-button"
           className="flex items-center gap-2 px-4 py-2 bg-accent-terracotta hover:bg-accent-terracotta-hover text-white rounded-lg font-medium font-body transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
@@ -118,7 +113,7 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
               <span className="font-body font-medium text-brand-navy">{store.name}</span>
               <button
                 onClick={() => handleDeleteStore(store.id)}
-                disabled={deleteMutation.isPending}
+                disabled={isDeleting}
                 className="opacity-0 group-hover:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-all"
                 aria-label={`Delete ${store.name}`}
                 data-testid="delete-store-button"

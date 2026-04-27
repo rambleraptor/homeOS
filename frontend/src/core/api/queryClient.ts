@@ -27,12 +27,23 @@ const defaultQueryOptions: DefaultOptions = {
     // Refetch on mount if data is stale
     refetchOnMount: true,
 
-    // Don't refetch on reconnect by default
-    refetchOnReconnect: false,
+    // Refetch when the network comes back so persisted caches are reconciled
+    // with whatever the server now has (including offline mutation replay).
+    refetchOnReconnect: true,
+
+    // Return cached data immediately when offline instead of staying in
+    // `paused`. Persisted grocery queries remain visible on cold offline load.
+    networkMode: 'offlineFirst',
   },
   mutations: {
-    // Retry failed mutations 0 times (user should retry manually)
+    // No automatic retry — offline writes pause and resume via onlineManager.
     retry: 0,
+
+    // Default 'online' mode: when offline, mutations are paused (variables
+    // captured + onMutate runs for optimistic UI) and the mutationFn does
+    // NOT fire until the connection returns. 'offlineFirst' would fire
+    // immediately and only pause *retries*, which defeats the queue.
+    networkMode: 'online',
   },
 };
 
