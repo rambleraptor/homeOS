@@ -136,6 +136,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
   // ---- create-item -------------------------------------------------------
 
   queryClient.setMutationDefaults(GroceryMutationKeys.createItem, {
+    networkMode: 'online',
     mutationFn: async (vars: CreateItemVars) => {
       logger.info(`Creating grocery item: ${vars.name}`);
       return aepbase.create<GroceryItem>(AepCollections.GROCERIES, {
@@ -192,6 +193,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
   // ---- update-item -------------------------------------------------------
 
   queryClient.setMutationDefaults(GroceryMutationKeys.updateItem, {
+    networkMode: 'online',
     mutationFn: async (vars: UpdateItemVars) => {
       const realId = resolveItemId(vars.id);
       if (isTempId(realId)) {
@@ -247,6 +249,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
   // ---- delete-item -------------------------------------------------------
 
   queryClient.setMutationDefaults(GroceryMutationKeys.deleteItem, {
+    networkMode: 'online',
     mutationFn: async (id: DeleteItemVars) => {
       const realId = resolveItemId(id);
       if (isTempId(realId)) {
@@ -291,6 +294,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
   // ---- create-store ------------------------------------------------------
 
   queryClient.setMutationDefaults(GroceryMutationKeys.createStore, {
+    networkMode: 'online',
     mutationFn: async (vars: CreateStoreVars) => {
       logger.info(`Creating store: ${vars.name}`);
       return aepbase.create<Store>(AepCollections.STORES, {
@@ -341,6 +345,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
   // ---- update-store ------------------------------------------------------
 
   queryClient.setMutationDefaults(GroceryMutationKeys.updateStore, {
+    networkMode: 'online',
     mutationFn: async (vars: UpdateStoreVars) => {
       const realId = resolveStoreId(vars.id);
       if (isTempId(realId)) {
@@ -395,6 +400,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
   // ---- delete-store ------------------------------------------------------
 
   queryClient.setMutationDefaults(GroceryMutationKeys.deleteStore, {
+    networkMode: 'online',
     mutationFn: async (id: DeleteStoreVars) => {
       const realId = resolveStoreId(id);
       if (isTempId(realId)) {
