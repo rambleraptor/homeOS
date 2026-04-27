@@ -39,8 +39,11 @@ const defaultQueryOptions: DefaultOptions = {
     // No automatic retry — offline writes pause and resume via onlineManager.
     retry: 0,
 
-    // Pause + persist mutations when offline; resume on reconnect.
-    networkMode: 'offlineFirst',
+    // Default 'online' mode: when offline, mutations are paused (variables
+    // captured + onMutate runs for optimistic UI) and the mutationFn does
+    // NOT fire until the connection returns. 'offlineFirst' would fire
+    // immediately and only pause *retries*, which defeats the queue.
+    networkMode: 'online',
   },
 };
 
