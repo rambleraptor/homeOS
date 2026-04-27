@@ -83,6 +83,8 @@ export interface UseAepGetOptions<T>
   parent?: ParentLike;
   enabled?: boolean;
   queryKey?: QueryKey;
+  /** Override the default fetch (multi-step joins). */
+  queryFn?: () => Promise<T>;
 }
 
 export function useAepGet<T>(
@@ -90,13 +92,14 @@ export function useAepGet<T>(
   id: string | null | undefined,
   options: UseAepGetOptions<T>,
 ): UseQueryResult<T, Error> {
-  const { moduleId, parent, enabled, queryKey, ...rest } = options;
+  const { moduleId, parent, enabled, queryKey, queryFn, ...rest } = options;
   const key: QueryKey = queryKey ?? queryKeys.module(moduleId).detail(id ?? '');
 
   return useQuery<T, Error, T, QueryKey>({
     queryKey: key,
     queryFn: async () => {
       if (!id) throw new Error(`${collection}: id is required`);
+      if (queryFn) return queryFn();
       const resolvedParent = resolveParent(parent);
       return resolvedParent
         ? aepbase.get<T>(collection, id, { parent: resolvedParent })
@@ -113,7 +116,13 @@ export function useAepGet<T>(
 
 interface MutationDefaults {
   moduleId: string;
-  /** Extra cache keys to invalidate after success (in addition to module.all()). */
+  /**
+   * Override the default `[module(moduleId).all()]` invalidation set.
+   * Useful when a hook lives outside the module cache namespace (e.g.
+   * superuser hits `queryKeys.users` instead).
+   */
+  invalidateKeys?: readonly QueryKey[];
+  /** Extra cache keys to invalidate after success (added to the default set). */
   invalidateAlso?: readonly QueryKey[];
 }
 
@@ -122,9 +131,12 @@ function makeOnSuccess<TData, TVars>(
   defaults: MutationDefaults,
   user?: NonNullable<UseMutationOptions<TData, Error, TVars>['onSuccess']>,
 ): NonNullable<UseMutationOptions<TData, Error, TVars>['onSuccess']> {
-  const moduleKey = queryKeys.module(defaults.moduleId).all();
+  const baseKeys: readonly QueryKey[] =
+    defaults.invalidateKeys ?? [queryKeys.module(defaults.moduleId).all()];
   return async (...args) => {
-    await queryClient.invalidateQueries({ queryKey: moduleKey });
+    await Promise.all(
+      baseKeys.map((key) => queryClient.invalidateQueries({ queryKey: key })),
+    );
     if (defaults.invalidateAlso) {
       await Promise.all(
         defaults.invalidateAlso.map((key) =>
@@ -162,6 +174,7 @@ export function useAepCreate<T, V = Record<string, unknown>>(
     parent,
     transform,
     mutationFn,
+    invalidateKeys,
     invalidateAlso,
     onSuccess,
     ...rest
@@ -179,7 +192,7 @@ export function useAepCreate<T, V = Record<string, unknown>>(
           ? aepbase.create<T>(collection, body, { parent: resolvedParent })
           : aepbase.create<T>(collection, body);
       }),
-    onSuccess: makeOnSuccess<T, V>(queryClient, { moduleId, invalidateAlso }, onSuccess),
+    onSuccess: makeOnSuccess<T, V>(queryClient, { moduleId, invalidateKeys, invalidateAlso }, onSuccess),
     ...rest,
   });
 }
@@ -206,6 +219,7 @@ export function useAepUpdate<
     parent,
     transform,
     mutationFn,
+    invalidateKeys,
     invalidateAlso,
     onSuccess,
     ...rest
@@ -224,7 +238,7 @@ export function useAepUpdate<
           ? aepbase.update<T>(collection, vars.id, body, { parent: resolvedParent })
           : aepbase.update<T>(collection, vars.id, body);
       }),
-    onSuccess: makeOnSuccess<T, V>(queryClient, { moduleId, invalidateAlso }, onSuccess),
+    onSuccess: makeOnSuccess<T, V>(queryClient, { moduleId, invalidateKeys, invalidateAlso }, onSuccess),
     ...rest,
   });
 }
@@ -248,6 +262,7 @@ export function useAepRemove<V = string>(
     parent,
     getId,
     mutationFn,
+    invalidateKeys,
     invalidateAlso,
     onSuccess,
     ...rest
@@ -267,7 +282,7 @@ export function useAepRemove<V = string>(
       }),
     onSuccess: makeOnSuccess<void, V>(
       queryClient,
-      { moduleId, invalidateAlso },
+      { moduleId, invalidateKeys, invalidateAlso },
       onSuccess,
     ),
     ...rest,
