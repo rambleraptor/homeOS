@@ -389,6 +389,41 @@ const DEFINITIONS: ResourceDefinition[] = [
     },
   },
   {
+    singular: 'pictionary-game',
+    plural: 'pictionary-games',
+    description: 'A single Pictionary game session.',
+    user_settable_create: true,
+    schema: {
+      type: 'object',
+      properties: {
+        played_at: { type: 'string' },
+        location: { type: 'string' },
+        winning_word: { type: 'string' },
+        notes: { type: 'string' },
+        created_by: { type: 'string' },
+      },
+      required: ['played_at'],
+    },
+  },
+  {
+    singular: 'pictionary-team',
+    plural: 'pictionary-teams',
+    description: 'A team within a Pictionary game.',
+    user_settable_create: true,
+    parents: ['pictionary-game'],
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        players: { type: 'array', items: { type: 'string' } },
+        won: { type: 'boolean' },
+        rank: { type: 'number' },
+        created_by: { type: 'string' },
+      },
+      required: ['name', 'players'],
+    },
+  },
+  {
     singular: 'recipe',
     plural: 'recipes',
     description: 'A culinary recipe with parsed ingredients for scaling.',

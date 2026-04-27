@@ -51,6 +51,7 @@ import { hsaModule } from './hsa/module.config';
 import { creditCardsModule } from './credit-cards/module.config';
 import { superuserModule } from './superuser/module.config';
 import { minigolfModule } from './minigolf/module.config';
+import { pictionaryModule } from './pictionary/module.config';
 import { bridgeModule } from './bridge/module.config';
 import { recipesModule } from './recipes/module.config';
 
@@ -71,6 +72,7 @@ const MODULES: HomeModule[] = [
   hsaModule,
   creditCardsModule,
   minigolfModule,
+  pictionaryModule,
   bridgeModule,
   notificationsModule,
   superuserModule,

@@ -408,6 +408,83 @@ export async function deleteAllGames(token: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Pictionary
+// ---------------------------------------------------------------------------
+
+export interface CreatePictionaryTeamInput {
+  name: string;
+  players: string[];
+  won?: boolean;
+  rank?: number;
+}
+
+export interface CreatePictionaryGameInput {
+  played_at?: string;
+  location?: string;
+  winning_word?: string;
+  notes?: string;
+  teams: CreatePictionaryTeamInput[];
+}
+
+export interface PictionaryGameRecord {
+  id: string;
+  played_at: string;
+  location?: string;
+  winning_word?: string;
+  notes?: string;
+}
+
+export interface PictionaryTeamRecord {
+  id: string;
+  name: string;
+  players: string[];
+  won?: boolean;
+  rank?: number;
+}
+
+export async function createPictionaryGame(
+  token: string,
+  data: CreatePictionaryGameInput,
+): Promise<{
+  game: PictionaryGameRecord;
+  teams: PictionaryTeamRecord[];
+}> {
+  const game = await aepCreate<PictionaryGameRecord>(
+    token,
+    'pictionary-games',
+    {
+      played_at: data.played_at || new Date().toISOString(),
+      location: data.location,
+      winning_word: data.winning_word,
+      notes: data.notes,
+    },
+  );
+  const teams: PictionaryTeamRecord[] = [];
+  for (const team of data.teams) {
+    const created = await aepCreate<PictionaryTeamRecord>(
+      token,
+      'pictionary-teams',
+      {
+        name: team.name,
+        players: team.players,
+        won: team.won ?? false,
+        rank: team.rank,
+      },
+      ['pictionary-games', game.id],
+    );
+    teams.push(created);
+  }
+  return { game, teams };
+}
+
+export async function deleteAllPictionaryGames(token: string) {
+  const items = await aepList<{ id: string }>(token, 'pictionary-games');
+  for (const item of items) {
+    await aepRemove(token, 'pictionary-games', item.id);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Recipes
 // ---------------------------------------------------------------------------
 
@@ -507,6 +584,7 @@ export async function cleanupUserData(token: string, userId: string) {
     deleteAllHSAReceipts(token),
     deleteAllRecurringNotifications(token, userId),
     deleteAllGames(token),
+    deleteAllPictionaryGames(token),
   ]);
 }
 
