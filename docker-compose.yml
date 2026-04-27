@@ -31,8 +31,14 @@ services:
     depends_on:
       aepbase:
         condition: service_healthy
+    # Share aepbase's network namespace so localhost:8090 reaches it.
+    # Required because the aep terraform provider reads the OpenAPI
+    # spec's servers[0].url (hardcoded by aepbase as
+    # http://localhost:8090) and uses that for every API call --
+    # ignoring whatever URL we used to fetch the spec.
+    network_mode: "service:aepbase"
     environment:
-      AEPBASE_URL: http://aepbase:8090
+      AEPBASE_URL: http://localhost:8090
     volumes:
       # RW so terraform can write its state + provider cache. Both
       # are gitignored under aepbase/.gitignore.
