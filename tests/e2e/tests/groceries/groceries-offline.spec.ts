@@ -2,12 +2,19 @@
  * Groceries E2E — offline support.
  *
  * Verifies that:
- *  1. The grocery list is reachable while the network is offline (cache hit
- *     from the localStorage persister).
- *  2. Mutations queued offline replay against aepbase once the network
- *     returns, with the server state matching the user's local writes.
- *  3. The offline UI badge appears when the network is down.
- *  4. Online-only buttons disable when offline.
+ *  1. Adding/toggling items while offline updates the UI optimistically and
+ *     queues the mutations (no network call fires).
+ *  2. The offline UI badge appears when the network is down.
+ *  3. Online-only buttons disable when offline.
+ *  4. On reconnect, paused mutations replay against aepbase in FIFO order
+ *     and the server state matches what the user wrote locally.
+ *
+ * Reload-while-offline is intentionally NOT tested here: Playwright's
+ * `setOffline(true)` cuts off all network including the dev server, so
+ * `page.reload()` errors with ERR_INTERNET_DISCONNECTED. Surviving a
+ * cold offline reload would require a service worker that caches the app
+ * shell, which the persistence plan explicitly scoped out. Cross-session
+ * persistence is covered by the unit tests on the persister.
  */
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
@@ -46,7 +53,8 @@ test.describe('Groceries — offline support', () => {
     authenticatedPage,
     userToken,
   }) => {
-    // Seed one item online so the persister has something to restore.
+    // Seed one item online so we can verify the cache survives the
+    // offline → reconnect cycle without losing the row.
     await aepCreate<GroceryItemRecord>(userToken, 'groceries', {
       name: 'Pre-existing item',
       checked: false,
@@ -81,14 +89,6 @@ test.describe('Groceries — offline support', () => {
     await page
       .getByRole('checkbox', { name: /Mark Offline milk as checked/i })
       .click();
-
-    // Reload the page while still offline — verifies localStorage persistence.
-    await page.reload();
-    await expect(page.getByTestId('groceries-offline-badge')).toBeVisible();
-    await expect(page.getByText('Offline milk')).toBeVisible();
-    await expect(page.getByText('Offline bread')).toBeVisible();
-    await expect(page.getByText('Offline cheese')).toBeVisible();
-    await expect(page.getByText('Pre-existing item')).toBeVisible();
 
     // Reconnect. Paused mutations should replay in FIFO order.
     await context.setOffline(false);
