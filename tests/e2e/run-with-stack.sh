@@ -13,6 +13,15 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 cleanup() {
+  if [[ ${TESTS_FAILED:-0} -eq 1 ]]; then
+    echo ">> tests failed; dumping container logs before teardown"
+    echo ">> ---- aepbase logs ----"
+    docker compose logs --no-color aepbase 2>&1 || true
+    echo ">> ---- bootstrap logs ----"
+    docker compose logs --no-color bootstrap 2>&1 || true
+    echo ">> ---- frontend logs ----"
+    docker compose logs --no-color frontend 2>&1 || true
+  fi
   echo ">> tearing down stack"
   docker compose down -v --remove-orphans || true
 }
@@ -21,12 +30,7 @@ trap cleanup EXIT
 dump_logs_and_die() {
   local msg=$1
   echo ">> $msg"
-  echo ">> ---- aepbase logs ----"
-  docker compose logs --no-color aepbase 2>&1 || true
-  echo ">> ---- bootstrap logs ----"
-  docker compose logs --no-color bootstrap 2>&1 || true
-  echo ">> ---- frontend logs ----"
-  docker compose logs --no-color frontend 2>&1 || true
+  TESTS_FAILED=1
   exit 1
 }
 
@@ -47,12 +51,17 @@ set +a
 rm -f "$TMP_ENV"
 export AEPBASE_URL=http://localhost:8090
 
+echo ">> verifying frontend can reach aepbase via docker network"
+docker compose exec -T frontend \
+  curl -fsS http://aepbase:8090/openapi.json -o /dev/null \
+  || dump_logs_and_die "frontend container cannot reach aepbase:8090"
+
 cd tests/e2e
 npm install
 npx playwright install --with-deps chromium
 
 if [[ $# -eq 0 ]]; then
-  npm test
+  npm test || { TESTS_FAILED=1; exit 1; }
 else
-  npm "$@"
+  npm "$@" || { TESTS_FAILED=1; exit 1; }
 fi
