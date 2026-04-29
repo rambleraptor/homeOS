@@ -96,7 +96,6 @@ export interface PerkRedemption {
   perk: string;
   period_start: string;
   period_end: string;
-  redeemed_at: string;
   amount: number;
   notes?: string;
   created_by?: string;
@@ -111,7 +110,6 @@ export interface RedemptionFormData {
   perk: string;
   period_start: string;
   period_end: string;
-  redeemed_at: string;
   amount: number;
   notes?: string;
 }

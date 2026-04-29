@@ -36,7 +36,7 @@ export function usePerkRedemptions() {
         }
       }
       return all.sort((a, b) =>
-        (b.redeemed_at || '').localeCompare(a.redeemed_at || ''),
+        (b.period_start || '').localeCompare(a.period_start || ''),
       );
     },
   });

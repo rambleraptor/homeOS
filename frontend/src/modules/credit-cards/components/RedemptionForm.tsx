@@ -8,7 +8,12 @@
 
 import { useMemo, useState } from 'react';
 import { Modal } from '@/shared/components/Modal';
-import { getCurrentPeriod, getPeriodsInRange, formatPeriod } from '../utils/periodUtils';
+import {
+  getCurrentPeriod,
+  getPeriodsInRange,
+  formatPeriod,
+  toLocalISODate,
+} from '../utils/periodUtils';
 import type {
   CreditCardPerk,
   CreditCard,
@@ -26,10 +31,6 @@ interface RedemptionFormProps {
   isSubmitting: boolean;
 }
 
-function toISODate(d: Date): string {
-  return d.toISOString().split('T')[0];
-}
-
 function buildInitialFormData(
   perks: CreditCardPerk[],
   card: CreditCard,
@@ -40,7 +41,6 @@ function buildInitialFormData(
       perk: initialData.perk,
       period_start: initialData.period_start,
       period_end: initialData.period_end,
-      redeemed_at: initialData.redeemed_at,
       amount: initialData.amount,
       notes: initialData.notes ?? '',
     };
@@ -53,9 +53,8 @@ function buildInitialFormData(
 
   return {
     perk: perk?.id ?? '',
-    period_start: period ? toISODate(period.start) : '',
-    period_end: period ? toISODate(period.end) : '',
-    redeemed_at: toISODate(new Date()),
+    period_start: period ? toLocalISODate(period.start) : '',
+    period_end: period ? toLocalISODate(period.end) : '',
     amount: perk?.value ?? 0,
     notes: '',
   };
@@ -105,8 +104,8 @@ function RedemptionFormBody({
     setFormData({
       ...formData,
       perk: perkId,
-      period_start: toISODate(period.start),
-      period_end: toISODate(period.end),
+      period_start: toLocalISODate(period.start),
+      period_end: toLocalISODate(period.end),
       amount: perk.value,
     });
   };
@@ -131,10 +130,6 @@ function RedemptionFormBody({
     }
     if (!formData.period_start || !formData.period_end) {
       setError('Please select a period');
-      return;
-    }
-    if (!formData.redeemed_at) {
-      setError('Redeemed date is required');
       return;
     }
     if (formData.amount <= 0) {
@@ -192,7 +187,7 @@ function RedemptionFormBody({
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
         >
           {periodOptions.map((period) => {
-            const key = `${toISODate(period.start)}|${toISODate(period.end)}`;
+            const key = `${toLocalISODate(period.start)}|${toLocalISODate(period.end)}`;
             return (
               <option key={key} value={key}>
                 {selectedPerk ? formatPeriod(period, selectedPerk.frequency) : key}
@@ -202,41 +197,24 @@ function RedemptionFormBody({
         </select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Redeemed At */}
-        <div>
-          <label htmlFor="redemption-redeemed-at" className="block text-sm font-medium text-gray-700 mb-1">
-            Redeemed Date <span className="text-red-500">*</span>
-          </label>
+      {/* Amount */}
+      <div>
+        <label htmlFor="redemption-amount" className="block text-sm font-medium text-gray-700 mb-1">
+          Amount <span className="text-red-500">*</span>
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 top-2 text-gray-500">$</span>
           <input
-            type="date"
-            id="redemption-redeemed-at"
+            type="number"
+            id="redemption-amount"
             required
-            value={formData.redeemed_at}
-            onChange={(e) => setFormData({ ...formData, redeemed_at: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
+            min="0.01"
+            step="0.01"
+            value={formData.amount || ''}
+            onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+            className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
+            placeholder="0.00"
           />
-        </div>
-
-        {/* Amount */}
-        <div>
-          <label htmlFor="redemption-amount" className="block text-sm font-medium text-gray-700 mb-1">
-            Amount <span className="text-red-500">*</span>
-          </label>
-          <div className="relative">
-            <span className="absolute left-3 top-2 text-gray-500">$</span>
-            <input
-              type="number"
-              id="redemption-amount"
-              required
-              min="0.01"
-              step="0.01"
-              value={formData.amount || ''}
-              onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-              className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
-              placeholder="0.00"
-            />
-          </div>
         </div>
       </div>
 
