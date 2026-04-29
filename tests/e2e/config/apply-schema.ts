@@ -119,12 +119,11 @@ const DEFINITIONS: ResourceDefinition[] = [
       properties: {
         period_start: { type: 'string' },
         period_end: { type: 'string' },
-        redeemed_at: { type: 'string' },
         amount: { type: 'number' },
         notes: { type: 'string' },
         created_by: { type: 'string' },
       },
-      required: ['period_start', 'period_end', 'redeemed_at', 'amount'],
+      required: ['period_start', 'period_end', 'amount'],
     },
   },
   {

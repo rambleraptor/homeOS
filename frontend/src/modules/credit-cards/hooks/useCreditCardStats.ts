@@ -33,7 +33,7 @@ export function useCreditCardStats(
         const ytdRedeemed = redemptions
           .filter((r) => {
             if (!cardPerkIds.has(r.perk)) return false;
-            const at = new Date(r.redeemed_at);
+            const at = new Date(r.period_start);
             return at >= yearStart && at <= yearEnd;
           })
           .reduce((sum, r) => sum + r.amount, 0);

@@ -5,6 +5,7 @@
  */
 
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { formatPeriod } from '../utils/periodUtils';
 import type { PerkRedemption, CreditCardPerk } from '../types';
 
 interface RedemptionHistoryProps {
@@ -24,9 +25,8 @@ export function RedemptionHistory({
 }: RedemptionHistoryProps) {
   const perkMap = new Map(perks.map((p) => [p.id, p]));
 
-  // Sort by redeemed_at descending
   const sorted = [...redemptions].sort(
-    (a, b) => new Date(b.redeemed_at).getTime() - new Date(a.redeemed_at).getTime()
+    (a, b) => new Date(b.period_start).getTime() - new Date(a.period_start).getTime()
   );
 
   return (
@@ -54,7 +54,6 @@ export function RedemptionHistory({
             <tr className="border-b border-gray-200">
               <th className="text-left py-2 px-2 font-medium text-gray-600">Perk</th>
               <th className="text-left py-2 px-2 font-medium text-gray-600">Period</th>
-              <th className="text-left py-2 px-2 font-medium text-gray-600">Redeemed</th>
               <th className="text-right py-2 px-2 font-medium text-gray-600">Amount</th>
               <th className="text-right py-2 px-2 font-medium text-gray-600">Actions</th>
             </tr>
@@ -62,8 +61,13 @@ export function RedemptionHistory({
           <tbody>
             {sorted.map((redemption) => {
               const perk = perkMap.get(redemption.perk);
-              const periodStart = new Date(redemption.period_start);
-              const periodEnd = new Date(redemption.period_end);
+              const period = {
+                start: new Date(redemption.period_start),
+                end: new Date(redemption.period_end),
+              };
+              const periodLabel = perk
+                ? formatPeriod(period, perk.frequency)
+                : `${formatDate(period.start)} - ${formatDate(period.end)}`;
 
               return (
                 <tr
@@ -75,10 +79,7 @@ export function RedemptionHistory({
                     {perk?.name ?? 'Unknown perk'}
                   </td>
                   <td className="py-2 px-2 text-gray-500">
-                    {formatDate(periodStart)} - {formatDate(periodEnd)}
-                  </td>
-                  <td className="py-2 px-2 text-gray-500">
-                    {formatDate(new Date(redemption.redeemed_at))}
+                    {periodLabel}
                   </td>
                   <td className="py-2 px-2 text-right text-green-600 font-medium">
                     ${redemption.amount}
@@ -107,7 +108,7 @@ export function RedemptionHistory({
           </tbody>
           <tfoot>
             <tr className="border-t border-gray-200">
-              <td colSpan={3} className="py-2 px-2 font-medium text-gray-600">
+              <td colSpan={2} className="py-2 px-2 font-medium text-gray-600">
                 Total ({sorted.length} redemption{sorted.length !== 1 ? 's' : ''})
               </td>
               <td className="py-2 px-2 text-right font-bold text-green-600">

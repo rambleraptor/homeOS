@@ -55,11 +55,10 @@ resource "aep_aep-resource-definition" "redemption" {
     properties = {
       period_start = { type = "string", format = "date-time" }
       period_end   = { type = "string", format = "date-time" }
-      redeemed_at  = { type = "string", format = "date-time" }
       amount       = { type = "number" }
       notes        = { type = "string" }
       created_by   = { type = "string" }
     }
-    required = ["period_start", "period_end", "redeemed_at", "amount"]
+    required = ["period_start", "period_end", "amount"]
   })
 }

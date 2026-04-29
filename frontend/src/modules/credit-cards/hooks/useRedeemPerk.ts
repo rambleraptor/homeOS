@@ -33,7 +33,6 @@ export function useRedeemPerk() {
         {
           period_start: toISODate(period.start),
           period_end: toISODate(period.end),
-          redeemed_at: toISODate(new Date()),
           amount,
           notes,
           created_by: userId ? `users/${userId}` : undefined,

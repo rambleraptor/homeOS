@@ -73,8 +73,8 @@ export function CardDetail({
   const cardRedemptions = redemptions.filter((r) => perkIds.has(r.perk));
   const ytdRedeemed = cardRedemptions
     .filter((r) => {
-      const redeemedAt = new Date(r.redeemed_at);
-      return redeemedAt >= yearStart && redeemedAt <= yearEnd;
+      const periodStart = new Date(r.period_start);
+      return periodStart >= yearStart && periodStart <= yearEnd;
     })
     .reduce((sum, r) => sum + r.amount, 0);
 
