@@ -14,6 +14,7 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { logger } from '@/core/utils/logger';
 import { useGames } from '../hooks/useGames';
 import { useGameTeams } from '../hooks/useGameTeams';
+import { useGameWinners } from '../hooks/useGameWinners';
 import { useCreateGame } from '../hooks/useCreateGame';
 import { useUpdateGame } from '../hooks/useUpdateGame';
 import { useDeleteGame } from '../hooks/useDeleteGame';
@@ -37,6 +38,8 @@ export function PictionaryHome() {
   const { data: activeTeams } = useGameTeams(
     view === 'edit' || view === 'detail' ? activeGameId : null,
   );
+  const gameIds = useMemo(() => (games ?? []).map((g) => g.id), [games]);
+  const winnersByGame = useGameWinners(gameIds);
 
   const createGame = useCreateGame();
   const updateGame = useUpdateGame();
@@ -150,6 +153,7 @@ export function PictionaryHome() {
           <GameList
             games={games ?? []}
             people={peopleLite}
+            winnersByGame={winnersByGame}
             onOpen={openDetail}
           />
         </>
