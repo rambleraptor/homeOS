@@ -1,13 +1,14 @@
 'use client';
 
 /**
- * Pictionary games list. Each row shows the game's date, location, and
- * winning word. Tapping opens the detail view.
+ * Pictionary games list. Each row shows the game's date, location,
+ * winning word, and the winning team's roster. Tapping opens the detail
+ * view.
  */
 
 import React from 'react';
 import { Pencil, Trophy } from 'lucide-react';
-import type { PictionaryGame } from '../types';
+import type { PictionaryGame, PictionaryTeam } from '../types';
 
 interface PersonLite {
   id: string;
@@ -16,9 +17,15 @@ interface PersonLite {
 
 interface GameListProps {
   games: PictionaryGame[];
-  /** Reserved for richer rows later (e.g. player names from team rosters). */
   people?: PersonLite[];
+  /** Map of gameId -> winning team (undefined if unknown / no winner). */
+  winnersByGame?: Record<string, PictionaryTeam | undefined>;
   onOpen: (game: PictionaryGame) => void;
+}
+
+function displayNameFor(playerPath: string, people: PersonLite[]): string {
+  const id = playerPath.replace(/^people\//, '');
+  return people.find((p) => p.id === id)?.name || 'Unknown';
 }
 
 function formatDate(iso?: string): string {
@@ -32,7 +39,12 @@ function formatDate(iso?: string): string {
   });
 }
 
-export function GameList({ games, onOpen }: GameListProps) {
+export function GameList({
+  games,
+  people = [],
+  winnersByGame = {},
+  onOpen,
+}: GameListProps) {
   if (games.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-8 border border-gray-200 text-center">
@@ -48,6 +60,11 @@ export function GameList({ games, onOpen }: GameListProps) {
     <ul className="space-y-3" data-testid="pictionary-game-list">
       {games.map((game) => {
         const date = formatDate(game.played_at || game.create_time);
+        const winner = winnersByGame[game.id];
+        const winnerNames =
+          winner && winner.players.length > 0
+            ? winner.players.map((p) => displayNameFor(p, people)).join(', ')
+            : '';
         return (
           <li key={game.id}>
             <button
@@ -76,9 +93,15 @@ export function GameList({ games, onOpen }: GameListProps) {
                     </span>
                   </div>
                 )}
-                {game.notes && (
-                  <div className="text-xs text-gray-500 mt-0.5 truncate">
-                    {game.notes}
+                {winnerNames && (
+                  <div
+                    className="text-sm text-gray-600 truncate"
+                    data-testid={`pictionary-game-winner-${game.id}`}
+                  >
+                    Winning team:{' '}
+                    <span className="font-medium text-gray-800">
+                      {winnerNames}
+                    </span>
                   </div>
                 )}
               </div>
