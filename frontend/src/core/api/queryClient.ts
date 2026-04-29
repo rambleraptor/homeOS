@@ -5,7 +5,8 @@
  * Used for async state management and caching of PocketBase data
  */
 
-import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
+import { QueryClient, MutationCache, type DefaultOptions } from '@tanstack/react-query';
+import { showError } from '@/shared/components/ErrorToast';
 
 /**
  * Default query options for all queries
@@ -48,10 +49,20 @@ const defaultQueryOptions: DefaultOptions = {
 };
 
 /**
- * Create and configure React Query client
+ * Create and configure React Query client.
+ *
+ * The mutation cache surfaces every failed mutation via `showError` so
+ * callers don't each have to wire up their own toast. Mutations that handle
+ * their own error UI can opt out with `meta: { suppressErrorToast: true }`.
  */
 export const queryClient = new QueryClient({
   defaultOptions: defaultQueryOptions,
+  mutationCache: new MutationCache({
+    onError: (error, _vars, _ctx, mutation) => {
+      if (mutation.meta?.suppressErrorToast) return;
+      showError(error);
+    },
+  }),
 });
 
 /**

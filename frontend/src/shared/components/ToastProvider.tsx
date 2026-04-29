@@ -4,6 +4,7 @@ import React, { createContext, useContext, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { toast as sonnerToast } from 'sonner';
 import { Toaster } from '@/shared/components/ui/sonner';
+import { showError } from '@/shared/components/ErrorToast';
 import type { ToastType } from '@/shared/types/toast';
 
 interface ToastContextValue {
@@ -26,7 +27,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           sonnerToast.success(message, options);
           break;
         case 'error':
-          sonnerToast.error(message, options);
+          showError(message, duration ? { duration } : undefined);
           break;
         case 'info':
           sonnerToast.info(message, options);
