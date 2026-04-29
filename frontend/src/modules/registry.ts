@@ -50,8 +50,7 @@ import { settingsModule } from './settings/module.config';
 import { hsaModule } from './hsa/module.config';
 import { creditCardsModule } from './credit-cards/module.config';
 import { superuserModule } from './superuser/module.config';
-import { minigolfModule } from './minigolf/module.config';
-import { pictionaryModule } from './pictionary/module.config';
+import { gamesModule } from './games/module.config';
 import { bridgeModule } from './bridge/module.config';
 import { recipesModule } from './recipes/module.config';
 
@@ -71,8 +70,7 @@ const MODULES: HomeModule[] = [
   peopleModule,
   hsaModule,
   creditCardsModule,
-  minigolfModule,
-  pictionaryModule,
+  gamesModule,
   bridgeModule,
   notificationsModule,
   superuserModule,
