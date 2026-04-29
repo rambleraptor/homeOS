@@ -54,6 +54,7 @@ import { minigolfModule } from './minigolf/module.config';
 import { pictionaryModule } from './pictionary/module.config';
 import { bridgeModule } from './bridge/module.config';
 import { recipesModule } from './recipes/module.config';
+import { todosModule } from './todos/module.config';
 
 // =============================================================================
 // REGISTER MODULES HERE
@@ -65,6 +66,7 @@ import { recipesModule } from './recipes/module.config';
  */
 const MODULES: HomeModule[] = [
   dashboardModule,
+  todosModule,
   giftCardsModule,
   groceriesModule,
   recipesModule,
