@@ -21,6 +21,15 @@ export const groceriesModule: HomeModule = {
   navOrder: 2,
   enabled: true,
   omnibox: groceriesOmnibox,
+  flags: {
+    default_store: {
+      type: 'string',
+      label: 'Default store',
+      description:
+        'Store id pre-selected when adding new grocery items. Leave blank for no default.',
+      default: '',
+    },
+  },
   widgets: [
     {
       id: 'groceries-remaining',

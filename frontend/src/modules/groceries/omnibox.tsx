@@ -19,6 +19,7 @@ import type { GroceryItemFormData } from './types';
 import { GroceriesList } from './components/GroceriesList';
 import { useCreateGroceryItem } from './hooks/useCreateGroceryItem';
 import { useStores } from './hooks/useStores';
+import { useModuleFlag } from '@/modules/settings';
 
 const createGroceryItemParamSchema = z.object({
   name: z.string().optional(),
@@ -41,18 +42,25 @@ function AddGroceryForm({
   isSubmitting,
 }: AddGroceryFormProps) {
   const { data: stores = [] } = useStores();
+  const { value: defaultStore = '' } = useModuleFlag<string>(
+    'groceries',
+    'default_store',
+  );
   const [name, setName] = useState(initialValues.name ?? '');
   const [notes, setNotes] = useState(initialValues.notes ?? '');
 
-  // If the LLM supplied a store by name, try to resolve to an id.
-  const initialStoreId =
+  // If the LLM supplied a store by name, try to resolve to an id;
+  // otherwise fall back to the configured default store (if it still exists).
+  const llmStoreId =
     stores.find(
       (s) =>
         typeof initialValues.store === 'string' &&
         s.name.toLowerCase() === initialValues.store.toLowerCase(),
     )?.id ??
     (typeof initialValues.store === 'string' ? initialValues.store : '');
-  const [storeId, setStoreId] = useState(initialStoreId);
+  const fallbackStoreId =
+    defaultStore && stores.some((s) => s.id === defaultStore) ? defaultStore : '';
+  const [storeId, setStoreId] = useState(llmStoreId || fallbackStoreId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
