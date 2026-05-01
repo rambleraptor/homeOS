@@ -6,9 +6,10 @@
  * Form for adding grocery items
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { useStores } from '../hooks/useStores';
+import { useModuleFlag } from '@/modules/settings';
 import type { GroceryItemFormData } from '../types';
 
 interface GroceryItemFormProps {
@@ -23,10 +24,18 @@ export function GroceryItemForm({
   isSubmitting = false,
 }: GroceryItemFormProps) {
   const { data: stores = [] } = useStores();
+  const { value: defaultStore = '' } = useModuleFlag<string>(
+    'groceries',
+    'default_store',
+  );
+  const initialStore = useMemo(
+    () => (defaultStore && stores.some((s) => s.id === defaultStore) ? defaultStore : ''),
+    [defaultStore, stores],
+  );
   const [formData, setFormData] = useState<GroceryItemFormData>({
     name: '',
     notes: '',
-    store: '',
+    store: initialStore,
   });
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -7,10 +7,11 @@
  */
 
 import { useState } from 'react';
-import { Plus, Trash2, Loader2, Store as StoreIcon, X } from 'lucide-react';
+import { Plus, Trash2, Loader2, Star, Store as StoreIcon, X } from 'lucide-react';
 import { useStores } from '../hooks/useStores';
 import { useCreateStore } from '../hooks/useCreateStore';
 import { useDeleteStore } from '../hooks/useDeleteStore';
+import { useModuleFlag } from '@/modules/settings';
 
 interface StoreManagementProps {
   onClose?: () => void;
@@ -21,11 +22,20 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
   const { data: stores = [], isLoading } = useStores();
   const createMutation = useCreateStore();
   const deleteMutation = useDeleteStore();
+  const {
+    value: defaultStore = '',
+    setValue: setDefaultStore,
+    isSaving: isSavingDefault,
+  } = useModuleFlag<string>('groceries', 'default_store');
 
   // Treat paused (offline) mutations as not-busy — the optimistic record is
   // already in the cache, so the inputs shouldn't lock up offline.
   const isCreating = createMutation.isPending && !createMutation.isPaused;
   const isDeleting = deleteMutation.isPending && !deleteMutation.isPaused;
+
+  const handleToggleDefault = (id: string) => {
+    void setDefaultStore(defaultStore === id ? '' : id);
+  };
 
   // Fire-and-forget — optimistic updates keep the UI in sync immediately.
   // Awaiting would lock the input when offline since paused mutations never
@@ -104,24 +114,61 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
         </p>
       ) : (
         <div className="space-y-2">
-          {stores.map((store) => (
-            <div
-              key={store.id}
-              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-bg-pearl group transition-colors"
-              data-testid="store-item"
-            >
-              <span className="font-body font-medium text-brand-navy">{store.name}</span>
-              <button
-                onClick={() => handleDeleteStore(store.id)}
-                disabled={isDeleting}
-                className="opacity-0 group-hover:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-all"
-                aria-label={`Delete ${store.name}`}
-                data-testid="delete-store-button"
+          {stores.map((store) => {
+            const isDefault = defaultStore === store.id;
+            return (
+              <div
+                key={store.id}
+                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-bg-pearl group transition-colors"
+                data-testid="store-item"
               >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+                <span className="flex items-center gap-2 font-body font-medium text-brand-navy">
+                  {store.name}
+                  {isDefault && (
+                    <span
+                      className="text-xs font-normal text-accent-terracotta"
+                      data-testid="default-store-label"
+                    >
+                      Default
+                    </span>
+                  )}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleToggleDefault(store.id)}
+                    disabled={isSavingDefault}
+                    aria-pressed={isDefault}
+                    aria-label={
+                      isDefault
+                        ? `Unset ${store.name} as default store`
+                        : `Set ${store.name} as default store`
+                    }
+                    title={isDefault ? 'Default store' : 'Set as default'}
+                    data-testid="set-default-store-button"
+                    className={`p-2 rounded-lg disabled:opacity-50 transition-all ${
+                      isDefault
+                        ? 'text-accent-terracotta'
+                        : 'opacity-0 group-hover:opacity-100 text-text-muted hover:bg-bg-pearl'
+                    }`}
+                  >
+                    <Star
+                      className="w-4 h-4"
+                      fill={isDefault ? 'currentColor' : 'none'}
+                    />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteStore(store.id)}
+                    disabled={isDeleting}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-all"
+                    aria-label={`Delete ${store.name}`}
+                    data-testid="delete-store-button"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

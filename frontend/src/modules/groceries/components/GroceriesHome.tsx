@@ -6,7 +6,7 @@
  * Main grocery list interface
  */
 
-import { useState, useRef } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { Plus, Loader2, CheckCircle2, Image as ImageIcon, ListRestart, Store as StoreIcon, Bell } from 'lucide-react';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useStores } from '../hooks/useStores';
@@ -20,11 +20,13 @@ import { PageHeader } from '@/shared/components/PageHeader';
 import { Badge } from '@/shared/components/Badge';
 import { useSendGroceryNotification } from '../hooks/useSendGroceryNotification';
 import { useOnlineStatus } from '@/shared/hooks/useOnlineStatus';
+import { useModuleFlag } from '@/modules/settings';
 import { logger } from '@/core/utils/logger';
 
 export function GroceriesHome() {
   const [itemName, setItemName] = useState('');
-  const [selectedStore, setSelectedStore] = useState('');
+  // null = follow the configured default; '' = user explicitly chose "No Store".
+  const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [showStoreManagement, setShowStoreManagement] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -36,6 +38,17 @@ export function GroceriesHome() {
   const deleteAllMutation = useDeleteAllGroceries();
   const notifyMutation = useSendGroceryNotification();
   const { isOffline } = useOnlineStatus();
+  const { value: defaultStore = '' } = useModuleFlag<string>(
+    'groceries',
+    'default_store',
+  );
+
+  // Drop the configured default if it points at a deleted store.
+  const effectiveDefault = useMemo(
+    () => (defaultStore && stores.some((s) => s.id === defaultStore) ? defaultStore : ''),
+    [defaultStore, stores],
+  );
+  const storeValue = selectedStore ?? effectiveDefault;
 
   const handleQuickAdd = () => {
     const trimmed = itemName.trim();
@@ -46,7 +59,7 @@ export function GroceriesHome() {
     // input while offline (the mutation stays paused until reconnect).
     createMutation.mutate({
       name: trimmed,
-      store: selectedStore || undefined,
+      store: storeValue || undefined,
     });
     setItemName('');
     inputRef.current?.focus();
@@ -172,7 +185,7 @@ export function GroceriesHome() {
       <div className="bg-white rounded-lg shadow-md p-4 border border-gray-200">
         <div className="flex gap-2">
           <select
-            value={selectedStore}
+            value={storeValue}
             onChange={(e) => setSelectedStore(e.target.value)}
             disabled={isSubmitting}
             data-testid="store-select"
