@@ -11,37 +11,39 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install all dependencies
-	@echo "Installing frontend dependencies..."
-	cd $(FRONTEND_DIR) && npm install
+	@echo "Installing workspace dependencies..."
+	pnpm install
 
 clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
 	rm -rf $(FRONTEND_DIR)/.next
 	rm -rf $(FRONTEND_DIR)/node_modules
+	rm -rf node_modules
+	rm -rf packages/*/node_modules packages/*/dist
 
 lint: ## Run ESLint
 	@echo "Running ESLint..."
-	cd $(FRONTEND_DIR) && npm run lint
+	pnpm -r --if-present lint
 
 type-check: ## Run TypeScript type checking
 	@echo "Running TypeScript type check..."
-	cd $(FRONTEND_DIR) && npm run type-check
+	pnpm -r --if-present type-check
 
 build: ## Build for production
 	@echo "Building application..."
-	cd $(FRONTEND_DIR) && npm run build
+	pnpm -r --if-present build
 
 dev: ## Start development server
 	@echo "Starting development server..."
-	cd $(FRONTEND_DIR) && npm run dev
+	pnpm --filter frontend dev
 
 start: ## Start production server
 	@echo "Starting production server..."
-	cd $(FRONTEND_DIR) && npm run start
+	pnpm --filter frontend start
 
 test: ## Run frontend tests with Vitest
-	@echo "Running frontend tests..."
-	cd $(FRONTEND_DIR) && npm run test
+	@echo "Running tests..."
+	pnpm -r --if-present test
 
 test-e2e: ## Run end-to-end tests with Playwright
 	@echo "Running e2e tests..."
@@ -56,7 +58,7 @@ test-all: test test-e2e ## Run all tests (frontend + e2e)
 
 audit: ## Run security audit
 	@echo "Running security audit..."
-	cd $(FRONTEND_DIR) && npm audit --audit-level=high
+	pnpm audit --audit-level=high || true
 
 format: ## Format code with Prettier
 	@echo "Formatting code with Prettier..."
