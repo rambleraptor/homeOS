@@ -8,6 +8,7 @@ import type { HomeModule } from '@/modules/types';
 import { CreditCard } from 'lucide-react';
 import { CreditCardsList } from './components/CreditCardsList';
 import { CreditCardsHome } from './components/CreditCardsHome';
+import { UpcomingPerksWidget } from './components/UpcomingPerksWidget';
 import { creditCardsResources } from './resources';
 
 export const creditCardsModule: HomeModule = {
@@ -35,4 +36,11 @@ export const creditCardsModule: HomeModule = {
     ],
     listComponent: CreditCardsList,
   },
+  widgets: [
+    {
+      id: 'credit-cards-upcoming-perks',
+      component: UpcomingPerksWidget,
+      order: 20,
+    },
+  ],
 };
