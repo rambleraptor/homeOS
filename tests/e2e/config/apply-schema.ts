@@ -13,11 +13,9 @@
  * declaration.
  */
 
-import {
-  BUILTIN_RESOURCE_DEFS,
-  syncResourceDefinitions,
-  type ResourceDefinition,
-} from '@rambleraptor/homestead-core/resources';
+import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
+import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/sync';
+import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import { creditCardsResources } from '@rambleraptor/homestead-modules/credit-cards/resources';
 import { giftCardsResources } from '@rambleraptor/homestead-modules/gift-cards/resources';
 import { groceriesResources } from '@rambleraptor/homestead-modules/groceries/resources';

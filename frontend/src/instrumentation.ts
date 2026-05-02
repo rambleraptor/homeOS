@@ -53,8 +53,11 @@ async function syncResources(
 ): Promise<void> {
   try {
     const { getAllResourceDefs } = await import('@/modules/registry');
-    const { syncResourceDefinitions, BUILTIN_RESOURCE_DEFS } = await import(
-      '@rambleraptor/homestead-core/resources'
+    const { syncResourceDefinitions } = await import(
+      '@rambleraptor/homestead-core/resources/sync'
+    );
+    const { BUILTIN_RESOURCE_DEFS } = await import(
+      '@rambleraptor/homestead-core/resources/builtins'
     );
 
     const defs = [...BUILTIN_RESOURCE_DEFS, ...getAllResourceDefs()];
