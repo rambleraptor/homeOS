@@ -20,6 +20,7 @@ import type {
   HomeModule,
   ModuleFlagDef,
   ModuleRegistry,
+  ModuleWorker,
 } from './types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import {
@@ -299,6 +300,37 @@ export function getAllResourceDefs(): ResourceDefinition[] {
   for (const mod of moduleRegistry.modules) {
     visit(mod);
   }
+  return out;
+}
+
+/**
+ * Resolve a single module worker by `(moduleId, workerName)`. Walks
+ * children so nested modules can declare workers under their own id.
+ * Used by the catch-all dispatcher at
+ * `app/api/modules/[moduleId]/[...path]/route.ts`.
+ */
+export function getModuleWorker(
+  moduleId: string,
+  workerName: string,
+): ModuleWorker | undefined {
+  const mod = moduleRegistry.getModule(moduleId);
+  return mod?.workers?.[workerName];
+}
+
+/**
+ * Collect every declared worker across all registered modules,
+ * flattened to a `${moduleId}/${workerName}` key. Useful for
+ * diagnostic UIs and tests.
+ */
+export function getAllModuleWorkers(): Record<string, ModuleWorker> {
+  const out: Record<string, ModuleWorker> = {};
+  const visit = (mod: HomeModule): void => {
+    for (const [name, worker] of Object.entries(mod.workers ?? {})) {
+      out[`${mod.id}/${name}`] = worker;
+    }
+    for (const child of mod.children ?? []) visit(child);
+  };
+  for (const mod of moduleRegistry.modules) visit(mod);
   return out;
 }
 

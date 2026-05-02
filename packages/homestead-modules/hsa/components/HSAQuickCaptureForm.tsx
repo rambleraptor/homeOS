@@ -139,7 +139,7 @@ export function HSAQuickCaptureForm({
       // Call API to parse receipt
       const token = aepbase.authStore.token;
       const userId = aepbase.getCurrentUser()?.id || '';
-      const response = await fetch('/api/hsa/parse-receipt', {
+      const response = await fetch('/api/modules/hsa/parse-receipt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
