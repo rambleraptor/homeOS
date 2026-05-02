@@ -90,7 +90,7 @@ When backing up your Homestead data, make sure to include the entire `pb_data/` 
 
 ### Parse Receipt
 ```
-POST /api/hsa/parse-receipt
+POST /api/modules/hsa/parse-receipt
 Authorization: Bearer <token>
 Content-Type: application/json
 

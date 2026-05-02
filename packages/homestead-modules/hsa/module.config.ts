@@ -36,4 +36,10 @@ export const hsaModule: HomeModule = {
     ],
     listComponent: HSAHome,
   },
+  workers: {
+    'parse-receipt': {
+      method: 'POST',
+      load: () => import('./workers/parse-receipt'),
+    },
+  },
 };

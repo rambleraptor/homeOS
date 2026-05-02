@@ -2,25 +2,24 @@
 
 This directory contains Next.js API routes that were migrated from PocketBase hooks.
 
+## Module Workers
+
+Module-owned endpoints live under `/api/modules/<moduleId>/<workerName>`
+and are dispatched by the catch-all route at
+`app/api/modules/[moduleId]/[...path]/route.ts`. Each module declares
+its workers in `module.config.ts` (`workers: { ... }`) with a lazy
+`load: () => import(...)` so handler code stays out of the client
+bundle. See `frontend/src/modules/workers/dispatcher.ts` for the
+runtime contract.
+
+Currently mounted workers:
+
+- `POST /api/modules/groceries/process-image` — Gemini-powered
+  extraction of grocery items from an uploaded image
+- `POST /api/modules/hsa/parse-receipt` — Gemini-powered parser for
+  medical receipts
+
 ## Migrated Routes
-
-### Grocery APIs
-
-#### `/api/groceries/categorize`
-- **Method**: POST
-- **Description**: Categorize a single grocery item using Google Gemini AI
-- **Request Body**: `{ name: string }`
-- **Response**: `{ name: string, category: GroceryCategory, message?: string }`
-- **Authentication**: Required (PocketBase token in Authorization header)
-- **Migrated from**: `pb_hooks/grocery_image_processor.pb.js`
-
-#### `/api/groceries/process-image`
-- **Method**: POST
-- **Description**: Extract and categorize grocery items from an image using Gemini Vision AI
-- **Request Body**: `{ image: string (base64), mimeType: string }`
-- **Response**: `{ items: Array<{ name: string, category: string }>, message: string }`
-- **Authentication**: Required (PocketBase token in Authorization header)
-- **Migrated from**: `pb_hooks/grocery_image_processor.pb.js`
 
 ### Notification APIs
 

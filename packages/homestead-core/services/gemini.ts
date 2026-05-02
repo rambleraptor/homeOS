@@ -33,7 +33,7 @@ export async function extractGroceryItemsFromImage(
     const token = aepbase.authStore.token;
     const userId = aepbase.getCurrentUser()?.id || '';
 
-    const res = await fetch('/api/groceries/process-image', {
+    const res = await fetch('/api/modules/groceries/process-image', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
