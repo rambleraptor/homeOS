@@ -1,4 +1,4 @@
-import { PeopleHome } from '@/modules/people/components/PeopleHome';
+import { PeopleHome } from '@homestead/modules/people/components/PeopleHome';
 
 export default function PeoplePage() {
   return <PeopleHome />;

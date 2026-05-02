@@ -1,6 +1,6 @@
 'use client';
 
-import { PeopleBulkImport } from '@/modules/people/bulk-import';
+import { PeopleBulkImport } from '@homestead/modules/people/bulk-import';
 
 export default function PeopleImportPage() {
   return <PeopleBulkImport />;

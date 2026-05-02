@@ -1,6 +1,6 @@
 'use client';
 
-import { GiftCardsBulkImport } from '@/modules/gift-cards/bulk-import';
+import { GiftCardsBulkImport } from '@homestead/modules/gift-cards/bulk-import';
 
 export default function GiftCardsImportPage() {
   return <GiftCardsBulkImport />;

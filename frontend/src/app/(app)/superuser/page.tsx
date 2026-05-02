@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/core/auth/useAuth';
 import { NestedModuleLanding } from '@/shared/components/NestedModuleLanding';
-import { superuserModule } from '@/modules/superuser/module.config';
+import { superuserModule } from '@homestead/modules/superuser/module.config';
 import { Spinner } from '@/shared/components/Spinner';
 
 export default function SuperuserPage() {

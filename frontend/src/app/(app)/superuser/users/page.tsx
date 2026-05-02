@@ -1,6 +1,6 @@
 'use client';
 
-import { UsersHome } from '@/modules/superuser/users/components/UsersHome';
+import { UsersHome } from '@homestead/modules/superuser/users/components/UsersHome';
 import { ModuleEnabledGate } from '@/shared/components/ModuleEnabledGate';
 
 export default function SuperuserUsersPage() {

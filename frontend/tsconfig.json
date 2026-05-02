@@ -19,12 +19,15 @@
       }
     ],
     "paths": {
+      "@homestead/modules": ["../packages/modules/src/index.ts"],
+      "@homestead/modules/*": ["../packages/modules/src/*"],
+      "@/modules/*": ["../packages/modules/src/*"],
       "@/*": ["./src/*"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "../packages/modules/src/**/*.ts", "../packages/modules/src/**/*.tsx"],
   "exclude": ["node_modules"]
 }

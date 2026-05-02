@@ -12,7 +12,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    include: [
+      'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
+      '../packages/modules/src/**/*.{test,spec}.{js,jsx,ts,tsx}',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -26,8 +29,15 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      {
+        find: /^@\/modules\/(.*)$/,
+        replacement: path.resolve(__dirname, '../packages/modules/src/$1'),
+      },
+      {
+        find: /^@\/(.*)$/,
+        replacement: path.resolve(__dirname, './src/$1'),
+      },
+    ],
   },
 });

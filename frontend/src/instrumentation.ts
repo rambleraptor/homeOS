@@ -35,7 +35,7 @@ export async function register(): Promise<void> {
   }
 
   try {
-    const { getAllModuleFlagDefs } = await import('@/modules/registry');
+    const { getAllModuleFlagDefs } = await import('@homestead/modules/registry');
     const { syncModuleFlagsSchema } = await import(
       '@/core/module-flags/sync'
     );

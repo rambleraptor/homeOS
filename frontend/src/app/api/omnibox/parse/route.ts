@@ -15,7 +15,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { aepList, authenticate } from '../../_lib/aepbase-server';
 import { buildManifest } from '@/shared/omnibox/manifest';
 import { parseFallback } from '@/shared/omnibox/parseFallback';
-import { fieldName } from '@/modules/settings/flags';
+import { fieldName } from '@homestead/modules/settings/flags';
 import type {
   OmniboxIntent,
   OmniboxParseResponse,

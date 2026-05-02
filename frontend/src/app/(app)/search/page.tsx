@@ -14,7 +14,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/core/auth/useAuth';
 import { useCanUseOmnibox } from '@/shared/omnibox/useCanUseOmnibox';
-import { useModuleFlags } from '@/modules/settings/hooks/useModuleFlags';
+import { useModuleFlags } from '@homestead/modules/settings/hooks/useModuleFlags';
 import { Spinner } from '@/shared/components/Spinner';
 import { OmniboxInput } from '@/shared/omnibox/OmniboxInput';
 import { OmniboxDispatcher } from '@/shared/omnibox/OmniboxDispatcher';

@@ -1,0 +1,15 @@
+{
+  "name": "@homestead/modules",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Bundled feature modules for Homestead. Each module declares its routes, navigation, omnibox/filter integrations, and module-flag schema; the host app composes them via the registry.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*",
+    "./*.ts": "./src/*.ts",
+    "./*.tsx": "./src/*.tsx"
+  }
+}
