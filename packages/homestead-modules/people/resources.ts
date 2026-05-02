@@ -55,7 +55,7 @@ export const peopleResources: ResourceDefinition[] = [
         shared_data_id: { type: 'string' },
         created_by: { type: 'string' },
       },
-      required: ['line1', 'created_by'],
+      required: ['line1'],
     },
   },
 ];

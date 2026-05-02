@@ -44,9 +44,11 @@ const MODULE_RESOURCES: ResourceDefinition[] = [
 /**
  * The runtime `module-flag` schema is built dynamically from declared
  * flags by `syncModuleFlagsSchema` on Next.js boot. The Playwright dev
- * server isn't given admin creds, so that hook is skipped here — we
- * hardcode the fields the e2e tests need. Keep this in sync with the
- * declared flags in the relevant `module.config.ts` files.
+ * server isn't given admin creds (and even if it were, it boots before
+ * aepbase is up), so that hook is skipped here — we hardcode the
+ * fields the e2e tests need. Description strings must match the
+ * canonical flag declarations exactly because the flag-management
+ * spec asserts on the rendered text.
  */
 const E2E_MODULE_FLAG_DEFINITION: ResourceDefinition = {
   singular: 'module-flag',
@@ -60,12 +62,12 @@ const E2E_MODULE_FLAG_DEFINITION: ResourceDefinition = {
       recipes__enabled: {
         type: 'string',
         description:
-          "Who can use the Recipes module. (default: superusers) (one of: superusers, all, none)",
+          "Who can use the Recipes module. 'superusers' restricts it to superusers; 'all' makes it available to every signed-in user; 'none' hides it from everyone (including superusers). (default: superusers) (one of: superusers, all, none)",
       },
       settings__omnibox_access: {
         type: 'string',
         description:
-          'Who can use the natural-language omnibox. (default: superuser) (one of: superuser, all)',
+          'Who can use the natural-language omnibox (⌘K / search bar). (default: superuser) (one of: superuser, all)',
       },
     },
   },
