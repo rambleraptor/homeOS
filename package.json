@@ -3,7 +3,6 @@
   "private": true,
   "workspaces": [
     "frontend",
-    "packages/*",
-    "tests/e2e"
+    "packages/*"
   ]
 }

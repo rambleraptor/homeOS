@@ -26,10 +26,6 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "@rambleraptor/homestead-core": "*",
-    "@rambleraptor/homestead-modules": "*"
-  },
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.2",
