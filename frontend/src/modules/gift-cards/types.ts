@@ -1,29 +1,30 @@
 /**
  * Gift Card Module Types
+ *
+ * `GiftCard` and `GiftCardTransaction` are derived from the
+ * `AepResourceDefinition`s in `./resources.ts` — change a field there
+ * and the TS type updates everywhere automatically. See
+ * `@/core/aep/derive-type` for how `AepRecord<>` works (binary fields
+ * become URL strings on read; `id`/`path`/`create_time`/`update_time`
+ * come from the aepbase envelope).
+ *
+ * `transaction_type` is intentionally narrowed to a string literal
+ * union via `Omit + intersection` — aepbase strips JSON-schema `enum`
+ * on round-trip (CLAUDE.md § aepbase schema), so the values live in
+ * the schema's `description` and the TS-side narrowing is hand-coded.
+ *
+ * Form-data shapes (`*FormData`) stay hand-written: file fields are
+ * `File | null` on write but `string` URLs on read, and we don't try
+ * to derive both from one schema.
  */
 
-/**
- * Gift Card record from aepbase.
- *
- * `created_by` holds an aepbase resource path (`users/{user_id}`), not a bare
- * id like PocketBase used to. `create_time`/`update_time` are aepbase's
- * standard timestamps (PocketBase used `created`/`updated`).
- */
-export interface GiftCard {
-  id: string;
-  path: string;
-  merchant: string;
-  card_number: string;
-  pin?: string;
-  amount: number;
-  notes?: string;
-  front_image?: string;
-  back_image?: string;
-  created_by?: string;
-  create_time: string;
-  update_time: string;
-  archived?: boolean;
-}
+import type { AepRecord } from '../../core/aep/derive-type';
+import type {
+  giftCardResource,
+  giftCardTransactionResource,
+} from './resources';
+
+export type GiftCard = AepRecord<typeof giftCardResource>;
 
 /**
  * Form data for creating/updating gift cards
@@ -39,30 +40,16 @@ export interface GiftCardFormData {
 }
 
 /**
- * Transaction type
+ * Transaction type — values encoded in the schema's description
+ * (see `./resources.ts`); kept as a hand-declared union here because
+ * aepbase strips JSON-schema `enum` on round-trip.
  */
 export type TransactionType = 'decrement' | 'set';
 
-/**
- * Gift Card Transaction record from aepbase.
- *
- * Transactions are a child of gift-cards in aepbase, so the parent id is
- * encoded in the URL path (`/gift-cards/{id}/transactions/{id}`) rather than
- * stored as a foreign-key field. The PocketBase-era `gift_card` field is
- * gone; callers identify the parent via the URL.
- */
-export interface GiftCardTransaction {
-  id: string;
-  path: string;
-  transaction_type: TransactionType;
-  previous_amount: number;
-  new_amount: number;
-  amount_changed: number;
-  notes?: string;
-  created_by?: string;
-  create_time: string;
-  update_time: string;
-}
+export type GiftCardTransaction = Omit<
+  AepRecord<typeof giftCardTransactionResource>,
+  'transaction_type'
+> & { transaction_type: TransactionType };
 
 /**
  * Form data for creating transactions

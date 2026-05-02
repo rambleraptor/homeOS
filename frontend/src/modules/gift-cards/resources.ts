@@ -4,11 +4,18 @@
  * Source of truth — synced to aepbase by
  * `frontend/scripts/apply-schema.ts`. Equivalent to
  * `aepbase/terraform/gift_cards.tf`.
+ *
+ * Each resource is declared with `as const satisfies
+ * AepResourceDefinition` so that:
+ *   - the literal types survive into `typeof` for `AepRecord<>`-based
+ *     type derivation in `./types.ts`;
+ *   - the `satisfies` clause still type-checks the shape against
+ *     `AepResourceDefinition`.
  */
 
 import type { AepResourceDefinition } from '../../core/aep/types';
 
-const giftCard: AepResourceDefinition = {
+export const giftCardResource = {
   singular: 'gift-card',
   plural: 'gift-cards',
   description: 'A stored-value gift card owned by the household.',
@@ -36,9 +43,9 @@ const giftCard: AepResourceDefinition = {
     },
     required: ['merchant', 'card_number', 'amount'],
   },
-};
+} as const satisfies AepResourceDefinition;
 
-const transaction: AepResourceDefinition = {
+export const giftCardTransactionResource = {
   singular: 'transaction',
   plural: 'transactions',
   description: 'A balance change recorded against a gift card.',
@@ -64,9 +71,9 @@ const transaction: AepResourceDefinition = {
       'amount_changed',
     ],
   },
-};
+} as const satisfies AepResourceDefinition;
 
-export const giftCardsResources: AepResourceDefinition[] = [
-  giftCard,
-  transaction,
-];
+export const giftCardsResources = [
+  giftCardResource,
+  giftCardTransactionResource,
+] as const satisfies readonly AepResourceDefinition[];
