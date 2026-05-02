@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Tailwind v4 auto-source-detection roots at the Next.js cwd (frontend/) and
+ * excludes node_modules, so the workspace packages at ../../../packages are
+ * never scanned and any utility class used only there (e.g. pointer-events-auto,
+ * translate-x-full, lg:hidden in Sidebar/AppShell/recipe-card overlays) is
+ * absent from the bundle. Make those scans explicit. */
+@source "../../../packages";
+
 /**
  * Homestead Design System Tokens (Tailwind v4 @theme)
  *
