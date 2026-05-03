@@ -17,6 +17,10 @@ export interface User {
   created: string;
   updated: string;
   map_provider?: MapProvider;
+  /** Ordered list of dashboard widget ids the user prefers (parsed from preferences). */
+  dashboard_widget_order?: string[];
+  /** Dashboard widget ids the user has hidden (parsed from preferences). */
+  dashboard_hidden_widgets?: string[];
   type?: UserType;
 }
 

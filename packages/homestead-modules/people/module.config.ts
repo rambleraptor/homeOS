@@ -41,6 +41,7 @@ export const peopleModule: HomeModule = {
   widgets: [
     {
       id: 'people-upcoming-events',
+      label: 'Upcoming events',
       component: UpcomingEventsWidget,
       order: 20,
     },

@@ -39,6 +39,7 @@ export const creditCardsModule: HomeModule = {
   widgets: [
     {
       id: 'credit-cards-upcoming-perks',
+      label: 'Upcoming credit card perks',
       component: UpcomingPerksWidget,
       order: 20,
     },
