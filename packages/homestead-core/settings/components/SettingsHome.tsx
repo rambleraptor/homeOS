@@ -17,6 +17,7 @@ import {
   unsubscribeFromPushNotifications,
 } from '@rambleraptor/homestead-core/utils/notifications';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { DashboardWidgetSettings } from './DashboardWidgetSettings';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -210,6 +211,8 @@ export function SettingsHome() {
           </Card>
         )}
       </div>
+
+      <DashboardWidgetSettings />
 
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">

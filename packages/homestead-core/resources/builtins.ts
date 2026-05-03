@@ -18,7 +18,7 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
     singular: 'user-preference',
     plural: 'user-preferences',
     description:
-      'Per-user app preferences. Currently holds map_provider; extend as new user-scoped settings appear.',
+      'Per-user app preferences. Currently holds map_provider and dashboard widget customization; extend as new user-scoped settings appear.',
     user_settable_create: true,
     parents: ['user'],
     schema: {
@@ -27,6 +27,16 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
         map_provider: {
           type: 'string',
           description: 'one of: google, apple',
+        },
+        dashboard_widget_order: {
+          type: 'string',
+          description:
+            'JSON-encoded array of dashboard widget ids in the user\'s preferred display order. Widgets not listed fall back to their module-declared order.',
+        },
+        dashboard_hidden_widgets: {
+          type: 'string',
+          description:
+            'JSON-encoded array of dashboard widget ids the user has hidden.',
         },
       },
     },

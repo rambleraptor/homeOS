@@ -21,6 +21,11 @@ import type { ModuleVisibility } from '@rambleraptor/homestead-core/settings/vis
 export interface DashboardWidget {
   /** Stable id, unique across all modules. */
   id: string;
+  /**
+   * Human-readable label shown in the dashboard customization UI.
+   * Falls back to `id` when omitted.
+   */
+  label?: string;
   /** Self-contained widget component. Receives no props. */
   component: ComponentType;
   /** Lower numbers render first. Defaults to 100. */

@@ -32,6 +32,21 @@ interface AuthProviderProps {
 interface UserPreferenceRecord {
   id: string;
   map_provider?: MapProvider;
+  dashboard_widget_order?: string;
+  dashboard_hidden_widgets?: string;
+}
+
+function parseStringArray(value: string | undefined): string[] | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed) && parsed.every((v) => typeof v === 'string')) {
+      return parsed;
+    }
+  } catch {
+    // fall through to undefined
+  }
+  return undefined;
 }
 
 async function hydrateUserPreferences(user: User): Promise<User> {
@@ -41,7 +56,12 @@ async function hydrateUserPreferences(user: User): Promise<User> {
       { parent: [AepCollections.USERS, user.id] },
     );
     if (prefs.length > 0) {
-      return { ...user, map_provider: prefs[0].map_provider };
+      return {
+        ...user,
+        map_provider: prefs[0].map_provider,
+        dashboard_widget_order: parseStringArray(prefs[0].dashboard_widget_order),
+        dashboard_hidden_widgets: parseStringArray(prefs[0].dashboard_hidden_widgets),
+      };
     }
   } catch (error) {
     logger.error('Failed to fetch user preferences', error);

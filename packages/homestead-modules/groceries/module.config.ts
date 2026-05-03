@@ -36,6 +36,7 @@ export const groceriesModule: HomeModule = {
   widgets: [
     {
       id: 'groceries-remaining',
+      label: 'Groceries',
       component: GroceriesWidget,
       order: 10,
     },

@@ -24,6 +24,7 @@ export const todosModule: HomeModule = {
   widgets: [
     {
       id: 'todos-active',
+      label: 'Active todos',
       component: TodoWidget,
       order: 5,
     },
