@@ -35,7 +35,7 @@ export function useUpcomingPeople() {
       const events: UpcomingEvent[] = [];
 
       for (const person of allPeople) {
-        for (const ev of getUpcomingEvents(person.birthday ?? null, null, 30)) {
+        for (const ev of getUpcomingEvents(person.birthday ?? null, null, 7)) {
           events.push({
             id: `${person.id}-birthday`,
             names: [person.name],
@@ -47,7 +47,7 @@ export function useUpcomingPeople() {
 
       for (const shared of allShared) {
         if (!shared.anniversary) continue;
-        for (const ev of getUpcomingEvents(null, shared.anniversary, 30)) {
+        for (const ev of getUpcomingEvents(null, shared.anniversary, 7)) {
           const names = [
             peopleById.get(shared.person_a)?.name,
             shared.person_b ? peopleById.get(shared.person_b)?.name : undefined,

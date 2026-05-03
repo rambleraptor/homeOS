@@ -74,7 +74,7 @@ export function UpcomingEventsWidget() {
         <div className="text-center py-10">
           <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
           <p className="font-body text-text-muted">
-            No upcoming birthdays or anniversaries in the next 30 days
+            No upcoming birthdays or anniversaries in the next 7 days
           </p>
         </div>
       )}
