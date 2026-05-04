@@ -5,7 +5,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { CreditCardPerk, PerkFormData } from '../types';
 import { findPerkParentCardId } from './_aepLookup';
@@ -23,10 +24,10 @@ export function useUpdatePerk() {
       const cardId = findPerkParentCardId(queryClient, id);
       const { credit_card: _ignore, ...body } = data;
       const updated = await aepbase.update<CreditCardPerk>(
-        AepCollections.CREDIT_CARD_PERKS,
+        CREDIT_CARD_PERKS,
         id,
         body,
-        { parent: [AepCollections.CREDIT_CARDS, cardId] },
+        { parent: [CREDIT_CARDS, cardId] },
       );
       return { ...updated, credit_card: cardId };
     },

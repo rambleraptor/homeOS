@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
+import { NOTIFICATIONS } from '../../notifications/resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Notification } from '../../notifications/types';
 
@@ -15,8 +17,8 @@ export function useUnreadNotifications() {
     queryFn: async () => {
       const userId = aepbase.getCurrentUser()?.id;
       if (!userId) return [];
-      const all = await aepbase.list<AepNotification>(AepCollections.NOTIFICATIONS, {
-        parent: [AepCollections.USERS, userId],
+      const all = await aepbase.list<AepNotification>(NOTIFICATIONS, {
+        parent: [USERS, userId],
       });
       return all
         .filter((n) => !n.read)

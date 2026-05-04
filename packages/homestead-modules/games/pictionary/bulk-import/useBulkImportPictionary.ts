@@ -10,7 +10,8 @@
  * caught if a person is deleted between preview and import.
  */
 
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
 import type { PictionaryGame, PictionaryTeam } from '../types';
@@ -52,7 +53,7 @@ export function useBulkImportPictionary() {
       }));
 
       const game = await aepbase.create<PictionaryGame>(
-        AepCollections.PICTIONARY_GAMES,
+        PICTIONARY_GAMES,
         {
           played_at: data.played_at,
           location: data.location,
@@ -65,14 +66,14 @@ export function useBulkImportPictionary() {
       await Promise.all(
         resolvedTeams.map((team) =>
           aepbase.create<PictionaryTeam>(
-            AepCollections.PICTIONARY_TEAMS,
+            PICTIONARY_TEAMS,
             {
               players: team.playerPaths,
               won: team.won,
               rank: team.position,
               created_by: createdBy,
             },
-            { parent: [AepCollections.PICTIONARY_GAMES, game.id] },
+            { parent: [PICTIONARY_GAMES, game.id] },
           ),
         ),
       );

@@ -7,7 +7,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { getCurrentPeriod, toLocalISODate } from '../utils/periodUtils';
 import type { PerkRedemption, CreditCardPerk, CreditCard } from '../types';
@@ -28,7 +29,7 @@ export function useRedeemPerk() {
 
       const userId = aepbase.getCurrentUser()?.id;
       const created = await aepbase.create<PerkRedemption>(
-        AepCollections.PERK_REDEMPTIONS,
+        PERK_REDEMPTIONS,
         {
           period_start: toLocalISODate(period.start),
           period_end: toLocalISODate(period.end),
@@ -38,8 +39,8 @@ export function useRedeemPerk() {
         },
         {
           parent: [
-            AepCollections.CREDIT_CARDS, card.id,
-            AepCollections.CREDIT_CARD_PERKS, perk.id,
+            CREDIT_CARDS, card.id,
+            CREDIT_CARD_PERKS, perk.id,
           ],
         },
       );

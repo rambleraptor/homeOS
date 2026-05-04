@@ -397,48 +397,6 @@ export function getCurrentUser(): User | null {
 }
 
 // ----------------------------------------------------------------------------
-// Kebab-case collection name constants (URL paths)
-// ----------------------------------------------------------------------------
-
-/**
- * Plural names as they appear in aepbase URL paths. Mirror PB `Collections`
- * but kebab-case to match aepbase's resource definitions. Hooks should import
- * from here so renaming is centralized.
- */
-export const AepCollections = {
-  USERS: 'users',
-  // child of users; URL segment is `preferences`, not `user-preferences`
-  USER_PREFERENCES: 'preferences',
-  GIFT_CARDS: 'gift-cards',
-  GIFT_CARD_TRANSACTIONS: 'transactions', // child of gift-cards
-  PEOPLE: 'people',
-  PERSON_SHARED_DATA: 'person-shared-data',
-  ADDRESSES: 'addresses',
-  // notifications + subscriptions are children of users — no top-level form.
-  // Always pass `parent: ['users', userId]`.
-  NOTIFICATIONS: 'notifications',
-  NOTIFICATION_SUBSCRIPTIONS: 'notification-subscriptions',
-  GROCERIES: 'groceries',
-  STORES: 'stores',
-  HSA_RECEIPTS: 'hsa-receipts',
-  CREDIT_CARDS: 'credit-cards',
-  CREDIT_CARD_PERKS: 'perks', // child of credit-cards
-  PERK_REDEMPTIONS: 'redemptions', // child of perks
-  RECIPES: 'recipes',
-  RECIPE_LOGS: 'logs', // child of recipes
-  GAMES: 'games',
-  GAME_HOLES: 'holes', // child of games
-  PICTIONARY_GAMES: 'pictionary-games',
-  PICTIONARY_TEAMS: 'pictionary-teams', // child of pictionary-games
-  TODOS: 'todos',
-  PROJECTS: 'projects',
-  // Household-wide module flags singleton. Resource definition is
-  // built dynamically from declared module flags and pushed by the
-  // Next.js server at startup (see `src/instrumentation.ts`).
-  MODULE_FLAGS: 'module-flags',
-} as const;
-
-// ----------------------------------------------------------------------------
 // Default export — namespace of operations for hook callers
 // ----------------------------------------------------------------------------
 

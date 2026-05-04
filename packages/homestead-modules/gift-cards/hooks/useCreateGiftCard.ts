@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { GiftCard, GiftCardFormData } from '../types';
 import { buildGiftCardFormData, buildGiftCardData } from '../utils/formData';
@@ -19,7 +20,7 @@ export function useCreateGiftCard() {
       const payload = hasFiles
         ? buildGiftCardFormData({ data, createdBy })
         : buildGiftCardData({ data, createdBy });
-      return aepbase.create<GiftCard>(AepCollections.GIFT_CARDS, payload);
+      return aepbase.create<GiftCard>(GIFT_CARDS, payload);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

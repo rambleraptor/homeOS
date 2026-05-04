@@ -14,6 +14,7 @@ import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags
 import { useModuleFlag } from '../hooks/useModuleFlag';
 
 vi.mock('@rambleraptor/homestead-core/module-flags/sync', () => ({
+  MODULE_FLAGS: 'module-flags',
   syncModuleFlagsSchema: vi.fn(async () => ({ action: 'created' as const })),
 }));
 

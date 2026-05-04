@@ -3,7 +3,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PEOPLE } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { PersonFormData } from '../types';
@@ -25,7 +26,7 @@ export function useCreatePerson() {
     mutationFn: async (data: PersonFormData) => {
       try {
         const userId = aepbase.getCurrentUser()?.id;
-        const personRecord = await aepbase.create<PersonRecord>(AepCollections.PEOPLE, {
+        const personRecord = await aepbase.create<PersonRecord>(PEOPLE, {
           name: data.name,
           birthday: data.birthday,
           created_by: userId ? `users/${userId}` : undefined,

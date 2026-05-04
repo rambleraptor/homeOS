@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { HSA_RECEIPTS } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { HSAReceipt } from '../types';
@@ -13,7 +14,7 @@ export function useUpdateHSAReceipt() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, data }: UpdateHSAReceiptParams) =>
-      aepbase.update<HSAReceipt>(AepCollections.HSA_RECEIPTS, id, data),
+      aepbase.update<HSAReceipt>(HSA_RECEIPTS, id, data),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.module('hsa').all() });
       await queryClient.refetchQueries({ queryKey: queryKeys.module('hsa').all() });

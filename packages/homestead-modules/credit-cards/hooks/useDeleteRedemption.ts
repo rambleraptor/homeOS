@@ -4,7 +4,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { findRedemptionParents } from './_aepLookup';
 
@@ -14,10 +15,10 @@ export function useDeleteRedemption() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { creditCardId, perkId } = findRedemptionParents(queryClient, id);
-      await aepbase.remove(AepCollections.PERK_REDEMPTIONS, id, {
+      await aepbase.remove(PERK_REDEMPTIONS, id, {
         parent: [
-          AepCollections.CREDIT_CARDS, creditCardId,
-          AepCollections.CREDIT_CARD_PERKS, perkId,
+          CREDIT_CARDS, creditCardId,
+          CREDIT_CARD_PERKS, perkId,
         ],
       });
     },

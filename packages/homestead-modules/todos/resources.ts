@@ -1,9 +1,17 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+/**
+ * Collection plural identifiers — the URL segment aepbase uses for each
+ * resource. Hooks should import these directly so renaming a collection
+ * is a single-file change.
+ */
+export const TODOS = 'todos' as const;
+export const PROJECTS = 'projects' as const;
+
 export const todosResources: ResourceDefinition[] = [
   {
     singular: 'project',
-    plural: 'projects',
+    plural: PROJECTS,
     description: 'A todo project (e.g. Kitchen Remodel, Garden).',
     user_settable_create: true,
     schema: {
@@ -17,7 +25,7 @@ export const todosResources: ResourceDefinition[] = [
   },
   {
     singular: 'todo',
-    plural: 'todos',
+    plural: TODOS,
     description: 'A household todo item.',
     user_settable_create: true,
     schema: {

@@ -7,14 +7,15 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { RECIPES } from '../resources';
 import type { Recipe } from '../types';
 
 export function useRecipes() {
   return useQuery({
     queryKey: queryKeys.module('recipes').list(),
     queryFn: async (): Promise<Recipe[]> => {
-      const recipes = await aepbase.list<Recipe>(AepCollections.RECIPES);
+      const recipes = await aepbase.list<Recipe>(RECIPES);
       return recipes.sort((a, b) =>
         (b.create_time || '').localeCompare(a.create_time || ''),
       );

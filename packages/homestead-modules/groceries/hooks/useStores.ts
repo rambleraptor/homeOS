@@ -3,7 +3,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { STORES } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Store } from '../types';
 
@@ -17,7 +18,7 @@ export function useStores() {
   return useQuery({
     queryKey: queryKeys.module('groceries').detail('stores'),
     queryFn: async () => {
-      const stores = await aepbase.list<AepStore>(AepCollections.STORES);
+      const stores = await aepbase.list<AepStore>(STORES);
       return stores
         .map((rec) => ({
           ...rec,

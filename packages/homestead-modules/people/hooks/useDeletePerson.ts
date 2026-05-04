@@ -3,7 +3,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PEOPLE } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 
 export function useDeletePerson() {
@@ -11,7 +12,7 @@ export function useDeletePerson() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await aepbase.remove(AepCollections.PEOPLE, id);
+      await aepbase.remove(PEOPLE, id);
       return id;
     },
     onSuccess: () => {

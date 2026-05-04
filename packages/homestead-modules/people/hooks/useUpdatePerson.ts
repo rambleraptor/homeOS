@@ -3,7 +3,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PEOPLE } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { PersonFormData } from '../types';
@@ -41,7 +42,7 @@ export function useUpdatePerson() {
           : oldSharedData.person_a
         : undefined;
 
-      const personRecord = await aepbase.update<PersonRecord>(AepCollections.PEOPLE, id, {
+      const personRecord = await aepbase.update<PersonRecord>(PEOPLE, id, {
         name: data.name,
         birthday: data.birthday,
       });

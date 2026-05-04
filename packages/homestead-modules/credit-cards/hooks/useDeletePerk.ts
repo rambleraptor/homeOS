@@ -4,7 +4,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { findPerkParentCardId } from './_aepLookup';
 
@@ -14,8 +15,8 @@ export function useDeletePerk() {
   return useMutation({
     mutationFn: async (id: string) => {
       const cardId = findPerkParentCardId(queryClient, id);
-      await aepbase.remove(AepCollections.CREDIT_CARD_PERKS, id, {
-        parent: [AepCollections.CREDIT_CARDS, cardId],
+      await aepbase.remove(CREDIT_CARD_PERKS, id, {
+        parent: [CREDIT_CARDS, cardId],
       });
     },
     onSuccess: async () => {

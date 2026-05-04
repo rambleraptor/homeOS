@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { ManagedUser, UserFormData } from '../types';
 
@@ -17,7 +18,7 @@ export function useUpdateUser() {
       if (data.display_name !== undefined) body.display_name = data.display_name;
       if (data.type !== undefined) body.type = data.type;
       if (data.password) body.password = data.password;
-      return aepbase.update<ManagedUser>(AepCollections.USERS, id, body);
+      return aepbase.update<ManagedUser>(USERS, id, body);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.users.all() });

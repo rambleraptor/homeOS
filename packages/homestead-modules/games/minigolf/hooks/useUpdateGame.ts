@@ -4,7 +4,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GAMES } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Game } from '../types';
 
@@ -20,7 +21,7 @@ export function useUpdateGame() {
 
   return useMutation({
     mutationFn: async ({ id, data }: UpdateGameParams): Promise<Game> => {
-      return await aepbase.update<Game>(AepCollections.GAMES, id, data);
+      return await aepbase.update<Game>(GAMES, id, data);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

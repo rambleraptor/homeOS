@@ -6,7 +6,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PEOPLE } from '../../../people/resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 
 interface PersonRecord {
@@ -17,7 +18,7 @@ interface PersonRecord {
 export type PeopleByName = Map<string, string>;
 
 export async function loadPeopleMap(): Promise<PeopleByName> {
-  const people = await aepbase.list<PersonRecord>(AepCollections.PEOPLE);
+  const people = await aepbase.list<PersonRecord>(PEOPLE);
   const map: PeopleByName = new Map();
   for (const p of people) {
     map.set(p.name.toLowerCase(), p.id);

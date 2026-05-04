@@ -3,7 +3,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GROCERIES } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { GroceryItem } from '../types';
@@ -18,11 +19,11 @@ export function useMarkStoreCompleted() {
     // Bulk delete — online-only. UI disables the trigger offline.
     networkMode: 'online',
     mutationFn: async ({ storeId }: MarkStoreCompletedParams) => {
-      const all = await aepbase.list<GroceryItem>(AepCollections.GROCERIES);
+      const all = await aepbase.list<GroceryItem>(GROCERIES);
       const items = all.filter((item) => (storeId ? item.store === storeId : !item.store));
       logger.info(`Deleting ${items.length} items for completed store ${storeId || 'no-store'}`);
       await Promise.all(
-        items.map((item) => aepbase.remove(AepCollections.GROCERIES, item.id)),
+        items.map((item) => aepbase.remove(GROCERIES, item.id)),
       );
       return { deleted: items.length, storeId };
     },

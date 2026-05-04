@@ -7,7 +7,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PROJECTS, TODOS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Todo } from '../types';
 
@@ -17,17 +18,17 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: async (projectId: string): Promise<void> => {
       const projectRef = `projects/${projectId}`;
-      const todos = await aepbase.list<Todo>(AepCollections.TODOS);
+      const todos = await aepbase.list<Todo>(TODOS);
       const members = todos.filter((t) => t.project === projectRef);
       await Promise.all(
         members.map((t) =>
-          aepbase.update<Todo>(AepCollections.TODOS, t.id, {
+          aepbase.update<Todo>(TODOS, t.id, {
             project: '',
             in_main: false,
           }),
         ),
       );
-      await aepbase.remove(AepCollections.PROJECTS, projectId);
+      await aepbase.remove(PROJECTS, projectId);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

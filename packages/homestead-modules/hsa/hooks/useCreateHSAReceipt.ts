@@ -3,7 +3,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { HSA_RECEIPTS } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { HSAReceipt, HSAReceiptFormData } from '../types';
@@ -28,7 +29,7 @@ export function useCreateHSAReceipt() {
       formData.append('resource', JSON.stringify(resource));
       if (data.receipt_file) formData.append('receipt_file', data.receipt_file);
 
-      return await aepbase.create<HSAReceipt>(AepCollections.HSA_RECEIPTS, formData);
+      return await aepbase.create<HSAReceipt>(HSA_RECEIPTS, formData);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.module('hsa').all() });

@@ -4,7 +4,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES } from '../resources';
 import type { PictionaryGame } from '../types';
 
 export function useGame(gameId: string | null) {
@@ -13,7 +14,7 @@ export function useGame(gameId: string | null) {
     queryFn: async (): Promise<PictionaryGame | null> => {
       if (!gameId) return null;
       return await aepbase.get<PictionaryGame>(
-        AepCollections.PICTIONARY_GAMES,
+        PICTIONARY_GAMES,
         gameId,
       );
     },

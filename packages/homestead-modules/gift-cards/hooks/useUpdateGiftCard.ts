@@ -7,7 +7,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { GiftCard, GiftCardFormData } from '../types';
 import { buildGiftCardFormData, buildGiftCardData } from '../utils/formData';
@@ -20,7 +21,7 @@ export function useUpdateGiftCard() {
       logger.debug('Gift card update mutation called', { id, data });
 
       if (data.amount === 0) {
-        await aepbase.remove(AepCollections.GIFT_CARDS, id);
+        await aepbase.remove(GIFT_CARDS, id);
         return null;
       }
 
@@ -29,10 +30,10 @@ export function useUpdateGiftCard() {
 
       if (hasFiles) {
         const formData = buildGiftCardFormData({ data, archived });
-        return await aepbase.update<GiftCard>(AepCollections.GIFT_CARDS, id, formData);
+        return await aepbase.update<GiftCard>(GIFT_CARDS, id, formData);
       }
       const updateData = buildGiftCardData({ data, archived });
-      return await aepbase.update<GiftCard>(AepCollections.GIFT_CARDS, id, updateData);
+      return await aepbase.update<GiftCard>(GIFT_CARDS, id, updateData);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

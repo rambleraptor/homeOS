@@ -7,7 +7,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS, GIFT_CARD_TRANSACTIONS } from '../resources';
 import type { GiftCardTransaction } from '../types';
 
 export function useGiftCardTransactions(giftCardId: string | null) {
@@ -16,8 +17,8 @@ export function useGiftCardTransactions(giftCardId: string | null) {
     queryFn: async () => {
       if (!giftCardId) return [];
       const txs = await aepbase.list<GiftCardTransaction>(
-        AepCollections.GIFT_CARD_TRANSACTIONS,
-        { parent: [AepCollections.GIFT_CARDS, giftCardId] },
+        GIFT_CARD_TRANSACTIONS,
+        { parent: [GIFT_CARDS, giftCardId] },
       );
       return txs.sort((a, b) =>
         (b.create_time || '').localeCompare(a.create_time || ''),

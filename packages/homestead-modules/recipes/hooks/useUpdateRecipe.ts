@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { RECIPES } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Recipe, RecipeFormData } from '../types';
 
@@ -15,7 +16,7 @@ export function useUpdateRecipe() {
       id: string;
       data: RecipeFormData;
     }): Promise<Recipe> => {
-      return aepbase.update<Recipe>(AepCollections.RECIPES, id, {
+      return aepbase.update<Recipe>(RECIPES, id, {
         title: data.title,
         source_pointer: data.source_pointer,
         parsed_ingredients: data.parsed_ingredients,

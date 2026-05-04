@@ -1,9 +1,13 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+export const PEOPLE = 'people' as const;
+export const PERSON_SHARED_DATA = 'person-shared-data' as const;
+export const ADDRESSES = 'addresses' as const;
+
 export const peopleResources: ResourceDefinition[] = [
   {
     singular: 'person',
-    plural: 'people',
+    plural: PEOPLE,
     description:
       'A person tracked by the household (family, friend, contact).',
     user_settable_create: true,
@@ -19,7 +23,7 @@ export const peopleResources: ResourceDefinition[] = [
   },
   {
     singular: 'person-shared-data',
-    plural: 'person-shared-data',
+    plural: PERSON_SHARED_DATA,
     description:
       "Data shared between two people (e.g. a couple's shared address or anniversary).",
     user_settable_create: true,
@@ -37,7 +41,7 @@ export const peopleResources: ResourceDefinition[] = [
   },
   {
     singular: 'address',
-    plural: 'addresses',
+    plural: ADDRESSES,
     description:
       'A physical address, optionally with WiFi credentials, optionally shared between people.',
     user_settable_create: true,

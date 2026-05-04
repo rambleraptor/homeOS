@@ -1,9 +1,12 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+export const PICTIONARY_GAMES = 'pictionary-games' as const;
+export const PICTIONARY_TEAMS = 'pictionary-teams' as const;
+
 export const pictionaryResources: ResourceDefinition[] = [
   {
     singular: 'pictionary-game',
-    plural: 'pictionary-games',
+    plural: PICTIONARY_GAMES,
     description: 'A single Pictionary game session.',
     user_settable_create: true,
     schema: {
@@ -26,7 +29,7 @@ export const pictionaryResources: ResourceDefinition[] = [
   },
   {
     singular: 'pictionary-team',
-    plural: 'pictionary-teams',
+    plural: PICTIONARY_TEAMS,
     description: 'A team within a Pictionary game.',
     user_settable_create: true,
     parents: ['pictionary-game'],

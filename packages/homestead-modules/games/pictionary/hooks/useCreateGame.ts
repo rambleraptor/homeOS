@@ -8,7 +8,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type {
   PictionaryGame,
@@ -42,7 +43,7 @@ export function useCreateGame() {
     mutationFn: async (data: PictionaryGameFormData): Promise<PictionaryGame> => {
       const createdBy = createdByPath();
       const game = await aepbase.create<PictionaryGame>(
-        AepCollections.PICTIONARY_GAMES,
+        PICTIONARY_GAMES,
         {
           played_at: data.played_at || new Date().toISOString(),
           location: data.location,
@@ -55,9 +56,9 @@ export function useCreateGame() {
       await Promise.all(
         data.teams.map((team, index) =>
           aepbase.create<PictionaryTeam>(
-            AepCollections.PICTIONARY_TEAMS,
+            PICTIONARY_TEAMS,
             teamPayload(team, index, createdBy),
-            { parent: [AepCollections.PICTIONARY_GAMES, game.id] },
+            { parent: [PICTIONARY_GAMES, game.id] },
           ),
         ),
       );

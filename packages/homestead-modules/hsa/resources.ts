@@ -1,9 +1,11 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+export const HSA_RECEIPTS = 'hsa-receipts' as const;
+
 export const hsaResources: ResourceDefinition[] = [
   {
     singular: 'hsa-receipt',
-    plural: 'hsa-receipts',
+    plural: HSA_RECEIPTS,
     description:
       'A receipt for an HSA-eligible expense (for later reimbursement tracking).',
     user_settable_create: true,

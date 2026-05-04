@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
+import { NOTIFICATION_SUBSCRIPTIONS } from '@rambleraptor/homestead-core/notifications/constants';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { NotificationSubscription } from '../types';
@@ -18,8 +20,8 @@ export function useNotificationSubscription() {
         const userId = aepbase.getCurrentUser()?.id;
         if (!userId) return null;
         const list = await aepbase.list<AepNotificationSubscription>(
-          AepCollections.NOTIFICATION_SUBSCRIPTIONS,
-          { parent: [AepCollections.USERS, userId] },
+          NOTIFICATION_SUBSCRIPTIONS,
+          { parent: [USERS, userId] },
         );
         return list.length > 0 ? list[0] : null;
       } catch (error) {

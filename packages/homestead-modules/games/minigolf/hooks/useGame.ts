@@ -4,7 +4,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GAMES } from '../resources';
 import type { Game } from '../types';
 
 export function useGame(gameId: string | null) {
@@ -12,7 +13,7 @@ export function useGame(gameId: string | null) {
     queryKey: queryKeys.module('minigolf').detail(gameId || ''),
     queryFn: async (): Promise<Game | null> => {
       if (!gameId) return null;
-      return await aepbase.get<Game>(AepCollections.GAMES, gameId);
+      return await aepbase.get<Game>(GAMES, gameId);
     },
     enabled: !!gameId,
   });

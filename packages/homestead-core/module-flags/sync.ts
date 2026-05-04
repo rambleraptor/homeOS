@@ -15,7 +15,8 @@ import { buildResourceSchema, type ModuleFlagDefs } from '@rambleraptor/homestea
 import { jsonEqual } from '../resources/equal';
 
 const RESOURCE_SINGULAR = 'module-flag';
-const RESOURCE_PLURAL = 'module-flags';
+export const MODULE_FLAGS = 'module-flags' as const;
+const RESOURCE_PLURAL = MODULE_FLAGS;
 const DEFINITIONS_PATH = 'aep-resource-definitions';
 
 interface AepResourceDefinition {

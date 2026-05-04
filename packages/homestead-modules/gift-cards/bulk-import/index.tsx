@@ -5,13 +5,13 @@
  */
 
 import { BulkImportContainer, useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
-import { AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { giftCardsImportSchema } from './schema';
 
 export function GiftCardsBulkImport() {
   const bulkImport = useBulkImport({
-    collection: AepCollections.GIFT_CARDS,
+    collection: GIFT_CARDS,
     queryKey: queryKeys.module('gift-cards').list(),
     // Transform data to add null for file fields
     transformData: (data) => ({

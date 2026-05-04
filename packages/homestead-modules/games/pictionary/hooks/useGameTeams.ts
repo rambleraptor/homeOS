@@ -7,7 +7,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import type { PictionaryTeam } from '../types';
 
 export function useGameTeams(gameId: string | null) {
@@ -20,8 +21,8 @@ export function useGameTeams(gameId: string | null) {
     queryFn: async (): Promise<PictionaryTeam[]> => {
       if (!gameId) return [];
       const teams = await aepbase.list<PictionaryTeam>(
-        AepCollections.PICTIONARY_TEAMS,
-        { parent: [AepCollections.PICTIONARY_GAMES, gameId] },
+        PICTIONARY_TEAMS,
+        { parent: [PICTIONARY_GAMES, gameId] },
       );
       return teams.sort((a, b) => {
         const aRank = a.rank ?? Number.MAX_SAFE_INTEGER;

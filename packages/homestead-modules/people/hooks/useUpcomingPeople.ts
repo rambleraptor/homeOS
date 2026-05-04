@@ -4,7 +4,8 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PEOPLE, PERSON_SHARED_DATA } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { getUpcomingEvents } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import type { PersonSharedData } from '../types';
@@ -27,8 +28,8 @@ export function useUpcomingPeople() {
     queryKey: queryKeys.module('people').list({ type: 'upcoming' }),
     queryFn: async () => {
       const [allPeople, allShared] = await Promise.all([
-        aepbase.list<PersonRecord>(AepCollections.PEOPLE),
-        aepbase.list<PersonSharedData>(AepCollections.PERSON_SHARED_DATA),
+        aepbase.list<PersonRecord>(PEOPLE),
+        aepbase.list<PersonSharedData>(PERSON_SHARED_DATA),
       ]);
 
       const peopleById = new Map(allPeople.map((p) => [p.id, p]));

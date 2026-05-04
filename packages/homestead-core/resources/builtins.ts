@@ -13,10 +13,20 @@
 
 import type { ResourceDefinition } from './types';
 
+/**
+ * The `user` collection itself isn't declared here — aepbase manages it
+ * internally — but hooks need its plural to build parent paths for
+ * user-scoped children (preferences, notifications, etc.).
+ */
+export const USERS = 'users' as const;
+export const USER_PREFERENCES = 'preferences' as const;
+export const ACTIONS = 'actions' as const;
+export const RUNS = 'runs' as const;
+
 export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
   {
     singular: 'user-preference',
-    plural: 'user-preferences',
+    plural: USER_PREFERENCES,
     description:
       'Per-user app preferences. Currently holds map_provider and dashboard widget customization; extend as new user-scoped settings appear.',
     user_settable_create: true,
@@ -43,7 +53,7 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
   },
   {
     singular: 'action',
-    plural: 'actions',
+    plural: ACTIONS,
     description:
       'A user-defined automation backed by a server-side script.',
     user_settable_create: true,
@@ -62,7 +72,7 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
   },
   {
     singular: 'run',
-    plural: 'runs',
+    plural: RUNS,
     description: 'A single execution of an action.',
     user_settable_create: true,
     parents: ['action'],

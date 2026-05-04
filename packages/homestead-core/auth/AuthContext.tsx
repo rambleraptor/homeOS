@@ -12,6 +12,7 @@
  * `useAuth().user`.
  */
 
+import { USERS, USER_PREFERENCES } from '@rambleraptor/homestead-core/resources/builtins';
 import { useEffect, useState, useCallback } from 'react';
 import type {
   AuthContextValue,
@@ -21,7 +22,7 @@ import type {
   User,
 } from './types';
 import { AuthContext } from './context';
-import { aepbase, AepCollections } from '../api/aepbase';
+import { aepbase } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { logger } from '../utils/logger';
 
@@ -52,8 +53,8 @@ function parseStringArray(value: string | undefined): string[] | undefined {
 async function hydrateUserPreferences(user: User): Promise<User> {
   try {
     const prefs = await aepbase.list<UserPreferenceRecord>(
-      AepCollections.USER_PREFERENCES,
-      { parent: [AepCollections.USERS, user.id] },
+      USER_PREFERENCES,
+      { parent: [USERS, user.id] },
     );
     if (prefs.length > 0) {
       return {

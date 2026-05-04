@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { TODOS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Todo } from '../types';
 
@@ -15,7 +16,7 @@ export function useToggleTodoInMain() {
       id: string;
       inMain: boolean;
     }): Promise<Todo> => {
-      return aepbase.update<Todo>(AepCollections.TODOS, id, {
+      return aepbase.update<Todo>(TODOS, id, {
         in_main: inMain,
       });
     },

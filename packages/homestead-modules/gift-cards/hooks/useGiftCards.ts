@@ -7,14 +7,15 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS } from '../resources';
 import type { GiftCard } from '../types';
 
 export function useGiftCards() {
   return useQuery({
     queryKey: queryKeys.module('gift-cards').list(),
     queryFn: async (): Promise<GiftCard[]> => {
-      const cards = await aepbase.list<GiftCard>(AepCollections.GIFT_CARDS);
+      const cards = await aepbase.list<GiftCard>(GIFT_CARDS);
       return cards.sort((a, b) =>
         (b.create_time || '').localeCompare(a.create_time || ''),
       );

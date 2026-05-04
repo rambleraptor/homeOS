@@ -1,9 +1,12 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+export const STORES = 'stores' as const;
+export const GROCERIES = 'groceries' as const;
+
 export const groceriesResources: ResourceDefinition[] = [
   {
     singular: 'store',
-    plural: 'stores',
+    plural: STORES,
     description: 'A grocery store (used to group grocery items).',
     user_settable_create: true,
     schema: {
@@ -18,7 +21,7 @@ export const groceriesResources: ResourceDefinition[] = [
   },
   {
     singular: 'grocery',
-    plural: 'groceries',
+    plural: GROCERIES,
     description: "A single item on the household's shared grocery list.",
     user_settable_create: true,
     schema: {

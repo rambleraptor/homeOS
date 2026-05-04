@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { ADDRESSES, PEOPLE } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Person, Address } from '../types';
 import { findSharedDataForPerson } from '../utils/sharedDataSync';
@@ -34,12 +35,12 @@ export function usePersonById(id: string) {
   return useQuery({
     queryKey: queryKeys.module('people').detail(id),
     queryFn: async () => {
-      const record = await aepbase.get<PersonRecord>(AepCollections.PEOPLE, id);
+      const record = await aepbase.get<PersonRecord>(PEOPLE, id);
       const sharedData = await findSharedDataForPerson(id);
 
       const addresses: Address[] = [];
       if (sharedData) {
-        const all = await aepbase.list<Address>(AepCollections.ADDRESSES).catch(() => []);
+        const all = await aepbase.list<Address>(ADDRESSES).catch(() => []);
         const primary = sharedData.address_id
           ? all.find((a) => a.id === sharedData.address_id)
           : undefined;
@@ -56,7 +57,7 @@ export function usePersonById(id: string) {
         ? sharedData.person_a === id ? sharedData.person_b : sharedData.person_a
         : undefined;
       if (partnerId) {
-        const partnerRecord = await aepbase.get<PersonRecord>(AepCollections.PEOPLE, partnerId);
+        const partnerRecord = await aepbase.get<PersonRecord>(PEOPLE, partnerId);
         partner = toPerson(partnerRecord, addresses, sharedData?.anniversary);
       }
 
