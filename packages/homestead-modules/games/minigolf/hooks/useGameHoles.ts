@@ -5,7 +5,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GAMES, GAME_HOLES } from '../resources';
 import type { Hole } from '../types';
 
 export function useGameHoles(gameId: string | null) {
@@ -13,8 +14,8 @@ export function useGameHoles(gameId: string | null) {
     queryKey: [...queryKeys.module('minigolf').all(), 'holes', gameId || ''],
     queryFn: async (): Promise<Hole[]> => {
       if (!gameId) return [];
-      const holes = await aepbase.list<Hole>(AepCollections.GAME_HOLES, {
-        parent: [AepCollections.GAMES, gameId],
+      const holes = await aepbase.list<Hole>(GAME_HOLES, {
+        parent: [GAMES, gameId],
       });
       return holes.sort((a, b) => a.hole_number - b.hole_number);
     },

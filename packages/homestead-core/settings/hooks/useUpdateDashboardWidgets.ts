@@ -11,7 +11,8 @@
  */
 
 import { useMutation } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { USERS, USER_PREFERENCES } from '@rambleraptor/homestead-core/resources/builtins';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 
 interface UserPreferenceRecord {
@@ -35,27 +36,27 @@ export function useUpdateDashboardWidgets() {
       const userId = aepbase.getCurrentUser()?.id;
       if (!userId) throw new Error('User not authenticated');
 
-      const parent = [AepCollections.USERS, userId];
+      const parent = [USERS, userId];
       const payload = {
         dashboard_widget_order: JSON.stringify(order),
         dashboard_hidden_widgets: JSON.stringify(hidden),
       };
 
       const existing = await aepbase.list<UserPreferenceRecord>(
-        AepCollections.USER_PREFERENCES,
+        USER_PREFERENCES,
         { parent },
       );
 
       if (existing.length > 0) {
         return await aepbase.update<UserPreferenceRecord>(
-          AepCollections.USER_PREFERENCES,
+          USER_PREFERENCES,
           existing[0].id,
           payload,
           { parent },
         );
       }
       return await aepbase.create<UserPreferenceRecord>(
-        AepCollections.USER_PREFERENCES,
+        USER_PREFERENCES,
         payload,
         { parent },
       );

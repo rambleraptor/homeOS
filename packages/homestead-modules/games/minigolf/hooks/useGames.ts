@@ -5,14 +5,15 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GAMES } from '../resources';
 import type { Game } from '../types';
 
 export function useGames() {
   return useQuery({
     queryKey: queryKeys.module('minigolf').list(),
     queryFn: async (): Promise<Game[]> => {
-      const games = await aepbase.list<Game>(AepCollections.GAMES);
+      const games = await aepbase.list<Game>(GAMES);
       return games.sort((a, b) => {
         const aKey = a.played_at || a.create_time || '';
         const bKey = b.played_at || b.create_time || '';

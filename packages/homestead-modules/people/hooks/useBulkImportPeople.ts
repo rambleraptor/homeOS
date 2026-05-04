@@ -6,7 +6,8 @@
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PEOPLE } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { PersonCSVData } from '../types';
 import { createSharedData, setPartner } from '../utils/sharedDataSync';
@@ -49,7 +50,7 @@ export function useBulkImportPeople() {
         const personData = item.data;
         try {
           const personRecord = await aepbase.create<PersonRecord>(
-            AepCollections.PEOPLE,
+            PEOPLE,
             {
               name: personData.name,
               birthday: personData.birthday,
@@ -95,7 +96,7 @@ export function useBulkImportPeople() {
       }
 
       try {
-        const existingPeople = await aepbase.list<PersonRecord>(AepCollections.PEOPLE);
+        const existingPeople = await aepbase.list<PersonRecord>(PEOPLE);
         for (const person of existingPeople) {
           if (!nameToIdMap.has(person.name.toLowerCase())) {
             nameToIdMap.set(person.name.toLowerCase(), person.id);

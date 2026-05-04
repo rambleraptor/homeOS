@@ -9,19 +9,20 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS } from '../resources';
 import type { CreditCard, CreditCardPerk } from '../types';
 
 export function useCreditCardPerks() {
   return useQuery({
     queryKey: queryKeys.module('credit-cards').list({ type: 'perks' }),
     queryFn: async (): Promise<CreditCardPerk[]> => {
-      const cards = await aepbase.list<CreditCard>(AepCollections.CREDIT_CARDS);
+      const cards = await aepbase.list<CreditCard>(CREDIT_CARDS);
       const all: CreditCardPerk[] = [];
       for (const card of cards) {
         const perks = await aepbase.list<CreditCardPerk>(
-          AepCollections.CREDIT_CARD_PERKS,
-          { parent: [AepCollections.CREDIT_CARDS, card.id] },
+          CREDIT_CARD_PERKS,
+          { parent: [CREDIT_CARDS, card.id] },
         );
         for (const p of perks) all.push({ ...p, credit_card: card.id });
       }

@@ -8,7 +8,8 @@
 import { useMemo, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GROCERIES } from '../resources';
 import { extractGroceryItemsFromImage } from '@rambleraptor/homestead-core/services/gemini';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { useModuleFlag } from '@rambleraptor/homestead-core/settings';
@@ -70,7 +71,7 @@ export function useCreateGroceryItemsFromImage() {
       for (const extractedItem of extractedItems) {
         try {
           const item = await aepbase.create<GroceryItem>(
-            AepCollections.GROCERIES,
+            GROCERIES,
             {
               name: extractedItem.name,
               notes: '',

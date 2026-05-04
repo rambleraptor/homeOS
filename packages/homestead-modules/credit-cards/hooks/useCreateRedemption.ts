@@ -7,7 +7,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { PerkRedemption, RedemptionFormData } from '../types';
 import { findPerkParentCardId } from './_aepLookup';
@@ -21,12 +22,12 @@ export function useCreateRedemption() {
       const cardId = findPerkParentCardId(queryClient, data.perk);
       const { perk: perkId, ...body } = data;
       const created = await aepbase.create<PerkRedemption>(
-        AepCollections.PERK_REDEMPTIONS,
+        PERK_REDEMPTIONS,
         { ...body, created_by: userId ? `users/${userId}` : undefined },
         {
           parent: [
-            AepCollections.CREDIT_CARDS, cardId,
-            AepCollections.CREDIT_CARD_PERKS, perkId,
+            CREDIT_CARDS, cardId,
+            CREDIT_CARD_PERKS, perkId,
           ],
         },
       );

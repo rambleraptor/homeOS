@@ -7,7 +7,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GAMES } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Game, GameFormData } from '../types';
 
@@ -29,7 +30,7 @@ export function useCreateGame() {
         completed: false,
         created_by: createdByPath(),
       };
-      return await aepbase.create<Game>(AepCollections.GAMES, payload);
+      return await aepbase.create<Game>(GAMES, payload);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

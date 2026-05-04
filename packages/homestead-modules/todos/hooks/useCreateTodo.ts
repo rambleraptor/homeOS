@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { TODOS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Todo, TodoFormData } from '../types';
 
@@ -16,7 +17,7 @@ export function useCreateTodo() {
     mutationFn: async (data: CreateTodoInput): Promise<Todo> => {
       const userId = aepbase.getCurrentUser()?.id;
       const createdBy = userId ? `users/${userId}` : undefined;
-      return aepbase.create<Todo>(AepCollections.TODOS, {
+      return aepbase.create<Todo>(TODOS, {
         title: data.title,
         status: 'pending',
         ...(createdBy ? { created_by: createdBy } : {}),

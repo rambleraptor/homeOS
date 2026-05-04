@@ -8,7 +8,8 @@
 
 import { useQueries } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import type { PictionaryTeam } from '../types';
 
 export function useGameWinners(
@@ -23,8 +24,8 @@ export function useGameWinners(
       ],
       queryFn: async (): Promise<PictionaryTeam[]> => {
         return aepbase.list<PictionaryTeam>(
-          AepCollections.PICTIONARY_TEAMS,
-          { parent: [AepCollections.PICTIONARY_GAMES, gameId] },
+          PICTIONARY_TEAMS,
+          { parent: [PICTIONARY_GAMES, gameId] },
         );
       },
       enabled: !!gameId,

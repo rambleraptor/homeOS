@@ -1,9 +1,18 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
+// Plural identifiers live in core so core-side hooks (push subscription
+// management) can reach them without depending on this module. We re-export
+// from here so module-local code has a single import surface.
+import {
+  NOTIFICATIONS,
+  NOTIFICATION_SUBSCRIPTIONS,
+} from '@rambleraptor/homestead-core/notifications/constants';
+
+export { NOTIFICATIONS, NOTIFICATION_SUBSCRIPTIONS };
 
 export const notificationsResources: ResourceDefinition[] = [
   {
     singular: 'notification',
-    plural: 'notifications',
+    plural: NOTIFICATIONS,
     description: 'A notification delivered (or scheduled) to a user.',
     user_settable_create: true,
     parents: ['user'],
@@ -32,7 +41,7 @@ export const notificationsResources: ResourceDefinition[] = [
   },
   {
     singular: 'notification-subscription',
-    plural: 'notification-subscriptions',
+    plural: NOTIFICATION_SUBSCRIPTIONS,
     description: 'A web push subscription endpoint for a user.',
     user_settable_create: true,
     parents: ['user'],

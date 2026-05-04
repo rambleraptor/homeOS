@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { TODOS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Todo, TodoStatus } from '../types';
 
@@ -15,7 +16,7 @@ export function useUpdateTodoStatus() {
       id: string;
       status: TodoStatus;
     }): Promise<Todo> => {
-      return aepbase.update<Todo>(AepCollections.TODOS, id, { status });
+      return aepbase.update<Todo>(TODOS, id, { status });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

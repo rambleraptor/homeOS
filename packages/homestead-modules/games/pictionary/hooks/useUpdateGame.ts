@@ -8,7 +8,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type {
   PictionaryGame,
@@ -45,7 +46,7 @@ export function useUpdateGame() {
       existingTeams,
     }: UpdateGameParams): Promise<PictionaryGame> => {
       const game = await aepbase.update<PictionaryGame>(
-        AepCollections.PICTIONARY_GAMES,
+        PICTIONARY_GAMES,
         id,
         {
           played_at: data.played_at,
@@ -58,25 +59,25 @@ export function useUpdateGame() {
       const keptIds = new Set(
         data.teams.map((t) => t.id).filter((x): x is string => !!x),
       );
-      const parent = [AepCollections.PICTIONARY_GAMES, id];
+      const parent = [PICTIONARY_GAMES, id];
 
       const deletions = existingTeams
         .filter((t) => !keptIds.has(t.id))
         .map((t) =>
-          aepbase.remove(AepCollections.PICTIONARY_TEAMS, t.id, { parent }),
+          aepbase.remove(PICTIONARY_TEAMS, t.id, { parent }),
         );
 
       const upserts = data.teams.map((team, index) => {
         if (team.id) {
           return aepbase.update<PictionaryTeam>(
-            AepCollections.PICTIONARY_TEAMS,
+            PICTIONARY_TEAMS,
             team.id,
             teamPayload(team, index),
             { parent },
           );
         }
         return aepbase.create<PictionaryTeam>(
-          AepCollections.PICTIONARY_TEAMS,
+          PICTIONARY_TEAMS,
           teamPayload(team, index),
           { parent },
         );

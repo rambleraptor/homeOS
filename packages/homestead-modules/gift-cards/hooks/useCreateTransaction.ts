@@ -8,7 +8,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS, GIFT_CARD_TRANSACTIONS } from '../resources';
 import type { GiftCard, GiftCardTransaction, TransactionFormData } from '../types';
 
 interface CreateTransactionParams {
@@ -38,7 +39,7 @@ export function useCreateTransaction() {
       }
 
       const transaction = await aepbase.create<GiftCardTransaction>(
-        AepCollections.GIFT_CARD_TRANSACTIONS,
+        GIFT_CARD_TRANSACTIONS,
         {
           transaction_type: data.transaction_type,
           previous_amount: currentAmount,
@@ -47,15 +48,15 @@ export function useCreateTransaction() {
           notes: data.notes,
           created_by: createdByPath(),
         },
-        { parent: [AepCollections.GIFT_CARDS, giftCardId] },
+        { parent: [GIFT_CARDS, giftCardId] },
       );
 
       if (newAmount === 0) {
-        await aepbase.remove(AepCollections.GIFT_CARDS, giftCardId);
+        await aepbase.remove(GIFT_CARDS, giftCardId);
         return { transaction, updatedCard: null };
       }
       const updatedCard = await aepbase.update<GiftCard>(
-        AepCollections.GIFT_CARDS,
+        GIFT_CARDS,
         giftCardId,
         { amount: newAmount },
       );

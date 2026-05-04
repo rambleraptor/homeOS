@@ -7,7 +7,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GIFT_CARDS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { GiftCard } from '../types';
 
@@ -28,7 +29,7 @@ export function useGiftCardImageUrl(
     let createdUrl: string | null = null;
 
     aepbase
-      .download(AepCollections.GIFT_CARDS, cardId, field)
+      .download(GIFT_CARDS, cardId, field)
       .then((blob) => {
         if (cancelled) return;
         createdUrl = URL.createObjectURL(blob);

@@ -6,7 +6,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GAMES, GAME_HOLES } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Hole, HoleFormData } from '../types';
 
@@ -26,9 +27,9 @@ export function useCreateHole() {
   return useMutation({
     mutationFn: async ({ gameId, data }: CreateHoleParams): Promise<Hole> => {
       return await aepbase.create<Hole>(
-        AepCollections.GAME_HOLES,
+        GAME_HOLES,
         { ...data, created_by: createdByPath() },
-        { parent: [AepCollections.GAMES, gameId] },
+        { parent: [GAMES, gameId] },
       );
     },
     onSuccess: async () => {

@@ -15,7 +15,8 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import { onlineManager } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GROCERIES, STORES } from './resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { GroceryItem, Store } from './types';
@@ -139,7 +140,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
     networkMode: 'online',
     mutationFn: async (vars: CreateItemVars) => {
       logger.info(`Creating grocery item: ${vars.name}`);
-      return aepbase.create<GroceryItem>(AepCollections.GROCERIES, {
+      return aepbase.create<GroceryItem>(GROCERIES, {
         name: vars.name,
         notes: vars.notes ?? '',
         store: vars.store ?? '',
@@ -208,14 +209,14 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
           await matching.continue().catch(() => undefined);
           const resolved = resolveItemId(vars.id);
           if (!isTempId(resolved)) {
-            return aepbase.update<GroceryItem>(AepCollections.GROCERIES, resolved, vars.data);
+            return aepbase.update<GroceryItem>(GROCERIES, resolved, vars.data);
           }
         }
         throw new Error(
           `Cannot update grocery item ${vars.id}: backing create has not resolved`,
         );
       }
-      return aepbase.update<GroceryItem>(AepCollections.GROCERIES, realId, vars.data);
+      return aepbase.update<GroceryItem>(GROCERIES, realId, vars.data);
     },
     onMutate: async (vars: UpdateItemVars) => {
       await queryClient.cancelQueries({ queryKey: ITEMS_KEY });
@@ -264,7 +265,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
           .forEach((m) => m.destroy());
         return;
       }
-      await aepbase.remove(AepCollections.GROCERIES, realId);
+      await aepbase.remove(GROCERIES, realId);
     },
     onMutate: async (id: DeleteItemVars) => {
       await queryClient.cancelQueries({ queryKey: ITEMS_KEY });
@@ -297,7 +298,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
     networkMode: 'online',
     mutationFn: async (vars: CreateStoreVars) => {
       logger.info(`Creating store: ${vars.name}`);
-      return aepbase.create<Store>(AepCollections.STORES, {
+      return aepbase.create<Store>(STORES, {
         name: vars.name,
         sort_order: vars.sort_order ?? 0,
       });
@@ -359,14 +360,14 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
           await matching.continue().catch(() => undefined);
           const resolved = resolveStoreId(vars.id);
           if (!isTempId(resolved)) {
-            return aepbase.update<Store>(AepCollections.STORES, resolved, vars.data);
+            return aepbase.update<Store>(STORES, resolved, vars.data);
           }
         }
         throw new Error(
           `Cannot update store ${vars.id}: backing create has not resolved`,
         );
       }
-      return aepbase.update<Store>(AepCollections.STORES, realId, vars.data);
+      return aepbase.update<Store>(STORES, realId, vars.data);
     },
     onMutate: async (vars: UpdateStoreVars) => {
       await queryClient.cancelQueries({ queryKey: STORES_KEY });
@@ -414,7 +415,7 @@ export function registerGroceryMutationDefaults(queryClient: QueryClient): void 
         return realId;
       }
       logger.info(`Deleting store: ${realId}`);
-      await aepbase.remove(AepCollections.STORES, realId);
+      await aepbase.remove(STORES, realId);
       return realId;
     },
     onMutate: async (id: DeleteStoreVars) => {

@@ -7,8 +7,9 @@
  * `useModuleFlag` for a typed single-flag accessor.
  */
 
+import { MODULE_FLAGS } from '@rambleraptor/homestead-core/module-flags/sync';
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
 import { getAllModuleFlagDefs } from '@/modules/registry';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { unflatten, type ModuleFlagValues } from '../flags';
@@ -38,7 +39,7 @@ export function useModuleFlags(): UseModuleFlagsResult {
     queryFn: async (): Promise<ModuleFlagsRecord | null> => {
       try {
         const list = await aepbase.list<ModuleFlagsRecord>(
-          AepCollections.MODULE_FLAGS,
+          MODULE_FLAGS,
         );
         return list.length > 0 ? list[0] : null;
       } catch (error) {

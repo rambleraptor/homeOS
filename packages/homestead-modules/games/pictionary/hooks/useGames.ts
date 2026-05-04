@@ -5,7 +5,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES } from '../resources';
 import type { PictionaryGame } from '../types';
 
 export function useGames() {
@@ -13,7 +14,7 @@ export function useGames() {
     queryKey: queryKeys.module('pictionary').list(),
     queryFn: async (): Promise<PictionaryGame[]> => {
       const games = await aepbase.list<PictionaryGame>(
-        AepCollections.PICTIONARY_GAMES,
+        PICTIONARY_GAMES,
       );
       return games.sort((a, b) => {
         const aKey = a.played_at || a.create_time || '';

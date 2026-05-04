@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { PROJECTS } from '../resources';
 import type { Project } from '../types';
 
 export function useCreateProject() {
@@ -11,7 +12,7 @@ export function useCreateProject() {
     mutationFn: async (data: { name: string }): Promise<Project> => {
       const userId = aepbase.getCurrentUser()?.id;
       const createdBy = userId ? `users/${userId}` : undefined;
-      return aepbase.create<Project>(AepCollections.PROJECTS, {
+      return aepbase.create<Project>(PROJECTS, {
         name: data.name,
         ...(createdBy ? { created_by: createdBy } : {}),
       });

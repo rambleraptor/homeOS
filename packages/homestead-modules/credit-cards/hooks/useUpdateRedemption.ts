@@ -4,7 +4,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { PerkRedemption, RedemptionFormData } from '../types';
 import { findRedemptionParents } from './_aepLookup';
@@ -22,13 +23,13 @@ export function useUpdateRedemption() {
       const { creditCardId, perkId } = findRedemptionParents(queryClient, id);
       const { perk: _ignore, ...body } = data;
       const updated = await aepbase.update<PerkRedemption>(
-        AepCollections.PERK_REDEMPTIONS,
+        PERK_REDEMPTIONS,
         id,
         body,
         {
           parent: [
-            AepCollections.CREDIT_CARDS, creditCardId,
-            AepCollections.CREDIT_CARD_PERKS, perkId,
+            CREDIT_CARDS, creditCardId,
+            CREDIT_CARD_PERKS, perkId,
           ],
         },
       );

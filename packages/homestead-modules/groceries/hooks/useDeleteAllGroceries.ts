@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GROCERIES } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { GroceryItem } from '../types';
@@ -11,9 +12,9 @@ export function useDeleteAllGroceries() {
     // offline (see GroceriesHome.tsx) instead of queueing N writes.
     networkMode: 'online',
     mutationFn: async () => {
-      const items = await aepbase.list<GroceryItem>(AepCollections.GROCERIES);
+      const items = await aepbase.list<GroceryItem>(GROCERIES);
       await Promise.all(
-        items.map((item) => aepbase.remove(AepCollections.GROCERIES, item.id)),
+        items.map((item) => aepbase.remove(GROCERIES, item.id)),
       );
     },
     onSuccess: () => {

@@ -5,7 +5,8 @@
  * the collection and filter client-side (household datasets are small).
  */
 
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { ADDRESSES, PERSON_SHARED_DATA } from '../resources';
 import type { PersonSharedData, Address, AddressFormData } from '../types';
 
 interface AepAddressRecord {
@@ -89,10 +90,10 @@ async function upsertAddress(
     shared_data_id: shared_data_id || undefined,
   };
   if (addressData.id) {
-    await aepbase.update<AepAddressRecord>(AepCollections.ADDRESSES, addressData.id, body);
+    await aepbase.update<AepAddressRecord>(ADDRESSES, addressData.id, body);
     return addressData.id;
   }
-  const created = await aepbase.create<AepAddressRecord>(AepCollections.ADDRESSES, {
+  const created = await aepbase.create<AepAddressRecord>(ADDRESSES, {
     ...body,
     created_by: createdByPath(),
   });
@@ -111,11 +112,11 @@ async function syncAddresses(
   );
 
   try {
-    const all = await aepbase.list<AepAddressRecord>(AepCollections.ADDRESSES);
+    const all = await aepbase.list<AepAddressRecord>(ADDRESSES);
     const existingAdditional = all.filter((a) => a.shared_data_id === sharedDataId);
     for (const existing of existingAdditional) {
       if (!formAddressIds.has(existing.id)) {
-        await aepbase.remove(AepCollections.ADDRESSES, existing.id);
+        await aepbase.remove(ADDRESSES, existing.id);
       }
     }
   } catch {
@@ -132,7 +133,7 @@ async function syncAddresses(
 export async function findSharedDataForPerson(
   personId: string,
 ): Promise<PersonSharedData | null> {
-  const all = await aepbase.list<AepSharedDataRecord>(AepCollections.PERSON_SHARED_DATA);
+  const all = await aepbase.list<AepSharedDataRecord>(PERSON_SHARED_DATA);
   const found = all.find((s) => s.person_a === personId || s.person_b === personId);
   return found ? mapSharedData(found) : null;
 }
@@ -149,7 +150,7 @@ export async function createSharedData(data: {
     primaryAddressId = await upsertAddress(validAddresses[0]);
   }
   const created = await aepbase.create<AepSharedDataRecord>(
-    AepCollections.PERSON_SHARED_DATA,
+    PERSON_SHARED_DATA,
     {
       person_a: data.personId,
       person_b: undefined,
@@ -172,7 +173,7 @@ export async function updateSharedData(
     ? await syncAddresses(data.addresses, sharedDataId)
     : undefined;
   const updated = await aepbase.update<AepSharedDataRecord>(
-    AepCollections.PERSON_SHARED_DATA,
+    PERSON_SHARED_DATA,
     sharedDataId,
     { address_id: primaryAddressId, anniversary: data.anniversary },
   );
@@ -192,7 +193,7 @@ export async function setPartner(
       ? await syncAddresses(sharedData.addresses, existingSharedData.id)
       : existingSharedData.address_id;
     const updated = await aepbase.update<AepSharedDataRecord>(
-      AepCollections.PERSON_SHARED_DATA,
+      PERSON_SHARED_DATA,
       existingSharedData.id,
       {
         person_b: partnerId,
@@ -208,7 +209,7 @@ export async function setPartner(
       ? await syncAddresses(sharedData.addresses, partnerSharedData.id)
       : partnerSharedData.address_id;
     const updated = await aepbase.update<AepSharedDataRecord>(
-      AepCollections.PERSON_SHARED_DATA,
+      PERSON_SHARED_DATA,
       partnerSharedData.id,
       {
         person_b: personId,
@@ -227,7 +228,7 @@ export async function setPartner(
       primaryAddressId = existingSharedData.address_id;
     }
     const merged = await aepbase.update<AepSharedDataRecord>(
-      AepCollections.PERSON_SHARED_DATA,
+      PERSON_SHARED_DATA,
       existingSharedData.id,
       {
         person_b: partnerId,
@@ -238,7 +239,7 @@ export async function setPartner(
           partnerSharedData.anniversary,
       },
     );
-    await aepbase.remove(AepCollections.PERSON_SHARED_DATA, partnerSharedData.id);
+    await aepbase.remove(PERSON_SHARED_DATA, partnerSharedData.id);
     return mapSharedData(merged);
   }
 
@@ -250,7 +251,7 @@ export async function setPartner(
     primaryAddressId = await upsertAddress(validAddresses[0]);
   }
   const created = await aepbase.create<AepSharedDataRecord>(
-    AepCollections.PERSON_SHARED_DATA,
+    PERSON_SHARED_DATA,
     {
       person_a: personId,
       person_b: partnerId,
@@ -277,11 +278,11 @@ export async function removePartner(
   if (otherPersonId !== partnerId) return;
 
   await aepbase.update<AepSharedDataRecord>(
-    AepCollections.PERSON_SHARED_DATA,
+    PERSON_SHARED_DATA,
     sharedData.id,
     { person_b: undefined },
   );
-  await aepbase.create<AepSharedDataRecord>(AepCollections.PERSON_SHARED_DATA, {
+  await aepbase.create<AepSharedDataRecord>(PERSON_SHARED_DATA, {
     person_a: otherPersonId || '',
     person_b: undefined,
     address_id: sharedData.address_id,
@@ -291,7 +292,7 @@ export async function removePartner(
 }
 
 export async function deleteSharedData(sharedDataId: string): Promise<void> {
-  await aepbase.remove(AepCollections.PERSON_SHARED_DATA, sharedDataId);
+  await aepbase.remove(PERSON_SHARED_DATA, sharedDataId);
 }
 
 export { mapAddress };

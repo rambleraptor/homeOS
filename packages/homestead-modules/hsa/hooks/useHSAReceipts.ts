@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { HSA_RECEIPTS } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { HSAReceipt } from '../types';
 
@@ -13,7 +14,7 @@ export function useHSAReceipts() {
   return useQuery({
     queryKey: queryKeys.module('hsa').list(),
     queryFn: async () => {
-      const receipts = await aepbase.list<AepHSAReceipt>(AepCollections.HSA_RECEIPTS);
+      const receipts = await aepbase.list<AepHSAReceipt>(HSA_RECEIPTS);
       return receipts
         .map((rec) => ({
           ...rec,

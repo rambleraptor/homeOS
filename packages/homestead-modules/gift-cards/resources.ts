@@ -1,9 +1,12 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+export const GIFT_CARDS = 'gift-cards' as const;
+export const GIFT_CARD_TRANSACTIONS = 'transactions' as const;
+
 export const giftCardsResources: ResourceDefinition[] = [
   {
     singular: 'gift-card',
-    plural: 'gift-cards',
+    plural: GIFT_CARDS,
     description: 'A stored-value gift card owned by the household.',
     user_settable_create: true,
     schema: {
@@ -32,7 +35,7 @@ export const giftCardsResources: ResourceDefinition[] = [
   },
   {
     singular: 'transaction',
-    plural: 'transactions',
+    plural: GIFT_CARD_TRANSACTIONS,
     description: 'A balance change recorded against a gift card.',
     user_settable_create: true,
     parents: ['gift-card'],

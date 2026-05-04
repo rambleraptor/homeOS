@@ -8,27 +8,28 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
 import type { CreditCard, CreditCardPerk, PerkRedemption } from '../types';
 
 export function usePerkRedemptions() {
   return useQuery({
     queryKey: queryKeys.module('credit-cards').list({ type: 'redemptions' }),
     queryFn: async (): Promise<PerkRedemption[]> => {
-      const cards = await aepbase.list<CreditCard>(AepCollections.CREDIT_CARDS);
+      const cards = await aepbase.list<CreditCard>(CREDIT_CARDS);
       const all: PerkRedemption[] = [];
       for (const card of cards) {
         const perks = await aepbase.list<CreditCardPerk>(
-          AepCollections.CREDIT_CARD_PERKS,
-          { parent: [AepCollections.CREDIT_CARDS, card.id] },
+          CREDIT_CARD_PERKS,
+          { parent: [CREDIT_CARDS, card.id] },
         );
         for (const perk of perks) {
           const reds = await aepbase.list<PerkRedemption>(
-            AepCollections.PERK_REDEMPTIONS,
+            PERK_REDEMPTIONS,
             {
               parent: [
-                AepCollections.CREDIT_CARDS, card.id,
-                AepCollections.CREDIT_CARD_PERKS, perk.id,
+                CREDIT_CARDS, card.id,
+                CREDIT_CARD_PERKS, perk.id,
               ],
             },
           );

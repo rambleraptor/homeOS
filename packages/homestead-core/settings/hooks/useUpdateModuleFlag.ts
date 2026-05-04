@@ -15,8 +15,9 @@
  * permissions needed — and then retrying the upsert.
  */
 
+import { MODULE_FLAGS } from '@rambleraptor/homestead-core/module-flags/sync';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { aepbase, AepCollections, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
 import { getAllModuleFlagDefs } from '@/modules/registry';
 import type { ModuleFlagValue } from '@/modules/types';
@@ -36,17 +37,17 @@ async function upsertFlag(
   payload: Record<string, ModuleFlagValue>,
 ): Promise<ModuleFlagsRecord> {
   const existing = await aepbase.list<ModuleFlagsRecord>(
-    AepCollections.MODULE_FLAGS,
+    MODULE_FLAGS,
   );
   if (existing.length > 0) {
     return await aepbase.update<ModuleFlagsRecord>(
-      AepCollections.MODULE_FLAGS,
+      MODULE_FLAGS,
       existing[0].id,
       payload,
     );
   }
   return await aepbase.create<ModuleFlagsRecord>(
-    AepCollections.MODULE_FLAGS,
+    MODULE_FLAGS,
     payload,
   );
 }

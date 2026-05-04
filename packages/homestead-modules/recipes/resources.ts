@@ -1,9 +1,12 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
+export const RECIPES = 'recipes' as const;
+export const RECIPE_LOGS = 'logs' as const;
+
 export const recipesResources: ResourceDefinition[] = [
   {
     singular: 'recipe',
-    plural: 'recipes',
+    plural: RECIPES,
     description: 'A culinary recipe with parsed ingredients for scaling.',
     user_settable_create: true,
     schema: {
@@ -81,7 +84,7 @@ export const recipesResources: ResourceDefinition[] = [
   },
   {
     singular: 'log',
-    plural: 'logs',
+    plural: RECIPE_LOGS,
     description:
       'A single cooking attempt of a recipe with outcome and notes.',
     user_settable_create: true,

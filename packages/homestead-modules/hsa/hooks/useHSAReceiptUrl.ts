@@ -3,7 +3,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { HSA_RECEIPTS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { HSAReceipt } from '../types';
 
@@ -18,7 +19,7 @@ export function useHSAReceiptUrl(receipt: HSAReceipt | null | undefined): string
     let createdUrl: string | null = null;
 
     aepbase
-      .download(AepCollections.HSA_RECEIPTS, id, 'receipt_file')
+      .download(HSA_RECEIPTS, id, 'receipt_file')
       .then((blob) => {
         if (cancelled) return;
         createdUrl = URL.createObjectURL(blob);

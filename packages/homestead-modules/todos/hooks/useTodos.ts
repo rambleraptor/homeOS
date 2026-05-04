@@ -9,7 +9,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { TODOS } from '../resources';
 import {
   MAIN_PROJECT_ID,
   type ProjectScope,
@@ -22,7 +23,7 @@ export function useTodos() {
   return useQuery({
     queryKey: queryKeys.module('todos').list(),
     queryFn: async (): Promise<Todo[]> => {
-      const todos = await aepbase.list<Todo>(AepCollections.TODOS);
+      const todos = await aepbase.list<Todo>(TODOS);
       return todos.sort((a, b) =>
         (a.create_time || '').localeCompare(b.create_time || ''),
       );

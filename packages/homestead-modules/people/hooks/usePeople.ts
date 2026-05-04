@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { aepbase, AepCollections } from '@rambleraptor/homestead-core/api/aepbase';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { ADDRESSES, PEOPLE, PERSON_SHARED_DATA } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Person, PersonSharedData, Address } from '../types';
 
@@ -37,9 +38,9 @@ export function usePeople() {
     queryKey: queryKeys.module('people').list(),
     queryFn: async () => {
       const [peopleRecords, allSharedData, allAddresses] = await Promise.all([
-        aepbase.list<PersonRecord>(AepCollections.PEOPLE),
-        aepbase.list<PersonSharedData>(AepCollections.PERSON_SHARED_DATA),
-        aepbase.list<Address>(AepCollections.ADDRESSES),
+        aepbase.list<PersonRecord>(PEOPLE),
+        aepbase.list<PersonSharedData>(PERSON_SHARED_DATA),
+        aepbase.list<Address>(ADDRESSES),
       ]);
 
       peopleRecords.sort((a, b) => a.name.localeCompare(b.name));
