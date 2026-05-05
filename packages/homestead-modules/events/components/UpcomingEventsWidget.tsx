@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
+import { KNOWN_EVENT_TAGS } from '../types';
 
 function badgeVariantForTag(
   tag?: string,
@@ -50,6 +51,12 @@ export function UpcomingEventsWidget() {
                   ? 'Tomorrow'
                   : `in ${daysUntil} days`;
 
+            const isPersonCentric =
+              !!tag &&
+              (KNOWN_EVENT_TAGS as readonly string[]).includes(tag) &&
+              names.length > 0;
+            const heading = isPersonCentric ? names.join(', ') : name;
+
             return (
               <li key={id}>
                 <button
@@ -59,9 +66,9 @@ export function UpcomingEventsWidget() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-body font-medium text-text-main text-base truncate">
-                      {name}
+                      {heading}
                     </p>
-                    {names.length > 0 && (
+                    {!isPersonCentric && names.length > 0 && (
                       <p className="font-body text-sm text-text-muted truncate">
                         {names.join(', ')}
                       </p>
