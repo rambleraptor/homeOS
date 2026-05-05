@@ -20,6 +20,7 @@ const commitMessage = readGit('log -1 --pretty=format:%s');
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  productionBrowserSourceMaps: true,
   transpilePackages: [
     '@rambleraptor/homestead-core',
     '@rambleraptor/homestead-modules',

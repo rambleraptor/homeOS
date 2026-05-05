@@ -74,5 +74,12 @@ export function useUpcomingEvents(days: number = DEFAULT_LOOKAHEAD_DAYS) {
 
       return upcoming.sort((a, b) => a.date.getTime() - b.date.getTime());
     },
+    // The persisted query cache serializes Date to string via JSON. Re-hydrate
+    // so consumers can always call .getTime() without guarding.
+    select: (data) =>
+      data.map((event) => ({
+        ...event,
+        date: event.date instanceof Date ? event.date : new Date(event.date as unknown as string),
+      })),
   });
 }
