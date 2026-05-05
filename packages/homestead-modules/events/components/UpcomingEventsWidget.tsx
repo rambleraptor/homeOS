@@ -21,6 +21,16 @@ function badgeVariantForTag(
   return 'neutral';
 }
 
+function formatPeopleList(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
+
+function isPeopleCenteredTag(tag?: string): boolean {
+  return tag === 'birthday' || tag === 'anniversary';
+}
+
 export function UpcomingEventsWidget() {
   const router = useRouter();
   const { data: upcoming, isLoading } = useUpcomingEvents();
@@ -49,6 +59,11 @@ export function UpcomingEventsWidget() {
                 : daysUntil === 1
                   ? 'Tomorrow'
                   : `in ${daysUntil} days`;
+            const showPeopleAsTitle =
+              isPeopleCenteredTag(tag) && names.length > 0;
+            const headerText = showPeopleAsTitle
+              ? formatPeopleList(names)
+              : name;
 
             return (
               <li key={id}>
@@ -59,9 +74,9 @@ export function UpcomingEventsWidget() {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-body font-medium text-text-main text-base truncate">
-                      {name}
+                      {headerText}
                     </p>
-                    {names.length > 0 && (
+                    {!showPeopleAsTitle && names.length > 0 && (
                       <p className="font-body text-sm text-text-muted truncate">
                         {names.join(', ')}
                       </p>
