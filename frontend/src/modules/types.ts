@@ -12,6 +12,10 @@ import type { OmniboxAdapter } from '@rambleraptor/homestead-core/shared/omnibox
 import type { ModuleFilterDecl } from '@rambleraptor/homestead-core/shared/filters/types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type { ModuleVisibility } from '@rambleraptor/homestead-core/settings/visibility';
+import type {
+  CreateVarsBase,
+  ResourceMutationOpts,
+} from '@rambleraptor/homestead-core/api/registerResourceMutationDefaults';
 
 /**
  * A widget a module contributes to the dashboard. The component is
@@ -189,6 +193,17 @@ export interface HomeModule {
   resources?: ResourceDefinition[];
 
   /**
+   * Per-resource overrides applied when the offline mutation factory
+   * auto-registers create/update/delete defaults. Key is the resource
+   * `singular`. `false` skips auto-registration entirely (escape hatch
+   * for modules with bespoke mutation logic). An object merges into
+   * `ResourceMutationOpts` — useful for non-standard cache keys,
+   * cascade deletes, custom optimistic shapes, or legacy mutation-key
+   * aliases during migrations.
+   */
+  offlineOverrides?: Record<string, ResourceOverride | false>;
+
+  /**
    * Optional widgets this module contributes to the dashboard. Each
    * widget is an independent React component that owns its own data
    * fetching and presentation.
@@ -220,6 +235,28 @@ export interface HomeModule {
    */
   children?: HomeModule[];
 }
+
+/**
+ * Per-resource overrides for the offline mutation factory. Loosely
+ * typed because the override is declared in module config (where T is
+ * unknown) and applied by the auto-registration loop at runtime. The
+ * factory accepts a `ResourceMutationOpts<T, C, U>` — these fields
+ * subset that interface.
+ */
+export type ResourceOverride = Partial<
+  Pick<
+    ResourceMutationOpts<{ id: string }, CreateVarsBase & Record<string, unknown>, Record<string, unknown>>,
+    | 'listQueryKey'
+    | 'parentPath'
+    | 'toCreateBody'
+    | 'toUpdateBody'
+    | 'buildOptimistic'
+    | 'sort'
+    | 'onCreateSuccess'
+    | 'cascadeDelete'
+    | 'legacyKeys'
+  >
+>;
 
 /**
  * Runtime value a flag can hold. Matches `ModuleFlagDef.type`
