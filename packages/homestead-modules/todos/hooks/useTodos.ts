@@ -21,7 +21,7 @@ import {
 
 export function useTodos() {
   return useQuery({
-    queryKey: queryKeys.module('todos').list(),
+    queryKey: queryKeys.module('todos').resource('todo').list(),
     queryFn: async (): Promise<Todo[]> => {
       const todos = await aepbase.list<Todo>(TODOS);
       return todos.sort((a, b) =>

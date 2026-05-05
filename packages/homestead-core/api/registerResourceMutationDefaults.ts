@@ -137,6 +137,9 @@ export function registerResourceMutationDefaults<
 >(qc: QueryClient, opts: ResourceMutationOpts): ResourceMutationKeys {
   const { moduleId, singular, plural, parentPath, cascadeDelete } = opts;
   const listKey = queryKeys.module(moduleId).resource(singular).list();
+  // Invalidate the whole module on settle — covers list reads, detail
+  // reads, and any sibling resources that share computed state.
+  const invalidateKey = queryKeys.module(moduleId).all();
   const idMap = tempIdMap(moduleId, singular);
   const keys = resourceMutationKeys(moduleId, singular);
 
@@ -207,7 +210,7 @@ export function registerResourceMutationDefaults<
     },
     onSettled: () => {
       if (onlineManager.isOnline()) {
-        qc.invalidateQueries({ queryKey: listKey });
+        qc.invalidateQueries({ queryKey: invalidateKey });
       }
     },
   };
@@ -275,7 +278,7 @@ export function registerResourceMutationDefaults<
     },
     onSettled: () => {
       if (onlineManager.isOnline()) {
-        qc.invalidateQueries({ queryKey: listKey });
+        qc.invalidateQueries({ queryKey: invalidateKey });
       }
     },
   };
@@ -324,7 +327,7 @@ export function registerResourceMutationDefaults<
     },
     onSettled: () => {
       if (onlineManager.isOnline()) {
-        qc.invalidateQueries({ queryKey: listKey });
+        qc.invalidateQueries({ queryKey: invalidateKey });
       }
     },
   };

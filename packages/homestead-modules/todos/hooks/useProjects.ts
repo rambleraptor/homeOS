@@ -6,7 +6,7 @@ import type { Project } from '../types';
 
 export function useProjects() {
   return useQuery({
-    queryKey: queryKeys.module('todos').list({ type: 'projects' }),
+    queryKey: queryKeys.module('todos').resource('project').list(),
     queryFn: async (): Promise<Project[]> => {
       const projects = await aepbase.list<Project>(PROJECTS);
       return projects.sort((a, b) =>

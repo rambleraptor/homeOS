@@ -13,7 +13,7 @@ import type { GiftCard } from '../types';
 
 export function useGiftCards() {
   return useQuery({
-    queryKey: queryKeys.module('gift-cards').list(),
+    queryKey: queryKeys.module('gift-cards').resource('gift-card').list(),
     queryFn: async (): Promise<GiftCard[]> => {
       const cards = await aepbase.list<GiftCard>(GIFT_CARDS);
       return cards.sort((a, b) =>
