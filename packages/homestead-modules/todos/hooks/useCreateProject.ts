@@ -1,30 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { PROJECTS } from '../resources';
+import { useResourceCreate } from '@rambleraptor/homestead-core/api/resourceHooks';
 import type { Project } from '../types';
 
 export function useCreateProject() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { name: string }): Promise<Project> => {
-      const userId = aepbase.getCurrentUser()?.id;
-      const createdBy = userId ? `users/${userId}` : undefined;
-      return aepbase.create<Project>(PROJECTS, {
-        name: data.name,
-        ...(createdBy ? { created_by: createdBy } : {}),
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.module('todos').all(),
-      });
-      await queryClient.refetchQueries({
-        queryKey: queryKeys.module('todos').all(),
-      });
-    },
-    onError: (error) => logger.error('Project create mutation error', error),
-  });
+  return useResourceCreate<Project, { name: string }>('todos', 'project');
 }

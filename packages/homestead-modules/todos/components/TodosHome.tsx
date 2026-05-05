@@ -5,8 +5,7 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCreateTodo } from '../hooks/useCreateTodo';
-import { useUpdateTodoStatus } from '../hooks/useUpdateTodoStatus';
-import { useToggleTodoInMain } from '../hooks/useToggleTodoInMain';
+import { useUpdateTodo } from '../hooks/useUpdateTodo';
 import { useSyntheticTodos } from '../hooks/useSyntheticTodos';
 import {
   MAIN_PROJECT_ID,
@@ -34,8 +33,7 @@ export function TodosHome() {
   const projectsQuery = useProjects();
   const synthetic = useSyntheticTodos();
   const create = useCreateTodo();
-  const update = useUpdateTodoStatus();
-  const togglePin = useToggleTodoInMain();
+  const update = useUpdateTodo();
 
   const isMain = scope === MAIN_PROJECT_ID;
   const projectsById = new Map(
@@ -45,16 +43,17 @@ export function TodosHome() {
   const handleAdd = async (title: string) => {
     await create.mutateAsync({
       title,
-      projectId: isMain ? undefined : scope,
+      status: 'pending',
+      ...(isMain ? {} : { project: `projects/${scope}` }),
     });
   };
 
   const handleSetStatus = (id: string, status: TodoStatus) => {
-    update.mutate({ id, status });
+    update.mutate({ id, data: { status } });
   };
 
   const handleTogglePin = (id: string, inMain: boolean) => {
-    togglePin.mutate({ id, inMain });
+    update.mutate({ id, data: { in_main: inMain } });
   };
 
   const originLabelFor = (todo: Todo): string | undefined => {

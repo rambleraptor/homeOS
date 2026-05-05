@@ -12,7 +12,7 @@ import { giftCardsImportSchema } from './schema';
 export function GiftCardsBulkImport() {
   const bulkImport = useBulkImport({
     collection: GIFT_CARDS,
-    queryKey: queryKeys.module('gift-cards').list(),
+    queryKey: queryKeys.module('gift-cards').resource('gift-card').list(),
     // Transform data to add null for file fields
     transformData: (data) => ({
       ...(data as Record<string, unknown>),

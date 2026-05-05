@@ -13,7 +13,7 @@ import type { Recipe } from '../types';
 
 export function useRecipes() {
   return useQuery({
-    queryKey: queryKeys.module('recipes').list(),
+    queryKey: queryKeys.module('recipes').resource('recipe').list(),
     queryFn: async (): Promise<Recipe[]> => {
       const recipes = await aepbase.list<Recipe>(RECIPES);
       return recipes.sort((a, b) =>

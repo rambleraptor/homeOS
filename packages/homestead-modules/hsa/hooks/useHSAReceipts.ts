@@ -12,7 +12,7 @@ interface AepHSAReceipt extends HSAReceipt {
 
 export function useHSAReceipts() {
   return useQuery({
-    queryKey: queryKeys.module('hsa').list(),
+    queryKey: queryKeys.module('hsa').resource('hsa-receipt').list(),
     queryFn: async () => {
       const receipts = await aepbase.list<AepHSAReceipt>(HSA_RECEIPTS);
       return receipts

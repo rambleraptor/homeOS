@@ -24,6 +24,7 @@ import type {
 import { AuthContext } from './context';
 import { aepbase } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
+import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
 
 interface AuthProviderProps {
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   useEffect(() => {
+    let lastUserId: string | null = aepbase.getCurrentUser()?.id ?? null;
     const unsubscribe = aepbase.authStore.onChange((token, user) => {
       setState({
         user,
@@ -97,8 +99,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: !!token && !!user,
         isLoading: false,
       });
-      if (!user) queryClient.clear();
-      else queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
+      const nextUserId = user?.id ?? null;
+      // On logout OR when a different user logs in (same browser session),
+      // drop both the in-memory query cache and its persisted snapshot —
+      // otherwise the next `PersistQueryClientProvider` mount rehydrates
+      // the previous user's optimistic state into the new session.
+      if (!user || nextUserId !== lastUserId) {
+        queryClient.clear();
+        clearPersistedQueryCache();
+      } else {
+        queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
+      }
+      lastUserId = nextUserId;
     });
     return () => unsubscribe();
   }, []);
@@ -125,6 +137,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isLoading: false,
     });
     queryClient.clear();
+    clearPersistedQueryCache();
   }, []);
 
   const refreshUser = useCallback(async () => {
