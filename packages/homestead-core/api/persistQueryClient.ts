@@ -15,7 +15,23 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 import { logger } from '../utils/logger';
 
-const STORAGE_KEY = 'homeos:rq:v2';
+export const PERSISTER_STORAGE_KEY = 'homeos:rq:v2';
+
+/**
+ * Drop the persisted React Query snapshot from localStorage. Called on
+ * logout / user change so the next mount of `PersistQueryClientProvider`
+ * doesn't rehydrate a previous user's optimistic state into the new
+ * session. Matches the in-memory `queryClient.clear()` happening at the
+ * same time.
+ */
+export function clearPersistedQueryCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(PERSISTER_STORAGE_KEY);
+  } catch {
+    // ignored — quota errors and SecurityError shouldn't break logout
+  }
+}
 
 const NEVER_PERSIST: ReadonlySet<string> = new Set([
   'auth',
@@ -55,7 +71,7 @@ export function createOfflinePersister() {
   if (!hasStorage()) return null;
   return createSyncStoragePersister({
     storage: quotaSafeStorage(),
-    key: STORAGE_KEY,
+    key: PERSISTER_STORAGE_KEY,
     // Bumped from 1s to 2s — persisting every module multiplies write
     // pressure roughly 10× compared to the groceries-only baseline.
     throttleTime: 2000,
