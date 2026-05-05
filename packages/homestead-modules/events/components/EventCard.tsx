@@ -58,6 +58,16 @@ function badgeVariantForTag(
   return 'neutral';
 }
 
+function formatPeopleList(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
+
+function isPeopleCenteredTag(tag?: string): boolean {
+  return tag === 'birthday' || tag === 'anniversary';
+}
+
 function formatNextOccurrence(event: Event): string {
   if (!event.date.trim()) return '';
   const next = getNextEventOccurrence(
@@ -74,6 +84,9 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
   const tagged = (event.people ?? [])
     .map((ref) => peopleById.get(personIdFromRef(ref)))
     .filter((n): n is string => !!n);
+  const showPeopleAsTitle =
+    isPeopleCenteredTag(event.tag) && tagged.length > 0;
+  const headerText = showPeopleAsTitle ? formatPeopleList(tagged) : event.name;
 
   return (
     <Card>
@@ -88,7 +101,7 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-semibold text-gray-900 truncate">
-                {event.name}
+                {headerText}
               </h3>
               {event.tag && (
                 <Badge variant={badgeVariantForTag(event.tag)}>
@@ -104,7 +117,7 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
                 {formatRecurrenceRule(event)}
               </p>
             )}
-            {tagged.length > 0 && (
+            {!showPeopleAsTitle && tagged.length > 0 && (
               <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
                 <Users className="w-4 h-4" aria-hidden="true" />
                 {tagged.join(', ')}
