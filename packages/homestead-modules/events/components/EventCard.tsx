@@ -86,6 +86,7 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
     .filter((n): n is string => !!n);
   const showPeopleAsTitle =
     isPeopleCenteredTag(event.tag) && tagged.length > 0;
+  const stackPeopleLines = showPeopleAsTitle && event.tag === 'anniversary';
   const headerText = showPeopleAsTitle ? formatPeopleList(tagged) : event.name;
 
   return (
@@ -99,10 +100,22 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
             <CalendarHeart className="w-5 h-5 text-brand-navy" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-semibold text-gray-900 truncate">
-                {headerText}
-              </h3>
+            <div
+              className={`flex gap-2 flex-wrap ${stackPeopleLines ? 'items-start' : 'items-center'}`}
+            >
+              {stackPeopleLines ? (
+                <h3 className="font-semibold text-gray-900 min-w-0">
+                  {tagged.map((name) => (
+                    <span key={name} className="block truncate">
+                      {name}
+                    </span>
+                  ))}
+                </h3>
+              ) : (
+                <h3 className="font-semibold text-gray-900 truncate">
+                  {headerText}
+                </h3>
+              )}
               {event.tag && (
                 <Badge variant={badgeVariantForTag(event.tag)}>
                   {event.tag}
