@@ -18,6 +18,53 @@
  * resource definition is applied.
  */
 
+/**
+ * Next.js calls this for every server-side error (Server Components,
+ * Route Handlers, middleware). The digest is the same opaque id the
+ * browser shows on the production error page, so logging it alongside
+ * the unminified stack + request URL turns "Application error: a
+ * server-side exception has occurred (digest: 1234567890)" into
+ * something we can actually find in the logs.
+ *
+ * Source maps are enabled (`productionBrowserSourceMaps`), but those
+ * only help the *browser* — server stacks need this hook to be useful.
+ */
+export async function onRequestError(
+  error: unknown,
+  request: {
+    path: string;
+    method: string;
+    headers: { [key: string]: string };
+  },
+  context: {
+    routerKind: 'Pages Router' | 'App Router';
+    routePath: string;
+    routeType: 'render' | 'route' | 'action' | 'middleware';
+    renderSource?:
+      | 'react-server-components'
+      | 'react-server-components-payload'
+      | 'server-rendering';
+    revalidateReason?: 'on-demand' | 'stale' | undefined;
+  },
+): Promise<void> {
+  const err = error instanceof Error ? error : new Error(String(error));
+  const digest = (err as Error & { digest?: string }).digest;
+  const payload = {
+    digest: digest ?? null,
+    url: request.path,
+    method: request.method,
+    routePath: context.routePath,
+    routeType: context.routeType,
+    renderSource: context.renderSource ?? null,
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+  };
+  // Single-line JSON keeps the entry greppable by digest in
+  // log aggregators that don't handle multi-line entries well.
+  console.error(`[server-error] ${JSON.stringify(payload)}`);
+}
+
 export async function register(): Promise<void> {
   // Only run on the Node.js runtime; the Edge runtime has no fetch-to-
   // aepbase story and this hook doesn't need to ship to browsers.
