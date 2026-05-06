@@ -1,10 +1,17 @@
 'use client';
 
 import React from 'react';
-import { Edit, Trash2, MapPin, Users } from 'lucide-react';
+import { CalendarHeart, Edit, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
+import {
+  getNextEventOccurrence,
+  parseDateString,
+} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
+import { useEventsForPerson } from '../../events/hooks/useEventsForPerson';
+import type { Event } from '../../events/types';
 import { getMapUrl } from '../utils/mapUtils';
 import type { Person } from '../types';
 
@@ -14,6 +21,24 @@ interface PersonCardProps {
   onDelete: (person: Person) => void;
 }
 
+function badgeVariantForTag(
+  tag?: string,
+): 'birthday' | 'anniversary' | 'neutral' {
+  if (tag === 'birthday') return 'birthday';
+  if (tag === 'anniversary') return 'anniversary';
+  return 'neutral';
+}
+
+function formatEventDate(event: Event): string {
+  if (!event.date?.trim()) return '';
+  const next = getNextEventOccurrence(
+    parseDateString(event.date),
+    event.recurrence,
+    event.recurrence_rule,
+  );
+  return next.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+}
+
 export function PersonCard({
   person,
   onEdit,
@@ -21,6 +46,7 @@ export function PersonCard({
 }: PersonCardProps) {
   const { user } = useAuth();
   const partner = person.partner;
+  const events = useEventsForPerson(person.id);
 
   const formatAddress = (address: Person['addresses'][0]): string => {
     const parts = [
@@ -50,6 +76,30 @@ export function PersonCard({
                 </div>
               )}
             </div>
+            {events.length > 0 && (
+              <ul className="mt-1 space-y-1">
+                {events.map((event) => (
+                  <li
+                    key={event.id}
+                    className="flex items-center gap-2 text-sm text-gray-600"
+                    data-testid={`person-event-${event.id}`}
+                  >
+                    <CalendarHeart
+                      className="w-4 h-4 text-brand-navy"
+                      aria-label={`${event.tag ?? 'Event'} icon`}
+                    />
+                    <span>{formatEventDate(event)}</span>
+                    {event.tag ? (
+                      <Badge variant={badgeVariantForTag(event.tag)}>
+                        {event.tag}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-500">{event.name}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
             {person.addresses && person.addresses.length > 0 && (
               <div className="mt-1 space-y-2">
                 {person.addresses.map((address, index) => {
