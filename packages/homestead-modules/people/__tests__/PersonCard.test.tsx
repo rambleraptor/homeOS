@@ -138,8 +138,8 @@ describe('PersonCard', () => {
     await waitFor(() =>
       expect(screen.getByTestId('person-event-e1')).toBeInTheDocument(),
     );
-    expect(screen.getByText('birthday')).toBeInTheDocument();
-    expect(screen.getByText('anniversary')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cake icon')).toBeInTheDocument();
+    expect(screen.getByLabelText('Heart icon')).toBeInTheDocument();
     expect(screen.getByText('July 4')).toBeInTheDocument();
     expect(screen.getByText('August 15')).toBeInTheDocument();
     expect(screen.queryByTestId('person-event-e3')).not.toBeInTheDocument();
