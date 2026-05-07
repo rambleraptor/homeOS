@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import { CalendarHeart, Edit, Trash2, MapPin, Users } from 'lucide-react';
+import { Cake, CalendarHeart, Edit, Heart, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
-import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import {
   getNextEventOccurrence,
@@ -21,12 +20,19 @@ interface PersonCardProps {
   onDelete: (person: Person) => void;
 }
 
-function badgeVariantForTag(
-  tag?: string,
-): 'birthday' | 'anniversary' | 'neutral' {
-  if (tag === 'birthday') return 'birthday';
-  if (tag === 'anniversary') return 'anniversary';
-  return 'neutral';
+function EventIcon({ tag }: { tag?: string }) {
+  if (tag === 'birthday') {
+    return <Cake className="w-5 h-5 text-pink-500" aria-label="Cake icon" />;
+  }
+  if (tag === 'anniversary') {
+    return <Heart className="w-5 h-5 text-red-500" aria-label="Heart icon" />;
+  }
+  return (
+    <CalendarHeart
+      className="w-5 h-5 text-brand-navy"
+      aria-label="Event icon"
+    />
+  );
 }
 
 function formatEventDate(event: Event): string {
@@ -76,30 +82,19 @@ export function PersonCard({
                 </div>
               )}
             </div>
-            {events.length > 0 && (
-              <ul className="mt-1 space-y-1">
-                {events.map((event) => (
-                  <li
-                    key={event.id}
-                    className="flex items-center gap-2 text-sm text-gray-600"
-                    data-testid={`person-event-${event.id}`}
-                  >
-                    <CalendarHeart
-                      className="w-4 h-4 text-brand-navy"
-                      aria-label={`${event.tag ?? 'Event'} icon`}
-                    />
-                    <span>{formatEventDate(event)}</span>
-                    {event.tag ? (
-                      <Badge variant={badgeVariantForTag(event.tag)}>
-                        {event.tag}
-                      </Badge>
-                    ) : (
-                      <span className="text-gray-500">{event.name}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+            {events.map((event) => (
+              <div
+                key={event.id}
+                className="flex items-center gap-2 mt-1"
+                data-testid={`person-event-${event.id}`}
+              >
+                <EventIcon tag={event.tag} />
+                <p className="text-sm text-gray-500">
+                  {formatEventDate(event)}
+                  {!event.tag && event.name ? ` — ${event.name}` : ''}
+                </p>
+              </div>
+            ))}
             {person.addresses && person.addresses.length > 0 && (
               <div className="mt-1 space-y-2">
                 {person.addresses.map((address, index) => {
