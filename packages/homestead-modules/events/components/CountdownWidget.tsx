@@ -5,12 +5,11 @@
  *
  * Configuration is intentionally NOT exposed inline on the dashboard —
  * the user manages the chosen event and which time-unit cells to show on
- * `/events/countdown`. The widget itself only renders.
+ * `/events/countdown`, reachable via the gear in the widget header.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { Hourglass, Loader2, Settings } from 'lucide-react';
+import { Hourglass, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useCountdownConfig } from '../hooks/useCountdownConfig';
@@ -31,19 +30,6 @@ const UNIT_LABEL: Record<CountdownUnit, string> = {
 };
 
 const CONFIG_PATH = '/events/countdown';
-
-function ConfigureLink({ children }: { children: React.ReactNode }) {
-  return (
-    <Link
-      href={CONFIG_PATH}
-      className="inline-flex items-center gap-1.5 text-sm font-body text-accent-terracotta hover:underline"
-      data-testid="countdown-configure-link"
-    >
-      <Settings className="w-4 h-4" aria-hidden="true" />
-      {children}
-    </Link>
-  );
-}
 
 export function CountdownWidget() {
   const config = useCountdownConfig();
@@ -76,28 +62,23 @@ export function CountdownWidget() {
     );
   } else if (!config.eventId) {
     body = (
-      <div className="py-2 space-y-2">
-        <p className="font-body text-text-muted">No countdown configured.</p>
-        <ConfigureLink>Configure countdown</ConfigureLink>
-      </div>
+      <p className="font-body text-text-muted py-2">
+        No countdown configured.
+      </p>
     );
   } else if (!event || !nextDate) {
     body = (
-      <div className="py-2 space-y-2">
-        <p className="font-body text-text-muted">
-          The configured event no longer exists.
-        </p>
-        <ConfigureLink>Pick another event</ConfigureLink>
-      </div>
+      <p className="font-body text-text-muted py-2">
+        The configured event no longer exists.
+      </p>
     );
   } else if (enabledUnits.length === 0) {
     body = (
-      <div className="py-2 space-y-2">
+      <div className="py-2 space-y-1">
         <p className="font-body text-text-main font-medium">{event.name}</p>
         <p className="font-body text-sm text-text-muted">
           No units selected — the countdown has nothing to display.
         </p>
-        <ConfigureLink>Choose units</ConfigureLink>
       </div>
     );
   } else {
@@ -138,7 +119,9 @@ export function CountdownWidget() {
     <WidgetCard
       icon={Hourglass}
       title="Countdown"
-      href={CONFIG_PATH}
+      href="/events"
+      configHref={CONFIG_PATH}
+      configLabel="Configure countdown widget"
       data-testid="countdown-widget"
     >
       {body}
