@@ -1,15 +1,13 @@
 'use client';
 
-import { Bell, BellOff, Bug, GitCommit, Map } from 'lucide-react';
+import { Bell, BellOff, Bug, GitCommit } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
-import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useNotificationSubscription } from '../hooks/useNotificationSubscription';
 import { useUpdateNotificationSubscription } from '../hooks/useUpdateNotificationSubscription';
 import { useDeleteNotificationSubscription } from '../hooks/useDeleteNotificationSubscription';
 import { useSendTestNotification } from '../hooks/useSendTestNotification';
-import { useUpdateMapProvider } from '../hooks/useUpdateMapProvider';
 import {
   isNotificationSupported,
   requestNotificationPermission,
@@ -18,23 +16,22 @@ import {
 } from '@rambleraptor/homestead-core/utils/notifications';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { DashboardWidgetSettings } from './DashboardWidgetSettings';
+import { ModuleUserSettingsCard } from '@rambleraptor/homestead-core/user-settings/components/ModuleUserSettingsCard';
+import { getAllSettingsWidgets } from '@/modules/registry';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { MapProvider } from '@rambleraptor/homestead-core/auth/types';
 
 export function SettingsHome() {
   const toast = useToast();
-  const { user } = useAuth();
   const { data: subscription, isLoading } = useNotificationSubscription();
   const updateSubscription = useUpdateNotificationSubscription();
   const deleteSubscription = useDeleteNotificationSubscription();
   const sendTestNotification = useSendTestNotification();
-  const updateMapProvider = useUpdateMapProvider();
 
   const isBrowserSupported = isNotificationSupported();
   const isEnabled = subscription?.enabled || false;
-  const currentMapProvider = user?.map_provider || 'google';
+  const moduleSettings = getAllSettingsWidgets();
 
   const handleEnableNotifications = async () => {
     try {
@@ -79,16 +76,6 @@ export function SettingsHome() {
     } catch (error) {
       logger.error('Failed to send test notification', error);
       toast.error('Failed to send test notification. Make sure you have admin access.');
-    }
-  };
-
-  const handleMapProviderChange = async (provider: MapProvider) => {
-    try {
-      await updateMapProvider.mutateAsync(provider);
-      toast.success('Map provider updated successfully!');
-    } catch (error) {
-      logger.error('Failed to update map provider', error);
-      toast.error('Failed to update map provider. Please try again.');
     }
   };
 
@@ -214,45 +201,21 @@ export function SettingsHome() {
 
       <DashboardWidgetSettings />
 
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Map Provider
-        </h2>
-
-        <Card>
-          <div className="flex items-start gap-4">
-            <Map className="w-6 h-6 text-blue-500 mt-1" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-2">
-                Preferred Map Service
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Choose which map service to use when viewing addresses in the People module.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => handleMapProviderChange('google')}
-                  disabled={updateMapProvider.isPending}
-                  variant={currentMapProvider === 'google' ? 'primary' : 'secondary'}
-                  data-testid="map-provider-google"
-                >
-                  {currentMapProvider === 'google' && '✓ '}
-                  Google Maps
-                </Button>
-                <Button
-                  onClick={() => handleMapProviderChange('apple')}
-                  disabled={updateMapProvider.isPending}
-                  variant={currentMapProvider === 'apple' ? 'primary' : 'secondary'}
-                  data-testid="map-provider-apple"
-                >
-                  {currentMapProvider === 'apple' && '✓ '}
-                  Apple Maps
-                </Button>
-              </div>
-            </div>
+      {moduleSettings.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Module Settings
+          </h2>
+          <div
+            className="space-y-4"
+            data-testid="module-user-settings-list"
+          >
+            {moduleSettings.map(({ moduleId, module }) => (
+              <ModuleUserSettingsCard key={moduleId} module={module} />
+            ))}
           </div>
-        </Card>
-      </div>
+        </div>
+      )}
 
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">

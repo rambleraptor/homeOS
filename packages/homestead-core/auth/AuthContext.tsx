@@ -33,7 +33,10 @@ interface AuthProviderProps {
 
 interface UserPreferenceRecord {
   id: string;
+  /** Legacy field, replaced by `people__map_provider`. */
   map_provider?: MapProvider;
+  /** Per-user setting declared by the People module. */
+  people__map_provider?: MapProvider;
   dashboard_widget_order?: string;
   dashboard_hidden_widgets?: string;
 }
@@ -51,6 +54,40 @@ function parseStringArray(value: string | undefined): string[] | undefined {
   return undefined;
 }
 
+const VALID_MAP_PROVIDERS: readonly MapProvider[] = ['google', 'apple'];
+
+function coerceMapProvider(raw: unknown): MapProvider | undefined {
+  if (typeof raw !== 'string') return undefined;
+  return VALID_MAP_PROVIDERS.includes(raw as MapProvider)
+    ? (raw as MapProvider)
+    : undefined;
+}
+
+/**
+ * Best-effort copy of the legacy `map_provider` field into the new
+ * `people__map_provider` slot. Fire-and-forget — failures are logged
+ * but don't block sign-in. Idempotent: only runs when the legacy field
+ * is set and the new field is absent.
+ */
+async function backfillMapProvider(
+  userId: string,
+  preferenceId: string,
+  legacyValue: MapProvider,
+): Promise<void> {
+  try {
+    await aepbase.update<UserPreferenceRecord>(
+      USER_PREFERENCES,
+      preferenceId,
+      { people__map_provider: legacyValue },
+      { parent: [USERS, userId] },
+    );
+  } catch (error) {
+    logger.warn('Failed to backfill people__map_provider', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 async function hydrateUserPreferences(user: User): Promise<User> {
   try {
     const prefs = await aepbase.list<UserPreferenceRecord>(
@@ -58,11 +95,24 @@ async function hydrateUserPreferences(user: User): Promise<User> {
       { parent: [USERS, user.id] },
     );
     if (prefs.length > 0) {
+      const record = prefs[0];
+      const flattened = coerceMapProvider(record.people__map_provider);
+      const legacy = coerceMapProvider(record.map_provider);
+      const mapProvider = flattened ?? legacy;
+
+      // Lazy migration: copy the legacy value into the new slot the
+      // first time we see one without the other. The cleared legacy
+      // field can be dropped from the schema in a follow-up after a
+      // deploy cycle.
+      if (!flattened && legacy) {
+        void backfillMapProvider(user.id, record.id, legacy);
+      }
+
       return {
         ...user,
-        map_provider: prefs[0].map_provider,
-        dashboard_widget_order: parseStringArray(prefs[0].dashboard_widget_order),
-        dashboard_hidden_widgets: parseStringArray(prefs[0].dashboard_hidden_widgets),
+        map_provider: mapProvider,
+        dashboard_widget_order: parseStringArray(record.dashboard_widget_order),
+        dashboard_hidden_widgets: parseStringArray(record.dashboard_hidden_widgets),
       };
     }
   } catch (error) {

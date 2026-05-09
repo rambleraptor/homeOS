@@ -38,4 +38,14 @@ export const peopleModule: HomeModule = {
         "A substring of the person's name. Used by the People list's name filter.",
     },
   ],
+  userSettings: {
+    map_provider: {
+      type: 'enum',
+      label: 'Map provider',
+      description:
+        'Which map service to use when opening addresses from People.',
+      options: ['google', 'apple'],
+      default: 'google',
+    },
+  },
 };

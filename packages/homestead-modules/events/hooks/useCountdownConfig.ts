@@ -3,22 +3,24 @@
 /**
  * Read + write the events module's countdown configuration.
  *
- * The config is a household singleton stored as module flags on the
- * events module:
+ * The config is per-user, stored on the user's `user-preference`
+ * record via the user-settings system. Keys (declared in
+ * `module.config.ts`):
  *   - `countdown_event_id`         which event to count down to
  *   - `countdown_show_<unit>`       per-unit visibility toggles
  *
- * This hook hides the seven flag keys behind one ergonomic shape so the
- * widget and the config page don't both have to know the field names.
+ * This hook hides the seven keys behind one ergonomic shape so the
+ * widget and the settings widget don't both have to know the field
+ * names.
  */
 
 import { useCallback, useMemo } from 'react';
-import { useModuleFlag } from '@rambleraptor/homestead-core/settings';
+import { useUserSetting } from '@rambleraptor/homestead-core/user-settings';
 import { COUNTDOWN_UNITS, type CountdownUnit } from '../utils/countdown';
 
 const MODULE_ID = 'events';
 
-const UNIT_FLAG_KEY: Record<CountdownUnit, string> = {
+const UNIT_SETTING_KEY: Record<CountdownUnit, string> = {
   months: 'countdown_show_months',
   weeks: 'countdown_show_weeks',
   days: 'countdown_show_days',
@@ -37,15 +39,15 @@ export interface UseCountdownConfigResult {
 }
 
 export function useCountdownConfig(): UseCountdownConfigResult {
-  const eventIdFlag = useModuleFlag<string>(MODULE_ID, 'countdown_event_id');
-  const months = useModuleFlag<boolean>(MODULE_ID, UNIT_FLAG_KEY.months);
-  const weeks = useModuleFlag<boolean>(MODULE_ID, UNIT_FLAG_KEY.weeks);
-  const days = useModuleFlag<boolean>(MODULE_ID, UNIT_FLAG_KEY.days);
-  const hours = useModuleFlag<boolean>(MODULE_ID, UNIT_FLAG_KEY.hours);
-  const minutes = useModuleFlag<boolean>(MODULE_ID, UNIT_FLAG_KEY.minutes);
-  const seconds = useModuleFlag<boolean>(MODULE_ID, UNIT_FLAG_KEY.seconds);
+  const eventIdFlag = useUserSetting<string>(MODULE_ID, 'countdown_event_id');
+  const months = useUserSetting<boolean>(MODULE_ID, UNIT_SETTING_KEY.months);
+  const weeks = useUserSetting<boolean>(MODULE_ID, UNIT_SETTING_KEY.weeks);
+  const days = useUserSetting<boolean>(MODULE_ID, UNIT_SETTING_KEY.days);
+  const hours = useUserSetting<boolean>(MODULE_ID, UNIT_SETTING_KEY.hours);
+  const minutes = useUserSetting<boolean>(MODULE_ID, UNIT_SETTING_KEY.minutes);
+  const seconds = useUserSetting<boolean>(MODULE_ID, UNIT_SETTING_KEY.seconds);
 
-  const unitFlags: Record<CountdownUnit, ReturnType<typeof useModuleFlag<boolean>>> = {
+  const unitFlags: Record<CountdownUnit, ReturnType<typeof useUserSetting<boolean>>> = {
     months,
     weeks,
     days,

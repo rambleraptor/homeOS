@@ -92,6 +92,7 @@ export async function register(): Promise<void> {
 
   await syncResources(aepbaseUrl, token);
   await syncModuleFlags(aepbaseUrl, token);
+  await syncUserSettings(aepbaseUrl, token);
 }
 
 async function syncResources(
@@ -146,6 +147,30 @@ async function syncModuleFlags(
     }
   } catch (error) {
     console.error('[module-flags] schema sync failed', error);
+  }
+}
+
+async function syncUserSettings(
+  aepbaseUrl: string,
+  token: string,
+): Promise<void> {
+  try {
+    const { getAllUserSettingDefs } = await import('@/modules/registry');
+    const { syncUserSettingsSchema } = await import(
+      '@rambleraptor/homestead-core/user-settings/sync'
+    );
+
+    const defs = getAllUserSettingDefs();
+    const result = await syncUserSettingsSchema({
+      aepbaseUrl,
+      token,
+      defs,
+    });
+    if (result.action === 'noop') {
+      console.info('[user-settings] schema already in sync');
+    }
+  } catch (error) {
+    console.error('[user-settings] schema sync failed', error);
   }
 }
 

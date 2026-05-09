@@ -1,14 +1,18 @@
 /**
  * Resource definitions that aren't owned by a feature module.
  *
- * These cover platform-level concerns: per-user preferences and the
- * generic action/run pair used by the actions runtime. Kept in core
- * so the runner has a single, deterministic list to apply alongside
- * the per-module definitions.
+ * These cover platform-level concerns: the generic action/run pair
+ * used by the actions runtime. Kept in core so the runner has a
+ * single, deterministic list to apply alongside the per-module
+ * definitions.
  *
- * Note: `module-flag` is *not* listed here. Its schema is generated
- * from declared module flags by `syncModuleFlagsSchema` and applied
- * separately on Next.js boot.
+ * Two resources are *not* listed here because their schemas are
+ * generated from declarations and applied by dedicated syncers:
+ *   - `module-flag`     ← built from `getAllModuleFlagDefs()`
+ *   - `user-preference` ← built from `getAllUserSettingDefs()`
+ *
+ * Both syncers run from `frontend/src/instrumentation.ts` on Next.js
+ * boot, after this list is applied.
  */
 
 import type { ResourceDefinition } from './types';
@@ -24,33 +28,6 @@ export const ACTIONS = 'actions' as const;
 export const RUNS = 'runs' as const;
 
 export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
-  {
-    singular: 'user-preference',
-    plural: USER_PREFERENCES,
-    description:
-      'Per-user app preferences. Currently holds map_provider and dashboard widget customization; extend as new user-scoped settings appear.',
-    user_settable_create: true,
-    parents: ['user'],
-    schema: {
-      type: 'object',
-      properties: {
-        map_provider: {
-          type: 'string',
-          description: 'one of: google, apple',
-        },
-        dashboard_widget_order: {
-          type: 'string',
-          description:
-            'JSON-encoded array of dashboard widget ids in the user\'s preferred display order. Widgets not listed fall back to their module-declared order.',
-        },
-        dashboard_hidden_widgets: {
-          type: 'string',
-          description:
-            'JSON-encoded array of dashboard widget ids the user has hidden.',
-        },
-      },
-    },
-  },
   {
     singular: 'action',
     plural: ACTIONS,
