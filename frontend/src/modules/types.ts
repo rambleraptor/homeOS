@@ -181,6 +181,29 @@ export interface HomeModule {
   flags?: Record<string, ModuleFlagDef>;
 
   /**
+   * Optional per-user settings owned by this module. Same shape as
+   * `flags`, but values are scoped to the signed-in user instead of
+   * being household-wide. Declarations are flattened into the
+   * `user-preference` resource (one record per user, parented under
+   * `/users/{id}/preferences/{id}`) with field names
+   * `${moduleId_snake}__${key}`.
+   *
+   * The settings page renders a section per module that has either
+   * `userSettings` or `settingsWidget`. When only `userSettings` is
+   * declared, an auto-generated form is rendered.
+   */
+  userSettings?: Record<string, UserSettingDef>;
+
+  /**
+   * Optional custom React component shown on the user Settings page in
+   * place of the auto-generated form. Use this when a module's per-user
+   * settings need bespoke UI (e.g. a picker that depends on other
+   * resources, or grouped controls). The component receives no props
+   * and reads/writes its own state via `useUserSetting`.
+   */
+  settingsWidget?: ComponentType;
+
+  /**
    * Optional aepbase resource definitions owned by this module. The
    * registry aggregates them across all modules (including children)
    * and the Next.js instrumentation hook applies them to aepbase via
@@ -286,6 +309,21 @@ export type ModuleFlagDef =
       options: readonly string[];
       default?: string;
     };
+
+/**
+ * Runtime value a per-user setting can hold. Matches `UserSettingDef.type`
+ * one-to-one — `enum` settings store their selected option as a string.
+ */
+export type UserSettingValue = string | number | boolean;
+
+/**
+ * Declarative description of a single per-user module setting.
+ * Structurally identical to `ModuleFlagDef` — the only difference is
+ * scope (per-user vs. household). Aliasing avoids drift between the two
+ * declaration shapes; the rendering and schema-encoding helpers operate
+ * on the same union.
+ */
+export type UserSettingDef = ModuleFlagDef;
 
 /**
  * HTTP method a module worker accepts. The dispatcher returns 405 if

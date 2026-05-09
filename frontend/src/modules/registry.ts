@@ -21,6 +21,7 @@ import type {
   ModuleFlagDef,
   ModuleRegistry,
   ModuleWorker,
+  UserSettingDef,
 } from './types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import {
@@ -270,6 +271,63 @@ export function getAllModuleFlagDefs(): Record<
       ...declared,
       [BUILTIN_ENABLED_FLAG_KEY]: builtin,
     };
+    for (const child of mod.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const mod of moduleRegistry.modules) {
+    visit(mod);
+  }
+  return out;
+}
+
+/**
+ * Collect every declared per-user setting across all registered
+ * modules — top-level and nested — keyed by module id. Consumed by
+ * the user-settings schema syncer and the `useUserSetting` hook.
+ *
+ * Unlike {@link getAllModuleFlagDefs}, there is no built-in setting:
+ * per-user audience gating is irrelevant (the `enabled` flag already
+ * lives at the module-flag layer).
+ */
+export function getAllUserSettingDefs(): Record<
+  string,
+  Record<string, UserSettingDef>
+> {
+  const out: Record<string, Record<string, UserSettingDef>> = {};
+  const visit = (mod: HomeModule): void => {
+    const declared = mod.userSettings;
+    if (declared && Object.keys(declared).length > 0) {
+      out[mod.id] = { ...declared };
+    }
+    for (const child of mod.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const mod of moduleRegistry.modules) {
+    visit(mod);
+  }
+  return out;
+}
+
+/**
+ * Collect modules that should appear on the user Settings page —
+ * either because they declare per-user settings or because they
+ * supply a custom `settingsWidget`. Returns modules in nav order so
+ * the page renders deterministically.
+ */
+export function getAllSettingsWidgets(): {
+  moduleId: string;
+  module: HomeModule;
+}[] {
+  const out: { moduleId: string; module: HomeModule }[] = [];
+  const visit = (mod: HomeModule): void => {
+    const hasSettings =
+      !!mod.settingsWidget ||
+      (mod.userSettings && Object.keys(mod.userSettings).length > 0);
+    if (hasSettings) {
+      out.push({ moduleId: mod.id, module: mod });
+    }
     for (const child of mod.children ?? []) {
       visit(child);
     }

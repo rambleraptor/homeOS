@@ -10,7 +10,7 @@ import type { HomeModule } from '@/modules/types';
 import { EventsHome } from './components/EventsHome';
 import { UpcomingEventsWidget } from './components/UpcomingEventsWidget';
 import { CountdownWidget } from './components/CountdownWidget';
-import { CountdownConfigRoute } from './components/CountdownConfigRoute';
+import { EventsSettingsWidget } from './components/EventsSettingsWidget';
 import { eventsResources } from './resources';
 
 export const eventsModule: HomeModule = {
@@ -19,16 +19,13 @@ export const eventsModule: HomeModule = {
   description: 'Track yearly-recurring household events',
   icon: CalendarHeart,
   basePath: '/events',
-  routes: [
-    { path: '', index: true, component: EventsHome },
-    { path: 'countdown', component: CountdownConfigRoute },
-  ],
+  routes: [{ path: '', index: true, component: EventsHome }],
   showInNav: true,
   navOrder: 4,
   section: 'Relationships',
   enabled: true,
   resources: eventsResources,
-  flags: {
+  userSettings: {
     countdown_event_id: {
       type: 'string',
       label: 'Countdown: target event',
@@ -74,6 +71,7 @@ export const eventsModule: HomeModule = {
       default: false,
     },
   },
+  settingsWidget: EventsSettingsWidget,
   widgets: [
     {
       id: 'events-countdown',

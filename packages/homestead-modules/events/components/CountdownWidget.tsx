@@ -4,8 +4,9 @@
  * Dashboard widget that counts down to a single configured event.
  *
  * Configuration is intentionally NOT exposed inline on the dashboard —
- * the user manages the chosen event and which time-unit cells to show on
- * `/events/countdown`, reachable via the gear in the widget header.
+ * the user manages the chosen event and which time-unit cells to show
+ * from the events section of the Settings page, reachable via the gear
+ * in the widget header.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -29,7 +30,7 @@ const UNIT_LABEL: Record<CountdownUnit, string> = {
   seconds: 'sec',
 };
 
-const CONFIG_PATH = '/events/countdown';
+const CONFIG_PATH = '/settings';
 
 export function CountdownWidget() {
   const config = useCountdownConfig();

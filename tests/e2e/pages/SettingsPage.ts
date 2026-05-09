@@ -45,4 +45,19 @@ export class SettingsPage {
       await expect(errorElement).toBeVisible({ timeout: 5000 });
     }
   }
+
+  /**
+   * Per-user "map provider" setting, declared by the People module and
+   * rendered through the auto-generated form in the Module Settings
+   * section of the Settings page.
+   */
+  async selectMapProvider(provider: 'google' | 'apple') {
+    const select = this.page.getByTestId('user-setting-people-map_provider');
+    await select.selectOption(provider);
+  }
+
+  async expectMapProvider(provider: 'google' | 'apple') {
+    const select = this.page.getByTestId('user-setting-people-map_provider');
+    await expect(select).toHaveValue(provider);
+  }
 }
