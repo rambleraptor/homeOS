@@ -14,7 +14,7 @@ export function useSendGroceryNotification() {
     mutationFn: async () => {
       const token = aepbase.authStore.token;
       const userId = aepbase.getCurrentUser()?.id || '';
-      const res = await fetch('/api/notifications/send-grocery', {
+      const res = await fetch('/api/modules/groceries/send-grocery-notification', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

@@ -13,6 +13,7 @@ import {
   aepList,
   aepCreate,
   aepRemove,
+  type AuthResult,
 } from '../../_lib/aepbase-server';
 
 interface NotificationSubscriptionRecord {
@@ -41,7 +42,16 @@ export async function sendUserNotification(
       { status: 401 },
     );
   }
+  return sendNotificationForAuth(auth, options);
+}
 
+// Module workers receive an already-authenticated caller from the
+// dispatcher, so they call this directly instead of re-running
+// `authenticate()` (which would issue a second `/users/{id}` round-trip).
+export async function sendNotificationForAuth(
+  auth: AuthResult,
+  options: UserNotificationOptions,
+): Promise<NextResponse> {
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
   const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@example.com';

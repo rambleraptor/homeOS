@@ -42,6 +42,30 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
 
+  // Module workers are declared on `HomeModule` via `load: () => import(...)`,
+  // and `module.config.ts` is reachable from client code (providers →
+  // registry → modules). That means Webpack creates a client-side chunk
+  // for every worker even though the worker is only ever invoked from the
+  // catch-all server route. Workers like `groceries/send-grocery-notification`
+  // depend on `web-push`, which pulls in Node-only `net`/`tls`. Stub those
+  // in the client target so the build doesn't fail; the chunks never run
+  // in the browser.
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve = config.resolve ?? {};
+      config.resolve.fallback = {
+        ...(config.resolve.fallback ?? {}),
+        net: false,
+        tls: false,
+        fs: false,
+        dns: false,
+        child_process: false,
+        http2: false,
+      };
+    }
+    return config;
+  },
+
   // Proxy API requests to aepbase. The browser talks to same-origin paths
   // under `/api/aep/*` and Next.js forwards them. Avoids CORS and
   // Cloudflare Access blocking, and means clients never address aepbase

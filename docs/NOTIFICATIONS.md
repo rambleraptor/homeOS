@@ -94,9 +94,13 @@ push, prunes expired endpoints, and writes the `notifications` row. It
 authenticates from the request's bearer token, so the notification always
 goes to the **calling** user.
 
-`/api/notifications/send-test` and `/api/notifications/send-grocery` are
-two-line wrappers around this helper — copy them when you need a new
-fire-and-forget endpoint.
+`/api/notifications/send-test` and the
+`groceries/send-grocery-notification` module worker
+(`packages/homestead-modules/groceries/workers/send-grocery-notification.ts`)
+are two-line wrappers around this helper. Module-owned endpoints should
+use the worker pattern and call `sendNotificationForAuth(auth, ...)`
+since the dispatcher has already authenticated the caller; copy
+`send-test` when you need a fire-and-forget core endpoint instead.
 
 ## Reading notifications in the UI
 
