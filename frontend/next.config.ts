@@ -47,11 +47,15 @@ const nextConfig: NextConfig = {
   // registry → modules). That means Webpack creates a client-side chunk
   // for every worker even though the worker is only ever invoked from the
   // catch-all server route. Workers like `groceries/send-grocery-notification`
-  // depend on `web-push`, which pulls in Node-only `net`/`tls`. Stub those
-  // in the client target so the build doesn't fail; the chunks never run
-  // in the browser.
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
+  // depend on `web-push` (which transitively pulls `agent-base`,
+  // `https-proxy-agent`, etc.), and those packages reach for Node-only
+  // built-ins. Stub them in the client target so the build doesn't fail;
+  // the chunks never run in the browser.
+  webpack: (config, { nextRuntime }) => {
+    // Apply for the client (`nextRuntime === undefined`) and the edge
+    // runtime — both lack Node built-ins. The Node server resolves them
+    // natively, so we leave that target alone.
+    if (nextRuntime !== 'nodejs') {
       config.resolve = config.resolve ?? {};
       config.resolve.fallback = {
         ...(config.resolve.fallback ?? {}),
@@ -60,7 +64,19 @@ const nextConfig: NextConfig = {
         fs: false,
         dns: false,
         child_process: false,
+        http: false,
+        https: false,
         http2: false,
+        stream: false,
+        zlib: false,
+        url: false,
+        crypto: false,
+        os: false,
+        path: false,
+        querystring: false,
+        assert: false,
+        buffer: false,
+        util: false,
       };
     }
     return config;
