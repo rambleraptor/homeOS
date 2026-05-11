@@ -16,6 +16,8 @@ Currently mounted workers:
 
 - `POST /api/modules/groceries/process-image` — Gemini-powered
   extraction of grocery items from an uploaded image
+- `POST /api/modules/groceries/send-grocery-notification` — pushes a
+  "grocery list updated" notification to the caller's enabled subscriptions
 - `POST /api/modules/hsa/parse-receipt` — Gemini-powered parser for
   medical receipts
 
