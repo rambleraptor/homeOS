@@ -14,10 +14,35 @@ export class PictionaryPage {
     await this.page.goto('/games/pictionary');
   }
 
+  async gotoLeaderboard() {
+    await this.page.goto('/games/pictionary/leaderboard');
+  }
+
+  async clickLeaderboard() {
+    await this.page.getByTestId('pictionary-leaderboard-button').click();
+  }
+
   async expectToBeOnPictionaryPage() {
     await expect(this.page).toHaveURL(/\/games\/pictionary/);
     await expect(
       this.page.getByRole('heading', { name: 'Pictionary' }),
+    ).toBeVisible();
+  }
+
+  async expectToBeOnLeaderboardPage() {
+    await expect(this.page).toHaveURL(/\/games\/pictionary\/leaderboard/);
+    await expect(
+      this.page.getByRole('heading', { name: 'Pictionary Leaderboard' }),
+    ).toBeVisible();
+  }
+
+  leaderboardRow(playerId: string) {
+    return this.page.getByTestId(`pictionary-leaderboard-row-${playerId}`);
+  }
+
+  async expectLeaderboardEmpty() {
+    await expect(
+      this.page.getByTestId('pictionary-leaderboard-empty'),
     ).toBeVisible();
   }
 

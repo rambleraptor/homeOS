@@ -8,7 +8,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Upload, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, Upload, Loader2, AlertCircle, Trophy } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -129,6 +129,15 @@ export function PictionaryHome() {
             subtitle="Record who played, what teams, and who won."
             actions={
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push('/games/pictionary/leaderboard')}
+                  data-testid="pictionary-leaderboard-button"
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium font-body transition-colors shadow-sm"
+                >
+                  <Trophy className="w-5 h-5" />
+                  Leaderboard
+                </button>
                 <button
                   type="button"
                   onClick={() => router.push('/games/pictionary/import')}
