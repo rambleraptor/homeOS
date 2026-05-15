@@ -36,8 +36,14 @@ export class PictionaryPage {
     ).toBeVisible();
   }
 
-  leaderboardRow(playerId: string) {
-    return this.page.getByTestId(`pictionary-leaderboard-row-${playerId}`);
+  leaderboardRow(rowKey: string) {
+    return this.page.getByTestId(`pictionary-leaderboard-row-${rowKey}`);
+  }
+
+  async selectLeaderboardMode(mode: 'players' | 'teams') {
+    await this.page
+      .getByTestId(`pictionary-leaderboard-mode-${mode}`)
+      .click();
   }
 
   async expectLeaderboardEmpty() {
