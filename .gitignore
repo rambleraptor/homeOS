@@ -45,6 +45,9 @@ pocketbase/
 # Workspace node_modules (root-hoisted)
 node_modules/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Scripts
 scripts/node_modules/
 
