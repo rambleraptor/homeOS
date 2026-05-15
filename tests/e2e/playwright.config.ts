@@ -20,11 +20,16 @@ export default defineConfig({
     'packages/homestead-modules/**/e2e/**/*.spec.ts',
   ],
 
-  // Serial because the tests share one aepbase instance + admin user.
+  // Serial because the tests share one aepbase instance and the
+  // bootstrap superuser. `fullyParallel: false` only serializes within
+  // a file — without `workers: 1` here, two workers can still pick up
+  // different specs that both reset admin-owned data (e.g. todos-crud
+  // and projects-crud both call `deleteAllTodos(adminToken)` in their
+  // beforeEach) and stomp each other mid-test.
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 2 : 4,
+  workers: 1,
 
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
