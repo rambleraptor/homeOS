@@ -1,8 +1,8 @@
 /**
  * Pictionary Leaderboard E2E tests.
  *
- * Seeds games via aepbase REST and verifies that the leaderboard route
- * ranks players by wins.
+ * Seeds games via aepbase REST and verifies that the leaderboard ranks
+ * both players and teams.
  */
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
@@ -78,14 +78,55 @@ test.describe('Pictionary Leaderboard', () => {
     await expect(carolRow).toBeVisible();
 
     await expect(aliceRow).toContainText('Alice Lead');
-    await expect(
-      aliceRow.getByTestId(`pictionary-leaderboard-wins-${alice.id}`),
-    ).toHaveText('2');
-    await expect(
-      bobRow.getByTestId(`pictionary-leaderboard-wins-${bob.id}`),
-    ).toHaveText('1');
-    await expect(
-      carolRow.getByTestId(`pictionary-leaderboard-wins-${carol.id}`),
-    ).toHaveText('0');
+    await expect(aliceRow).toContainText('2 wins');
+    await expect(bobRow).toContainText('1 win');
+    await expect(carolRow).toContainText('0 wins');
+  });
+
+  test('switches to team mode and ranks teams by their roster', async ({
+    userToken,
+  }) => {
+    const alice = await createPerson(userToken, { name: 'Alice T' });
+    const bob = await createPerson(userToken, { name: 'Bob T' });
+    const carol = await createPerson(userToken, { name: 'Carol T' });
+    const dan = await createPerson(userToken, { name: 'Dan T' });
+
+    // Alice & Bob beat Carol & Dan twice; same rosters each time so the
+    // team aggregator collapses them into one row.
+    for (let i = 0; i < 2; i++) {
+      await createPictionaryGame(userToken, {
+        location: `Game ${i + 1}`,
+        teams: [
+          {
+            players: [`people/${alice.id}`, `people/${bob.id}`],
+            won: true,
+          },
+          {
+            players: [`people/${carol.id}`, `people/${dan.id}`],
+            won: false,
+          },
+        ],
+      });
+    }
+
+    await pictionaryPage.gotoLeaderboard();
+    await pictionaryPage.selectLeaderboardMode('teams');
+
+    // Team row testid is the sorted player ids joined with `-`.
+    const sortedAb = [alice.id, bob.id].sort().join('-');
+    const sortedCd = [carol.id, dan.id].sort().join('-');
+
+    const winningTeamRow = pictionaryPage.leaderboardRow(sortedAb);
+    const losingTeamRow = pictionaryPage.leaderboardRow(sortedCd);
+
+    await expect(winningTeamRow).toBeVisible();
+    await expect(winningTeamRow).toContainText('Alice T');
+    await expect(winningTeamRow).toContainText('Bob T');
+    await expect(winningTeamRow).toContainText('2 wins');
+    await expect(winningTeamRow).toContainText('2 games');
+
+    await expect(losingTeamRow).toBeVisible();
+    await expect(losingTeamRow).toContainText('0 wins');
+    await expect(losingTeamRow).toContainText('2 games');
   });
 });

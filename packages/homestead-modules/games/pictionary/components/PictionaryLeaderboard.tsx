@@ -1,24 +1,39 @@
 'use client';
 
 /**
- * Pictionary leaderboard — ranks players across every recorded game by
- * total wins, with games played and win rate as tiebreakers. Top rank
+ * Pictionary leaderboard — ranks players or teams across every recorded
+ * game by total wins, then win rate, then games played. The rank-1 row
  * gets the trophy/amber treatment used elsewhere for winners.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, AlertCircle, Trophy, Pencil } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { usePeople } from '../../../people/hooks/usePeople';
-import { usePlayerStats, type PlayerStats } from '../hooks/usePlayerStats';
+import { usePlayerStats } from '../hooks/usePlayerStats';
+import { useTeamStats } from '../hooks/useTeamStats';
+
+type Mode = 'players' | 'teams';
 
 interface PersonLite {
   id: string;
   name: string;
 }
 
-function displayNameFor(playerPath: string, people: PersonLite[]): string {
+interface Row {
+  /** Stable id for the row (player id or team key). */
+  id: string;
+  /** Stable id used in test selectors. */
+  testId: string;
+  /** Display name (player name, or comma-joined team roster). */
+  name: string;
+  wins: number;
+  gamesPlayed: number;
+  winRate: number;
+}
+
+function nameFor(playerPath: string, people: PersonLite[]): string {
   const id = playerPath.replace(/^people\//, '');
   return people.find((p) => p.id === id)?.name || 'Unknown player';
 }
@@ -28,23 +43,33 @@ function formatWinRate(rate: number): string {
 }
 
 /**
- * Standard competition ranking ("1224"): players tied on the sort key
- * share a rank, and the next distinct entry skips ahead.
+ * Standard competition ranking ("1224"): rows tied on all three sort keys
+ * share a rank; the next distinct row skips ahead by the count of ties.
  */
-function rankOf(index: number, stats: PlayerStats[]): number {
-  if (index === 0) return 1;
-  const prev = stats[index - 1];
-  const curr = stats[index];
-  const sameAsPrev =
-    prev.wins === curr.wins &&
-    prev.winRate === curr.winRate &&
-    prev.gamesPlayed === curr.gamesPlayed;
-  return sameAsPrev ? rankOf(index - 1, stats) : index + 1;
+function computeRanks(rows: Row[]): number[] {
+  const ranks: number[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    if (i === 0) {
+      ranks.push(1);
+      continue;
+    }
+    const prev = rows[i - 1];
+    const curr = rows[i];
+    const sameAsPrev =
+      prev.wins === curr.wins &&
+      prev.winRate === curr.winRate &&
+      prev.gamesPlayed === curr.gamesPlayed;
+    ranks.push(sameAsPrev ? ranks[i - 1] : i + 1);
+  }
+  return ranks;
 }
 
 export function PictionaryLeaderboard() {
   const router = useRouter();
-  const { data: stats, isLoading, isError } = usePlayerStats();
+  const [mode, setMode] = useState<Mode>('players');
+
+  const playerStats = usePlayerStats();
+  const teamStats = useTeamStats();
   const { data: people } = usePeople();
 
   const peopleLite = useMemo<PersonLite[]>(
@@ -52,8 +77,42 @@ export function PictionaryLeaderboard() {
     [people],
   );
 
+  const isLoading =
+    mode === 'players' ? playerStats.isLoading : teamStats.isLoading;
+  const isError =
+    mode === 'players' ? playerStats.isError : teamStats.isError;
+
+  const rows = useMemo<Row[]>(() => {
+    if (mode === 'players') {
+      return playerStats.data.map((s) => {
+        const playerId = s.playerPath.replace(/^people\//, '');
+        return {
+          id: playerId,
+          testId: playerId,
+          name: nameFor(s.playerPath, peopleLite),
+          wins: s.wins,
+          gamesPlayed: s.gamesPlayed,
+          winRate: s.winRate,
+        };
+      });
+    }
+    return teamStats.data.map((s) => ({
+      id: s.teamKey,
+      // Stable, selector-safe id derived from the player ids.
+      testId: s.playerPaths
+        .map((p) => p.replace(/^people\//, ''))
+        .join('-'),
+      name: s.playerPaths.map((p) => nameFor(p, peopleLite)).join(', '),
+      wins: s.wins,
+      gamesPlayed: s.gamesPlayed,
+      winRate: s.winRate,
+    }));
+  }, [mode, playerStats.data, teamStats.data, peopleLite]);
+
+  const ranks = useMemo(() => computeRanks(rows), [rows]);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -67,9 +126,45 @@ export function PictionaryLeaderboard() {
         <div className="flex-1">
           <PageHeader
             title="Pictionary Leaderboard"
-            subtitle="Wins across every recorded game."
+            subtitle="Ranked by wins, then win rate."
           />
         </div>
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Leaderboard mode"
+        className="inline-flex p-1 bg-gray-100 rounded-lg"
+        data-testid="pictionary-leaderboard-mode"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'players'}
+          onClick={() => setMode('players')}
+          data-testid="pictionary-leaderboard-mode-players"
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            mode === 'players'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Players
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'teams'}
+          onClick={() => setMode('teams')}
+          data-testid="pictionary-leaderboard-mode-teams"
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            mode === 'teams'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Teams
+        </button>
       </div>
 
       {isLoading && (
@@ -82,16 +177,14 @@ export function PictionaryLeaderboard() {
         <div className="bg-red-50/20 border border-red-200 rounded-lg p-6">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-red-600" />
-            <div>
-              <h3 className="font-semibold text-red-900">
-                Failed to load Pictionary leaderboard
-              </h3>
-            </div>
+            <h3 className="font-semibold text-red-900">
+              Failed to load Pictionary leaderboard
+            </h3>
           </div>
         </div>
       )}
 
-      {!isLoading && !isError && stats.length === 0 && (
+      {!isLoading && !isError && rows.length === 0 && (
         <div
           className="bg-white rounded-lg shadow-md p-8 border border-gray-200 text-center"
           data-testid="pictionary-leaderboard-empty"
@@ -103,16 +196,16 @@ export function PictionaryLeaderboard() {
         </div>
       )}
 
-      {!isLoading && !isError && stats.length > 0 && (
+      {!isLoading && !isError && rows.length > 0 && (
         <ul className="space-y-2" data-testid="pictionary-leaderboard">
-          {stats.map((row, index) => {
-            const rank = rankOf(index, stats);
+          {rows.map((row, index) => {
+            const rank = ranks[index];
             const isTop = rank === 1;
-            const playerId = row.playerPath.replace(/^people\//, '');
+            const testIdSuffix = row.testId;
             return (
-              <li key={row.playerPath}>
+              <li key={row.id}>
                 <div
-                  data-testid={`pictionary-leaderboard-row-${playerId}`}
+                  data-testid={`pictionary-leaderboard-row-${testIdSuffix}`}
                   className={`flex items-center gap-4 rounded-lg shadow-sm p-4 border ${
                     isTop
                       ? 'bg-gradient-to-br from-amber-50 to-amber-100 border-amber-300 ring-1 ring-amber-200'
@@ -135,26 +228,28 @@ export function PictionaryLeaderboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-gray-900 truncate">
-                      {displayNameFor(row.playerPath, peopleLite)}
+                      {row.name}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {row.gamesPlayed}{' '}
-                      {row.gamesPlayed === 1 ? 'game' : 'games'}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div
-                      className="text-2xl font-bold text-gray-900"
-                      data-testid={`pictionary-leaderboard-wins-${playerId}`}
-                    >
-                      {row.wins}
-                    </div>
-                    <div
-                      className="text-xs uppercase tracking-wide text-gray-500"
-                      data-testid={`pictionary-leaderboard-rate-${playerId}`}
-                    >
-                      {row.wins === 1 ? 'win' : 'wins'} ·{' '}
-                      {formatWinRate(row.winRate)}
+                    <div className="text-sm text-gray-600 mt-0.5">
+                      <span
+                        data-testid={`pictionary-leaderboard-wins-${testIdSuffix}`}
+                      >
+                        <span className="font-semibold text-gray-900">
+                          {row.wins}
+                        </span>{' '}
+                        {row.wins === 1 ? 'win' : 'wins'}
+                      </span>
+                      <span className="text-gray-400"> · </span>
+                      <span>
+                        {row.gamesPlayed}{' '}
+                        {row.gamesPlayed === 1 ? 'game' : 'games'}
+                      </span>
+                      <span className="text-gray-400"> · </span>
+                      <span
+                        data-testid={`pictionary-leaderboard-rate-${testIdSuffix}`}
+                      >
+                        {formatWinRate(row.winRate)} win rate
+                      </span>
                     </div>
                   </div>
                 </div>
