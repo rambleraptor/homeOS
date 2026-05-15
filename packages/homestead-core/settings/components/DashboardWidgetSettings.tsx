@@ -21,7 +21,7 @@ import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { getAllDashboardWidgets } from '@/modules/registry';
+import { getAllDashboardWidgets } from '@rambleraptor/homestead-app/registry/registry';
 import { useUpdateDashboardWidgets } from '../hooks/useUpdateDashboardWidgets';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 

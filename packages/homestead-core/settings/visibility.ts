@@ -2,7 +2,8 @@
  * Shared visibility enum for module-level gating.
  *
  * Every module automatically exposes an `enabled` flag backed by this
- * enum (see `getAllModuleFlagDefs` in `@/modules/registry`). The
+ * enum (see `getAllModuleFlagDefs` in
+ * `@rambleraptor/homestead-app/registry/registry`). The
  * `useIsModuleEnabled` hook turns a stored value here into a yes/no
  * decision for the current viewer.
  */

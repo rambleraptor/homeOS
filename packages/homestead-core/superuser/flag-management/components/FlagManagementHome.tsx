@@ -11,7 +11,7 @@ import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastPr
 import { useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
-import { getAllModuleFlagDefs, getModuleById } from '@/modules/registry';
+import { getAllModuleFlagDefs, getModuleById } from '@rambleraptor/homestead-app/registry/registry';
 import { useModuleFlags } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlags';
 import { useUpdateModuleFlag } from '@rambleraptor/homestead-core/settings/hooks/useUpdateModuleFlag';
 import { unflatten } from '@rambleraptor/homestead-core/settings/flags';
@@ -20,7 +20,7 @@ import {
   MODULE_FLAGS_DEFINITION_QUERY_KEY,
   useModuleFlagsDefinition,
 } from '../hooks/useModuleFlagsDefinition';
-import type { ModuleFlagDef, ModuleFlagValue } from '@/modules/types';
+import type { ModuleFlagDef, ModuleFlagValue } from '@rambleraptor/homestead-app/registry/types';
 
 export function FlagManagementHome() {
   const { defs, isLoading: defsLoading, isMissing } = useModuleFlagsDefinition();

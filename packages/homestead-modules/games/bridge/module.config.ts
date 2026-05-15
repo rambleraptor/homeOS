@@ -7,7 +7,7 @@
  */
 
 import { Club } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { BridgeHome } from './components/BridgeHome';
 
 export const bridgeModule: HomeModule = {

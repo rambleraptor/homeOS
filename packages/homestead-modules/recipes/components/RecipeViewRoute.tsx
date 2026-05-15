@@ -1,4 +1,4 @@
-import type { ModuleRouteProps } from '@/modules/types';
+import type { ModuleRouteProps } from '@rambleraptor/homestead-app/registry/types';
 import { RecipeView } from './RecipeView';
 
 export function RecipeViewRoute({ params }: ModuleRouteProps) {

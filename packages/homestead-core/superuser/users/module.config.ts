@@ -8,7 +8,7 @@
  */
 
 import { UserCog } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { UsersHome } from './components/UsersHome';
 
 export const usersModule: HomeModule = {

@@ -3,7 +3,7 @@
  */
 
 import { ListTodo } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { TodosHome } from './components/TodosHome';
 import { TodoWidget } from './components/TodoWidget';
 import { todosResources } from './resources';

@@ -1,0 +1,25 @@
+# aepbase backend
+# Override AEPBASE_URL if your aepbase isn't on localhost:8090.
+# AEPBASE_URL=http://127.0.0.1:8090
+
+# aepbase superuser credentials. The first time you start aepbase it prints
+# these to stdout — save them here so the Next.js boot hook can sync the
+# resource definitions, module-flags, and user-settings schemas.
+AEPBASE_ADMIN_EMAIL=admin@example.com
+AEPBASE_ADMIN_PASSWORD=replace-me
+
+# Web push notifications. Generate a fresh pair with:
+#   npx web-push generate-vapid-keys
+# VAPID_PUBLIC_KEY mirrors NEXT_PUBLIC_VAPID_PUBLIC_KEY for server use.
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_EMAIL=mailto:admin@example.com
+
+# Natural-language omnibox + grocery image / HSA receipt parsing.
+# Optional — leave blank to fall back to keyword matching.
+# Get a key from https://aistudio.google.com/app/apikey.
+GEMINI_API_KEY=
+
+# Optional: secret expected by external schedulers hitting cron endpoints.
+# CRON_SECRET=

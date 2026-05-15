@@ -11,7 +11,7 @@
  */
 
 import { useCallback } from 'react';
-import type { ModuleFlagValue } from '@/modules/types';
+import type { ModuleFlagValue } from '@rambleraptor/homestead-app/registry/types';
 import { useModuleFlags } from './useModuleFlags';
 import { useUpdateModuleFlag } from './useUpdateModuleFlag';
 

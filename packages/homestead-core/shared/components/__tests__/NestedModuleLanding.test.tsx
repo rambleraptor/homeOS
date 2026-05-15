@@ -11,7 +11,7 @@ import { render, screen } from '@testing-library/react';
 import { Gamepad2, Pencil, Flag, Club } from 'lucide-react';
 import { NestedModuleLanding } from '../NestedModuleLanding';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 
 vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled', () => ({
   useModuleEnabledPredicate: vi.fn(),

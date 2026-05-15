@@ -7,7 +7,7 @@
  */
 
 import { ChefHat } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { RecipesHome } from './components/RecipesHome';
 import { RecipeViewRoute } from './components/RecipeViewRoute';
 import { recipesResources } from './resources';

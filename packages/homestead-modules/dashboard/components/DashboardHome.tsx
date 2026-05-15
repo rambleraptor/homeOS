@@ -14,7 +14,7 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { getTodaysHoliday } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { resolveDashboardWidgets } from '@rambleraptor/homestead-core/settings/utils/resolveDashboardWidgets';
-import { getAllDashboardWidgets } from '@/modules/registry';
+import { getAllDashboardWidgets } from '@rambleraptor/homestead-app/registry/registry';
 
 export function DashboardHome() {
   const { user } = useAuth();

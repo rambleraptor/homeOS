@@ -23,8 +23,8 @@ import {
   USER_PREFERENCES,
 } from '@rambleraptor/homestead-core/resources/builtins';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
-import { getAllUserSettingDefs } from '@/modules/registry';
-import type { UserSettingValue } from '@/modules/types';
+import { getAllUserSettingDefs } from '@rambleraptor/homestead-app/registry/registry';
+import type { UserSettingValue } from '@rambleraptor/homestead-app/registry/types';
 import { fieldName } from '../settings';
 import { syncUserSettingsSchema } from '../sync';
 import {

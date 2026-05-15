@@ -14,6 +14,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@rambleraptor/homestead-app": "*",
     "@rambleraptor/homestead-core": "*",
     "@rambleraptor/homestead-modules": "*",
     "@google/generative-ai": "^0.24.1",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DashboardWidget } from '@/modules/types';
+import type { DashboardWidget } from '@rambleraptor/homestead-app/registry/types';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 
 const Stub = () => null;

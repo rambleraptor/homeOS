@@ -10,7 +10,7 @@
  */
 
 import { ShieldCheck } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
 import { usersModule } from './users/module.config';
 import { flagManagementModule } from './flag-management/module.config';

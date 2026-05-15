@@ -4,7 +4,7 @@
  * Module for tracking credit card perks and rewards
  */
 
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { CreditCard } from 'lucide-react';
 import { CreditCardsList } from './components/CreditCardsList';
 import { CreditCardsHome } from './components/CreditCardsHome';

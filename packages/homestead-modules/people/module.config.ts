@@ -7,7 +7,7 @@
  */
 
 import { Users } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { peopleOmnibox } from './omnibox';
 import { PeopleHome } from './components/PeopleHome';
 import { PeopleBulkImport } from './bulk-import';

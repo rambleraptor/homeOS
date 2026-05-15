@@ -1,0 +1,28 @@
+{
+  "name": "create-homestead-app",
+  "version": "0.1.0",
+  "description": "Scaffold a new Homestead self-hosted instance.",
+  "bin": {
+    "create-homestead-app": "./bin.js"
+  },
+  "type": "module",
+  "files": [
+    "bin.js",
+    "template",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "homestead",
+    "self-hosted",
+    "household",
+    "scaffold"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rambleraptor/homestead.git",
+    "directory": "packages/create-homestead-app"
+  }
+}

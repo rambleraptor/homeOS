@@ -6,7 +6,7 @@
  */
 
 import { CalendarHeart } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { EventsHome } from './components/EventsHome';
 import { UpcomingEventsWidget } from './components/UpcomingEventsWidget';
 import { CountdownWidget } from './components/CountdownWidget';

@@ -6,7 +6,7 @@
  */
 
 import { Settings } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { SettingsHome } from './components/SettingsHome';
 
 export const OMNIBOX_ACCESS_OPTIONS = ['superuser', 'all'] as const;

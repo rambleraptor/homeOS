@@ -7,7 +7,7 @@
  */
 
 import { Flag } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-app/registry/types';
 import { MinigolfHome } from './components/MinigolfHome';
 import { minigolfResources } from './resources';
 

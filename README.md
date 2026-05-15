@@ -18,49 +18,41 @@ It's built on top of [aepbase](https://www.github.com/rambleraptor/aepbase).
 ### Prerequisites
 
 - Node.js 20+ and npm
-- Go (for building aepbase)
-- Terraform (for applying schema)
+- Go 1.22+ (for building aepbase)
 
-### Installation
+### Self-host (recommended)
 
-1. **Clone the repository**
+If you just want to run Homestead, see
+**[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**. The short version:
+
+```bash
+# 1. Scaffold the consumer app
+npx create-homestead-app my-home
+
+# 2. Build + start aepbase (from a fresh clone of this repo)
+git clone <your-repo-url>
+cd homestead/aepbase
+./install.sh && ./run.sh                # serves on :8090
+
+# 3. Wire creds + run the app
+cd ../../my-home
+cp .env.example .env.local              # fill in AEPBASE_ADMIN_*
+npm run dev                             # open http://localhost:3000
+```
+
+### Develop on Homestead itself
+
+If you're hacking on Homestead's packages instead of consuming them,
+clone and use the in-tree `frontend/` workspace (which is itself a thin
+consumer of `@rambleraptor/homestead-app`):
 
 ```bash
 git clone <your-repo-url>
 cd homestead
+npm install                             # installs every workspace
+cd aepbase && ./install.sh && ./run.sh  # in one terminal
+cd ../frontend && npm run dev           # in another
 ```
-
-2. **Build and start aepbase**
-
-```bash
-cd aepbase
-./install.sh      # first time only — builds bin/aepbase
-./run.sh          # serves on :8090
-```
-
-On first start, aepbase prints the superuser email + password to stdout.
-**Save these credentials** — set them as `AEPBASE_ADMIN_EMAIL` /
-`AEPBASE_ADMIN_PASSWORD` so the schema sync runs at server boot.
-
-3. **Install frontend dependencies**
-
-```bash
-npm install
-```
-
-4. **Start the development server**
-
-```bash
-npm run dev
-```
-
-Open `http://localhost:3000` in your browser. The frontend proxies
-aepbase at same-origin `/api/aep`.
-
-5. **Log in**
-
-Use the superuser credentials printed by aepbase, or create additional
-users through the app's sign-up flow.
 
 ## Architecture
 
@@ -80,13 +72,18 @@ Every feature is a **module** with its own:
   routes (with their React components), nav placement, dashboard
   widgets, and module flags
 
-**Adding a new module:**
+**Adding a new module (in this repo):**
 1. Create `packages/homestead-modules/<your-module>/` with a
    `module.config.ts` that declares `routes` (each with a `component`)
 2. Add the import + array entry to `frontend/homestead.config.ts`
 3. Done! No per-route page files, no registry edits — your module
    appears in the navigation automatically and the catch-all router
    serves its routes.
+
+**Adding a module in your own self-hosted instance:** declare a
+`HomeModule` inline in your scaffold and add it to your
+`homestead.config.ts` — see
+[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md#5-add-a-custom-module).
 
 ## 🚀 Production Deployment
 

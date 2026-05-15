@@ -11,11 +11,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    include: [
-      'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
-      '../packages/*/**/*.{test,spec}.{js,jsx,ts,tsx}',
-    ],
+    setupFiles: ['../packages/homestead-app/test/setup.ts'],
+    include: ['../packages/*/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     // Playwright e2e specs colocated next to their modules live under
     // `packages/homestead-modules/<module>/e2e/`. Vitest must not run them.
     exclude: [
@@ -28,7 +25,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       exclude: [
         'node_modules/',
-        'src/test/',
+        '../packages/**/test/',
         '**/*.d.ts',
         '**/*.config.*',
         '**/mockData/',
@@ -37,7 +34,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      // Mirror the consumer-side `@homestead-config` path alias defined
+      // in `tsconfig.json` so test code that walks through the registry
+      // can load the operator's module config.
+      '@homestead-config': path.resolve(__dirname, './homestead.config.ts'),
     },
   },
 });

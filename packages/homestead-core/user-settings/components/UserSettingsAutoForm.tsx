@@ -14,7 +14,7 @@ import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { UserSettingDef, UserSettingValue } from '@/modules/types';
+import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-app/registry/types';
 import { useUserSettings } from '../hooks/useUserSettings';
 import { useUpdateUserSetting } from '../hooks/useUpdateUserSetting';
 

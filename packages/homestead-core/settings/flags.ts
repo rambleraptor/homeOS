@@ -18,7 +18,7 @@
  *     the `description`.
  */
 
-import type { ModuleFlagDef, ModuleFlagValue } from '@/modules/types';
+import type { ModuleFlagDef, ModuleFlagValue } from '@rambleraptor/homestead-app/registry/types';
 
 /**
  * Separator between the module id and the flag key in a flattened

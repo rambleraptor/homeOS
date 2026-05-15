@@ -1,0 +1,12 @@
+{
+  "extends": "../../frontend/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../../frontend/src/*"],
+      "@homestead-config": ["./registry/__config-stub.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
+}

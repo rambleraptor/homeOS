@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#4F46E5" rx="24"/>
+  <path d="M96 48L48 84V144H80V112H112V144H144V84L96 48Z" fill="white"/>
+  <text x="96" y="172" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white" text-anchor="middle">homeOS</text>
+</svg>

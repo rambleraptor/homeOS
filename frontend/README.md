@@ -1,115 +1,48 @@
-# Homestead Frontend
+# `frontend/`
 
-This is the frontend application for Homestead, built with Next.js, React, and TypeScript.
+The in-tree consumer of `@rambleraptor/homestead-app`. This directory
+mirrors what `create-homestead-app` generates for a self-hosted instance
+— same `app/` re-exports, same one-line config files, same
+`homestead.config.ts`. We use it to dogfood the package and to run the
+e2e tests inside this repo.
 
-## Tech Stack
+Operator-facing files:
 
-- **Framework**: Next.js 15
-- **UI Library**: React 19
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **State Management**: TanStack Query (React Query)
-- **Testing**: Vitest + React Testing Library
-- **Icons**: Lucide React
+| File | Purpose |
+|------|---------|
+| `homestead.config.ts` | Which modules ship in this instance. |
+| `app/` | One-line re-exports from `@rambleraptor/homestead-app`. Touch only when adding a custom route on top of the shell. |
+| `instrumentation.ts` | Re-exports `register` + `onRequestError`. |
+| `next.config.ts` | Calls `createNextConfig()` from the package. |
+| `tsconfig.json` | Extends `@rambleraptor/homestead-app/tsconfig.base.json`; sets the `@homestead-config` alias. |
+| `postcss.config.js` / `eslint.config.mjs` | Re-export the package mirrors. |
+| `public/` | PWA icons + service worker. |
+| `.env.example` | AEPBASE_*, VAPID_*, GEMINI_API_KEY. |
 
 ## Development
 
 ```bash
-# Install dependencies
+# from repo root
 npm install
-
-# Run development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Run tests
-npm test
-
-# Run linter
-npm run lint
-
-# Run type checker
-npm run type-check
+make dev              # cd frontend && npm run dev
 ```
 
-## Environment Variables
-
-Copy `.env.example` to `.env` and configure:
+For the full repo gate before pushing:
 
 ```bash
-NEXT_PUBLIC_POCKETBASE_URL=http://127.0.0.1:8090
-NEXT_PUBLIC_APP_NAME=Homestead
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
+make ci && make test
 ```
 
-**Note**: Environment variables in Next.js must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser.
+## What lives where
 
-## Project Structure
+Most code lives in the workspace packages, not here:
 
-```
-src/
-├── app/              # Next.js App Router pages
-├── core/             # Core infrastructure
-│   ├── auth/         # Authentication
-│   ├── api/          # PocketBase client
-│   ├── layout/       # Layout components
-│   └── router/       # Routing configuration
-├── modules/          # Feature modules
-│   ├── registry.ts   # Module registry
-│   ├── dashboard/    # Dashboard module
-│   ├── gift-cards/   # Gift cards module
-│   └── ...           # Other modules
-├── shared/           # Shared components and utilities
-└── test/             # Test setup and utilities
-```
+- **`packages/homestead-app/`** — Next.js shell: layouts, providers,
+  registry, catch-all router, API route handlers, instrumentation hook,
+  `createNextConfig`.
+- **`packages/homestead-core/`** — auth, shared UI, aepbase client,
+  resource sync, settings + superuser modules.
+- **`packages/homestead-modules/`** — opt-in feature modules.
 
-## Adding a New Module
-
-1. Create module folder in `src/modules/`
-2. Define `module.config.ts` with metadata
-3. Create routes and components
-4. Register in `src/modules/registry.ts`
-
-See the [Module Guide](../docs/MODULE_GUIDE.md) for detailed instructions.
-
-## Testing
-
-This project uses Vitest for unit and integration testing:
-
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Run tests with coverage
-npm run test:coverage
-```
-
-## Code Quality
-
-Before committing, ensure all checks pass:
-
-```bash
-# Run all checks
-cd .. && make ci && make test
-```
-
-This runs:
-- ESLint
-- TypeScript type checking
-- Build verification
-- All tests
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [React Documentation](https://react.dev)
-- [Tailwind CSS](https://tailwindcss.com)
-- [TanStack Query](https://tanstack.com/query)
+See [`docs/SELF_HOSTING.md`](../docs/SELF_HOSTING.md) for the
+operator-facing walk-through.
