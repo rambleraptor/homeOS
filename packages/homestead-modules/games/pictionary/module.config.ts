@@ -9,6 +9,7 @@
 import { Pencil } from 'lucide-react';
 import type { HomeModule } from '@/modules/types';
 import { PictionaryHome } from './components/PictionaryHome';
+import { PictionaryLeaderboard } from './components/PictionaryLeaderboard';
 import { PictionaryBulkImport } from './bulk-import';
 import { pictionaryResources } from './resources';
 
@@ -20,6 +21,11 @@ export const pictionaryModule: HomeModule = {
   basePath: '/games/pictionary',
   routes: [
     { path: '', index: true, component: PictionaryHome, gates: ['enabled'] },
+    {
+      path: 'leaderboard',
+      component: PictionaryLeaderboard,
+      gates: ['enabled'],
+    },
     { path: 'import', component: PictionaryBulkImport, gates: ['enabled'] },
   ],
   enabled: true,
