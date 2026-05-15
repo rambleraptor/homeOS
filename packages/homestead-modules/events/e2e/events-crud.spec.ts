@@ -2,16 +2,14 @@
  * Events module E2E — CRUD via the UI plus backend assertions.
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { EventsPage } from '../../pages/EventsPage';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { EventsPage } from './EventsPage';
+import { createEvent, deleteAllEvents, listEvents } from './helpers';
 import {
-  createEvent,
   createPerson,
-  deleteAllEvents,
   deleteAllPeople,
   deleteAllPersonSharedData,
-  listEvents,
-} from '../../utils/aepbase-helpers';
+} from '../../people/e2e/helpers';
 
 test.describe('Events CRUD', () => {
   let eventsPage: EventsPage;

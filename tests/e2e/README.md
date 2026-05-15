@@ -19,41 +19,44 @@ These tests verify the full integration of the Homestead application, testing bo
 ### Directory Structure
 
 ```
-tests/e2e/
+tests/e2e/                            # Cross-cutting test plumbing
 ├── config/
-│   ├── pocketbase.setup.ts    # PocketBase test instance management
-│   └── playwright.config.ts   # Playwright configuration (symlink)
+│   ├── aepbase.setup.ts              # aepbase test instance management
+│   └── dev-server.setup.ts           # Next.js dev server bootstrap
 ├── fixtures/
-│   ├── pocketbase.fixture.ts  # Custom PocketBase fixtures
-│   └── test-data.ts            # Test data definitions
-├── pages/                      # Page Object Models
+│   ├── aepbase.fixture.ts            # Auth + user/admin Playwright fixtures
+│   └── test-data.ts                  # `testUsers` (cross-cutting only)
+├── pages/                            # Core Page Object Models
 │   ├── LoginPage.ts
 │   ├── DashboardPage.ts
-│   ├── GiftCardsPage.ts
-│   ├── EventsPage.ts
-│   └── SettingsPage.ts
-├── tests/                      # Test suites
+│   ├── SettingsPage.ts
+│   ├── UsersPage.ts
+│   └── FlagManagementPage.ts
+├── tests/                            # Core specs (auth, nav, settings, …)
 │   ├── auth/
-│   │   ├── login.spec.ts
-│   │   ├── logout.spec.ts
-│   │   └── session-persistence.spec.ts
-│   ├── gift-cards/
-│   │   ├── gift-card-crud.spec.ts
-│   │   └── merchant-summary.spec.ts
-│   ├── events/
-│   │   └── event-crud.spec.ts
+│   ├── flag-management/
+│   ├── navigation/
+│   ├── offline/
 │   ├── settings/
-│   │   └── change-password.spec.ts
-│   └── navigation/
-│       └── module-navigation.spec.ts
-├── utils/                      # Helper utilities
-│   ├── pocketbase-helpers.ts  # Direct PB API helpers
-│   └── test-helpers.ts         # General test utilities
+│   └── users/
+├── utils/
+│   ├── aepbase-helpers.ts            # Generic REST primitives only
+│   └── test-helpers.ts
 ├── package.json
-├── playwright.config.ts
+├── playwright.config.ts              # Discovers specs under both roots
 ├── tsconfig.json
 └── README.md
+
+packages/homestead-modules/<module>/  # Module-owned e2e artifacts
+└── e2e/
+    ├── <Module>Page.ts               # Module POM
+    ├── helpers.ts                    # Seed helpers + test data
+    └── <module>-*.spec.ts            # Specs
 ```
+
+Playwright `testDir` is the repo root; `testMatch` covers both
+`tests/e2e/tests/**/*.spec.ts` and
+`packages/homestead-modules/**/e2e/**/*.spec.ts`.
 
 ### Test Infrastructure
 
@@ -182,27 +185,31 @@ Opens the HTML report showing test results, screenshots, and videos of failures.
 
 ### Basic Test Structure
 
-```typescript
-import { test, expect } from '../../fixtures/pocketbase.fixture';
-import { GiftCardsPage } from '../../pages/GiftCardsPage';
+Module specs live at `packages/homestead-modules/<module>/e2e/`. The
+shared fixture, generic REST helpers, and core POMs live under
+`tests/e2e/`, so module specs import them via a relative path.
 
-test.describe('Feature Name', () => {
+```typescript
+// packages/homestead-modules/gift-cards/e2e/gift-card-crud.spec.ts
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { GiftCardsPage } from './GiftCardsPage';
+import { createGiftCard, deleteAllGiftCards, testGiftCards } from './helpers';
+
+test.describe('Gift Cards CRUD', () => {
   let giftCardsPage: GiftCardsPage;
 
-  test.beforeEach(async ({ authenticatedPage }) => {
+  test.beforeEach(async ({ authenticatedPage, userToken }) => {
     giftCardsPage = new GiftCardsPage(authenticatedPage);
+    await deleteAllGiftCards(userToken);
     await giftCardsPage.goto();
   });
 
-  test('should do something', async ({ page, pocketbase }) => {
-    // Arrange: Set up test data via PB API
-    await pocketbase.collection('gift_cards').create({...});
-
-    // Act: Perform actions via page object
-    await giftCardsPage.createGiftCard({...});
-
-    // Assert: Verify expected behavior
-    await giftCardsPage.expectGiftCardInList('Amazon');
+  test('should edit a gift card', async ({ userToken }) => {
+    const created = await createGiftCard(userToken, testGiftCards[0]);
+    // … exercise the UI …
+    const updated = await aepGet<{ amount: number }>(userToken, 'gift-cards', created.id);
+    expect(updated.amount).toBe(75);
   });
 });
 ```
@@ -224,35 +231,27 @@ await page.getByLabel(/merchant/i).fill('Amazon');
 // ... etc
 ```
 
-### Seeding Data via PocketBase API
+### Seeding data via aepbase REST
 
-For tests that need existing data, use PocketBase helpers:
+For tests that need existing data, import the module's seed helpers
+from its colocated `e2e/helpers.ts`:
 
 ```typescript
-import { createGiftCard, createMultipleGiftCards } from '../../utils/pocketbase-helpers';
+import { createGiftCard, deleteAllGiftCards } from './helpers';
 
-test('should edit gift card', async ({ pocketbase }) => {
-  // Seed data via API (faster than UI)
-  await createGiftCard(pocketbase, {
-    merchant: 'Amazon',
-    amount: 50,
-  });
+test.beforeEach(async ({ userToken }) => {
+  await deleteAllGiftCards(userToken);
+});
 
-  // Test UI behavior
+test('should edit gift card', async ({ userToken }) => {
+  await createGiftCard(userToken, { merchant: 'Amazon', amount: 50 });
   await giftCardsPage.editGiftCard('Amazon', { amount: 75 });
 });
 ```
 
-### Cleaning Up Test Data
-
-```typescript
-import { deleteAllGiftCards } from '../../utils/pocketbase-helpers';
-
-test.beforeEach(async ({ pocketbase }) => {
-  // Clean slate for each test
-  await deleteAllGiftCards(pocketbase);
-});
-```
+Need a primitive that the module helpers don't expose (e.g. `aepGet`
+or `aepList`)? Import it directly from
+`../../../../tests/e2e/utils/aepbase-helpers`.
 
 ## Best Practices
 

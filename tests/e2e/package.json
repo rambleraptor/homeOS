@@ -10,12 +10,12 @@
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:chromium": "playwright test --project=chromium",
-    "test:auth": "playwright test tests/auth/",
-    "test:gift-cards": "playwright test tests/gift-cards/",
-    "test:people": "playwright test tests/people/",
-    "test:hsa": "playwright test tests/hsa/",
-    "test:settings": "playwright test tests/settings/",
-    "test:navigation": "playwright test tests/navigation/",
+    "test:auth": "playwright test tests/e2e/tests/auth/",
+    "test:gift-cards": "playwright test packages/homestead-modules/gift-cards/e2e/",
+    "test:people": "playwright test packages/homestead-modules/people/e2e/",
+    "test:hsa": "playwright test packages/homestead-modules/hsa/e2e/",
+    "test:settings": "playwright test tests/e2e/tests/settings/",
+    "test:navigation": "playwright test tests/e2e/tests/navigation/",
     "report": "playwright show-report",
     "clean": "rm -rf test-results playwright-report aep_test_data"
   },
@@ -27,7 +27,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "@playwright/test": "^1.49.1",
+    "@playwright/test": "1.59.1",
     "@types/node": "^22.10.2",
     "typescript": "^6.0.2"
   }

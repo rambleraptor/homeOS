@@ -16,6 +16,13 @@ export default defineConfig({
       'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
       '../packages/*/**/*.{test,spec}.{js,jsx,ts,tsx}',
     ],
+    // Playwright e2e specs colocated next to their modules live under
+    // `packages/homestead-modules/<module>/e2e/`. Vitest must not run them.
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '../packages/homestead-modules/**/e2e/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

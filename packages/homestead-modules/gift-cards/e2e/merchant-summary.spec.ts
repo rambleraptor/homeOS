@@ -2,9 +2,9 @@
  * Gift Cards E2E Tests - Merchant Summaries
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { GiftCardsPage } from '../../pages/GiftCardsPage';
-import { createMultipleGiftCards, deleteAllGiftCards } from '../../utils/aepbase-helpers';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { GiftCardsPage } from './GiftCardsPage';
+import { createMultipleGiftCards, deleteAllGiftCards } from './helpers';
 
 test.describe('Merchant Summaries', () => {
   let giftCardsPage: GiftCardsPage;

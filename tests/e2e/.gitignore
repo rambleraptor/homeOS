@@ -7,11 +7,12 @@ test-results/
 playwright-report/
 playwright/.cache/
 
-# PocketBase test instance
+# aepbase / PocketBase test instance
 pocketbase
 pocketbase.exe
 pocketbase.zip
 pb_test_data/
+aep_test_data/
 
 # OS files
 .DS_Store

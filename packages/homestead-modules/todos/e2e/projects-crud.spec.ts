@@ -4,14 +4,14 @@
  * from two scopes).
  */
 
-import { test } from '../../fixtures/aepbase.fixture';
-import { TodosPage } from '../../pages/TodosPage';
+import { test } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { TodosPage } from './TodosPage';
 import {
   createProject,
   createTodo,
   deleteAllProjects,
   deleteAllTodos,
-} from '../../utils/aepbase-helpers';
+} from './helpers';
 
 test.describe('Todos projects', () => {
   let todosPage: TodosPage;

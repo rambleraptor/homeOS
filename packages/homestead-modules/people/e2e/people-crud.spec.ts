@@ -2,15 +2,15 @@
  * People E2E Tests - CRUD Operations
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { PeoplePage } from '../../pages/PeoplePage';
-import { testPeople } from '../../fixtures/test-data';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { PeoplePage } from './PeoplePage';
 import {
   createPerson,
   deleteAllPeople,
   getPersonSharedData,
-  aepGet,
-} from '../../utils/aepbase-helpers';
+  testPeople,
+} from './helpers';
 
 test.describe('People CRUD', () => {
   let peoplePage: PeoplePage;

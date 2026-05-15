@@ -6,15 +6,15 @@
  * appears in the list.
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { MinigolfPage } from '../../pages/MinigolfPage';
+import { test, expect } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepList } from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { MinigolfPage } from './MinigolfPage';
+import { deleteAllGames } from './helpers';
 import {
   createPerson,
-  deleteAllGames,
   deleteAllPeople,
   deleteAllPersonSharedData,
-  aepList,
-} from '../../utils/aepbase-helpers';
+} from '../../../people/e2e/helpers';
 
 test.describe('Minigolf CRUD', () => {
   let minigolfPage: MinigolfPage;

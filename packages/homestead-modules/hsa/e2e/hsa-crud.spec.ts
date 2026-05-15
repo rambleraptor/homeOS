@@ -2,14 +2,14 @@
  * HSA E2E Tests - CRUD Operations
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { HSAPage } from '../../pages/HSAPage';
-import { testHSAReceipts } from '../../fixtures/test-data';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { HSAPage } from './HSAPage';
 import {
-  aepGet,
   createHSAReceipt,
   deleteAllHSAReceipts,
-} from '../../utils/aepbase-helpers';
+  testHSAReceipts,
+} from './helpers';
 
 test.describe('HSA CRUD', () => {
   let hsaPage: HSAPage;

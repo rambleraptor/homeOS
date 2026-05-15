@@ -123,6 +123,7 @@ packages/homestead-modules/<module-id>/
 ├── components/               # React UI components
 ├── hooks/                    # TanStack Query hooks, one per operation
 ├── __tests__/                # Vitest tests colocated per the CLAUDE.md rule
+├── e2e/                      # Playwright POM + specs + seed helpers (see step 8)
 ├── types.ts                  # TypeScript interfaces
 ├── resources.ts              # ResourceDefinition[]
 ├── module.config.ts          # HomeModule config object
@@ -225,19 +226,32 @@ in `CLAUDE.md` → "Testing Guidelines":
 
 ### 8. Add e2e coverage (Playwright)
 
+E2E artifacts live next to the module they cover, under `e2e/`. Cross-
+cutting plumbing (the aepbase fixture, generic REST primitives, the
+`testUsers` fixture, core POMs like `LoginPage`/`DashboardPage`) stays
+under `tests/e2e/`.
+
 1. Ensure the components you just built have `data-testid` on primary
    buttons/inputs (required by CLAUDE.md).
-2. Create a Page Object at `tests/e2e/pages/<Module>Page.ts`. POMs contain
-   interactions only — no assertions, no `console.log`.
-3. Add aepbase seed helpers (`create<Thing>`, `deleteAll<Things>`) to
-   `tests/e2e/utils/aepbase-helpers.ts`. Seeding via REST is 10-100× faster
+2. Create the Page Object at
+   `packages/homestead-modules/<module-id>/e2e/<Module>Page.ts`. POMs
+   contain interactions only — no assertions, no `console.log`.
+3. Add aepbase seed helpers (`create<Thing>`, `deleteAll<Things>`, any
+   `test<Thing>` data fixtures) to
+   `packages/homestead-modules/<module-id>/e2e/helpers.ts`. Import the
+   generic REST primitives from
+   `../../../../tests/e2e/utils/aepbase-helpers` (one more `..` if your
+   module is nested under `games/`). Seeding via REST is 10-100× faster
    than driving the UI.
-4. Wire your module's `resources` into `tests/e2e/config/apply-schema.ts`
-   so e2e bootstraps the schema. Add an import + spread the array.
-5. Create the spec at `tests/e2e/tests/<module-id>/<module-id>-crud.spec.ts`.
+4. Create the spec at
+   `packages/homestead-modules/<module-id>/e2e/<module-id>-crud.spec.ts`.
    Each test gets its own user (see existing fixtures) and cleans its own
-   data in `beforeEach`.
-6. Smoke-run: `cd tests/e2e && npm run test -- tests/<module-id>/`.
+   data in `beforeEach`. Import the Playwright fixture from
+   `../../../../tests/e2e/fixtures/aepbase.fixture` and your helpers/POM
+   from `./helpers` / `./<Module>Page`.
+5. Playwright auto-discovers the spec via `testMatch` in
+   `tests/e2e/playwright.config.ts` — no config edit required.
+6. Smoke-run: `cd tests/e2e && npm run test -- packages/homestead-modules/<module-id>/e2e/`.
 
 ### 9. Run the full gate
 
@@ -281,8 +295,8 @@ Before marking the task complete, verify:
       where the path uses `:param`).
 - [ ] Module imported and added to `frontend/homestead.config.ts`.
 - [ ] Vitest tests added under `__tests__/`.
-- [ ] Playwright POM + CRUD spec added under `tests/e2e/`.
-- [ ] Module's resources wired into `tests/e2e/config/apply-schema.ts`.
+- [ ] Playwright POM + CRUD spec + `helpers.ts` added under the
+      module's `e2e/`.
 - [ ] `make ci && make test` passes locally.
 - [ ] User reminded to restart the Next.js dev server so the schema sync
       runs, with destructive-change risks called out.
