@@ -4,8 +4,8 @@
  * navigation.
  */
 
-import { test } from '../../fixtures/aepbase.fixture';
-import { BridgePage } from '../../pages/BridgePage';
+import { test } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
+import { BridgePage } from './BridgePage';
 
 test.describe('Bridge CRUD', () => {
   let bridgePage: BridgePage;

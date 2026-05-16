@@ -5,9 +5,9 @@
  * session survives the whole worker (matches the recipes spec rationale).
  */
 
-import { test } from '../../fixtures/aepbase.fixture';
-import { TodosPage } from '../../pages/TodosPage';
-import { createTodo, deleteAllTodos } from '../../utils/aepbase-helpers';
+import { test } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { TodosPage } from './TodosPage';
+import { createTodo, deleteAllTodos } from './helpers';
 
 test.describe('Todos CRUD', () => {
   let todosPage: TodosPage;

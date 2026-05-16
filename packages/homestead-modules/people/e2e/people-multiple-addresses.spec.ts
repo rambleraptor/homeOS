@@ -2,16 +2,14 @@
  * People E2E Tests - Multiple Addresses
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { PeoplePage } from '../../pages/PeoplePage';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepCreate, aepGet, aepList } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { PeoplePage } from './PeoplePage';
 import {
-  aepCreate,
-  aepGet,
-  aepList,
   createPerson,
   deleteAllPeople,
   getPersonSharedData,
-} from '../../utils/aepbase-helpers';
+} from './helpers';
 
 interface AddressRecord {
   id: string;

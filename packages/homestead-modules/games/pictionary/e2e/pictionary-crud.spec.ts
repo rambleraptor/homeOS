@@ -5,16 +5,15 @@
  * exercises the game form and the list view.
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { PictionaryPage } from '../../pages/PictionaryPage';
+import { test, expect } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepList } from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { PictionaryPage } from './PictionaryPage';
+import { createPictionaryGame, deleteAllPictionaryGames } from './helpers';
 import {
   createPerson,
-  createPictionaryGame,
-  deleteAllPictionaryGames,
-  deleteAllPersonSharedData,
   deleteAllPeople,
-  aepList,
-} from '../../utils/aepbase-helpers';
+  deleteAllPersonSharedData,
+} from '../../../people/e2e/helpers';
 
 test.describe('Pictionary CRUD', () => {
   let pictionaryPage: PictionaryPage;

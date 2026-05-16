@@ -5,15 +5,14 @@
  * both players and teams.
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { PictionaryPage } from '../../pages/PictionaryPage';
+import { test, expect } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
+import { PictionaryPage } from './PictionaryPage';
+import { createPictionaryGame, deleteAllPictionaryGames } from './helpers';
 import {
   createPerson,
-  createPictionaryGame,
-  deleteAllPictionaryGames,
-  deleteAllPersonSharedData,
   deleteAllPeople,
-} from '../../utils/aepbase-helpers';
+  deleteAllPersonSharedData,
+} from '../../../people/e2e/helpers';
 
 test.describe('Pictionary Leaderboard', () => {
   let pictionaryPage: PictionaryPage;

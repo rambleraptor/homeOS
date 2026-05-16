@@ -14,17 +14,15 @@
  * token survives the whole run, which mirrors the flag-management spec.
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { RecipesPage } from '../../pages/RecipesPage';
-import { testRecipes } from '../../fixtures/test-data';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
 import {
   aepGet,
   aepList,
-  createRecipe,
-  deleteAllRecipes,
   resetModuleFlags,
   setModuleFlag,
-} from '../../utils/aepbase-helpers';
+} from '../../../../tests/e2e/utils/aepbase-helpers';
+import { RecipesPage } from './RecipesPage';
+import { createRecipe, deleteAllRecipes, testRecipes } from './helpers';
 
 interface RecipeRecord {
   id: string;

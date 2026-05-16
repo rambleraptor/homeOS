@@ -17,8 +17,8 @@
  * persistence is covered by the unit tests on the persister.
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { aepCreate, aepList, aepRemove } from '../../utils/aepbase-helpers';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 interface GroceryItemRecord {
   id: string;

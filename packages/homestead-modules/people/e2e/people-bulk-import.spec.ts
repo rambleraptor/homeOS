@@ -4,15 +4,14 @@
  * Tests for the bulk CSV import functionality for people
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { PeoplePage } from '../../pages/PeoplePage';
-import { testBulkImportCSV } from '../../fixtures/test-data';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepGet, aepList } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { PeoplePage } from './PeoplePage';
 import {
-  aepGet,
-  aepList,
   deleteAllPeople,
   getPersonSharedData,
-} from '../../utils/aepbase-helpers';
+  testBulkImportCSV,
+} from './helpers';
 
 interface PersonRow {
   id: string;

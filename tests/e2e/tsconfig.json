@@ -12,5 +12,13 @@
     "types": ["node", "@playwright/test"],
     "resolveJsonModule": true
   },
-  "include": ["config/**/*", "fixtures/**/*", "utils/**/*", "pages/**/*", "tests/**/*", "playwright.config.ts"]
+  "include": [
+    "config/**/*",
+    "fixtures/**/*",
+    "utils/**/*",
+    "pages/**/*",
+    "tests/**/*",
+    "playwright.config.ts",
+    "../../packages/homestead-modules/**/e2e/**/*"
+  ]
 }

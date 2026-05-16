@@ -2,15 +2,15 @@
  * Gift Cards E2E Tests - CRUD Operations
  */
 
-import { test, expect } from '../../fixtures/aepbase.fixture';
-import { GiftCardsPage } from '../../pages/GiftCardsPage';
-import { testGiftCards } from '../../fixtures/test-data';
+import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
+import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { GiftCardsPage } from './GiftCardsPage';
 import {
   createGiftCard,
   createMultipleGiftCards,
   deleteAllGiftCards,
-  aepGet,
-} from '../../utils/aepbase-helpers';
+  testGiftCards,
+} from './helpers';
 
 test.describe('Gift Cards CRUD', () => {
   let giftCardsPage: GiftCardsPage;
