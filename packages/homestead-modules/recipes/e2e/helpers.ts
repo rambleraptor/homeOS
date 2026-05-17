@@ -17,6 +17,10 @@ export interface CreateRecipeInput {
   parsed_ingredients: RecipeIngredientInput[];
   source_pointer?: string;
   method?: string;
+  steps?: string[];
+  prep_time?: string;
+  cook_time?: string;
+  servings?: string;
   tags?: string[];
 }
 
@@ -26,6 +30,10 @@ export interface RecipeRecord {
   source_pointer?: string;
   parsed_ingredients: RecipeIngredientInput[];
   method?: string;
+  steps?: string[];
+  prep_time?: string;
+  cook_time?: string;
+  servings?: string;
   tags?: string[];
 }
 
@@ -41,6 +49,10 @@ export async function createRecipe(
       raw: ing.raw ?? `${ing.qty} ${ing.unit} ${ing.item}`.trim(),
     })),
     method: data.method,
+    steps: data.steps,
+    prep_time: data.prep_time,
+    cook_time: data.cook_time,
+    servings: data.servings,
     tags: data.tags,
   });
 }
