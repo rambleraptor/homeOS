@@ -21,6 +21,12 @@ export const pictionaryResources: ResourceDefinition[] = [
           type: 'string',
           description: 'The clue/word the winning team guessed',
         },
+        winning_word_image: {
+          type: 'binary',
+          'x-aepbase-file-field': true,
+          description:
+            'Picture of the winning word/drawing (jpeg/png/webp/gif, <=5MB)',
+        },
         notes: { type: 'string' },
         created_by: { type: 'string', description: 'users/{user_id}' },
       },

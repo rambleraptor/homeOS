@@ -11,6 +11,7 @@ import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { buildGameData, buildGameFormData } from '../utils/formData';
 import type {
   PictionaryGame,
   PictionaryGameFormData,
@@ -42,15 +43,12 @@ export function useCreateGame() {
   return useMutation({
     mutationFn: async (data: PictionaryGameFormData): Promise<PictionaryGame> => {
       const createdBy = createdByPath();
+      const payload = data.winning_word_image
+        ? buildGameFormData({ data, createdBy })
+        : buildGameData({ data, createdBy });
       const game = await aepbase.create<PictionaryGame>(
         PICTIONARY_GAMES,
-        {
-          played_at: data.played_at || new Date().toISOString(),
-          location: data.location,
-          winning_word: data.winning_word,
-          notes: data.notes,
-          created_by: createdBy,
-        },
+        payload,
       );
 
       await Promise.all(

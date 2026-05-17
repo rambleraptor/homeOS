@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Edit, Trash2, Trophy } from 'lucide-react';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { useWinningWordImageUrl } from '../hooks/useWinningWordImageUrl';
 import type { PictionaryGame, PictionaryTeam } from '../types';
 
 interface PersonLite {
@@ -52,6 +53,7 @@ export function GameDetail({
 }: GameDetailProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const winningTeam = teams.find((t) => t.won === true);
+  const winningWordImageUrl = useWinningWordImageUrl(game);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -102,6 +104,19 @@ export function GameDetail({
               {game.winning_word}
             </span>
           </div>
+        )}
+        {winningWordImageUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={winningWordImageUrl}
+            alt={
+              game.winning_word
+                ? `Picture of "${game.winning_word}"`
+                : 'Winning word picture'
+            }
+            data-testid="pictionary-winning-word-image"
+            className="mt-2 w-full max-h-80 object-contain rounded-lg border border-gray-200 bg-gray-50"
+          />
         )}
         {game.notes && (
           <p className="text-sm text-gray-700 whitespace-pre-wrap">

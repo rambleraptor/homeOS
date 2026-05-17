@@ -8,12 +8,15 @@
  * passing `initialGame` + `initialTeams` switches it to edit mode.
  */
 
-import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Loader2, Plus, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import {
   PersonSelector,
   type PersonOption,
 } from '@rambleraptor/homestead-core/shared/components/PersonSelector';
+import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import { validateImageFile } from '@rambleraptor/homestead-core/shared/utils/fileValidation';
+import { useWinningWordImageUrl } from '../hooks/useWinningWordImageUrl';
 import type {
   PictionaryGame,
   PictionaryGameFormData,
@@ -88,6 +91,41 @@ export function GameForm({
     return [blankTeam(), blankTeam()];
   });
 
+  const toast = useToast();
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUploadUrl, setImageUploadUrl] = useState<string | null>(null);
+  const remoteImageUrl = useWinningWordImageUrl(initialGame ?? null);
+  const imagePreviewUrl = imageUploadUrl ?? remoteImageUrl;
+
+  useEffect(() => {
+    return () => {
+      if (imageUploadUrl) URL.revokeObjectURL(imageUploadUrl);
+    };
+  }, [imageUploadUrl]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      toast.error(validation.error!);
+      return;
+    }
+    setImageFile(file);
+    setImageUploadUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImageUploadUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
   const errors = useMemo(() => {
     const out: string[] = [];
     if (teams.length < 2) out.push('At least two teams are required.');
@@ -145,6 +183,7 @@ export function GameForm({
       winning_word: winningWord.trim() || undefined,
       notes: notes.trim() || undefined,
       teams,
+      winning_word_image: imageFile ?? undefined,
     });
   };
 
@@ -212,6 +251,51 @@ export function GameForm({
             className="w-full h-11 px-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
           />
         </label>
+
+        <div className="space-y-1 md:col-span-2">
+          <span className="text-sm font-medium text-gray-700">
+            Winning word picture{' '}
+            <span className="text-gray-400">(optional)</span>
+          </span>
+          {imagePreviewUrl ? (
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={imagePreviewUrl}
+                alt="Winning word"
+                data-testid="pictionary-winning-word-image-preview"
+                className="w-full max-h-64 object-contain rounded-lg border border-gray-300 bg-gray-50"
+              />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                data-testid="pictionary-winning-word-image-remove"
+                className="absolute top-2 right-2 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors"
+                title="Remove picture"
+                aria-label="Remove winning word picture"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-accent-terracotta transition-colors">
+              <Upload className="w-6 h-6 text-gray-400 mb-1" />
+              <span className="text-sm text-gray-500">
+                Upload a picture of the winning word
+              </span>
+              <span className="text-xs text-gray-400 mt-1">
+                (Optional, max 5MB)
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleImageChange}
+                data-testid="pictionary-winning-word-image-input"
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
 
         <label className="space-y-1 md:col-span-2">
           <span className="text-sm font-medium text-gray-700">
