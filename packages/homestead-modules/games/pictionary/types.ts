@@ -14,6 +14,7 @@ export interface PictionaryGame {
   played_at: string;
   location?: string;
   winning_word?: string;
+  winning_word_image?: string;
   notes?: string;
   created_by?: string;
   create_time: string;
@@ -48,4 +49,9 @@ export interface PictionaryGameFormData {
   winning_word?: string;
   notes?: string;
   teams: PictionaryTeamFormData[];
+  /**
+   * File picked in this session to upload as the winning-word image. `null`
+   * (when editing) clears any previously uploaded image.
+   */
+  winning_word_image?: File | null;
 }

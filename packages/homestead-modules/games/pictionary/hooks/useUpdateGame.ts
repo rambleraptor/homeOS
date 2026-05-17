@@ -11,6 +11,7 @@ import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { buildGameData, buildGameFormData } from '../utils/formData';
 import type {
   PictionaryGame,
   PictionaryGameFormData,
@@ -45,15 +46,13 @@ export function useUpdateGame() {
       data,
       existingTeams,
     }: UpdateGameParams): Promise<PictionaryGame> => {
+      const payload = data.winning_word_image
+        ? buildGameFormData({ data })
+        : buildGameData({ data, clearMissing: true });
       const game = await aepbase.update<PictionaryGame>(
         PICTIONARY_GAMES,
         id,
-        {
-          played_at: data.played_at,
-          location: data.location ?? null,
-          winning_word: data.winning_word ?? null,
-          notes: data.notes ?? null,
-        },
+        payload,
       );
 
       const keptIds = new Set(
