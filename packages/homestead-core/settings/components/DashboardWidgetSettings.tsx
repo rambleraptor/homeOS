@@ -22,6 +22,8 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { getAllDashboardWidgets } from '@/modules/registry';
+import type { RegisteredDashboardWidget } from '@/modules/registry';
+import { useModuleEnabledPredicate } from '../hooks/useIsModuleEnabled';
 import { useUpdateDashboardWidgets } from '../hooks/useUpdateDashboardWidgets';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 
@@ -32,10 +34,10 @@ interface WidgetEntry {
 }
 
 function buildInitialEntries(
+  available: RegisteredDashboardWidget[],
   preferredOrder: string[] | undefined,
   hidden: string[] | undefined,
 ): WidgetEntry[] {
-  const available = getAllDashboardWidgets();
   // Resolve order in the same way the dashboard does, then layer in
   // the hidden ids so the settings UI can show + toggle them.
   const ordered = resolveDashboardWidgets(available, preferredOrder, undefined);
@@ -50,10 +52,19 @@ function buildInitialEntries(
 export function DashboardWidgetSettings() {
   const toast = useToast();
   const { user } = useAuth();
+  const isModuleEnabled = useModuleEnabledPredicate();
   const updatePrefs = useUpdateDashboardWidgets();
+
+  // Widgets belonging to modules the viewer can't access shouldn't
+  // appear in the customization list — they wouldn't render on the
+  // dashboard either, and showing toggles for them would be confusing.
+  const available = getAllDashboardWidgets().filter((w) =>
+    isModuleEnabled(w.moduleId),
+  );
 
   const [entries, setEntries] = useState<WidgetEntry[]>(() =>
     buildInitialEntries(
+      available,
       user?.dashboard_widget_order,
       user?.dashboard_hidden_widgets,
     ),
@@ -64,11 +75,17 @@ export function DashboardWidgetSettings() {
   useEffect(() => {
     setEntries(
       buildInitialEntries(
+        available,
         user?.dashboard_widget_order,
         user?.dashboard_hidden_widgets,
       ),
     );
-  }, [user?.dashboard_widget_order, user?.dashboard_hidden_widgets]);
+    // `available` is derived from registry data + the module-flags
+    // singleton via `isModuleEnabled`; the predicate identity is stable
+    // unless the flags or auth user change, so it's fine to track it
+    // via the user fields below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.dashboard_widget_order, user?.dashboard_hidden_widgets, isModuleEnabled]);
 
   const move = (index: number, delta: number) => {
     setEntries((prev) => {
@@ -102,7 +119,7 @@ export function DashboardWidgetSettings() {
   };
 
   const handleReset = () => {
-    setEntries(buildInitialEntries(undefined, undefined));
+    setEntries(buildInitialEntries(available, undefined, undefined));
   };
 
   return (

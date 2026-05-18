@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { ACCOUNT_TAGS } from '../resources';
 import { accountTagsQueryKey } from './useAccountTags';
 import type { ManagedUser, UserFormData } from '../types';
@@ -51,6 +52,7 @@ async function reconcileTags(userId: string, desiredTags: string[]) {
 
 export function useUpdateUser() {
   const qc = useQueryClient();
+  const { user: currentUser, refreshUser } = useAuth();
   return useMutation({
     mutationFn: async ({ id, data }: UpdateArgs) => {
       const body: Record<string, unknown> = {};
@@ -70,9 +72,16 @@ export function useUpdateUser() {
 
       return updated;
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: async (_data, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.users.all() });
       qc.invalidateQueries({ queryKey: accountTagsQueryKey(vars.id) });
+      // If the edited user is the signed-in user, re-hydrate the auth
+      // store so `User.tags` (and any other server-derived fields)
+      // reflect the change. Without this, the sidebar / module gates
+      // keep seeing the stale tag list until the user signs back in.
+      if (currentUser && currentUser.id === vars.id) {
+        await refreshUser();
+      }
     },
   });
 }
