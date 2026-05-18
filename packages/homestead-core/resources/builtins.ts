@@ -26,6 +26,7 @@ export const USERS = 'users' as const;
 export const USER_PREFERENCES = 'preferences' as const;
 export const ACTIONS = 'actions' as const;
 export const RUNS = 'runs' as const;
+export const MODULE_AUTHORIZATIONS = 'module-authorizations' as const;
 
 export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
   {
@@ -66,6 +67,25 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
         input_response: { type: 'object' },
       },
       required: ['status'],
+    },
+  },
+  {
+    singular: 'module-authorization',
+    plural: MODULE_AUTHORIZATIONS,
+    description:
+      'Singleton row holding the resource→module mapping. Pushed by ' +
+      'Next.js instrumentation on boot, consumed by the aepbase Go ' +
+      'middleware that enforces the household-wide module `enabled` flag.',
+    user_settable_create: true,
+    schema: {
+      type: 'object',
+      properties: {
+        // JSON-encoded array of { plural, singular, module_id } entries.
+        // aepbase strips JSON-schema constraints on round-trip and doesn't
+        // preserve nested-object property shapes, so we ship the mapping
+        // as a string the Go middleware decodes itself.
+        mapping_json: { type: 'string' },
+      },
     },
   },
 ];

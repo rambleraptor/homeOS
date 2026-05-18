@@ -72,7 +72,12 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
       '-data-dir', dataDir,
       '-db', 'aepbase.db',
       '-cors-allowed-origins', '*',
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // Disable the module-auth cache so flag flips take effect on the
+      // next request. Production uses the default 5s TTL.
+      env: { ...process.env, HOMESTEAD_MODULE_AUTH_TTL_MS: '0' },
+    });
 
     let stdout = '';
     let ready = false;

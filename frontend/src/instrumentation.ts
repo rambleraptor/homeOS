@@ -93,6 +93,7 @@ export async function register(): Promise<void> {
   await syncResources(aepbaseUrl, token);
   await syncModuleFlags(aepbaseUrl, token);
   await syncUserSettings(aepbaseUrl, token);
+  await syncModuleAuthorizationMapping(aepbaseUrl, token);
 }
 
 async function syncResources(
@@ -147,6 +148,27 @@ async function syncModuleFlags(
     }
   } catch (error) {
     console.error('[module-flags] schema sync failed', error);
+  }
+}
+
+async function syncModuleAuthorizationMapping(
+  aepbaseUrl: string,
+  token: string,
+): Promise<void> {
+  try {
+    const { getAllResourceDefsWithModule } = await import('@/modules/registry');
+    const { syncModuleAuthorization } = await import(
+      '@rambleraptor/homestead-core/module-authorization/sync'
+    );
+
+    const mappings = getAllResourceDefsWithModule().map(({ module, def }) => ({
+      plural: def.plural,
+      singular: def.singular,
+      module_id: module.id,
+    }));
+    await syncModuleAuthorization({ aepbaseUrl, token, mappings });
+  } catch (error) {
+    console.error('[module-auth] mapping sync failed', error);
   }
 }
 
