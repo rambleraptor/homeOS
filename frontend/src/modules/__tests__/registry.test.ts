@@ -10,6 +10,7 @@ import {
   getModuleById,
   moduleRegistry,
   BUILTIN_ENABLED_FLAG_KEY,
+  BUILTIN_ENABLED_TAGS_FLAG_KEY,
 } from '../registry';
 import { MODULE_VISIBILITY_OPTIONS } from '@rambleraptor/homestead-core/settings/visibility';
 import type { HomeModule } from '../types';
@@ -63,6 +64,19 @@ describe('getAllModuleFlagDefs', () => {
     // still be present after the built-in is merged in.
     expect(defs.settings.omnibox_access).toBeDefined();
     expect(defs.settings[BUILTIN_ENABLED_FLAG_KEY]).toBeDefined();
+  });
+
+  it('injects an `enabled_tags` string flag into every module for tag-based gating', () => {
+    const defs = getAllModuleFlagDefs();
+    const allIds = collectAllIds(moduleRegistry.modules);
+    for (const id of allIds) {
+      const flag = defs[id][BUILTIN_ENABLED_TAGS_FLAG_KEY];
+      expect(flag).toBeDefined();
+      expect(flag.type).toBe('string');
+      if (flag.type === 'string') {
+        expect(flag.default).toBe('');
+      }
+    }
   });
 
   it('inherits the parent audience for nested superuser-only children', () => {

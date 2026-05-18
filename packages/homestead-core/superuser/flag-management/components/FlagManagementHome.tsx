@@ -5,13 +5,23 @@ import { SlidersHorizontal } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
+import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
-import { getAllModuleFlagDefs, getModuleById } from '@/modules/registry';
+import {
+  BUILTIN_ENABLED_FLAG_KEY,
+  BUILTIN_ENABLED_TAGS_FLAG_KEY,
+  getAllModuleFlagDefs,
+  getModuleById,
+} from '@/modules/registry';
+import {
+  formatTagList,
+  parseTagList,
+} from '@rambleraptor/homestead-core/settings/visibility';
 import { useModuleFlags } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlags';
 import { useUpdateModuleFlag } from '@rambleraptor/homestead-core/settings/hooks/useUpdateModuleFlag';
 import { unflatten } from '@rambleraptor/homestead-core/settings/flags';
@@ -111,17 +121,42 @@ export function FlagManagementHome() {
                     >
                       {moduleName}
                     </h3>
-                    {Object.entries(moduleDefs).map(([key, def]) => (
-                      <FlagField
-                        key={key}
-                        moduleId={moduleId}
-                        flagKey={key}
-                        def={def}
-                        value={values[moduleId]?.[key]}
-                        onChange={(next) => handleChange(moduleId, key, next)}
-                        isSaving={update.isPending}
-                      />
-                    ))}
+                    {Object.entries(moduleDefs).map(([key, def]) => {
+                      // The auto-injected `enabled_tags` flag only
+                      // matters when visibility is 'tagged'. Hide it
+                      // otherwise so the form stays tight.
+                      if (key === BUILTIN_ENABLED_TAGS_FLAG_KEY) {
+                        const visibility =
+                          values[moduleId]?.[BUILTIN_ENABLED_FLAG_KEY];
+                        if (visibility !== 'tagged') return null;
+                        return (
+                          <TagsFlagField
+                            key={key}
+                            moduleId={moduleId}
+                            value={values[moduleId]?.[key]}
+                            label={def.label}
+                            description={def.description}
+                            onChange={(next) =>
+                              handleChange(moduleId, key, next)
+                            }
+                            isSaving={update.isPending}
+                          />
+                        );
+                      }
+                      return (
+                        <FlagField
+                          key={key}
+                          moduleId={moduleId}
+                          flagKey={key}
+                          def={def}
+                          value={values[moduleId]?.[key]}
+                          onChange={(next) =>
+                            handleChange(moduleId, key, next)
+                          }
+                          isSaving={update.isPending}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </Card>
@@ -237,4 +272,37 @@ function FlagField({
         </div>
       );
   }
+}
+
+interface TagsFlagFieldProps {
+  moduleId: string;
+  value: ModuleFlagValue | undefined;
+  label: string;
+  description: string;
+  onChange: (value: ModuleFlagValue) => void;
+  isSaving: boolean;
+}
+
+function TagsFlagField({
+  moduleId,
+  value,
+  label,
+  description,
+  onChange,
+  isSaving,
+}: TagsFlagFieldProps) {
+  const tags = parseTagList(typeof value === 'string' ? value : '');
+  return (
+    <div>
+      <TagInput
+        id={`flag-${moduleId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
+        label={label}
+        value={tags}
+        onChange={(next) => onChange(formatTagList(next))}
+        disabled={isSaving}
+        testId={`flag-${moduleId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
+      />
+      <p className="mt-1 text-xs text-gray-500">{description}</p>
+    </div>
+  );
 }

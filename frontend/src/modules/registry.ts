@@ -25,6 +25,7 @@ import type {
 } from './types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import {
+  BUILTIN_ENABLED_TAGS_FLAG_KEY,
   DEFAULT_MODULE_VISIBILITY,
   MODULE_VISIBILITY_OPTIONS,
   type ModuleVisibility,
@@ -233,6 +234,21 @@ export function getAllDashboardWidgets(): DashboardWidget[] {
  */
 export const BUILTIN_ENABLED_FLAG_KEY = 'enabled';
 
+// Re-export the tags flag key so consumers don't need to pull it from
+// the visibility module directly. Keeps the registry as the single
+// source of truth for "what built-in flags does every module get?".
+export { BUILTIN_ENABLED_TAGS_FLAG_KEY };
+
+/**
+ * Keys auto-injected by the registry. Module-declared flags using
+ * these names are dropped with a warning so the gating contract stays
+ * consistent across the app.
+ */
+const RESERVED_FLAG_KEYS: readonly string[] = [
+  BUILTIN_ENABLED_FLAG_KEY,
+  BUILTIN_ENABLED_TAGS_FLAG_KEY,
+];
+
 function builtinEnabledFlagDef(
   defaultValue: ModuleVisibility,
 ): ModuleFlagDef {
@@ -240,9 +256,19 @@ function builtinEnabledFlagDef(
     type: 'enum',
     label: 'Module enabled for',
     description:
-      "Who can use this module. 'superusers' restricts it to superusers; 'all' makes it available to every signed-in user; 'none' hides it from everyone (including superusers).",
+      "Who can use this module. 'superusers' restricts it to superusers; 'all' makes it available to every signed-in user; 'none' hides it from everyone (including superusers); 'tagged' restricts it to users whose account tags overlap the 'enabled_tags' list.",
     options: MODULE_VISIBILITY_OPTIONS,
     default: defaultValue,
+  };
+}
+
+function builtinEnabledTagsFlagDef(): ModuleFlagDef {
+  return {
+    type: 'string',
+    label: 'Allowed tags',
+    description:
+      "Comma-separated list of account tags allowed to use this module. Only consulted when 'enabled' is set to 'tagged'. A user passes if any of their account tags appears in this list.",
+    default: '',
   };
 }
 
@@ -263,18 +289,20 @@ export function getAllModuleFlagDefs(): Record<
   const out: Record<string, Record<string, ModuleFlagDef>> = {};
   const visit = (mod: HomeModule): void => {
     const declared = mod.flags ?? {};
-    if (BUILTIN_ENABLED_FLAG_KEY in declared) {
-      logger.warn(
-        `Module "${mod.id}" declares a reserved flag "${BUILTIN_ENABLED_FLAG_KEY}"; built-in definition takes precedence.`,
-        { moduleId: mod.id },
-      );
+    for (const reserved of RESERVED_FLAG_KEYS) {
+      if (reserved in declared) {
+        logger.warn(
+          `Module "${mod.id}" declares a reserved flag "${reserved}"; built-in definition takes precedence.`,
+          { moduleId: mod.id },
+        );
+      }
     }
-    const builtin = builtinEnabledFlagDef(
-      mod.defaultEnabled ?? DEFAULT_MODULE_VISIBILITY,
-    );
     out[mod.id] = {
       ...declared,
-      [BUILTIN_ENABLED_FLAG_KEY]: builtin,
+      [BUILTIN_ENABLED_FLAG_KEY]: builtinEnabledFlagDef(
+        mod.defaultEnabled ?? DEFAULT_MODULE_VISIBILITY,
+      ),
+      [BUILTIN_ENABLED_TAGS_FLAG_KEY]: builtinEnabledTagsFlagDef(),
     };
     for (const child of mod.children ?? []) {
       visit(child);

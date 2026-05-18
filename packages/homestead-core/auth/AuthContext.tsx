@@ -26,6 +26,12 @@ import { aepbase } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
+import { ACCOUNT_TAGS } from '../users/resources';
+
+interface AccountTagRecord {
+  id: string;
+  name: string;
+}
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -88,37 +94,61 @@ async function backfillMapProvider(
   }
 }
 
-async function hydrateUserPreferences(user: User): Promise<User> {
+async function fetchAccountTags(userId: string): Promise<string[] | undefined> {
   try {
-    const prefs = await aepbase.list<UserPreferenceRecord>(
-      USER_PREFERENCES,
-      { parent: [USERS, user.id] },
-    );
-    if (prefs.length > 0) {
-      const record = prefs[0];
-      const flattened = coerceMapProvider(record.people__map_provider);
-      const legacy = coerceMapProvider(record.map_provider);
-      const mapProvider = flattened ?? legacy;
-
-      // Lazy migration: copy the legacy value into the new slot the
-      // first time we see one without the other. The cleared legacy
-      // field can be dropped from the schema in a follow-up after a
-      // deploy cycle.
-      if (!flattened && legacy) {
-        void backfillMapProvider(user.id, record.id, legacy);
-      }
-
-      return {
-        ...user,
-        map_provider: mapProvider,
-        dashboard_widget_order: parseStringArray(record.dashboard_widget_order),
-        dashboard_hidden_widgets: parseStringArray(record.dashboard_hidden_widgets),
-      };
-    }
+    const records = await aepbase.list<AccountTagRecord>(ACCOUNT_TAGS, {
+      parent: [USERS, userId],
+    });
+    if (records.length === 0) return undefined;
+    return records.map((r) => r.name).filter((n) => typeof n === 'string' && n.length > 0);
   } catch (error) {
-    logger.error('Failed to fetch user preferences', error);
+    logger.warn('Failed to fetch account tags', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
   }
-  return user;
+}
+
+async function hydrateUserPreferences(user: User): Promise<User> {
+  const [prefsResult, tags] = await Promise.all([
+    (async () => {
+      try {
+        return await aepbase.list<UserPreferenceRecord>(USER_PREFERENCES, {
+          parent: [USERS, user.id],
+        });
+      } catch (error) {
+        logger.error('Failed to fetch user preferences', error);
+        return [] as UserPreferenceRecord[];
+      }
+    })(),
+    fetchAccountTags(user.id),
+  ]);
+
+  let merged: User = { ...user, tags };
+
+  if (prefsResult.length > 0) {
+    const record = prefsResult[0];
+    const flattened = coerceMapProvider(record.people__map_provider);
+    const legacy = coerceMapProvider(record.map_provider);
+    const mapProvider = flattened ?? legacy;
+
+    // Lazy migration: copy the legacy value into the new slot the
+    // first time we see one without the other. The cleared legacy
+    // field can be dropped from the schema in a follow-up after a
+    // deploy cycle.
+    if (!flattened && legacy) {
+      void backfillMapProvider(user.id, record.id, legacy);
+    }
+
+    merged = {
+      ...merged,
+      map_provider: mapProvider,
+      dashboard_widget_order: parseStringArray(record.dashboard_widget_order),
+      dashboard_hidden_widgets: parseStringArray(record.dashboard_hidden_widgets),
+    };
+  }
+
+  return merged;
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {

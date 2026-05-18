@@ -26,6 +26,7 @@ export class UsersPage {
     email: string;
     displayName?: string;
     type?: 'regular' | 'superuser';
+    tags?: string[];
     password?: string;
   }) {
     await this.page.getByTestId('user-email-input').fill(data.email);
@@ -34,6 +35,13 @@ export class UsersPage {
     }
     if (data.type) {
       await this.page.getByTestId('user-type-select').selectOption(data.type);
+    }
+    if (data.tags !== undefined) {
+      const input = this.page.getByTestId('user-tags-input');
+      for (const tag of data.tags) {
+        await input.fill(tag);
+        await input.press('Enter');
+      }
     }
     if (data.password !== undefined) {
       await this.page.getByTestId('user-password-input').fill(data.password);
@@ -49,6 +57,7 @@ export class UsersPage {
     email: string;
     displayName?: string;
     type?: 'regular' | 'superuser';
+    tags?: string[];
     password: string;
   }) {
     await this.clickAddUser();
@@ -82,5 +91,9 @@ export class UsersPage {
   async expectSuperuserBadge(email: string) {
     const row = this.page.locator('div', { hasText: email }).first();
     await expect(row.getByText('superuser')).toBeVisible();
+  }
+
+  async expectUserTag(userId: string, tag: string) {
+    await expect(this.page.getByTestId(`user-tag-${userId}-${tag}`)).toBeVisible();
   }
 }

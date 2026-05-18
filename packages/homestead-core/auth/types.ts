@@ -22,6 +22,13 @@ export interface User {
   /** Dashboard widget ids the user has hidden (parsed from preferences). */
   dashboard_hidden_widgets?: string[];
   type?: UserType;
+  /**
+   * Account tags assigned by a superuser. Modules whose `enabled` flag
+   * is set to `'tagged'` are accessible to users whose `tags` overlap
+   * the module's `enabled_tags` (any-of match). Hydrated on login from
+   * the `account-tag` child resource (see `users/resources.ts`).
+   */
+  tags?: string[];
 }
 
 export interface AuthState {
