@@ -20,6 +20,7 @@
  */
 
 import type { User, UserType } from '../auth/types';
+import { parseTagList } from '../settings/visibility';
 
 const AEP_BASE = '/api/aep';
 const AUTH_TOKEN_KEY = 'aepbase_auth_token';
@@ -51,6 +52,11 @@ interface RawAepUser {
   email: string;
   display_name?: string;
   type?: string;
+  // Account tags are stored as a comma-separated string for parity
+  // with aepbase's built-in custom fields on the user resource (which
+  // are all primitives — `display_name`, `type`). The frontend
+  // surface decodes/encodes via `parseTagList` / `formatTagList`.
+  tags?: string;
   create_time: string;
   update_time: string;
 }
@@ -59,6 +65,7 @@ interface RawAepUser {
 function mapAepUser(raw: RawAepUser): User {
   const type: UserType | undefined =
     raw.type === 'superuser' || raw.type === 'regular' ? raw.type : undefined;
+  const tags = parseTagList(raw.tags);
   return {
     id: raw.id,
     email: raw.email,
@@ -68,6 +75,7 @@ function mapAepUser(raw: RawAepUser): User {
     created: raw.create_time,
     updated: raw.update_time,
     type,
+    tags: tags.length > 0 ? tags : undefined,
   };
 }
 

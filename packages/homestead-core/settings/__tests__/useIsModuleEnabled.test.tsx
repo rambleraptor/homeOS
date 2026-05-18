@@ -9,6 +9,7 @@ import { renderHook } from '@testing-library/react';
 import { useIsModuleEnabled } from '../hooks/useIsModuleEnabled';
 import { useModuleFlag } from '../hooks/useModuleFlag';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
+import { BUILTIN_ENABLED_TAGS_FLAG_KEY } from '../visibility';
 import type { User } from '@rambleraptor/homestead-core/auth/types';
 
 vi.mock('@rambleraptor/homestead-core/auth/useAuth', () => ({
@@ -19,7 +20,10 @@ vi.mock('../hooks/useModuleFlag', () => ({
   useModuleFlag: vi.fn(),
 }));
 
-const mockUser = (type: 'superuser' | 'regular'): User => ({
+const mockUser = (
+  type: 'superuser' | 'regular',
+  tags?: string[],
+): User => ({
   id: 'u1',
   email: 'u1@example.com',
   username: 'u1@example.com',
@@ -28,15 +32,24 @@ const mockUser = (type: 'superuser' | 'regular'): User => ({
   created: '2024-01-01',
   updated: '2024-01-01',
   type,
+  tags,
 });
 
-const mockFlag = (value: string | undefined) => {
-  vi.mocked(useModuleFlag).mockReturnValue({
-    value,
-    setValue: vi.fn(),
-    isLoading: false,
-    isSaving: false,
-    error: null,
+/**
+ * Configure the mocked `useModuleFlag` to return the visibility on the
+ * first call and the tag list on the second. Matches the call order in
+ * `useIsModuleEnabled`.
+ */
+const mockFlags = (visibility: string | undefined, tags?: string) => {
+  vi.mocked(useModuleFlag).mockImplementation((_moduleId: string, key: string) => {
+    const value = key === BUILTIN_ENABLED_TAGS_FLAG_KEY ? tags : visibility;
+    return {
+      value,
+      setValue: vi.fn(),
+      isLoading: false,
+      isSaving: false,
+      error: null,
+    } as ReturnType<typeof useModuleFlag>;
   });
 };
 
@@ -59,28 +72,28 @@ describe('useIsModuleEnabled', () => {
 
   it("returns false for 'none' even for superusers", () => {
     mockAuth(mockUser('superuser'));
-    mockFlag('none');
+    mockFlags('none');
     const { result } = renderHook(() => useIsModuleEnabled('recipes'));
     expect(result.current).toBe(false);
   });
 
   it("returns true for 'all' for any signed-in user", () => {
     mockAuth(mockUser('regular'));
-    mockFlag('all');
+    mockFlags('all');
     const { result } = renderHook(() => useIsModuleEnabled('recipes'));
     expect(result.current).toBe(true);
   });
 
   it("returns false for 'all' when signed out", () => {
     mockAuth(null);
-    mockFlag('all');
+    mockFlags('all');
     const { result } = renderHook(() => useIsModuleEnabled('recipes'));
     expect(result.current).toBe(false);
   });
 
   it("returns true for 'superusers' only for superusers", () => {
     mockAuth(mockUser('superuser'));
-    mockFlag('superusers');
+    mockFlags('superusers');
     const { result: superuser } = renderHook(() =>
       useIsModuleEnabled('recipes'),
     );
@@ -95,8 +108,52 @@ describe('useIsModuleEnabled', () => {
 
   it("falls back to the default 'all' when the flag is undefined", () => {
     mockAuth(mockUser('regular'));
-    mockFlag(undefined);
+    mockFlags(undefined);
     const { result } = renderHook(() => useIsModuleEnabled('recipes'));
     expect(result.current).toBe(true);
+  });
+
+  describe("when 'tagged'", () => {
+    it('returns true when the user has at least one matching tag', () => {
+      mockAuth(mockUser('regular', ['beta', 'kitchen']));
+      mockFlags('tagged', 'beta,early-access');
+      const { result } = renderHook(() => useIsModuleEnabled('recipes'));
+      expect(result.current).toBe(true);
+    });
+
+    it('returns false when the user has no matching tag', () => {
+      mockAuth(mockUser('regular', ['kitchen']));
+      mockFlags('tagged', 'beta,early-access');
+      const { result } = renderHook(() => useIsModuleEnabled('recipes'));
+      expect(result.current).toBe(false);
+    });
+
+    it('returns false when the user has no tags at all', () => {
+      mockAuth(mockUser('regular'));
+      mockFlags('tagged', 'beta');
+      const { result } = renderHook(() => useIsModuleEnabled('recipes'));
+      expect(result.current).toBe(false);
+    });
+
+    it('returns false when the allowed-tags list is empty', () => {
+      mockAuth(mockUser('regular', ['beta']));
+      mockFlags('tagged', '');
+      const { result } = renderHook(() => useIsModuleEnabled('recipes'));
+      expect(result.current).toBe(false);
+    });
+
+    it('does NOT auto-bypass for superusers without a matching tag', () => {
+      mockAuth(mockUser('superuser', ['admin']));
+      mockFlags('tagged', 'beta');
+      const { result } = renderHook(() => useIsModuleEnabled('recipes'));
+      expect(result.current).toBe(false);
+    });
+
+    it('ignores whitespace and duplicates in the tag list', () => {
+      mockAuth(mockUser('regular', ['beta']));
+      mockFlags('tagged', ' beta , beta , ');
+      const { result } = renderHook(() => useIsModuleEnabled('recipes'));
+      expect(result.current).toBe(true);
+    });
   });
 });

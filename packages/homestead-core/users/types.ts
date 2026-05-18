@@ -5,6 +5,7 @@ export interface ManagedUser {
   email: string;
   display_name?: string;
   type?: UserType;
+  tags?: string[];
   create_time?: string;
   update_time?: string;
 }
@@ -13,5 +14,6 @@ export interface UserFormData {
   email: string;
   display_name: string;
   type: UserType;
+  tags: string[];
   password?: string;
 }

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { formatTagList } from '@rambleraptor/homestead-core/settings/visibility';
 import type { ManagedUser, UserFormData } from '../types';
 
 export function useCreateUser() {
@@ -13,6 +14,7 @@ export function useCreateUser() {
         email: data.email,
         display_name: data.display_name,
         type: data.type,
+        tags: formatTagList(data.tags),
         password: data.password,
       });
     },

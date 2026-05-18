@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { formatTagList } from '@rambleraptor/homestead-core/settings/visibility';
 import type { ManagedUser, UserFormData } from '../types';
 
 interface UpdateArgs {
@@ -17,6 +18,7 @@ export function useUpdateUser() {
       if (data.email !== undefined) body.email = data.email;
       if (data.display_name !== undefined) body.display_name = data.display_name;
       if (data.type !== undefined) body.type = data.type;
+      if (data.tags !== undefined) body.tags = formatTagList(data.tags);
       if (data.password) body.password = data.password;
       return aepbase.update<ManagedUser>(USERS, id, body);
     },
