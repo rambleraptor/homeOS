@@ -26,7 +26,7 @@ import { aepbase } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
-import { ACCOUNT_TAGS } from '../users/resources';
+import { ACCOUNT_TAGS } from '../superuser/users/resources';
 
 interface AccountTagRecord {
   id: string;

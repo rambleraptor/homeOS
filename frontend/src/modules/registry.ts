@@ -34,7 +34,6 @@ import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import config from '../../homestead.config';
 import { settingsModule } from '@rambleraptor/homestead-core/settings/module.config';
 import { superuserModule } from '@rambleraptor/homestead-core/superuser/module.config';
-import { usersModule } from '@rambleraptor/homestead-core/users/module.config';
 
 // =============================================================================
 // MODULE REGISTRY IMPLEMENTATION
@@ -44,11 +43,12 @@ import { usersModule } from '@rambleraptor/homestead-core/users/module.config';
 /**
  * Modules the registry always installs, regardless of what the operator
  * lists in `homestead.config.ts`. These cover account management and
- * flag management — surfaces the rest of the app depends on.
+ * flag management — surfaces the rest of the app depends on. The
+ * `superuser` module owns the `users` and `flag-management` children
+ * (see `superuser/module.config.ts`).
  */
 const ALWAYS_INSTALLED: HomeModule[] = [
   superuserModule,
-  usersModule,
   settingsModule,
 ];
 

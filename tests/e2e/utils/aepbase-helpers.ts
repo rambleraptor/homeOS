@@ -220,7 +220,7 @@ export async function deleteUsersExcept(
 }
 
 // ---------------------------------------------------------------------------
-// Account tags (parented under user — see packages/homestead-core/users/resources.ts)
+// Account tags (parented under user — see packages/homestead-core/superuser/users/resources.ts)
 // ---------------------------------------------------------------------------
 
 interface AccountTagRecord {

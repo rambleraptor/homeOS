@@ -12,6 +12,7 @@ import { ShieldCheck } from 'lucide-react';
 import type { HomeModule } from '@/modules/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
 import { flagManagementModule } from './flag-management/module.config';
+import { usersModule } from './users/module.config';
 import { SuperuserLanding } from './SuperuserLanding';
 
 export const superuserModule: HomeModule = {
@@ -28,13 +29,16 @@ export const superuserModule: HomeModule = {
   navOrder: 90,
   enabled: true,
   defaultEnabled: 'superusers',
-  children: [flagManagementModule],
+  children: [usersModule, flagManagementModule],
   omnibox: {
     synonyms: [
       'superuser',
       'admin',
       'flags',
       'flag management',
+      'users',
+      'accounts',
+      'members',
     ],
     listComponent: makeNestedModuleLanding(() => superuserModule),
   },
