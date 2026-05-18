@@ -33,6 +33,7 @@ import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import config from '../../homestead.config';
 import { settingsModule } from '@rambleraptor/homestead-core/settings/module.config';
 import { superuserModule } from '@rambleraptor/homestead-core/superuser/module.config';
+import { usersModule } from '@rambleraptor/homestead-core/users/module.config';
 
 // =============================================================================
 // MODULE REGISTRY IMPLEMENTATION
@@ -44,7 +45,11 @@ import { superuserModule } from '@rambleraptor/homestead-core/superuser/module.c
  * lists in `homestead.config.ts`. These cover account management and
  * flag management — surfaces the rest of the app depends on.
  */
-const ALWAYS_INSTALLED: HomeModule[] = [superuserModule, settingsModule];
+const ALWAYS_INSTALLED: HomeModule[] = [
+  superuserModule,
+  usersModule,
+  settingsModule,
+];
 
 function withCoreModules(userModules: HomeModule[]): HomeModule[] {
   const seen = new Set(userModules.map((m) => m.id));
