@@ -70,8 +70,15 @@ export function DashboardWidgetSettings() {
     ),
   );
 
-  // Refresh local state if the user record reloads (e.g. after a save
-  // refreshUser fires) — keeps the UI consistent with persisted state.
+  // Refresh local state if the user's saved preferences change (e.g.
+  // after `refreshUser` fires post-save). We intentionally do NOT
+  // depend on `isModuleEnabled` here: the predicate gets a fresh
+  // function reference every render (`useModuleFlags` returns a
+  // freshly-unflatten-ed object), so including it would re-fire this
+  // effect on every render and infinite-loop with the setState. If
+  // module-flag visibility changes mid-session, the next render's
+  // `available` is still recomputed correctly above — only the
+  // initial seeding of `entries` is gated by user-pref deltas.
   useEffect(() => {
     setEntries(
       buildInitialEntries(
@@ -80,12 +87,8 @@ export function DashboardWidgetSettings() {
         user?.dashboard_hidden_widgets,
       ),
     );
-    // `available` is derived from registry data + the module-flags
-    // singleton via `isModuleEnabled`; the predicate identity is stable
-    // unless the flags or auth user change, so it's fine to track it
-    // via the user fields below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.dashboard_widget_order, user?.dashboard_hidden_widgets, isModuleEnabled]);
+  }, [user?.dashboard_widget_order, user?.dashboard_hidden_widgets]);
 
   const move = (index: number, delta: number) => {
     setEntries((prev) => {
