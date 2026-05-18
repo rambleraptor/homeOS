@@ -22,6 +22,8 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { getAllDashboardWidgets } from '@/modules/registry';
+import type { RegisteredDashboardWidget } from '@/modules/registry';
+import { useModuleEnabledPredicate } from '../hooks/useIsModuleEnabled';
 import { useUpdateDashboardWidgets } from '../hooks/useUpdateDashboardWidgets';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 
@@ -32,10 +34,10 @@ interface WidgetEntry {
 }
 
 function buildInitialEntries(
+  available: RegisteredDashboardWidget[],
   preferredOrder: string[] | undefined,
   hidden: string[] | undefined,
 ): WidgetEntry[] {
-  const available = getAllDashboardWidgets();
   // Resolve order in the same way the dashboard does, then layer in
   // the hidden ids so the settings UI can show + toggle them.
   const ordered = resolveDashboardWidgets(available, preferredOrder, undefined);
@@ -50,24 +52,42 @@ function buildInitialEntries(
 export function DashboardWidgetSettings() {
   const toast = useToast();
   const { user } = useAuth();
+  const isModuleEnabled = useModuleEnabledPredicate();
   const updatePrefs = useUpdateDashboardWidgets();
+
+  // Widgets belonging to modules the viewer can't access shouldn't
+  // appear in the customization list — they wouldn't render on the
+  // dashboard either, and showing toggles for them would be confusing.
+  const available = getAllDashboardWidgets().filter((w) =>
+    isModuleEnabled(w.moduleId),
+  );
 
   const [entries, setEntries] = useState<WidgetEntry[]>(() =>
     buildInitialEntries(
+      available,
       user?.dashboard_widget_order,
       user?.dashboard_hidden_widgets,
     ),
   );
 
-  // Refresh local state if the user record reloads (e.g. after a save
-  // refreshUser fires) — keeps the UI consistent with persisted state.
+  // Refresh local state if the user's saved preferences change (e.g.
+  // after `refreshUser` fires post-save). We intentionally do NOT
+  // depend on `isModuleEnabled` here: the predicate gets a fresh
+  // function reference every render (`useModuleFlags` returns a
+  // freshly-unflatten-ed object), so including it would re-fire this
+  // effect on every render and infinite-loop with the setState. If
+  // module-flag visibility changes mid-session, the next render's
+  // `available` is still recomputed correctly above — only the
+  // initial seeding of `entries` is gated by user-pref deltas.
   useEffect(() => {
     setEntries(
       buildInitialEntries(
+        available,
         user?.dashboard_widget_order,
         user?.dashboard_hidden_widgets,
       ),
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.dashboard_widget_order, user?.dashboard_hidden_widgets]);
 
   const move = (index: number, delta: number) => {
@@ -102,7 +122,7 @@ export function DashboardWidgetSettings() {
   };
 
   const handleReset = () => {
-    setEntries(buildInitialEntries(undefined, undefined));
+    setEntries(buildInitialEntries(available, undefined, undefined));
   };
 
   return (

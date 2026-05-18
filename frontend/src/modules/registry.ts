@@ -213,14 +213,24 @@ export function moduleExists(id: string): boolean {
 }
 
 /**
- * Collect all dashboard widgets contributed by registered modules,
- * sorted by their declared `order` (default 100). Used by the
- * dashboard to render module-owned widgets without hardcoding any
- * module-specific imports.
+ * A widget paired with the id of the module that declared it. The
+ * moduleId rides along so consumers (dashboard, widget settings) can
+ * gate visibility through `useModuleEnabledPredicate` without having
+ * to maintain a separate widget→module index.
  */
-export function getAllDashboardWidgets(): DashboardWidget[] {
-  const collect = (mod: HomeModule): DashboardWidget[] => [
-    ...(mod.widgets ?? []),
+export type RegisteredDashboardWidget = DashboardWidget & {
+  moduleId: string;
+};
+
+/**
+ * Collect all dashboard widgets contributed by registered modules,
+ * sorted by their declared `order` (default 100). Each widget is
+ * tagged with its owning module id so consumers can filter out
+ * widgets for modules the current viewer can't access.
+ */
+export function getAllDashboardWidgets(): RegisteredDashboardWidget[] {
+  const collect = (mod: HomeModule): RegisteredDashboardWidget[] => [
+    ...(mod.widgets ?? []).map((w) => ({ ...w, moduleId: mod.id })),
     ...(mod.children ?? []).flatMap(collect),
   ];
   return moduleRegistry.modules

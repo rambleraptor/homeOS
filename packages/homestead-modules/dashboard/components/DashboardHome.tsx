@@ -14,13 +14,22 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { getTodaysHoliday } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { resolveDashboardWidgets } from '@rambleraptor/homestead-core/settings/utils/resolveDashboardWidgets';
+import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
 import { getAllDashboardWidgets } from '@/modules/registry';
 
 export function DashboardHome() {
   const { user } = useAuth();
+  const isModuleEnabled = useModuleEnabledPredicate();
   const todaysHoliday = getTodaysHoliday();
+  // Filter out widgets contributed by modules the viewer can't access
+  // (visibility = 'none', wrong audience, missing tag). Otherwise a
+  // user could see a Recipes widget on their dashboard while the
+  // Recipes module itself is gated off in their sidebar.
+  const accessibleWidgets = getAllDashboardWidgets().filter((w) =>
+    isModuleEnabled(w.moduleId),
+  );
   const widgets = resolveDashboardWidgets(
-    getAllDashboardWidgets(),
+    accessibleWidgets,
     user?.dashboard_widget_order,
     user?.dashboard_hidden_widgets,
   );
