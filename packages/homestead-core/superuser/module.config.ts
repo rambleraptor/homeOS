@@ -1,6 +1,5 @@
 /**
- * Superuser — parent module that groups Users and Flag Management
- * into a single superuser-only admin surface.
+ * Superuser — parent module that groups superuser-only admin surfaces.
  *
  * Sub-pages are declared via `children` (full `HomeModule`s living
  * in `./<area>/module.config.ts`); the registry handles route
@@ -12,14 +11,13 @@
 import { ShieldCheck } from 'lucide-react';
 import type { HomeModule } from '@/modules/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
-import { usersModule } from './users/module.config';
 import { flagManagementModule } from './flag-management/module.config';
 import { SuperuserLanding } from './SuperuserLanding';
 
 export const superuserModule: HomeModule = {
   id: 'superuser',
   name: 'Superuser',
-  description: 'User accounts and module flags (superuser only)',
+  description: 'Module flags and other superuser-only controls',
   icon: ShieldCheck,
   basePath: '/superuser',
   routes: [
@@ -30,14 +28,11 @@ export const superuserModule: HomeModule = {
   navOrder: 90,
   enabled: true,
   defaultEnabled: 'superusers',
-  children: [usersModule, flagManagementModule],
+  children: [flagManagementModule],
   omnibox: {
     synonyms: [
       'superuser',
       'admin',
-      'users',
-      'accounts',
-      'members',
       'flags',
       'flag management',
     ],

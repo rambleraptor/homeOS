@@ -1,8 +1,8 @@
 /**
- * Superuser → Users sub-page E2E tests.
+ * Users page E2E tests.
  *
- * Only superusers may access /superuser/users. These specs exercise the
- * CRUD flow as the bootstrap admin and verify the regular-user gate
+ * Only superusers may access /users. These specs exercise the CRUD
+ * flow as the bootstrap admin and verify the regular-user gate
  * (nav hidden, direct navigation redirects to /dashboard).
  */
 
@@ -17,7 +17,7 @@ import {
 const uniqueEmail = (tag: string) =>
   `users-e2e-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
-test.describe('Superuser → Users sub-page (superuser)', () => {
+test.describe('Users page (superuser)', () => {
   let usersPage: UsersPage;
 
   test.beforeEach(async ({ authenticatedAdminPage, adminCreds, adminToken, testUser }) => {
@@ -128,19 +128,19 @@ test.describe('Superuser → Users sub-page (superuser)', () => {
   });
 });
 
-test.describe('Superuser → Users sub-page (regular user gate)', () => {
-  test('nav does not expose the Superuser link for regular users', async ({
+test.describe('Users page (regular user gate)', () => {
+  test('nav does not expose the Users link for regular users', async ({
     authenticatedPage,
   }) => {
     // Sidebar filters out superuser-only modules.
-    const link = authenticatedPage.getByRole('link', { name: 'Superuser' });
+    const link = authenticatedPage.getByRole('link', { name: 'Users' });
     await expect(link).toHaveCount(0);
   });
 
-  test('direct navigation to /superuser/users redirects regular users to /dashboard', async ({
+  test('direct navigation to /users redirects regular users to /dashboard', async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.goto('/superuser/users');
+    await authenticatedPage.goto('/users');
     await authenticatedPage.waitForURL('/dashboard', { timeout: 5000 });
     await expect(authenticatedPage).toHaveURL(/\/dashboard$/);
   });
