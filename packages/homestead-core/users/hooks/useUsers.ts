@@ -2,34 +2,45 @@ import { useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { parseTagList } from '@rambleraptor/homestead-core/settings/visibility';
+import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { ACCOUNT_TAGS } from '../resources';
 import type { ManagedUser } from '../types';
 
-// On the wire `tags` is a comma-separated string (see api/aepbase.ts).
-// Decode it client-side so the rest of the module can work with the
-// natural `string[]` shape.
-interface RawManagedUser extends Omit<ManagedUser, 'tags'> {
-  tags?: string | string[];
+interface AccountTagRecord {
+  id: string;
+  name: string;
 }
 
-function decodeTags(raw: string | string[] | undefined): string[] | undefined {
-  if (raw === undefined) return undefined;
-  if (Array.isArray(raw)) return raw.length > 0 ? raw : undefined;
-  const parsed = parseTagList(raw);
-  return parsed.length > 0 ? parsed : undefined;
+async function fetchTagsForUser(userId: string): Promise<string[]> {
+  try {
+    const records = await aepbase.list<AccountTagRecord>(ACCOUNT_TAGS, {
+      parent: [USERS, userId],
+    });
+    return records.map((r) => r.name).filter((n): n is string => !!n);
+  } catch (error) {
+    // Per-user failures shouldn't blank the list; surface and continue.
+    logger.warn('Failed to fetch account tags for user', {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }
 
 export function useUsers() {
   return useQuery({
     queryKey: queryKeys.users.list(),
-    queryFn: async () => {
-      const raw = await aepbase.list<RawManagedUser>(USERS);
-      const users: ManagedUser[] = raw.map((u) => ({
+    queryFn: async (): Promise<ManagedUser[]> => {
+      const users = await aepbase.list<ManagedUser>(USERS);
+      const tagLists = await Promise.all(
+        users.map((u) => fetchTagsForUser(u.id)),
+      );
+      const merged: ManagedUser[] = users.map((u, i) => ({
         ...u,
-        tags: decodeTags(u.tags),
+        tags: tagLists[i].length > 0 ? tagLists[i] : undefined,
       }));
-      users.sort((a, b) => a.email.localeCompare(b.email));
-      return users;
+      merged.sort((a, b) => a.email.localeCompare(b.email));
+      return merged;
     },
   });
 }

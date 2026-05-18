@@ -25,7 +25,8 @@ export interface User {
   /**
    * Account tags assigned by a superuser. Modules whose `enabled` flag
    * is set to `'tagged'` are accessible to users whose `tags` overlap
-   * the module's `enabled_tags` (any-of match).
+   * the module's `enabled_tags` (any-of match). Hydrated on login from
+   * the `account-tag` child resource (see `users/resources.ts`).
    */
   tags?: string[];
 }

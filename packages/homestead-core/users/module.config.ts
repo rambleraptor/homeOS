@@ -8,12 +8,15 @@
  *
  * The underlying `user` collection is owned by aepbase via
  * `EnableUsers = true`; this module deliberately does not declare a
- * `user` `ResourceDefinition`.
+ * `user` `ResourceDefinition`. Account-level extensions (currently
+ * just `account-tag`) live as separate child resources parented under
+ * `user`.
  */
 
 import { UserCog } from 'lucide-react';
 import type { HomeModule } from '@/modules/types';
 import { UsersHome } from './components/UsersHome';
+import { usersResources } from './resources';
 
 export const usersModule: HomeModule = {
   id: 'users',
@@ -34,6 +37,7 @@ export const usersModule: HomeModule = {
   navOrder: 91,
   enabled: true,
   defaultEnabled: 'superusers',
+  resources: usersResources,
   omnibox: {
     synonyms: ['users', 'accounts', 'members'],
     listComponent: UsersHome,
