@@ -124,4 +124,51 @@ export class RecipesPage {
       this.page.getByRole('link', { name: 'Recipes' }),
     ).toHaveCount(0);
   }
+
+  async gotoRecipe(id: string) {
+    await this.page.goto(`/recipes/${id}`);
+  }
+
+  async clickRecipeCard(title: string) {
+    const link = this.page.getByTestId(`recipe-view-${title}`);
+    await link.waitFor({ state: 'visible' });
+    await link.click();
+  }
+
+  async expectOnRecipeViewPage(id: string) {
+    await expect(this.page).toHaveURL(new RegExp(`/recipes/${id}$`));
+    await expect(this.page.getByTestId('recipe-view')).toBeVisible();
+  }
+
+  async expectRecipeViewTitle(title: string) {
+    await expect(
+      this.page.getByRole('heading', { level: 1, name: title }),
+    ).toBeVisible();
+  }
+
+  async expectRecipeViewIngredient(item: string) {
+    await expect(
+      this.page.getByTestId('recipe-view-ingredients').getByText(item),
+    ).toBeVisible();
+  }
+
+  async expectRecipeViewStep(text: string) {
+    await expect(
+      this.page.getByTestId('recipe-view-steps').getByText(text),
+    ).toBeVisible();
+  }
+
+  async expectRecipeViewMethod(text: string) {
+    await expect(
+      this.page.getByTestId('recipe-view-method'),
+    ).toContainText(text);
+  }
+
+  async expectRecipeViewMeta(text: string) {
+    await expect(this.page.getByTestId('recipe-view-meta')).toContainText(text);
+  }
+
+  async clickBackToRecipes() {
+    await this.page.getByTestId('recipe-view-back').click();
+  }
 }
