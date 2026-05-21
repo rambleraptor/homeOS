@@ -15,7 +15,15 @@ It's built on top of [aepbase](https://www.github.com/rambleraptor/aepbase).
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### One-line install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
+```
+
+### Manual install
+
+#### Prerequisites
 
 - Node.js 20+ and npm
 - Go (for building aepbase)
