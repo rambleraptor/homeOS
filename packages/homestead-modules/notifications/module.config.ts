@@ -6,7 +6,7 @@
  */
 
 import { Bell } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { NotificationsHome } from './components/NotificationsHome';
 import { notificationsResources } from './resources';
 

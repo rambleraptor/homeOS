@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { NestedModuleLanding } from './NestedModuleLanding';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 
 /**
  * Bind a parent module to the generic landing as a no-arg

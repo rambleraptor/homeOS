@@ -15,7 +15,7 @@ import {
   USER_PREFERENCES,
 } from '@rambleraptor/homestead-core/resources/builtins';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { getAllUserSettingDefs } from '@/modules/registry';
+import { getAllUserSettingDefs } from '@rambleraptor/homestead-core/modules/registry';
 import { unflatten, type UserSettingValues } from '../settings';
 
 export interface UserSettingsRecord {

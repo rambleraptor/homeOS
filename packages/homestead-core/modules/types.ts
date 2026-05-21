@@ -8,11 +8,11 @@
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { NextRequest } from 'next/server';
-import type { OmniboxAdapter } from '@rambleraptor/homestead-core/shared/omnibox/types';
-import type { ModuleFilterDecl } from '@rambleraptor/homestead-core/shared/filters/types';
-import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
-import type { ModuleVisibility } from '@rambleraptor/homestead-core/settings/visibility';
-import type { ResourceMutationOpts } from '@rambleraptor/homestead-core/api/registerResourceMutationDefaults';
+import type { OmniboxAdapter } from '../shared/omnibox/types';
+import type { ModuleFilterDecl } from '../shared/filters/types';
+import type { ResourceDefinition } from '../resources/types';
+import type { ModuleVisibility } from '../settings/visibility';
+import type { ResourceMutationOpts } from '../api/registerResourceMutationDefaults';
 
 /**
  * A widget a module contributes to the dashboard. The component is
@@ -67,7 +67,7 @@ export interface ModuleRoute {
 
   /**
    * Optional gates wrapping the component. Names resolve to wrapper
-   * components in `@/modules/router/gates`.
+   * components in `homestead-core/modules/router/gates`.
    */
   gates?: Array<'enabled' | 'superuser'>;
 
@@ -158,7 +158,7 @@ export interface HomeModule {
   /**
    * Optional declarative integration with the natural-language omnibox
    * (`/search`). When present, the module is discoverable + addressable
-   * via the omnibox. See `@rambleraptor/homestead-core/shared/omnibox/types` for the shape.
+   * via the omnibox. See `homestead-core/shared/omnibox/types` for the shape.
    */
   omnibox?: OmniboxAdapter;
 

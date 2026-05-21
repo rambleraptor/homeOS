@@ -5,13 +5,13 @@
  * `/api/modules/<moduleId>/<workerName>`. Wires the registry +
  * `authenticate()` helper into the pure dispatcher; all real
  * resolution + invocation logic lives in
- * `@/modules/workers/dispatcher`.
+ * `@rambleraptor/homestead-core/modules/workers/dispatcher`.
  */
 
 import { NextRequest } from 'next/server';
 import { authenticate } from '../../../_lib/aepbase-server';
 import { getModuleWorker } from '@/modules/registry';
-import { dispatchModuleWorker } from '@/modules/workers/dispatcher';
+import { dispatchModuleWorker } from '@rambleraptor/homestead-core/modules/workers/dispatcher';
 
 async function handle(
   request: NextRequest,

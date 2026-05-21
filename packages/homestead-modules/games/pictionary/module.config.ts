@@ -7,7 +7,7 @@
  */
 
 import { Pencil } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { PictionaryHome } from './components/PictionaryHome';
 import { PictionaryLeaderboard } from './components/PictionaryLeaderboard';
 import { PictionaryBulkImport } from './bulk-import';

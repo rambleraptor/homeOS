@@ -22,7 +22,7 @@ import {
   recipesModule,
   todosModule,
 } from '@rambleraptor/homestead-modules';
-import type { HomesteadConfig } from '@/modules/config';
+import type { HomesteadConfig } from '@rambleraptor/homestead-core/modules/config';
 
 const config: HomesteadConfig = {
   modules: [

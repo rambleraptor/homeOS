@@ -4,7 +4,7 @@
  * Module for tracking unreimbursed medical expenses
  */
 
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { Receipt } from 'lucide-react';
 import { HSAHome } from './components/HSAHome';
 import { hsaResources } from './resources';

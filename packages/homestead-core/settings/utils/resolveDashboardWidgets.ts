@@ -15,7 +15,7 @@
  *     after the order is resolved.
  */
 
-import type { DashboardWidget } from '@/modules/types';
+import type { DashboardWidget } from '@rambleraptor/homestead-core/modules/types';
 
 export function resolveDashboardWidgets(
   available: DashboardWidget[],

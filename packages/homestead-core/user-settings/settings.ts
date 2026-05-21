@@ -14,7 +14,7 @@
  * existing code splits flat field names on `__` regardless of source.
  */
 
-import type { UserSettingDef, UserSettingValue } from '@/modules/types';
+import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-core/modules/types';
 
 export const USER_SETTING_SEPARATOR = '__';
 

@@ -1,10 +1,7 @@
 {
   "extends": "../../frontend/tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../../frontend/src/*"]
-    }
+    "paths": {}
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

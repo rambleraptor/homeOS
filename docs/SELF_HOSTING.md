@@ -42,7 +42,7 @@ import {
   groceriesModule, hsaModule, notificationsModule, peopleModule,
   recipesModule, todosModule,
 } from '@rambleraptor/homestead-modules';
-import type { HomesteadConfig } from '@/modules/config';
+import type { HomesteadConfig } from '@rambleraptor/homestead-core/modules/config';
 
 const config: HomesteadConfig = {
   modules: [
@@ -121,7 +121,7 @@ packages/homestead-modules/laundry/
 ```ts
 // module.config.ts
 import { Shirt } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { LaundryHome } from './components/LaundryHome';
 
 export const laundryModule: HomeModule = {

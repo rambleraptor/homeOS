@@ -10,7 +10,7 @@
 import { MODULE_FLAGS } from '@rambleraptor/homestead-core/module-flags/sync';
 import { useQuery } from '@tanstack/react-query';
 import { aepbase, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
-import { getAllModuleFlagDefs } from '@/modules/registry';
+import { getAllModuleFlagDefs } from '@rambleraptor/homestead-core/modules/registry';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { unflatten, type ModuleFlagValues } from '../flags';
 

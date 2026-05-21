@@ -8,7 +8,7 @@
  */
 
 import { Flag } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { FlagManagementHome } from './components/FlagManagementHome';
 
 export const flagManagementModule: HomeModule = {

@@ -19,8 +19,8 @@ import { MODULE_FLAGS } from '@rambleraptor/homestead-core/module-flags/sync';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aepbase, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
-import { getAllModuleFlagDefs } from '@/modules/registry';
-import type { ModuleFlagValue } from '@/modules/types';
+import { getAllModuleFlagDefs } from '@rambleraptor/homestead-core/modules/registry';
+import type { ModuleFlagValue } from '@rambleraptor/homestead-core/modules/types';
 import { fieldName } from '../flags';
 import {
   MODULE_FLAGS_QUERY_KEY,

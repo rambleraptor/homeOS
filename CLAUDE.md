@@ -166,7 +166,7 @@ packages/homestead-modules/<feature>/
 ├── components/         # UI components
 ├── hooks/              # Custom hooks (data access lives here)
 ├── types.ts            # TypeScript types
-├── module.config.ts    # Module metadata (imports HomeModule from @/modules/types)
+├── module.config.ts    # Module metadata (imports HomeModule from @rambleraptor/homestead-core/modules/types)
 └── index.ts            # Public exports
 ```
 

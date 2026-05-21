@@ -32,7 +32,7 @@ const fakeAdapter: OmniboxAdapter = {
   listComponent: TestList,
 };
 
-vi.mock('@/modules/registry', () => ({
+vi.mock('@rambleraptor/homestead-core/modules/registry', () => ({
   getModuleById: (id: string) =>
     id === 'fake'
       ? {

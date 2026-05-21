@@ -2,6 +2,11 @@
  * Tests for the module registry's flag aggregation, in particular the
  * auto-injected built-in `enabled` flag that every module receives —
  * including nested children, so each can be gated independently.
+ *
+ * Imports through the frontend's shim (`@/modules/registry`) so the
+ * singleton is initialized from the real `homestead.config.ts`. The
+ * assertions are integration-flavored — they walk the actual operator
+ * module list rather than a synthetic one.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -11,9 +16,9 @@ import {
   moduleRegistry,
   BUILTIN_ENABLED_FLAG_KEY,
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
-} from '../registry';
+} from '@/modules/registry';
 import { MODULE_VISIBILITY_OPTIONS } from '@rambleraptor/homestead-core/settings/visibility';
-import type { HomeModule } from '../types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 
 function collectAllIds(mods: HomeModule[]): string[] {
   const out: string[] = [];

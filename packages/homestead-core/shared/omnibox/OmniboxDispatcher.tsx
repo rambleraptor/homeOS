@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Sparkles } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
-import { getModuleById } from '@/modules/registry';
+import { getModuleById } from '@rambleraptor/homestead-core/modules/registry';
 import type { OmniboxIntent } from '@rambleraptor/homestead-core/shared/omnibox/types';
 import { OmniboxListView } from '@rambleraptor/homestead-core/shared/omnibox/OmniboxListView';
 import { OmniboxFormView } from '@rambleraptor/homestead-core/shared/omnibox/OmniboxFormView';

@@ -4,7 +4,7 @@
  * Module for managing household grocery list with AI-powered categorization
  */
 
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { ShoppingCart } from 'lucide-react';
 import { groceriesOmnibox } from './omnibox';
 import { GroceriesWidget } from './components/GroceriesWidget';
