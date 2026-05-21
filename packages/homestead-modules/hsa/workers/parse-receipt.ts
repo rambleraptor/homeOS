@@ -8,7 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { ModuleWorkerHandler } from '@/modules/types';
+import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
 
 interface ParsedReceiptData {
   merchant: string;

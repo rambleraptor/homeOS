@@ -11,7 +11,7 @@
  */
 
 import { Gamepad2 } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
 import { minigolfModule } from './minigolf/module.config';
 import { pictionaryModule } from './pictionary/module.config';

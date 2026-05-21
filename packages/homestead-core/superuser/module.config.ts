@@ -9,7 +9,7 @@
  */
 
 import { ShieldCheck } from 'lucide-react';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
 import { flagManagementModule } from './flag-management/module.config';
 import { SuperuserLanding } from './SuperuserLanding';

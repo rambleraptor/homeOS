@@ -16,7 +16,7 @@ import {
   parseFieldName,
   type ModuleFlagDefs,
 } from '@rambleraptor/homestead-core/settings/flags';
-import type { ModuleFlagDef } from '@/modules/types';
+import type { ModuleFlagDef } from '@rambleraptor/homestead-core/modules/types';
 
 export const MODULE_FLAGS_DEFINITION_QUERY_KEY = [
   'module-flags-definition',

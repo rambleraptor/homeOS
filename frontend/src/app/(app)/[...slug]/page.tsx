@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getAllModules } from '@/modules/registry';
-import { buildRouteEntries, matchRoute } from '@/modules/router/match';
-import { gateComponents } from '@/modules/router/gates';
+import { buildRouteEntries, matchRoute } from '@rambleraptor/homestead-core/modules/router/match';
+import { gateComponents } from '@rambleraptor/homestead-core/modules/router/gates';
 
 export function generateStaticParams() {
   const entries = buildRouteEntries(getAllModules());

@@ -5,7 +5,7 @@
  * Displays welcome message, statistics, and getting started guide.
  */
 
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { LayoutDashboard } from 'lucide-react';
 import { DashboardHome } from './components/DashboardHome';
 

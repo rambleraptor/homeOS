@@ -5,13 +5,21 @@
  * exercise the end-to-end read/write flow against a mocked aepbase.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { aepbase, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
+import { initializeModuleRegistry } from '@rambleraptor/homestead-core/modules/registry';
+import { settingsModule } from '../module.config';
 import { useModuleFlag } from '../hooks/useModuleFlag';
+
+beforeAll(() => {
+  // Register the settings module so `getAllModuleFlagDefs` returns the
+  // declared `omnibox_access` default this suite relies on.
+  initializeModuleRegistry([settingsModule]);
+});
 
 vi.mock('@rambleraptor/homestead-core/module-flags/sync', () => ({
   MODULE_FLAGS: 'module-flags',

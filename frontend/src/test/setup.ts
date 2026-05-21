@@ -7,6 +7,16 @@
 import '@testing-library/jest-dom';
 import { afterEach, vi, beforeAll, afterAll } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { initializeModuleRegistry } from '@rambleraptor/homestead-core/modules/registry';
+
+// Bootstrap the module registry with an empty operator list. The
+// always-installed core modules (settings/users/superuser) are enough
+// for hooks like `useModuleFlags` to function during unit tests; tests
+// that need a richer registry can re-initialize themselves. Note: we do
+// NOT import the real `homestead.config.ts` here — that would eagerly
+// load every feature module's component tree before per-test `vi.mock`
+// calls take effect, freezing the wrong module bindings.
+initializeModuleRegistry([]);
 
 // matchMedia stub for jsdom
 Object.defineProperty(window, 'matchMedia', {
@@ -28,48 +38,53 @@ afterEach(() => {
 });
 
 // Mock the aepbase client. Tests that need specific behavior can override
-// these via vi.mocked(...) on the exported names.
-class MockAepbaseError extends Error {
-  constructor(
-    public readonly code: number,
-    message: string,
-    public readonly url: string,
-  ) {
-    super(message);
-    this.name = 'AepbaseError';
+// these via vi.mocked(...) on the exported names. The error class is
+// defined inside the factory because `vi.mock` is hoisted above any
+// top-level declarations in this file — a sibling reference would hit a
+// TDZ error the first time the factory runs.
+vi.mock('@rambleraptor/homestead-core/api/aepbase', () => {
+  class AepbaseError extends Error {
+    constructor(
+      public readonly code: number,
+      message: string,
+      public readonly url: string,
+    ) {
+      super(message);
+      this.name = 'AepbaseError';
+    }
   }
-}
-vi.mock('@rambleraptor/homestead-core/api/aepbase', () => ({
-  AepbaseError: MockAepbaseError,
-  aepbase: {
-    list: vi.fn(async () => []),
-    get: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    remove: vi.fn(),
-    download: vi.fn(),
-    login: vi.fn(),
-    logout: vi.fn(),
-    refreshCurrentUser: vi.fn(),
-    getCurrentUser: vi.fn(() => ({
-      id: 'test-user-id',
-      email: 'test@example.com',
-      name: 'Test User',
-      username: 'test@example.com',
-      verified: true,
-      created: '2024-01-01T00:00:00Z',
-      updated: '2024-01-01T00:00:00Z',
-    })),
-    authStore: {
-      token: 'test-token',
-      isValid: true,
-      model: { id: 'test-user-id' },
-      save: vi.fn(),
-      clear: vi.fn(),
-      onChange: vi.fn(() => () => undefined),
+  return {
+    AepbaseError,
+    aepbase: {
+      list: vi.fn(async () => []),
+      get: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+      download: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshCurrentUser: vi.fn(),
+      getCurrentUser: vi.fn(() => ({
+        id: 'test-user-id',
+        email: 'test@example.com',
+        name: 'Test User',
+        username: 'test@example.com',
+        verified: true,
+        created: '2024-01-01T00:00:00Z',
+        updated: '2024-01-01T00:00:00Z',
+      })),
+      authStore: {
+        token: 'test-token',
+        isValid: true,
+        model: { id: 'test-user-id' },
+        save: vi.fn(),
+        clear: vi.fn(),
+        onChange: vi.fn(() => () => undefined),
+      },
     },
-  },
-}));
+  };
+});
 
 // Suppress noisy jsdom error about form submission
 const originalError = console.error;

@@ -6,7 +6,7 @@ import { ChevronRight } from 'lucide-react';
 import { Card } from './Card';
 import { PageHeader } from './PageHeader';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
-import type { HomeModule } from '@/modules/types';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 
 interface Props {
   module: HomeModule;

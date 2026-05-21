@@ -9,8 +9,8 @@
  */
 
 import type { z } from 'zod';
-import { getAllModules } from '@/modules/registry';
-import type { HomeModule } from '@/modules/types';
+import { getAllModules } from '@rambleraptor/homestead-core/modules/registry';
+import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import type { ModuleFilterDecl } from '@rambleraptor/homestead-core/shared/filters/types';
 import type { OmniboxForm } from '@rambleraptor/homestead-core/shared/omnibox/types';
 

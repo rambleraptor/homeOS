@@ -2,8 +2,8 @@
 
 import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { useAuth } from '../../auth/useAuth';
+import { Spinner } from '../../shared/components/Spinner';
 
 interface Props {
   children: ReactNode;

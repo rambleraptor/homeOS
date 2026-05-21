@@ -8,7 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import { sendNotificationForAuth } from '@/app/api/notifications/utils/send-user-notification';
-import type { ModuleWorkerHandler } from '@/modules/types';
+import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
 
 const handler: ModuleWorkerHandler = async ({ auth }) => {
   if (!auth) {

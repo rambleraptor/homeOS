@@ -17,7 +17,7 @@ import {
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
   getAllModuleFlagDefs,
   getModuleById,
-} from '@/modules/registry';
+} from '@rambleraptor/homestead-core/modules/registry';
 import {
   formatTagList,
   parseTagList,
@@ -30,7 +30,7 @@ import {
   MODULE_FLAGS_DEFINITION_QUERY_KEY,
   useModuleFlagsDefinition,
 } from '../hooks/useModuleFlagsDefinition';
-import type { ModuleFlagDef, ModuleFlagValue } from '@/modules/types';
+import type { ModuleFlagDef, ModuleFlagValue } from '@rambleraptor/homestead-core/modules/types';
 
 export function FlagManagementHome() {
   const { defs, isLoading: defsLoading, isMissing } = useModuleFlagsDefinition();

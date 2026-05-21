@@ -13,7 +13,7 @@
  */
 
 import { useCallback } from 'react';
-import type { UserSettingValue } from '@/modules/types';
+import type { UserSettingValue } from '@rambleraptor/homestead-core/modules/types';
 import { useUserSettings } from './useUserSettings';
 import { useUpdateUserSetting } from './useUpdateUserSetting';
 
