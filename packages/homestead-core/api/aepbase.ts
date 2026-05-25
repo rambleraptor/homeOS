@@ -1,19 +1,19 @@
 /**
  * aepbase REST client
  *
- * Thin wrapper that mirrors the ergonomics of the existing PocketBase client
- * (`getCollection<T>().getFullList/getOne/create/update/delete`) so module
- * hooks can be migrated one at a time. Talks to aepbase via the same-origin
- * `/api/aep` Next.js proxy — clients never address aepbase directly.
+ * Thin wrapper exposing `getCollection<T>().getFullList/getOne/create/
+ * update/delete`-style ergonomics on top of aepbase. Talks to aepbase
+ * via the same-origin `/api/aep` Next.js proxy — clients never address
+ * aepbase directly.
  *
- * Differences from PocketBase, called out where they affect callers:
- *  - aepbase list responses use `next_page_token`/`results`, not PB's
- *    `page/perPage/totalItems`. `list()` follows the cursor automatically and
- *    returns a flat array.
+ * Behavior worth knowing:
+ *  - aepbase list responses use `next_page_token`/`results`. `list()`
+ *    follows the cursor automatically and returns a flat array.
  *  - PATCH uses `application/merge-patch+json`. Multipart create/update is
  *    used when the caller passes a `FormData` body.
- *  - There is no `sort` query param. Callers that need ordering must sort
- *    client-side (gift-card-style lists are small enough that this is fine).
+ *  - There is no `sort` query param. Callers that need ordering must
+ *    sort client-side (gift-card-style lists are small enough that this
+ *    is fine).
  *  - Parented resources are addressed via nested URLs (`{parent}/{children}`)
  *    rather than via filter strings on a foreign-key field.
  *  - User registration is not supported. `login()` is the only auth call.
@@ -42,7 +42,7 @@ export class AepbaseError extends Error {
 }
 
 // ----------------------------------------------------------------------------
-// Auth store (PocketBase-shaped, so AuthContext changes are minimal)
+// Auth store
 // ----------------------------------------------------------------------------
 
 interface RawAepUser {
@@ -100,7 +100,7 @@ class AuthStore {
     return !!this._token;
   }
 
-  /** PocketBase parity: callers read `authStore.model` for the current user. */
+  /** Callers read `authStore.model` for the current user. */
   get model(): User | null {
     return this._user;
   }

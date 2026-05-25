@@ -13,7 +13,6 @@ through a same-origin `/api/aep` proxy.
 - [Code Quality Standards](#code-quality-standards)
 - [Project Structure](#project-structure)
 - [aepbase schema (TypeScript)](#aepbase-schema-typescript)
-- [Data Migration from PocketBase](#data-migration-from-pocketbase)
 
 ## Pull Request Requirements
 
@@ -224,11 +223,6 @@ package. Frontend lists it as a dependency and adds it to
 - `run.sh` — runs it on :8090
 - `data/` — sqlite db + uploaded files (gitignored)
 
-### Scripts (`aepbase/scripts/`)
-
-- `migrate_pb_to_aep.py` — one-time PocketBase → aepbase data migration.
-  Kept for historical reference; the codebase no longer depends on PB.
-
 ### Deployment (`deployment/`)
 
 Systemd-based deployment. See `deployment/README.md`.
@@ -278,8 +272,8 @@ The same runner is used by the e2e bootstrap
    ```ts
    status: { type: 'string', description: 'one of: pending, success, error' }
    ```
-3. **Schema field names stay snake_case** (matches the existing data
-   from the PB era, e.g. `card_number`, `created_by`, `service_date`).
+3. **Schema field names stay snake_case** (e.g. `card_number`,
+   `created_by`, `service_date`).
 4. **Don't add autodate fields** (`created`, `updated`). aepbase
    manages `create_time` and `update_time` itself (note the underscore).
 5. **aepbase disallows `type` changes and `parents` changes** on an
@@ -331,24 +325,6 @@ wire.
 Consumers: `useModuleFlag(moduleId, key)` from `@/modules/settings`
 is the one public hook for reading/writing a single flag from any
 component.
-
-## Data Migration from PocketBase
-
-`aepbase/scripts/migrate_pb_to_aep.py` copies a PocketBase `pb_data/`
-directory's contents into a running aepbase instance, including file
-uploads. It's a one-shot tool preserved for reference — the frontend and
-backend no longer depend on PocketBase.
-
-```bash
-python3 aepbase/scripts/migrate_pb_to_aep.py \
-    --pb-data ~/tmp/pocketbase/pb_data \
-    --aep-url http://localhost:8090 \
-    --email admin@example.com \
-    --password <aepbase superuser password> \
-    --wipe
-```
-
-See the script header for all flags (`--dry-run`, `--collection`, etc.).
 
 ---
 

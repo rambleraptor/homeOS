@@ -42,7 +42,9 @@ npm run type-check
 Copy `.env.example` to `.env` and configure:
 
 ```bash
-NEXT_PUBLIC_POCKETBASE_URL=http://127.0.0.1:8090
+# Override the aepbase backend that `/api/aep` proxies to. Defaults to
+# http://127.0.0.1:8090 — only set this when running aepbase elsewhere.
+AEPBASE_URL=http://127.0.0.1:8090
 NEXT_PUBLIC_APP_NAME=Homestead
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
 ```
@@ -56,7 +58,7 @@ src/
 ├── app/              # Next.js App Router pages
 ├── core/             # Core infrastructure
 │   ├── auth/         # Authentication
-│   ├── api/          # PocketBase client
+│   ├── api/          # aepbase client
 │   ├── layout/       # Layout components
 │   └── router/       # Routing configuration
 ├── modules/          # Feature modules
@@ -75,7 +77,8 @@ src/
 3. Create routes and components
 4. Register in `src/modules/registry.ts`
 
-See the [Module Guide](../docs/MODULE_GUIDE.md) for detailed instructions.
+Run the `create-module` skill to scaffold a new module end-to-end
+(resource definitions, hooks, components, config wiring, e2e fixtures).
 
 ## Testing
 

@@ -2,7 +2,7 @@
  * React Query Configuration
  *
  * Centralized configuration for TanStack Query (React Query)
- * Used for async state management and caching of PocketBase data
+ * Used for async state management and caching of aepbase data
  */
 
 import { QueryClient, type DefaultOptions } from '@tanstack/react-query';

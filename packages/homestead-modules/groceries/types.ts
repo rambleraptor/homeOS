@@ -3,7 +3,7 @@
  */
 
 /**
- * Store record from PocketBase
+ * Store record from aepbase
  */
 export interface Store {
   id: string;
@@ -15,7 +15,7 @@ export interface Store {
 }
 
 /**
- * Grocery item record from PocketBase
+ * Grocery item record from aepbase
  */
 export interface GroceryItem {
   id: string;

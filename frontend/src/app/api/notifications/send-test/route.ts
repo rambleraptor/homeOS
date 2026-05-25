@@ -4,7 +4,7 @@
  * POST /api/notifications/send-test
  * Returns: { success: boolean, message: string, timestamp: string }
  *
- * Requires user authentication (PocketBase token in Authorization header)
+ * Requires user authentication (aepbase token in Authorization header)
  */
 
 import { NextRequest } from 'next/server';

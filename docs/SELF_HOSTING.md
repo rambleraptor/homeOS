@@ -152,9 +152,9 @@ If your module needs its own aepbase collection, add a `resources.ts`
 next to `module.config.ts` exporting a `ResourceDefinition[]`, and
 reference it from the module's config (`resources: [...]`). The Next.js
 boot hook applies the schema; restart the dev server to pick up the
-change. See [`docs/MODULE_GUIDE.md`](MODULE_GUIDE.md) for the full
-module-authoring walkthrough (hooks, dashboard widgets, module flags,
-omnibox).
+change. The `create-module` skill scaffolds a new module end-to-end —
+resource definitions, hooks, components, config wiring, and e2e
+fixtures.
 
 ## 6. Production deployment
 

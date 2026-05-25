@@ -4,10 +4,21 @@ This guide is for module authors who want their feature to send notifications.
 It covers the data model, the immediate-delivery path, and the wiring you need
 to add when introducing notifications in a new module.
 
-For VAPID key generation, service-worker setup, and ops/deployment concerns,
-see [`NOTIFICATIONS_SETUP.md`](./NOTIFICATIONS_SETUP.md). That doc predates the
-aepbase migration and parts are stale, but the VAPID + service-worker steps
-still apply.
+## VAPID keys
+
+Generate a VAPID keypair once per environment with `npx web-push
+generate-vapid-keys`, then set them in `frontend/.env`:
+
+```bash
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<public-key>
+VAPID_PUBLIC_KEY=<public-key>
+VAPID_PRIVATE_KEY=<private-key>
+VAPID_EMAIL=mailto:you@example.com
+```
+
+`NEXT_PUBLIC_VAPID_PUBLIC_KEY` is exposed to the browser so the service
+worker can subscribe; the other three stay server-side. Web push
+requires HTTPS (localhost is exempt).
 
 ## Table of contents
 

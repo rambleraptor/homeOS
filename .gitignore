@@ -1,8 +1,3 @@
-# PocketBase
-pocketbase/pb_data/
-pocketbase/pocketbase
-pocketbase/*.zip
-
 # Environment files
 .env
 .env.local
@@ -32,15 +27,6 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
-
-# Migration test artifacts
-tests/migrations/pocketbase
-tests/migrations/pocketbase.exe
-tests/migrations/pocketbase.zip
-tests/migrations/test_pb_data/
-
-# Pocketbase
-pocketbase/
 
 # Workspace node_modules (root-hoisted)
 node_modules/

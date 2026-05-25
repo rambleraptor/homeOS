@@ -7,13 +7,11 @@
  *  - `testUser` — a freshly-created regular user, auto-deleted on teardown
  *  - `userToken` — bearer token for the test user (used by helpers when
  *    seeding user-scoped data)
- *  - `userId` — the test user's id (equivalent to the old PB `userPocketbase`
- *    model id)
+ *  - `userId` — the test user's id
  *  - `authenticatedPage` — a logged-in Playwright page
  *
- * The PB-era `userPocketbase` / `pocketbase` client fixtures are replaced
- * by simple token+url pairs; see `utils/aepbase-helpers.ts` for the CRUD
- * helpers the specs call with these tokens.
+ * Specs talk to aepbase through token+url pairs; see
+ * `utils/aepbase-helpers.ts` for the CRUD helpers callers use.
  */
 
 import { test as base, Page } from '@playwright/test';
