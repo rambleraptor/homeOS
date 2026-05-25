@@ -126,7 +126,7 @@ describe('createOfflinePersister', () => {
       timestamp: 12345,
       clientState: { mutations: [], queries: [] },
     };
-    window.localStorage.setItem('homeos:rq:v2', JSON.stringify(state));
+    window.localStorage.setItem('homestead:rq:v2', JSON.stringify(state));
     const persister = createOfflinePersister();
     const restored = await persister!.restoreClient();
     expect(restored).toEqual(state);

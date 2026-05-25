@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# HomeOS Unified Deployment Script
+# Homestead Unified Deployment Script
 # Handles deployment, updates, and service restarts with automatic rollback.
 #
 # Usage:
@@ -40,7 +40,34 @@ log() {
   echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-log "${BLUE}🚀 HomeOS Deployment${NC}"
+# Detect which systemd unit naming is installed. Prefer the new
+# "homestead-*" names; fall back to legacy "homeos-*" if that's what's
+# present so deploys keep working through the rename. Defaults to the
+# new names when neither is installed — systemctl will surface a clear
+# error later if we actually try to restart.
+detect_unit() {
+  local new_name="$1"
+  local old_name="$2"
+  if [ -f "/etc/systemd/system/${new_name}.service" ]; then
+    echo "$new_name"
+  elif [ -f "/etc/systemd/system/${old_name}.service" ]; then
+    echo "$old_name"
+  else
+    echo "$new_name"
+  fi
+}
+
+AEPBASE_UNIT=$(detect_unit homestead-aepbase homeos-aepbase)
+FRONTEND_UNIT=$(detect_unit homestead-frontend homeos-frontend)
+
+log "${BLUE}🚀 Homestead Deployment${NC}"
+
+if [ "$AEPBASE_UNIT" = "homeos-aepbase" ] || [ "$FRONTEND_UNIT" = "homeos-frontend" ]; then
+  log "${YELLOW}⚠️  Legacy homeos-* systemd units detected (using $AEPBASE_UNIT, $FRONTEND_UNIT).${NC}"
+  log "${YELLOW}   Migrate with: sudo make setup-services${NC}"
+  log "${YELLOW}   Then: sudo systemctl disable --now homeos-aepbase homeos-frontend${NC}"
+fi
+
 cd "$PROJECT_ROOT"
 
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -153,11 +180,11 @@ if [ "$AEPBASE_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
   cd "$PROJECT_ROOT"
 
   log "${BLUE}🔄 Restarting aepbase...${NC}"
-  sudo systemctl restart homeos-aepbase 2>&1 | tee -a "$LOG_FILE"
+  sudo systemctl restart "$AEPBASE_UNIT" 2>&1 | tee -a "$LOG_FILE"
   sleep 3
-  if ! sudo systemctl is-active --quiet homeos-aepbase; then
+  if ! sudo systemctl is-active --quiet "$AEPBASE_UNIT"; then
     log "${RED}❌ aepbase failed to restart${NC}"
-    sudo journalctl -u homeos-aepbase -n 50 --no-pager | tee -a "$LOG_FILE"
+    sudo journalctl -u "$AEPBASE_UNIT" -n 50 --no-pager | tee -a "$LOG_FILE"
     exit 1
   fi
   log "${GREEN}✅ aepbase rebuilt and restarted${NC}"
@@ -165,14 +192,14 @@ fi
 
 if [ "$FRONTEND_CHANGED" = true ] || [ "$DEPS_CHANGED" = true ] || [ "$FORCE_BUILD" = true ]; then
   log "${BLUE}🔄 Restarting frontend...${NC}"
-  sudo systemctl restart homeos-frontend 2>&1 | tee -a "$LOG_FILE"
+  sudo systemctl restart "$FRONTEND_UNIT" 2>&1 | tee -a "$LOG_FILE"
   sleep 2
 fi
 
-if ! sudo systemctl is-active --quiet homeos-aepbase || \
-   ! sudo systemctl is-active --quiet homeos-frontend; then
+if ! sudo systemctl is-active --quiet "$AEPBASE_UNIT" || \
+   ! sudo systemctl is-active --quiet "$FRONTEND_UNIT"; then
   log "${RED}❌ Service verification failed${NC}"
-  sudo systemctl status homeos-aepbase homeos-frontend --no-pager | tee -a "$LOG_FILE"
+  sudo systemctl status "$AEPBASE_UNIT" "$FRONTEND_UNIT" --no-pager | tee -a "$LOG_FILE"
   exit 1
 fi
 

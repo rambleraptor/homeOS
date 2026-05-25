@@ -2,7 +2,7 @@
 set -e
 
 # aepbase Installation Script
-# Builds the HomeOS aepbase wrapper from the Go source at aepbase/.
+# Builds the Homestead aepbase wrapper from the Go source at aepbase/.
 
 echo "🗄️  Installing aepbase..."
 
