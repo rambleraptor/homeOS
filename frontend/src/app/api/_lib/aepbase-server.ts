@@ -1,13 +1,22 @@
 /**
- * Server-side aepbase helper for Next.js API routes.
+ * Server-side aepbase helper for Next.js API routes (compatibility shim).
  *
- * The browser wrapper at `core/api/aepbase` is tuned for client-side use
- * (localStorage, same-origin `/api/aep` proxy). Server routes need to talk
- * directly to aepbase over the network with the user's forwarded bearer
- * token, so they use this tiny helper instead.
+ * The CRUD primitives used to live here. They now delegate to the shared
+ * `Transport` from `@rambleraptor/homestead-aep-client`, constructed
+ * per-request with the caller's forwarded bearer token. Phase 2 will
+ * migrate server routes to the typed `HomesteadClient`; this shim then
+ * goes away.
+ *
+ * `authenticate(request)` and `aepbaseFetch` stay in this file because
+ * Next.js routes still call them directly.
  */
 
 import { NextRequest } from 'next/server';
+import {
+  Transport,
+  bearerAuth,
+  type RequestOptions,
+} from '@rambleraptor/homestead-aep-client';
 
 /**
  * Base URL of the running aepbase. Matches the `AEPBASE_URL` env var used
@@ -27,6 +36,10 @@ export interface AuthedUser {
 export interface AuthResult {
   token: string;
   user: AuthedUser;
+}
+
+function transportFor(token: string): Transport {
+  return new Transport({ baseUrl: AEPBASE_URL, auth: bearerAuth(token) });
 }
 
 /**
@@ -50,9 +63,7 @@ export async function authenticate(request: NextRequest): Promise<AuthResult | n
   if (!token) return null;
 
   try {
-    const res = await aepbaseFetch(`/users/${userId}`, { token });
-    if (!res.ok) return null;
-    const user = (await res.json()) as AuthedUser;
+    const user = await transportFor(token).request<AuthedUser>(`/users/${userId}`);
     return { token, user };
   } catch {
     return null;
@@ -69,28 +80,35 @@ interface FetchOptions {
 /**
  * Low-level fetch against aepbase with a given Bearer token. Used by
  * the higher-level helpers below and by server routes that need direct
- * control over method + path.
+ * control over method + path. Returns the raw `Response` for callers
+ * that need streaming, headers, or non-JSON bodies.
  */
 export async function aepbaseFetch(
   path: string,
   { token, method = 'GET', body, mergePatch }: FetchOptions,
 ): Promise<Response> {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-  };
-  let payload: BodyInit | undefined;
+  const opts: RequestOptions = { method, raw: true };
   if (body !== undefined) {
-    headers['Content-Type'] = mergePatch
-      ? 'application/merge-patch+json'
-      : 'application/json';
-    payload = JSON.stringify(body);
+    opts.body = body;
+    opts.mergePatch = mergePatch;
   }
-  return fetch(`${AEPBASE_URL}${path}`, { method, headers, body: payload });
+  try {
+    return await transportFor(token).request<Response>(path, opts);
+  } catch (err) {
+    // Legacy callers branch on `res.ok` directly, so we synthesize a
+    // failed Response from AepError to preserve that contract instead
+    // of letting the error propagate.
+    if (err instanceof Error && 'code' in err) {
+      const e = err as Error & { code: number };
+      return new Response(JSON.stringify({ error: { code: e.code, message: e.message } }), {
+        status: e.code,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw err;
+  }
 }
 
-/**
- * Parent-path type: alternating [plural, id, plural, id, ...] segments.
- */
 export type ParentPath = string[];
 
 function pathFor(plural: string, parent?: ParentPath): string {
@@ -98,29 +116,24 @@ function pathFor(plural: string, parent?: ParentPath): string {
   return `/${plural}`;
 }
 
-/**
- * List records, following `next_page_token` pagination.
- */
+interface ListResponseRaw<T> {
+  results?: T[];
+  next_page_token?: string;
+}
+
 export async function aepList<T>(
   plural: string,
   token: string,
   parent?: ParentPath,
 ): Promise<T[]> {
+  const t = transportFor(token);
   const base = pathFor(plural, parent);
   const out: T[] = [];
   let pageToken: string | undefined;
   do {
-    const qs = new URLSearchParams();
-    qs.set('max_page_size', '200');
-    if (pageToken) qs.set('page_token', pageToken);
-    const res = await aepbaseFetch(`${base}?${qs}`, { token });
-    if (!res.ok) {
-      throw new Error(`list ${base} → ${res.status}`);
-    }
-    const body = (await res.json()) as {
-      results?: T[];
-      next_page_token?: string;
-    };
+    const body = await t.request<ListResponseRaw<T>>(base, {
+      query: { max_page_size: 200, page_token: pageToken },
+    });
     if (body.results) out.push(...body.results);
     pageToken = body.next_page_token || undefined;
   } while (pageToken);
@@ -133,9 +146,7 @@ export async function aepGet<T>(
   token: string,
   parent?: ParentPath,
 ): Promise<T> {
-  const res = await aepbaseFetch(`${pathFor(plural, parent)}/${id}`, { token });
-  if (!res.ok) throw new Error(`get ${plural}/${id} → ${res.status}`);
-  return (await res.json()) as T;
+  return await transportFor(token).request<T>(`${pathFor(plural, parent)}/${id}`);
 }
 
 export async function aepCreate<T>(
@@ -144,16 +155,10 @@ export async function aepCreate<T>(
   token: string,
   parent?: ParentPath,
 ): Promise<T> {
-  const res = await aepbaseFetch(pathFor(plural, parent), {
-    token,
+  return await transportFor(token).request<T>(pathFor(plural, parent), {
     method: 'POST',
     body,
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`create ${plural} → ${res.status}: ${text}`);
-  }
-  return (await res.json()) as T;
 }
 
 export async function aepUpdate<T>(
@@ -163,14 +168,11 @@ export async function aepUpdate<T>(
   token: string,
   parent?: ParentPath,
 ): Promise<T> {
-  const res = await aepbaseFetch(`${pathFor(plural, parent)}/${id}`, {
-    token,
+  return await transportFor(token).request<T>(`${pathFor(plural, parent)}/${id}`, {
     method: 'PATCH',
     body,
     mergePatch: true,
   });
-  if (!res.ok) throw new Error(`update ${plural}/${id} → ${res.status}`);
-  return (await res.json()) as T;
 }
 
 export async function aepRemove(
@@ -179,11 +181,9 @@ export async function aepRemove(
   token: string,
   parent?: ParentPath,
 ): Promise<void> {
-  const res = await aepbaseFetch(`${pathFor(plural, parent)}/${id}`, {
-    token,
+  await transportFor(token).request<void>(`${pathFor(plural, parent)}/${id}`, {
     method: 'DELETE',
   });
-  if (!res.ok) throw new Error(`delete ${plural}/${id} → ${res.status}`);
 }
 
 /**

@@ -22,6 +22,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   productionBrowserSourceMaps: true,
   transpilePackages: [
+    '@rambleraptor/homestead-aep-client',
     '@rambleraptor/homestead-core',
     '@rambleraptor/homestead-modules',
   ],

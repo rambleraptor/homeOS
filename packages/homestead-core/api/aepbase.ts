@@ -1,24 +1,24 @@
 /**
- * aepbase REST client
+ * aepbase REST client (compatibility shim).
  *
- * Thin wrapper that mirrors the ergonomics of the existing PocketBase client
- * (`getCollection<T>().getFullList/getOne/create/update/delete`) so module
- * hooks can be migrated one at a time. Talks to aepbase via the same-origin
- * `/api/aep` Next.js proxy — clients never address aepbase directly.
+ * This file used to own the HTTP transport, error envelope parsing, and
+ * the function-based CRUD surface. All of that now lives in
+ * `@rambleraptor/homestead-aep-client`. The exports here are preserved
+ * for hooks/components that import `aepbase.list/get/create/...` —
+ * Phase 2 will migrate those call sites to the typed `HomesteadClient`,
+ * after which this shim can go away.
  *
- * Differences from PocketBase, called out where they affect callers:
- *  - aepbase list responses use `next_page_token`/`results`, not PB's
- *    `page/perPage/totalItems`. `list()` follows the cursor automatically and
- *    returns a flat array.
- *  - PATCH uses `application/merge-patch+json`. Multipart create/update is
- *    used when the caller passes a `FormData` body.
- *  - There is no `sort` query param. Callers that need ordering must sort
- *    client-side (gift-card-style lists are small enough that this is fine).
- *  - Parented resources are addressed via nested URLs (`{parent}/{children}`)
- *    rather than via filter strings on a foreign-key field.
- *  - User registration is not supported. `login()` is the only auth call.
+ * Auth (authStore + login/logout/refreshCurrentUser) stays in this file
+ * because it is homestead-specific: the token store is shared with
+ * AuthContext, and `:login` is the only aepbase endpoint we hit
+ * unauthenticated.
  */
 
+import {
+  AepError,
+  Transport,
+  type TokenProvider,
+} from '@rambleraptor/homestead-aep-client';
 import type { User, UserType } from '../auth/types';
 
 const AEP_BASE = '/api/aep';
@@ -26,20 +26,11 @@ const AUTH_TOKEN_KEY = 'aepbase_auth_token';
 const AUTH_USER_KEY = 'aepbase_auth_user';
 
 // ----------------------------------------------------------------------------
-// Errors
+// Errors — re-exported under the legacy name so `instanceof AepbaseError`
+// checks throughout the codebase keep working.
 // ----------------------------------------------------------------------------
 
-/** Error envelope returned by aepbase: `{ error: { code, message } }`. */
-export class AepbaseError extends Error {
-  constructor(
-    public readonly code: number,
-    message: string,
-    public readonly url: string,
-  ) {
-    super(message);
-    this.name = 'AepbaseError';
-  }
-}
+export { AepError as AepbaseError } from '@rambleraptor/homestead-aep-client';
 
 // ----------------------------------------------------------------------------
 // Auth store (PocketBase-shaped, so AuthContext changes are minimal)
@@ -55,14 +46,13 @@ interface RawAepUser {
   update_time: string;
 }
 
-/** Map aepbase's `user` resource onto the frontend's `User` view model. */
 function mapAepUser(raw: RawAepUser): User {
   const type: UserType | undefined =
     raw.type === 'superuser' || raw.type === 'regular' ? raw.type : undefined;
   return {
     id: raw.id,
     email: raw.email,
-    username: raw.email, // aepbase has no username; reuse email
+    username: raw.email,
     name: raw.display_name || '',
     verified: true,
     created: raw.create_time,
@@ -100,7 +90,6 @@ class AuthStore {
     return !!this._token;
   }
 
-  /** PocketBase parity: callers read `authStore.model` for the current user. */
   get model(): User | null {
     return this._user;
   }
@@ -144,84 +133,25 @@ class AuthStore {
 export const authStore = new AuthStore();
 
 // ----------------------------------------------------------------------------
-// HTTP core
+// Shared transport — every CRUD helper below routes through this single
+// instance so error handling, content-type detection, and the auth header
+// match the typed client byte-for-byte.
 // ----------------------------------------------------------------------------
 
-interface RequestOptions {
-  method?: string;
-  body?: unknown;
-  query?: Record<string, string | number | undefined>;
-  // When true, send the body as application/merge-patch+json (used by PATCH).
-  mergePatch?: boolean;
-}
-
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, query, mergePatch } = options;
-
-  let url = `${AEP_BASE}${path}`;
-  if (query) {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined && v !== '') params.set(k, String(v));
-    }
-    const qs = params.toString();
-    if (qs) url += `?${qs}`;
-  }
-
-  const headers: Record<string, string> = {};
-  if (authStore.token) {
-    headers.Authorization = `Bearer ${authStore.token}`;
-  }
-
-  const init: RequestInit = { method, headers };
-  if (body instanceof FormData) {
-    init.body = body;
-    // Let the browser set the multipart boundary.
-  } else if (body !== undefined) {
-    headers['Content-Type'] = mergePatch
-      ? 'application/merge-patch+json'
-      : 'application/json';
-    init.body = JSON.stringify(body);
-  }
-
-  const res = await fetch(url, init);
-
-  if (res.status === 204) {
-    return undefined as T;
-  }
-
-  const text = await res.text();
-  let parsed: unknown = undefined;
-  if (text) {
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      // Non-JSON response — fall through and surface the raw text.
-    }
-  }
-
-  if (!res.ok) {
-    const envelope = parsed as { error?: { code?: number; message?: string } } | undefined;
-    const code = envelope?.error?.code ?? res.status;
-    const message = envelope?.error?.message ?? text ?? `HTTP ${res.status}`;
-    throw new AepbaseError(code, message, url);
-  }
-
-  return parsed as T;
-}
+const authProvider: TokenProvider = {
+  getToken: () => authStore.token || null,
+};
+const transport = new Transport({ baseUrl: AEP_BASE, auth: authProvider });
 
 // ----------------------------------------------------------------------------
-// Resource path helpers
+// Resource path helpers (legacy parent-path tuple format)
 // ----------------------------------------------------------------------------
 
-/**
- * Build a list/collection path. `parent` lets callers address nested
- * resources, e.g. `collectionPath('transactions', { parent: ['gift-cards', cardId] })`
- * → `/gift-cards/{cardId}/transactions`.
- */
+/** Alternating [plural, id, plural, id, ...] segments naming the parent chain. */
+export type ParentPath = string[];
+
 function collectionPath(plural: string, parent?: ParentPath): string {
-  if (!parent) return `/${plural}`;
-  // parent comes in as alternating [plural, id, plural, id, ...] segments.
+  if (!parent || !parent.length) return `/${plural}`;
   return `/${parent.join('/')}/${plural}`;
 }
 
@@ -229,17 +159,13 @@ function itemPath(plural: string, id: string, parent?: ParentPath): string {
   return `${collectionPath(plural, parent)}/${id}`;
 }
 
-/** Alternating [plural, id, plural, id, ...] segments naming the parent chain. */
-export type ParentPath = string[];
-
 // ----------------------------------------------------------------------------
-// CRUD
+// CRUD — thin wrappers around the shared Transport
 // ----------------------------------------------------------------------------
 
 interface ListOptions {
   filter?: string;
   parent?: ParentPath;
-  /** Hard cap. The wrapper follows next_page_token until exhausted. */
   maxPageSize?: number;
 }
 
@@ -252,19 +178,13 @@ interface ItemOptions {
   parent?: ParentPath;
 }
 
-/**
- * Fetch every record in `plural`, following pagination. aepbase has no sort
- * param — callers that need ordering should sort the returned array client-
- * side.
- */
 export async function list<T>(plural: string, options: ListOptions = {}): Promise<T[]> {
   const { filter, parent, maxPageSize = 100 } = options;
   const path = collectionPath(plural, parent);
   const out: T[] = [];
   let pageToken: string | undefined;
-
   do {
-    const page = await request<ListResponse<T>>(path, {
+    const page = await transport.request<ListResponse<T>>(path, {
       query: {
         max_page_size: maxPageSize,
         page_token: pageToken,
@@ -274,12 +194,11 @@ export async function list<T>(plural: string, options: ListOptions = {}): Promis
     if (page.results) out.push(...page.results);
     pageToken = page.next_page_token || undefined;
   } while (pageToken);
-
   return out;
 }
 
 export async function get<T>(plural: string, id: string, options: ItemOptions = {}): Promise<T> {
-  return await request<T>(itemPath(plural, id, options.parent));
+  return await transport.request<T>(itemPath(plural, id, options.parent));
 }
 
 export async function create<T>(
@@ -287,7 +206,7 @@ export async function create<T>(
   body: Record<string, unknown> | FormData,
   options: ItemOptions = {},
 ): Promise<T> {
-  return await request<T>(collectionPath(plural, options.parent), {
+  return await transport.request<T>(collectionPath(plural, options.parent), {
     method: 'POST',
     body,
   });
@@ -299,7 +218,7 @@ export async function update<T>(
   body: Record<string, unknown> | FormData,
   options: ItemOptions = {},
 ): Promise<T> {
-  return await request<T>(itemPath(plural, id, options.parent), {
+  return await transport.request<T>(itemPath(plural, id, options.parent), {
     method: 'PATCH',
     body,
     mergePatch: !(body instanceof FormData),
@@ -311,7 +230,9 @@ export async function remove(
   id: string,
   options: ItemOptions = {},
 ): Promise<void> {
-  await request<void>(itemPath(plural, id, options.parent), { method: 'DELETE' });
+  await transport.request<void>(itemPath(plural, id, options.parent), {
+    method: 'DELETE',
+  });
 }
 
 /**
@@ -330,26 +251,14 @@ export async function download(
   field: string,
   options: ItemOptions = {},
 ): Promise<Blob> {
-  const url = `${AEP_BASE}${itemPath(plural, id, options.parent)}:download`;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (authStore.token) headers.Authorization = `Bearer ${authStore.token}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ field }),
-  });
-  if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const envelope = (await res.json()) as { error?: { message?: string } };
-      if (envelope?.error?.message) message = envelope.error.message;
-    } catch {
-      // not JSON
-    }
-    throw new AepbaseError(res.status, message, url);
-  }
+  const res = await transport.request<Response>(
+    `${itemPath(plural, id, options.parent)}:download`,
+    {
+      method: 'POST',
+      body: { field },
+      raw: true,
+    },
+  );
   return await res.blob();
 }
 
@@ -369,7 +278,7 @@ interface LoginResponse {
  * `onChange` listeners fire.
  */
 export async function login(email: string, password: string): Promise<User> {
-  const res = await request<LoginResponse>('/users/:login', {
+  const res = await transport.request<LoginResponse>('/users/:login', {
     method: 'POST',
     body: { email, password },
   });
@@ -378,15 +287,15 @@ export async function login(email: string, password: string): Promise<User> {
   return user;
 }
 
-/** Clear the in-memory + persisted token. */
 export function logout(): void {
   authStore.clear();
 }
 
-/** Re-fetch the current user from the server. No-op if not authenticated. */
 export async function refreshCurrentUser(): Promise<User | null> {
   if (!authStore.isValid || !authStore.model) return null;
-  const raw = await request<RawAepUser>(`/users/${authStore.model.id}`);
+  const raw = await transport.request<RawAepUser>(
+    `/users/${authStore.model.id}`,
+  );
   const user = mapAepUser(raw);
   authStore.save(authStore.token, user);
   return user;
@@ -395,6 +304,10 @@ export async function refreshCurrentUser(): Promise<User | null> {
 export function getCurrentUser(): User | null {
   return authStore.model;
 }
+
+// Re-export the underlying error type under its new name so new code
+// can `instanceof AepError` while legacy code keeps using `AepbaseError`.
+export { AepError };
 
 // ----------------------------------------------------------------------------
 // Default export — namespace of operations for hook callers

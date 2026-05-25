@@ -45,6 +45,9 @@ pocketbase/
 # Workspace node_modules (root-hoisted)
 node_modules/
 
+# Generated AEP client (rebuilt by frontend prebuild/predev hooks)
+packages/homestead-aep-client/src/generated/*.ts
+
 # Scripts
 scripts/node_modules/
 

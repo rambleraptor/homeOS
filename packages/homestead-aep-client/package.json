@@ -1,0 +1,14 @@
+{
+  "name": "@rambleraptor/homestead-aep-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "generate": "tsx bin/generate-client.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}
