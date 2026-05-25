@@ -9,8 +9,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { TODOS } from '../resources';
+import { client } from '@rambleraptor/homestead-core/api/client';
 import {
   MAIN_PROJECT_ID,
   type ProjectScope,
@@ -23,7 +22,10 @@ export function useTodos() {
   return useQuery({
     queryKey: queryKeys.module('todos').resource('todo').list(),
     queryFn: async (): Promise<Todo[]> => {
-      const todos = await aepbase.list<Todo>(TODOS);
+      // Generated `Todo` widens `status` to `string`; cast back to the
+      // local `TodoStatus` union. Followup: enrich the generator to
+      // emit literal unions from `description: 'one of: …'` hints.
+      const todos = (await client.todos.list()) as unknown as Todo[];
       return todos.sort((a, b) =>
         (a.create_time || '').localeCompare(b.create_time || ''),
       );

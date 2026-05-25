@@ -6,8 +6,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { TODOS } from '../resources';
+import { client } from '@rambleraptor/homestead-core/api/client';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { MAIN_PROJECT_ID, type ProjectScope, type Todo } from '../types';
 import { filterTodosForScope } from './useTodos';
@@ -17,15 +16,11 @@ export function useResetTodos(scope: ProjectScope = MAIN_PROJECT_ID) {
 
   return useMutation({
     mutationFn: async (): Promise<number> => {
-      const todos = await aepbase.list<Todo>(TODOS);
+      const todos = (await client.todos.list()) as unknown as Todo[];
       const inScope = filterTodosForScope(todos, scope);
       const stale = inScope.filter((t) => t.status !== 'pending');
       await Promise.all(
-        stale.map((t) =>
-          aepbase.update<Todo>(TODOS, t.id, {
-            status: 'pending',
-          }),
-        ),
+        stale.map((t) => client.todos.update(t.id, { status: 'pending' })),
       );
       return stale.length;
     },

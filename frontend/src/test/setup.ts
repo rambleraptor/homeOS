@@ -86,6 +86,35 @@ vi.mock('@rambleraptor/homestead-core/api/aepbase', () => {
   };
 });
 
+// Mock the typed HomesteadClient. Each collection (and each method on it)
+// is auto-stubbed on first access via a Proxy, so tests for any module
+// can `vi.mocked(client.<resource>.<method>).mockResolvedValue(...)`
+// without enumerating the generated surface here.
+vi.mock('@rambleraptor/homestead-core/api/client', () => {
+  const stubFor = (method: string) =>
+    vi.fn(async () => (method === 'list' ? [] : undefined));
+  const makeCollection = () =>
+    new Proxy({} as Record<string, ReturnType<typeof vi.fn>>, {
+      get(target, prop) {
+        if (typeof prop !== 'string') return undefined;
+        if (!(prop in target)) target[prop] = stubFor(prop);
+        return target[prop];
+      },
+    });
+  const userScope = new Proxy({} as Record<string, unknown>, {
+    get: (_t, prop) => (typeof prop === 'string' ? makeCollection() : undefined),
+  });
+  const client = new Proxy({} as Record<string, unknown>, {
+    get(target, prop) {
+      if (typeof prop !== 'string') return undefined;
+      if (prop === 'users') return () => userScope;
+      if (!(prop in target)) target[prop] = makeCollection();
+      return target[prop];
+    },
+  });
+  return { client };
+});
+
 // Suppress noisy jsdom error about form submission
 const originalError = console.error;
 beforeAll(() => {

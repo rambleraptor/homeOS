@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { client } from '@rambleraptor/homestead-core/api/client';
 import { useDeleteProject } from '../hooks/useDeleteProject';
 import type { Todo } from '../types';
 
@@ -47,9 +47,9 @@ describe('useDeleteProject', () => {
       makeTodo('c', 'projects/gone', true),
       makeTodo('d'), // main only
     ];
-    vi.mocked(aepbase.list).mockResolvedValue(todos);
-    vi.mocked(aepbase.update).mockResolvedValue({} as Todo);
-    vi.mocked(aepbase.remove).mockResolvedValue(undefined);
+    vi.mocked(client.todos.list).mockResolvedValue(todos);
+    vi.mocked(client.todos.update).mockResolvedValue({} as Todo);
+    vi.mocked(client.projects.delete).mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useDeleteProject(), {
       wrapper: createWrapper(),
@@ -60,27 +60,27 @@ describe('useDeleteProject', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     // Both member todos got patched
-    expect(aepbase.update).toHaveBeenCalledTimes(2);
-    expect(aepbase.update).toHaveBeenCalledWith('todos', 'b', {
+    expect(client.todos.update).toHaveBeenCalledTimes(2);
+    expect(client.todos.update).toHaveBeenCalledWith('b', {
       project: '',
       in_main: false,
     });
-    expect(aepbase.update).toHaveBeenCalledWith('todos', 'c', {
+    expect(client.todos.update).toHaveBeenCalledWith('c', {
       project: '',
       in_main: false,
     });
     // Non-member todos were not touched
-    const updateCalls = vi.mocked(aepbase.update).mock.calls.map((c) => c[1]);
+    const updateCalls = vi.mocked(client.todos.update).mock.calls.map((c) => c[0]);
     expect(updateCalls).not.toContain('a');
     expect(updateCalls).not.toContain('d');
 
     // Project deleted
-    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'gone');
+    expect(client.projects.delete).toHaveBeenCalledWith('gone');
   });
 
   it('still removes the project when no todos belong to it', async () => {
-    vi.mocked(aepbase.list).mockResolvedValue([makeTodo('x')]);
-    vi.mocked(aepbase.remove).mockResolvedValue(undefined);
+    vi.mocked(client.todos.list).mockResolvedValue([makeTodo('x')]);
+    vi.mocked(client.projects.delete).mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useDeleteProject(), {
       wrapper: createWrapper(),
@@ -89,7 +89,7 @@ describe('useDeleteProject', () => {
     await result.current.mutateAsync('empty');
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    expect(aepbase.update).not.toHaveBeenCalled();
-    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'empty');
+    expect(client.todos.update).not.toHaveBeenCalled();
+    expect(client.projects.delete).toHaveBeenCalledWith('empty');
   });
 });
