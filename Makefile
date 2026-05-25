@@ -82,28 +82,28 @@ setup-auto-update: ## Set up automatic updates (requires sudo)
 
 start-services: ## Start Homestead services (requires sudo)
 	@echo "Starting Homestead services..."
-	@sudo systemctl start homeos-aepbase homeos-frontend
+	@sudo systemctl start homestead-aepbase homestead-frontend
 	@echo "✅ Services started"
 
 stop: ## Stop Homestead services (requires sudo)
 	@echo "Stopping Homestead services..."
-	@sudo systemctl stop homeos-aepbase homeos-frontend
+	@sudo systemctl stop homestead-aepbase homestead-frontend
 	@echo "✅ Services stopped"
 
 restart: ## Restart Homestead services (requires sudo)
 	@echo "Restarting Homestead services..."
-	@sudo systemctl restart homeos-aepbase homeos-frontend
+	@sudo systemctl restart homestead-aepbase homestead-frontend
 	@echo "✅ Services restarted"
 
 status: ## Check service status
-	@sudo systemctl status homeos-aepbase homeos-frontend
+	@sudo systemctl status homestead-aepbase homestead-frontend
 
 logs: ## Follow service logs
 	@echo "Following logs (Ctrl+C to stop)..."
-	@sudo journalctl -u homeos-aepbase -u homeos-frontend -f
+	@sudo journalctl -u homestead-aepbase -u homestead-frontend -f
 
 logs-aepbase: ## Follow aepbase logs
-	@sudo journalctl -u homeos-aepbase -f
+	@sudo journalctl -u homestead-aepbase -f
 
 logs-frontend: ## Follow frontend logs
-	@sudo journalctl -u homeos-frontend -f
+	@sudo journalctl -u homestead-frontend -f

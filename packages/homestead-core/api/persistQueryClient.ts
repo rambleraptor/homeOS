@@ -15,7 +15,7 @@ import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persist
 import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client';
 import { logger } from '../utils/logger';
 
-export const PERSISTER_STORAGE_KEY = 'homeos:rq:v2';
+export const PERSISTER_STORAGE_KEY = 'homestead:rq:v2';
 
 /**
  * Drop the persisted React Query snapshot from localStorage. Called on
