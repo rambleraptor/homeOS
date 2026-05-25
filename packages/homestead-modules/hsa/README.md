@@ -42,49 +42,33 @@ The HSA (Health Savings Account) module helps you track out-of-pocket medical ex
 
 ### Where Uploads Are Stored
 
-Receipt files are stored by PocketBase in the `pb_data/storage/` directory:
+Receipt files are stored by aepbase on disk under `aepbase/data/files/`:
 
 ```
-pocketbase/
-└── pb_data/
-    └── storage/
-        └── <collection_id>/
-            └── <record_id>/
-                └── <filename>
-```
-
-For example:
-```
-pb_data/storage/abc123_hsa_receipts/xyz789_record/receipt_20240115.jpg
+aepbase/
+└── data/
+    └── files/
+        └── <plural>/<record_id>/<filename>
 ```
 
 ### Accessing Files
 
-Files are served by PocketBase through its built-in file server:
-
-```typescript
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-
-// Get URL for a receipt file
-const url = aepbase.files.getUrl(receipt, receipt.receipt_file);
-```
-
-The URL format is:
-```
-http://127.0.0.1:8090/api/files/<collection>/<record_id>/<filename>
-```
+File fields are downloaded via aepbase's `:download` custom method on
+the parent resource (e.g. `POST /hsa-receipts/{id}:download`). The
+frontend abstracts this through the standard aepbase wrapper.
 
 ### File Security
 
-- Files are protected by PocketBase's collection rules
-- Users can only access files from their own records
-- Authentication is required to view/download files
+- Files inherit the access scoping of the owning resource (per-user via
+  parent scoping)
+- Authentication is required to download files
 
 ### Backup Considerations
 
-When backing up your Homestead data, make sure to include the entire `pb_data/` directory:
-- `pb_data/data.db` - SQLite database with receipt metadata
-- `pb_data/storage/` - Actual receipt files
+When backing up your Homestead data, include the entire
+`aepbase/data/` directory:
+- `aepbase/data/data.db` - SQLite database with receipt metadata
+- `aepbase/data/files/` - Uploaded receipt blobs
 
 ## API Endpoints
 
@@ -114,7 +98,7 @@ Response:
 
 ### CRUD Operations
 
-All CRUD operations use the standard PocketBase SDK through React Query hooks:
+All CRUD operations use the shared aepbase wrapper through React Query hooks:
 
 - `useHSAReceipts()` - Fetch all receipts
 - `useHSAStats()` - Get calculated statistics
@@ -196,14 +180,12 @@ GEMINI_API_KEY=your_api_key_here
 
 Get an API key at: https://makersuite.google.com/app/apikey
 
-### PocketBase URL
+### aepbase URL
 
-The module uses the standard PocketBase configuration:
-
-```bash
-# In frontend/.env
-NEXT_PUBLIC_POCKETBASE_URL=/api/pb
-```
+The module talks to aepbase via the shared `/api/aep` same-origin
+proxy configured in `frontend/next.config.ts`. Override the upstream
+target by setting `AEPBASE_URL` if aepbase runs somewhere other than
+`http://127.0.0.1:8090`.
 
 ## Tips
 

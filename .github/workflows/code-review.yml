@@ -56,7 +56,7 @@ jobs:
 
             This is a modular Homestead application built with:
             - React 19 + TypeScript + Next.js
-            - PocketBase backend
+            - aepbase backend (AEP-compliant dynamic REST)
             - Module Registry pattern for extensibility
             - Role-Based Access Control (RBAC)
 
@@ -71,7 +71,7 @@ jobs:
             **Security:**
             - Authentication and authorization implementation
             - RBAC permission checks (usePermissions, PermissionGuard)
-            - PocketBase API security rules
+            - aepbase resource access scoping and user-parent isolation
             - XSS, injection, and other OWASP vulnerabilities
             - Sensitive data handling
 

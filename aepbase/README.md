@@ -50,8 +50,8 @@ for every resource definition — e.g.:
 
 ## Parent / child resources
 
-Where PocketBase used a cascade-delete relation, we model it as an AEP
-parent. This gives nested URLs that encode ownership:
+Cascade-delete relationships are modeled as AEP parents, which gives
+nested URLs that encode ownership:
 
 | Child                  | Parent        | URL pattern                                              |
 |------------------------|---------------|----------------------------------------------------------|
@@ -61,8 +61,8 @@ parent. This gives nested URLs that encode ownership:
 | `run`                  | `action`      | `/actions/{id}/runs/{id}`                                |
 | `log`                  | `recipe`      | `/recipes/{id}/logs/{id}`                                |
 
-All other PocketBase relations (e.g. `created_by → users`) are stored
-as plain string fields holding the referenced resource path.
+Plain references (e.g. `created_by → users`) are stored as plain string
+fields holding the referenced resource path.
 
 ## Users and file fields
 
@@ -80,8 +80,6 @@ Both are enabled by `main.go` via library opt-ins.
 
 ## Still NOT covered
 
-- **Access rules / row-level security beyond user scoping.** PocketBase
-  had per-collection CEL-style rules; aepbase only enforces
-  user-parent scoping.
-- **The deleted `events` collection** (PB migration `1766131287`) is
-  not recreated.
+- **Access rules / row-level security beyond user scoping.** aepbase
+  only enforces user-parent scoping; there is no per-collection
+  rules engine.

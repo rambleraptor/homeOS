@@ -8,11 +8,6 @@ build
 .next
 out
 
-# PocketBase
-pocketbase
-pb_data
-pb_migrations/*.js
-
 # IDE
 .vscode
 .idea

@@ -1,6 +1,6 @@
 # Next.js API Routes
 
-This directory contains Next.js API routes that were migrated from PocketBase hooks.
+Next.js API routes that run server-side alongside the aepbase backend.
 
 ## Module Workers
 
@@ -21,16 +21,13 @@ Currently mounted workers:
 - `POST /api/modules/hsa/parse-receipt` — Gemini-powered parser for
   medical receipts
 
-## Migrated Routes
-
-### Notification APIs
+## Notification Routes
 
 #### `/api/notifications/send-test`
 - **Method**: POST
-- **Description**: Manually trigger notification check for testing purposes
+- **Description**: Manually trigger a notification send for testing
 - **Response**: `{ success: boolean, message: string, timestamp: string }`
-- **Authentication**: Required (Admin authentication)
-- **Migrated from**: `pb_hooks/send_notifications.pb.js`
+- **Authentication**: Required (admin)
 
 #### `/api/notifications/cron`
 - **Method**: GET or POST
@@ -38,32 +35,30 @@ Currently mounted workers:
 - **Response**: `{ success: boolean, message: string, timestamp: string }`
 - **Authentication**: Optional CRON_SECRET header for external schedulers
 - **Schedule**: Daily at 9:00 AM (configured in vercel.json)
-- **Migrated from**: `pb_hooks/send_notifications.pb.js` (cron job)
 
 ## Environment Variables Required
 
 ### For Grocery APIs
 - `GEMINI_API_KEY`: Google Gemini API key (required for AI categorization and image processing)
-- `NEXT_PUBLIC_POCKETBASE_URL`: PocketBase server URL (for authentication)
+- `AEPBASE_URL`: aepbase server URL (defaults to `http://127.0.0.1:8090`)
 
 ### For Notification APIs
 - `VAPID_PUBLIC_KEY`: VAPID public key for web push notifications
 - `VAPID_PRIVATE_KEY`: VAPID private key for web push notifications
 - `VAPID_EMAIL`: Contact email for VAPID (e.g., mailto:admin@example.com)
-- `POCKETBASE_ADMIN_EMAIL`: PocketBase admin email (for accessing all people records)
-- `POCKETBASE_ADMIN_PASSWORD`: PocketBase admin password
+- `AEPBASE_ADMIN_EMAIL`: aepbase superuser email (for accessing all people records)
+- `AEPBASE_ADMIN_PASSWORD`: aepbase superuser password
 - `CRON_SECRET`: Optional secret for securing the cron endpoint (when not using Vercel Cron)
-- `NEXT_PUBLIC_POCKETBASE_URL`: PocketBase server URL
 
 ## Authentication
 
-All API routes verify authentication using PocketBase tokens passed in the `Authorization` header:
+All API routes verify authentication using the aepbase bearer token passed in the `Authorization` header:
 
 ```
-Authorization: Bearer <pocketbase-token>
+Authorization: Bearer <aepbase-token>
 ```
 
-The token is obtained from the PocketBase auth store in the frontend and included in all API requests.
+The token is obtained from the aepbase auth wrapper in the frontend and included in all API requests.
 
 ## Cron Job Setup
 
@@ -91,21 +86,13 @@ curl -X POST https://your-domain.com/api/notifications/cron \
 
 Set the `CRON_SECRET` environment variable to secure the endpoint.
 
-## Migration Notes
-
-- Frontend code updated to call Next.js API routes directly using `fetch()` instead of PocketBase's `pb.send()`
-- All authentication is verified using PocketBase tokens
-- Error handling and response formats maintained for backward compatibility
-- Original PocketBase hooks can be removed once migration is verified
-- Dependencies added: `web-push` and `@types/web-push`
-
 ## Testing
 
 Test the APIs using curl or Postman:
 
 ```bash
-# Get PocketBase auth token first
-TOKEN="your-pocketbase-token"
+# Grab an aepbase auth token by logging in via the frontend, then:
+TOKEN="your-aepbase-token"
 
 # Test grocery categorization
 curl -X POST http://localhost:3000/api/groceries/categorize \
@@ -118,11 +105,4 @@ curl -X POST http://localhost:3000/api/notifications/send-test \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## Frontend Integration
-
-The frontend services have been updated to use these new routes:
-
-- `src/core/services/gemini.ts` - Uses `/api/groceries/categorize` and `/api/groceries/process-image`
-- `src/modules/settings/hooks/useSendTestNotification.ts` - Uses `/api/notifications/send-test`
-
-All calls include the PocketBase auth token automatically.
+All client-side calls forward the aepbase auth token automatically.

@@ -21,7 +21,7 @@ const eslintConfig = [
       'react-refresh/only-export-components': 'off',
       // Allow unescaped entities in JSX for readability
       'react/no-unescaped-entities': 'off',
-      // Allow img elements for dynamic images from PocketBase
+      // Allow img elements for dynamic images served from aepbase
       '@next/next/no-img-element': 'off',
       // Disable display-name requirement
       'react/display-name': 'off',

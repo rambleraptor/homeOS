@@ -1,10 +1,13 @@
 # Homestead End-to-End Tests
 
-Comprehensive end-to-end tests for Homestead using Playwright and PocketBase.
+Comprehensive end-to-end tests for Homestead using Playwright against a
+real aepbase backend.
 
 ## Overview
 
-These tests verify the full integration of the Homestead application, testing both the React frontend and PocketBase backend together in a real browser environment.
+These tests verify the full integration of the Homestead application,
+exercising both the Next.js frontend and the aepbase backend together in
+a real browser environment.
 
 ### What's Tested
 
@@ -60,22 +63,22 @@ Playwright `testDir` is the repo root; `testMatch` covers both
 
 ### Test Infrastructure
 
-#### PocketBase Test Instance
+#### aepbase Test Instance
 
 Each test run:
-1. Creates a fresh PocketBase instance on port 8092
-2. Applies all migrations from `pb_migrations/`
+1. Creates a fresh aepbase instance on port 8092
+2. Applies the declared resource definitions via the shared schema sync
 3. Seeds initial data (admin user)
 4. Runs tests against this isolated instance
 5. Tears down after completion
 
 #### Fixtures
 
-**`pocketbase`** - Authenticated PocketBase client for direct API access
+**`userToken`** - Authenticated bearer token for direct aepbase REST calls
 
 ```typescript
-test('example', async ({ pocketbase }) => {
-  await pocketbase.collection('gift_cards').create({...});
+test('example', async ({ userToken }) => {
+  await aepCreate(userToken, 'gift-cards', { ... });
 });
 ```
 
@@ -259,7 +262,7 @@ or `aepList`)? Import it directly from
 
 ✅ **Do:**
 ```typescript
-test('example', async ({ authenticatedPage, pocketbase }) => {
+test('example', async ({ authenticatedPage, userToken }) => {
   // Use provided fixtures
 });
 ```
@@ -290,7 +293,7 @@ await page.getByLabel(/merchant/i).fill('Amazon');
 
 ✅ **Do:**
 ```typescript
-await createMultipleGiftCards(pocketbase, cards);
+await createMultipleGiftCards(userToken, cards);
 await giftCardsPage.goto();
 ```
 
@@ -330,10 +333,10 @@ test('password test', async () => { ... });
 
 ### Tests Fail with "Connection Refused"
 
-PocketBase failed to start. Check:
+aepbase failed to start. Check:
 - Port 8092 is not in use
-- PocketBase binary downloaded correctly
-- Migrations are valid
+- The `aepbase/bin/aepbase` binary built successfully
+- Schema sync logged no errors during bootstrap
 
 ### Tests Timeout
 
@@ -369,9 +372,9 @@ Tests are designed to run in GitHub Actions. See `.github/workflows/e2e-tests.ym
 
 CI automatically:
 - Installs dependencies
-- Downloads PocketBase
+- Builds the aepbase binary
 - Starts frontend dev server
-- Starts PocketBase test instance
+- Starts the aepbase test instance
 - Runs all tests
 - Uploads failure artifacts (screenshots, videos, traces)
 
@@ -417,5 +420,4 @@ When adding new features:
 ## Resources
 
 - [Playwright Documentation](https://playwright.dev)
-- [PocketBase Documentation](https://pocketbase.io/docs)
 - [Homestead CLAUDE.md](../../CLAUDE.md) - Project guidelines

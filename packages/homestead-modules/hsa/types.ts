@@ -15,7 +15,7 @@ export type ReceiptCategory = 'Medical' | 'Dental' | 'Vision' | 'Rx';
 export type ReceiptStatus = 'Stored' | 'Reimbursed';
 
 /**
- * HSA Receipt from PocketBase
+ * HSA Receipt from aepbase
  */
 export interface HSAReceipt {
   id: string;

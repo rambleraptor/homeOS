@@ -1,8 +1,6 @@
 /**
- * Renders a gift-card image (front or back) in either PocketBase or aepbase
- * mode. Returns null while the aepbase blob is loading and on download
- * failure, mirroring the previous behavior of "no image" when files are
- * missing.
+ * Renders a gift-card image (front or back). Returns null while the
+ * aepbase blob is loading and on download failure.
  */
 
 import type { GiftCard } from '../types';

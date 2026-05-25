@@ -43,23 +43,18 @@ In the merchant detail view, you can:
 
 ### Database Schema
 
-The module uses a `gift_cards` collection in PocketBase with the following fields:
+The module uses a `gift-card` aepbase resource (see `resources.ts`)
+with the following fields:
 
-- `merchant` (text, required, max 200): Merchant name
-- `card_number` (text, required, max 100): Gift card number
-- `pin` (text, optional, max 50): Security PIN
+- `merchant` (text, required): Merchant name
+- `card_number` (text, required): Gift card number
+- `pin` (text, optional): Security PIN
 - `amount` (number, required, min 0): Current balance
-- `notes` (text, optional, max 1000): Additional notes
-- `created_by` (relation, optional): User who created the card (relates to users collection)
-- `created`, `updated` (timestamps): Auto-managed by PocketBase
+- `notes` (text, optional): Additional notes
+- `created_by` (string): User resource path for the creator
+- `create_time` / `update_time`: Auto-managed by aepbase
 
-**Migration**: `pb_migrations/1733932805_gift_cards_collection.js`
-
-**Indexes**:
-- `idx_merchant` - Index on merchant field for faster filtering
-- `idx_created_by` - Index on created_by field for ownership queries
-
-See the full schema documentation in `docs/POCKETBASE_SCHEMA.md`.
+See `resources.ts` for the authoritative schema.
 
 ### Components
 
@@ -90,7 +85,7 @@ All hooks use TanStack Query (React Query) for automatic caching, refetching, an
 - Card numbers and PINs are masked by default in the UI
 - Sensitive data must be explicitly revealed by clicking the show/hide toggle
 - Access is restricted to authenticated users only
-- Data is stored securely in PocketBase with proper API rules
+- Data is stored in aepbase and scoped to the authenticated user
 
 ## Future Enhancements
 
