@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@homestead/config": ["../homestead.config.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true,

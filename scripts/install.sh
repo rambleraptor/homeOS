@@ -139,6 +139,6 @@ Next steps — open two terminals:
 Then open http://localhost:3000 and log in.
 
 To customize which feature modules ship, edit
-  ${INSTALL_DIR}/frontend/homestead.config.ts
+  ${INSTALL_DIR}/homestead.config.ts
 See docs/SELF_HOSTING.md for the full self-hosting walkthrough.
 EOF

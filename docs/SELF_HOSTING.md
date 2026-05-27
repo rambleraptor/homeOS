@@ -16,7 +16,7 @@ Two processes:
 
 Each user-facing feature (gift cards, recipes, todos, …) is an opt-in
 **module**. You pick which ones to ship by editing one file:
-[`frontend/homestead.config.ts`](../frontend/homestead.config.ts).
+[`homestead.config.ts`](../homestead.config.ts).
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ npm install            # installs every workspace package
 
 ## 2. Choose your modules
 
-Open `frontend/homestead.config.ts`. It looks like this:
+Open `homestead.config.ts`. It looks like this:
 
 ```ts
 import {
@@ -135,7 +135,7 @@ export const laundryModule: HomeModule = {
 };
 ```
 
-Then in `frontend/homestead.config.ts`:
+Then in `homestead.config.ts`:
 
 ```ts
 import { laundryModule } from '@rambleraptor/homestead-modules/laundry';

@@ -3,7 +3,7 @@ import type { HomeModule } from './types';
 /**
  * Shape of the user-supplied configuration consumed by the registry.
  * Operators declare their instance by exporting a value of this type
- * from `frontend/homestead.config.ts`.
+ * from `homestead.config.ts` at the repo root.
  */
 export interface HomesteadConfig {
   /**

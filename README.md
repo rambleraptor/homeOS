@@ -91,7 +91,7 @@ Every feature is a **module** with its own:
 **Adding a new module:**
 1. Create `packages/homestead-modules/<your-module>/` with a
    `module.config.ts` that declares `routes` (each with a `component`)
-2. Add the import + array entry to `frontend/homestead.config.ts`
+2. Add the import + array entry to `homestead.config.ts` (at the repo root)
 3. Done! No per-route page files, no registry edits — your module
    appears in the navigation automatically and the catch-all router
    serves its routes.

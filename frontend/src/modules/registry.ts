@@ -14,7 +14,7 @@ import { initializeModuleRegistry } from '@rambleraptor/homestead-core/modules/r
 import { settingsModule } from '@rambleraptor/homestead-core/settings/module.config';
 import { superuserModule } from '@rambleraptor/homestead-core/superuser/module.config';
 import { usersModule } from '@rambleraptor/homestead-core/users/module.config';
-import config from '../../homestead.config';
+import config from '@homestead/config';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 
 const ALWAYS_INSTALLED: HomeModule[] = [
