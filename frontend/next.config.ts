@@ -1,4 +1,5 @@
 import { execSync } from 'child_process';
+import path from 'path';
 import type { NextConfig } from 'next';
 
 // Capture git commit info at build time so the settings screen can display
@@ -52,6 +53,11 @@ const nextConfig: NextConfig = {
   // built-ins. Stub them in the client target so the build doesn't fail;
   // the chunks never run in the browser.
   webpack: (config, { nextRuntime }) => {
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      '@homestead/config': path.resolve(__dirname, '../homestead.config.ts'),
+    };
     // Apply for the client (`nextRuntime === undefined`) and the edge
     // runtime — both lack Node built-ins. The Node server resolves them
     // natively, so we leave that target alone.

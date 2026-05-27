@@ -30,6 +30,12 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: homestead/go.sum
+
       - name: Install dependencies
         run: make install
 
@@ -44,6 +50,9 @@ jobs:
 
       - name: Run frontend tests
         run: make test
+
+      - name: Build + test homestead launcher
+        run: make homestead-test
 
       - name: CI Summary
         if: success()

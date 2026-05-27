@@ -38,6 +38,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@homestead/config': path.resolve(__dirname, '../homestead.config.ts'),
     },
   },
 });

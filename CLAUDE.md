@@ -175,7 +175,7 @@ The package keeps its existing reliance on `@/core/...` and `@/shared/...`
 through a TypeScript path alias and Next.js `transpilePackages`.
 
 The list of modules served by an instance lives in
-`frontend/homestead.config.ts` — that is the only file an operator edits
+`homestead.config.ts` (at the repo root) — that is the only file an operator edits
 to add or remove a module. Routes are declared inline on each
 `ModuleRoute` (the `component` field) and served by the catch-all at
 `frontend/src/app/(app)/[...slug]/page.tsx`; do not create per-route

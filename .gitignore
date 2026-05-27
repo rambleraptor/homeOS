@@ -35,3 +35,8 @@ node_modules/
 scripts/node_modules/
 
 aepbase/terraform/terraform.lock.hcl
+
+# homestead launcher binary + embed mirror (populated by sync-embed.sh)
+homestead/bin/
+homestead/internal/embedfs/workspace/*
+!homestead/internal/embedfs/workspace/.gitkeep

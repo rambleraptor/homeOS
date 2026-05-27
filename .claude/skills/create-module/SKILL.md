@@ -7,7 +7,7 @@ description: Scaffold a new Homestead feature module end-to-end — TypeScript r
 
 Homestead features are self-contained modules. Adding one touches (at minimum)
 a per-module `resources.ts` declaring the aepbase schema, the module package
-directory, `frontend/homestead.config.ts`, and the e2e tests. Routes are wired
+directory, `homestead.config.ts`, and the e2e tests. Routes are wired
 by declaring `component` inside `module.config.ts` — there are no per-route
 Next.js page files. This skill walks through every step so nothing gets
 skipped.
@@ -210,7 +210,7 @@ otherwise.
 
 ### 6. Add the module to `homestead.config.ts`
 
-Open `frontend/homestead.config.ts` and add the import + array entry.
+Open `homestead.config.ts` and add the import + array entry.
 That is the only registration step — nav, routes, dashboard widgets,
 omnibox, module flags, and the resource schema are all picked up
 automatically.
@@ -293,7 +293,7 @@ Before marking the task complete, verify:
       `types.ts`, `index.ts`, and at least one component + list hook.
 - [ ] Every `ModuleRoute` declares a `component` (and `dynamic: true`
       where the path uses `:param`).
-- [ ] Module imported and added to `frontend/homestead.config.ts`.
+- [ ] Module imported and added to `homestead.config.ts`.
 - [ ] Vitest tests added under `__tests__/`.
 - [ ] Playwright POM + CRUD spec + `helpers.ts` added under the
       module's `e2e/`.

@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check build test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs
+.PHONY: help install clean lint type-check build test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs homestead homestead-embed homestead-test
 
 # Default target
 .DEFAULT_GOAL := help
@@ -61,6 +61,18 @@ audit: ## Run security audit
 format: ## Format code with Prettier
 	@echo "Formatting code with Prettier..."
 	cd $(FRONTEND_DIR) && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
+
+homestead-embed: ## Mirror the embeddable source tree into homestead/internal/embedfs/workspace/
+	@./homestead/scripts/sync-embed.sh
+
+homestead: homestead-embed ## Build the single-binary `homestead` launcher
+	@echo "Building homestead launcher..."
+	@mkdir -p homestead/bin
+	cd homestead && go build -o bin/homestead .
+	@echo "→ homestead/bin/homestead"
+
+homestead-test: homestead-embed ## Build + test the homestead launcher
+	cd homestead && go build ./... && go test ./...
 
 all: install lint type-check build ## Run install, lint, type-check, and build
 
