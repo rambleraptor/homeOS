@@ -10,6 +10,10 @@
 # be siblings or children of the .go file, and the dirs we need (frontend/,
 # packages/, the root lockfile) are not under homestead/. Mirroring is also
 # the only sane way to exclude node_modules / .next / data / .env files.
+#
+# We use `tar | tar` (not rsync) so the script works with stock tools on
+# both macOS (BSD tar) and Linux (GNU tar) — no extra deps, and it sidesteps
+# rsync 3.2.x's refusal to create intermediate destination directories.
 
 set -euo pipefail
 
@@ -22,7 +26,7 @@ mkdir -p "$DEST"
 # Wipe and rebuild — we never want a stale file lingering.
 find "$DEST" -mindepth 1 -not -name '.gitkeep' -delete
 
-RSYNC_EXCLUDES=(
+EXCLUDES=(
   --exclude='node_modules'
   --exclude='.next'
   --exclude='dist'
@@ -37,16 +41,14 @@ RSYNC_EXCLUDES=(
   --exclude='.DS_Store'
 )
 
-# Top-level files needed for `npm ci` to work in the extracted workspace.
+# Top-level files needed for `npm install` to work in the extracted workspace.
 cp "$REPO_ROOT/package.json"      "$DEST/package.json"
 cp "$REPO_ROOT/package-lock.json" "$DEST/package-lock.json"
 cp "$REPO_ROOT/homestead.config.ts" "$DEST/homestead.config.ts"
 
-# Frontend + workspace packages. The root package.json declares
-# tests/e2e as a workspace, so npm ci needs its package.json present
-# (the actual e2e source is excluded — see PLAYWRIGHT exclude below).
-rsync -a "${RSYNC_EXCLUDES[@]}" "$REPO_ROOT/frontend/" "$DEST/frontend/"
-rsync -a "${RSYNC_EXCLUDES[@]}" "$REPO_ROOT/packages/" "$DEST/packages/"
-rsync -a "${RSYNC_EXCLUDES[@]}" "$REPO_ROOT/tests/e2e/" "$DEST/tests/e2e/"
+# Frontend + workspace packages. The root package.json declares tests/e2e
+# as a workspace, so npm needs its package.json present at install time.
+( cd "$REPO_ROOT" && tar -cf - "${EXCLUDES[@]}" frontend packages tests/e2e ) \
+  | tar -C "$DEST" -xf -
 
 echo "synced repo source into $DEST"
