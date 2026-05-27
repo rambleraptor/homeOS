@@ -6,7 +6,10 @@ import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCreateTodo } from '../hooks/useCreateTodo';
 import { useUpdateTodo } from '../hooks/useUpdateTodo';
-import { useSyntheticTodos } from '../hooks/useSyntheticTodos';
+import {
+  SYNTHETIC_TODO_GROCERIES_ID,
+  useSyntheticTodos,
+} from '../hooks/useSyntheticTodos';
 import {
   MAIN_PROJECT_ID,
   type ProjectScope,
@@ -122,6 +125,11 @@ export function TodosHome() {
                       variant="active"
                       onSetStatus={() => undefined}
                       readOnly
+                      href={
+                        todo.id === SYNTHETIC_TODO_GROCERIES_ID
+                          ? '/groceries'
+                          : undefined
+                      }
                     />
                   ))}
                 {buckets.active.map((todo) => (

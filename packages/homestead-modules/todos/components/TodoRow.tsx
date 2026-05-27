@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Check, Moon, Pause, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
@@ -26,6 +27,12 @@ interface TodoRowProps {
   onTogglePin?: (inMain: boolean) => void;
   /** Origin label shown on main view rows pinned from a project. */
   pinnedFromLabel?: string;
+  /**
+   * When set, the title is rendered as a link to this href. Used by synthetic
+   * todos to deep-link into the source module (e.g. "Buy N groceries" links
+   * to the groceries page).
+   */
+  href?: string;
 }
 
 interface ActionConfig {
@@ -119,6 +126,7 @@ export function TodoRow({
   readOnly,
   onTogglePin,
   pinnedFromLabel,
+  href,
 }: TodoRowProps) {
   const actions = readOnly ? [] : actionsForVariant(variant, todo);
   const isInProgress = variant === 'active' && todo.status === 'in_progress';
@@ -126,6 +134,26 @@ export function TodoRow({
   const isPinned = todo.in_main === true;
   const PinIcon = isPinned ? PinOff : Pin;
   const pinLabel = isPinned ? 'Unpin from main' : 'Pin to main';
+
+  const titleClassName = cn(
+    'flex-1 font-body text-base text-text-main',
+    variant === 'completed' && 'text-text-muted',
+    isCancelled && 'line-through',
+    href && 'hover:text-accent-terracotta transition-colors',
+  );
+  const titleContent = (
+    <>
+      {todo.title}
+      {pinnedFromLabel && (
+        <span
+          data-testid={`todo-row-${todo.id}-origin`}
+          className="ml-2 text-xs font-body italic text-text-muted"
+        >
+          from {pinnedFromLabel}
+        </span>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -135,23 +163,17 @@ export function TodoRow({
         isInProgress && 'border-l-4 border-l-yellow-400 pl-3',
       )}
     >
-      <span
-        className={cn(
-          'flex-1 font-body text-base text-text-main',
-          variant === 'completed' && 'text-text-muted',
-          isCancelled && 'line-through',
-        )}
-      >
-        {todo.title}
-        {pinnedFromLabel && (
-          <span
-            data-testid={`todo-row-${todo.id}-origin`}
-            className="ml-2 text-xs font-body italic text-text-muted"
-          >
-            from {pinnedFromLabel}
-          </span>
-        )}
-      </span>
+      {href ? (
+        <Link
+          href={href}
+          data-testid={`todo-row-${todo.id}-link`}
+          className={titleClassName}
+        >
+          {titleContent}
+        </Link>
+      ) : (
+        <span className={titleClassName}>{titleContent}</span>
+      )}
       <div className="flex items-center gap-1">
         {onTogglePin && !readOnly && (
           <button

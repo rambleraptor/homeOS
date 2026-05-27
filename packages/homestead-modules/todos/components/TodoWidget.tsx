@@ -6,11 +6,15 @@
  * `todosModule.widgets`.
  */
 
+import Link from 'next/link';
 import { ListTodo, Loader2 } from 'lucide-react';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { useTodoBuckets } from '../hooks/useTodos';
-import { useSyntheticTodos } from '../hooks/useSyntheticTodos';
+import {
+  SYNTHETIC_TODO_GROCERIES_ID,
+  useSyntheticTodos,
+} from '../hooks/useSyntheticTodos';
 
 export function TodoWidget() {
   const { buckets, isLoading } = useTodoBuckets();
@@ -38,6 +42,8 @@ export function TodoWidget() {
         <ul className="divide-y divide-gray-50" data-testid="todos-widget-list">
           {active.map((todo) => {
             const isInProgress = todo.status === 'in_progress';
+            const href =
+              todo.id === SYNTHETIC_TODO_GROCERIES_ID ? '/groceries' : null;
             return (
               <li
                 key={todo.id}
@@ -47,9 +53,19 @@ export function TodoWidget() {
                   isInProgress && 'border-l-4 border-l-yellow-400 pl-2',
                 )}
               >
-                <span className="flex-1 font-display text-lg text-text-main truncate">
-                  {todo.title}
-                </span>
+                {href ? (
+                  <Link
+                    href={href}
+                    data-testid={`todos-widget-item-${todo.id}-link`}
+                    className="flex-1 font-display text-lg text-text-main truncate hover:text-accent-terracotta transition-colors"
+                  >
+                    {todo.title}
+                  </Link>
+                ) : (
+                  <span className="flex-1 font-display text-lg text-text-main truncate">
+                    {todo.title}
+                  </span>
+                )}
               </li>
             );
           })}
