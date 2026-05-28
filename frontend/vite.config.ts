@@ -26,6 +26,11 @@ const configPath = fileURLToPath(
 
 const AEPBASE_URL = process.env.AEPBASE_URL || 'http://127.0.0.1:8090';
 const SIDECAR_URL = process.env.SIDECAR_URL || 'http://127.0.0.1:4000';
+// When the Go edge fronts Vite on a different port, HMR's websocket must
+// connect back through the edge, not Vite's own port.
+const HMR_CLIENT_PORT = process.env.VITE_HMR_CLIENT_PORT
+  ? Number(process.env.VITE_HMR_CLIENT_PORT)
+  : undefined;
 
 export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
@@ -54,6 +59,8 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    strictPort: true,
+    hmr: HMR_CLIENT_PORT ? { clientPort: HMR_CLIENT_PORT } : undefined,
     proxy: {
       // aepbase: strip the `/api/aep` prefix and forward (matches the old
       // Next rewrite). Everything else under /api goes to the sidecar.

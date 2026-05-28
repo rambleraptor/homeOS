@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check build test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs homestead homestead-embed homestead-test
+.PHONY: help install clean lint type-check build build-sidecar test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs homestead homestead-test
 
 # Default target
 .DEFAULT_GOAL := help
@@ -18,6 +18,9 @@ clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
 	rm -rf $(FRONTEND_DIR)/.next
 	rm -rf $(FRONTEND_DIR)/node_modules
+	rm -rf homestead/internal/edge/dist
+	rm -f homestead/internal/edge/sidecar-*
+	rm -rf homestead/bin
 
 lint: ## Run ESLint
 	@echo "Running ESLint..."
@@ -27,17 +30,26 @@ type-check: ## Run TypeScript type checking
 	@echo "Running TypeScript type check..."
 	cd $(FRONTEND_DIR) && npm run type-check
 
-build: ## Build for production
-	@echo "Building application..."
+build: ## Build the SPA (Vite -> homestead/internal/edge/dist)
+	@echo "Building SPA..."
 	cd $(FRONTEND_DIR) && npm run build
 
-dev: ## Start development server
-	@echo "Starting development server..."
+build-sidecar: ## Compile the Bun sidecar for the host platform into the edge package
+	@echo "Compiling sidecar (host platform)..."
+	@BUN=$$(command -v bun || echo $$HOME/.bun/bin/bun); \
+	GOOS=$$(go env GOOS); GOARCH=$$(go env GOARCH); \
+	BARCH=$$( [ "$$GOARCH" = "amd64" ] && echo x64 || echo $$GOARCH ); \
+	$$BUN build --compile packages/homestead-sidecar/src/server.ts \
+	  --outfile homestead/internal/edge/sidecar-$$GOOS-$$BARCH
+	@echo "→ homestead/internal/edge/sidecar-*"
+
+dev: ## Start the Vite dev server only (no backend)
+	@echo "Starting Vite dev server..."
 	cd $(FRONTEND_DIR) && npm run dev
 
-start: ## Start production server
-	@echo "Starting production server..."
-	cd $(FRONTEND_DIR) && npm run start
+start: homestead ## Build and run the homestead launcher (prod, single binary)
+	@echo "Starting homestead..."
+	./homestead/bin/homestead start
 
 test: ## Run frontend tests with Vitest
 	@echo "Running frontend tests..."
@@ -62,17 +74,14 @@ format: ## Format code with Prettier
 	@echo "Formatting code with Prettier..."
 	cd $(FRONTEND_DIR) && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
 
-homestead-embed: ## Mirror the embeddable source tree into homestead/internal/embedfs/workspace/
-	@./homestead/scripts/sync-embed.sh
-
-homestead: homestead-embed ## Build the single-binary `homestead` launcher
+homestead: build build-sidecar ## Build the single-binary `homestead` launcher (embeds SPA + sidecar)
 	@echo "Building homestead launcher..."
 	@mkdir -p homestead/bin
-	cd homestead && go build -o bin/homestead .
+	cd homestead && go build -tags release -o bin/homestead .
 	@echo "→ homestead/bin/homestead"
 
-homestead-test: homestead-embed ## Build + test the homestead launcher
-	cd homestead && go build ./... && go test ./...
+homestead-test: ## Build + test the homestead launcher (dev build, no embed)
+	cd homestead && go build ./... && go vet ./... && go test ./...
 
 all: install lint type-check build ## Run install, lint, type-check, and build
 

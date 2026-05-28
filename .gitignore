@@ -41,5 +41,6 @@ homestead/bin/
 homestead/internal/embedfs/workspace/*
 !homestead/internal/embedfs/workspace/.gitkeep
 
-# Vite SPA build output (embedded by the Go edge server in a later phase)
+# Edge build artifacts embedded into the homestead binary (built by `make homestead`)
 homestead/internal/edge/dist/
+homestead/internal/edge/sidecar-*
