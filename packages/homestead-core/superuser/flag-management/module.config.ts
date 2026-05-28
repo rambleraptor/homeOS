@@ -7,18 +7,22 @@
  * parent's audience.
  */
 
-import { Flag } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { FlagManagementHome } from './components/FlagManagementHome';
 
 export const flagManagementModule: HomeModule = {
   id: 'flag-management',
   name: 'Flag Management',
   description: 'View and edit every module flag registered in aepbase.',
-  icon: Flag,
+  icon: () => import('lucide-react').then((m) => m.Flag),
   basePath: '/superuser/flag-management',
   routes: [
-    { path: '', index: true, component: FlagManagementHome, gates: ['enabled'] },
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/FlagManagementHome').then((m) => m.FlagManagementHome),
+      gates: ['enabled'],
+    },
   ],
   enabled: true,
   defaultEnabled: 'superusers',

@@ -6,21 +6,27 @@
  * `useIsModuleEnabled` for the runtime check.
  */
 
-import { ChefHat } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { RecipesHome } from './components/RecipesHome';
-import { RecipeViewRoute } from './components/RecipeViewRoute';
 import { recipesResources } from './resources';
 
 export const recipesModule: HomeModule = {
   id: 'recipes',
   name: 'Recipes',
   description: 'Manage household recipes with structured ingredients.',
-  icon: ChefHat,
+  icon: () => import('lucide-react').then((m) => m.ChefHat),
   basePath: '/recipes',
   routes: [
-    { path: '', index: true, component: RecipesHome },
-    { path: ':id', component: RecipeViewRoute, dynamic: true },
+    {
+      path: '',
+      index: true,
+      component: () => import('./components/RecipesHome').then((m) => m.RecipesHome),
+    },
+    {
+      path: ':id',
+      component: () =>
+        import('./components/RecipeViewRoute').then((m) => m.RecipeViewRoute),
+      dynamic: true,
+    },
   ],
   showInNav: true,
   navOrder: 5,

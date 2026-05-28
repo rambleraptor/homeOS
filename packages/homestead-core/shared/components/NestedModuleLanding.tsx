@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { Card } from './Card';
 import { PageHeader } from './PageHeader';
+import { ModuleIcon } from '@rambleraptor/homestead-core/modules/lazy';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 
@@ -30,7 +31,6 @@ export function NestedModuleLanding({ module }: Props) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {children.map((child) => {
-          const Icon = child.icon;
           return (
             <Link
               key={child.id}
@@ -40,7 +40,10 @@ export function NestedModuleLanding({ module }: Props) {
             >
               <Card className="h-full transition-colors hover:bg-gray-50">
                 <div className="flex items-start gap-4">
-                  <Icon className="w-6 h-6 text-accent-terracotta mt-1 flex-shrink-0" />
+                  <ModuleIcon
+                    icon={child.icon}
+                    className="w-6 h-6 text-accent-terracotta mt-1 flex-shrink-0"
+                  />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-900">{child.name}</h3>
                     <p className="mt-1 text-sm text-gray-600">

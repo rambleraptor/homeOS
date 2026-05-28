@@ -6,19 +6,23 @@
  * built-in `enabled` flag so it can be turned off independently.
  */
 
-import { Flag } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { MinigolfHome } from './components/MinigolfHome';
 import { minigolfResources } from './resources';
 
 export const minigolfModule: HomeModule = {
   id: 'minigolf',
   name: 'Mini Golf',
   description: 'Play and track mini golf games',
-  icon: Flag,
+  icon: () => import('lucide-react').then((m) => m.Flag),
   basePath: '/games/minigolf',
   routes: [
-    { path: '', index: true, component: MinigolfHome, gates: ['enabled'] },
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/MinigolfHome').then((m) => m.MinigolfHome),
+      gates: ['enabled'],
+    },
   ],
   enabled: true,
   resources: minigolfResources,

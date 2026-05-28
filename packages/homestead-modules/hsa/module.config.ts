@@ -5,7 +5,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { Receipt } from 'lucide-react';
 import { HSAHome } from './components/HSAHome';
 import { hsaResources } from './resources';
 
@@ -13,9 +12,15 @@ export const hsaModule: HomeModule = {
   id: 'hsa',
   name: 'HSA Receipts',
   description: 'Track unreimbursed medical expenses for tax-free HSA withdrawals',
-  icon: Receipt,
+  icon: () => import('lucide-react').then((m) => m.Receipt),
   basePath: '/hsa',
-  routes: [{ path: '', index: true, component: HSAHome }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () => import('./components/HSAHome').then((m) => m.HSAHome),
+    },
+  ],
   showInNav: true,
   navOrder: 4,
   section: 'Money',

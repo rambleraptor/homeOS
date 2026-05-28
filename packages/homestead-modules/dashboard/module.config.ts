@@ -6,16 +6,22 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { LayoutDashboard } from 'lucide-react';
 import { DashboardHome } from './components/DashboardHome';
 
 export const dashboardModule: HomeModule = {
   id: 'dashboard',
   name: 'Dashboard',
   description: 'Overview of your Homestead system',
-  icon: LayoutDashboard,
+  icon: () => import('lucide-react').then((m) => m.LayoutDashboard),
   basePath: '/dashboard',
-  routes: [{ path: '', index: true, component: DashboardHome }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/DashboardHome').then((m) => m.DashboardHome),
+    },
+  ],
   showInNav: false,
   navOrder: 1,
   enabled: true,

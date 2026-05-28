@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Home, LogOut, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { getNavigationModules } from '@rambleraptor/homestead-core/modules/registry';
+import { ModuleIcon } from '@rambleraptor/homestead-core/modules/lazy';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
 
 interface SidebarProps {
@@ -191,7 +192,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     {!collapsed && (
                       <div id={contentId} className="space-y-1">
                         {modulesBySection[section].map((module) => {
-                          const Icon = module.icon;
                           const active = isActive(module.basePath);
                           return (
                             <Link
@@ -204,7 +204,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                   : 'text-brand-slate hover:bg-bg-pearl'
                               }`}
                             >
-                              <Icon className="w-5 h-5 flex-shrink-0" />
+                              <ModuleIcon
+                                icon={module.icon}
+                                className="w-5 h-5 flex-shrink-0"
+                              />
                               <span className="font-medium">{module.name}</span>
                             </Link>
                           );

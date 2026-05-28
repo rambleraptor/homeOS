@@ -5,20 +5,23 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { ShoppingCart } from 'lucide-react';
 import { groceriesOmnibox } from './omnibox';
-import { GroceriesWidget } from './components/GroceriesWidget';
-import { GroceriesHome } from './components/GroceriesHome';
 import { groceriesResources } from './resources';
-import { storeCascadeDelete } from './offline';
 
 export const groceriesModule: HomeModule = {
   id: 'groceries',
   name: 'Groceries',
   description: 'Manage your grocery list with smart categorization',
-  icon: ShoppingCart,
+  icon: () => import('lucide-react').then((m) => m.ShoppingCart),
   basePath: '/groceries',
-  routes: [{ path: '', index: true, component: GroceriesHome }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/GroceriesHome').then((m) => m.GroceriesHome),
+    },
+  ],
   section: 'Food',
   showInNav: true,
   navOrder: 2,
@@ -28,7 +31,10 @@ export const groceriesModule: HomeModule = {
   // else (optimistic shape, body projection, list cache key) is derived
   // from the resource singular by the offline mutation factory.
   offlineOverrides: {
-    store: { cascadeDelete: storeCascadeDelete },
+    store: {
+      cascadeDelete: () =>
+        import('./offline').then((m) => m.storeCascadeDelete),
+    },
   },
   omnibox: groceriesOmnibox,
   flags: {
@@ -44,7 +50,8 @@ export const groceriesModule: HomeModule = {
     {
       id: 'groceries-remaining',
       label: 'Groceries',
-      component: GroceriesWidget,
+      component: () =>
+        import('./components/GroceriesWidget').then((m) => m.GroceriesWidget),
       order: 10,
     },
   ],

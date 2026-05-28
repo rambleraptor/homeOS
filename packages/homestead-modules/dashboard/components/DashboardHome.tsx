@@ -10,12 +10,14 @@
  * order and visibility of each widget.
  */
 
+import { Suspense } from 'react';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { getTodaysHoliday } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { resolveDashboardWidgets } from '@rambleraptor/homestead-core/settings/utils/resolveDashboardWidgets';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
 import { getAllDashboardWidgets } from '@rambleraptor/homestead-core/modules/registry';
+import { getLazyComponent } from '@rambleraptor/homestead-core/modules/lazy';
 
 export function DashboardHome() {
   const { user } = useAuth();
@@ -45,9 +47,14 @@ export function DashboardHome() {
       <PageHeader title={greeting} subtitle="Here's what's happening" />
 
       <div className="max-w-3xl space-y-6">
-        {widgets.map(({ id, component: Widget }) => (
-          <Widget key={id} />
-        ))}
+        {widgets.map(({ id, component }) => {
+          const Widget = getLazyComponent(component);
+          return (
+            <Suspense key={id} fallback={null}>
+              <Widget />
+            </Suspense>
+          );
+        })}
       </div>
     </div>
   );

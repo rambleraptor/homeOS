@@ -10,21 +10,25 @@
  * `children`" — no manual landing component required.
  */
 
-import { Gamepad2 } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
 import { minigolfModule } from './minigolf/module.config';
 import { pictionaryModule } from './pictionary/module.config';
 import { bridgeModule } from './bridge/module.config';
-import { GamesLanding } from './GamesLanding';
 
 export const gamesModule: HomeModule = {
   id: 'games',
   name: 'Games',
   description: 'Track games you play with the people in your life',
-  icon: Gamepad2,
+  icon: () => import('lucide-react').then((m) => m.Gamepad2),
   basePath: '/games',
-  routes: [{ path: '', index: true, component: GamesLanding }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () => import('./GamesLanding').then((m) => m.GamesLanding),
+    },
+  ],
   section: 'Relationships',
   showInNav: true,
   navOrder: 22,

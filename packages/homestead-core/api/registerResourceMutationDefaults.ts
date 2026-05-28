@@ -77,6 +77,24 @@ export interface ResourceMutationKeys {
   delete: readonly unknown[];
 }
 
+/**
+ * Optimistic cascade applied inside the delete `onMutate` (before any
+ * network call) and reversed in `onError`. Both callbacks must be pure
+ * functions of (id/snapshot, qc) so the snapshot survives serialization
+ * into the persisted mutation queue.
+ */
+export interface CascadeDelete {
+  apply: (deletedId: string, qc: QueryClient) => unknown;
+  rollback: (snapshot: unknown, qc: QueryClient) => void;
+}
+
+/**
+ * A `CascadeDelete`, or a thunk that lazily imports one. Module configs
+ * declare the lazy form (`() => import('./offline').then(m => m.fooCascade)`)
+ * so the config file stays free of eager query-client imports.
+ */
+export type CascadeDeleteSpec = CascadeDelete | (() => Promise<CascadeDelete>);
+
 export interface ResourceMutationOpts {
   moduleId: string;
   /** Resource singular, used in mutation keys (`create-${singular}`). */
@@ -89,14 +107,10 @@ export interface ResourceMutationOpts {
    * Optimistic cascade applied inside the delete `onMutate` (before any
    * network call) and reversed in `onError`. Use for cross-resource
    * effects, e.g. "unset a foreign key on related records when their
-   * parent is deleted". Both callbacks must be pure functions of
-   * (qc, snapshot) so the snapshot survives serialization into the
-   * persisted mutation queue.
+   * parent is deleted". Accepts either a `CascadeDelete` directly or a
+   * thunk that lazily imports one (the form module configs use).
    */
-  cascadeDelete?: {
-    apply: (deletedId: string, qc: QueryClient) => unknown;
-    rollback: (snapshot: unknown, qc: QueryClient) => void;
-  };
+  cascadeDelete?: CascadeDeleteSpec;
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +150,24 @@ export function registerResourceMutationDefaults<
   U = Record<string, unknown>,
 >(qc: QueryClient, opts: ResourceMutationOpts): ResourceMutationKeys {
   const { moduleId, singular, plural, parentPath, cascadeDelete } = opts;
+
+  // Resolve the cascade once and cache it in closure. Module configs pass a
+  // lazy thunk (to keep the config free of eager query-client imports);
+  // tests and direct callers may pass the object. Resolution is kicked off
+  // here at registration — which runs at app boot, long before any delete —
+  // and `onMutate` awaits readiness to close the race on an unusually early
+  // delete. `onError` reads the resolved impl from the same closure.
+  let cascadeImpl: CascadeDelete | undefined;
+  let cascadeReady: Promise<void> | undefined;
+  if (cascadeDelete) {
+    const loaded =
+      typeof cascadeDelete === 'function'
+        ? cascadeDelete()
+        : Promise.resolve(cascadeDelete);
+    cascadeReady = loaded.then((impl) => {
+      cascadeImpl = impl;
+    });
+  }
   const listKey = queryKeys.module(moduleId).resource(singular).list();
   // Invalidate the whole module on settle — covers list reads, detail
   // reads, and any sibling resources that share computed state.
@@ -313,7 +345,8 @@ export function registerResourceMutationDefaults<
       await qc.cancelQueries({ queryKey: listKey });
       const previous = qc.getQueryData<T[]>(listKey) ?? [];
       qc.setQueryData<T[]>(listKey, previous.filter((r) => r.id !== id));
-      const cascade = cascadeDelete ? cascadeDelete.apply(id, qc) : undefined;
+      if (cascadeReady) await cascadeReady;
+      const cascade = cascadeImpl ? cascadeImpl.apply(id, qc) : undefined;
       return { previous, cascade };
     },
     onError: (error, _id, context) => {
@@ -321,8 +354,8 @@ export function registerResourceMutationDefaults<
       if (context?.previous !== undefined) {
         qc.setQueryData<T[]>(listKey, context.previous);
       }
-      if (cascadeDelete && context?.cascade !== undefined) {
-        cascadeDelete.rollback(context.cascade, qc);
+      if (cascadeImpl && context?.cascade !== undefined) {
+        cascadeImpl.rollback(context.cascade, qc);
       }
     },
     onSettled: () => {
