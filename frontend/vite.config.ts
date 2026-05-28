@@ -1,8 +1,42 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+
+const WORKER_STUB_ID = '\0homestead-module-worker-stub';
+
+/**
+ * Module workers (HomeModule.workers[].load) are server-only — they run in
+ * the Bun sidecar, never the browser — but `module.config.ts` is reachable
+ * from the client registry, so their `() => import('./workers/x')` thunks
+ * would otherwise be code-split into dead client chunks (pulling in
+ * web-push and friends). Stub those imports in the production build so they
+ * never ship. The sidecar is a separate Bun build and is unaffected.
+ */
+function stubModuleWorkers(): Plugin {
+  const WORKER_RE = /homestead-modules[/\\].*[/\\]workers[/\\][^/\\]+$/;
+  return {
+    name: 'homestead:stub-module-workers',
+    enforce: 'pre',
+    apply: 'build',
+    async resolveId(source, importer, options) {
+      if (!importer) return null;
+      const resolved = await this.resolve(source, importer, {
+        ...options,
+        skipSelf: true,
+      });
+      if (resolved && WORKER_RE.test(resolved.id)) return WORKER_STUB_ID;
+      return null;
+    },
+    load(id) {
+      if (id === WORKER_STUB_ID) {
+        return 'export default function moduleWorkerStub() {\n  throw new Error("module worker invoked in the browser bundle");\n}\n';
+      }
+      return null;
+    },
+  };
+}
 
 /** Read git metadata at build time; tolerate a missing/shallow .git. */
 function git(args: string): string {
@@ -33,7 +67,7 @@ const HMR_CLIENT_PORT = process.env.VITE_HMR_CLIENT_PORT
   : undefined;
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss()],
+  plugins: [stubModuleWorkers(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': srcDir,

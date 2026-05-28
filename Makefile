@@ -1,4 +1,7 @@
-.PHONY: help install clean lint type-check build build-sidecar test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs homestead homestead-test
+.PHONY: help install clean lint type-check build build-sidecar test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs homestead homestead-test release
+
+# Release target platforms (filename arch follows Bun's convention: x64/arm64).
+RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 
 # Default target
 .DEFAULT_GOAL := help
@@ -82,6 +85,23 @@ homestead: build build-sidecar ## Build the single-binary `homestead` launcher (
 
 homestead-test: ## Build + test the homestead launcher (dev build, no embed)
 	cd homestead && go build ./... && go vet ./... && go test ./...
+
+release: build ## Cross-compile per-platform homestead binaries (each embeds the SPA + its own sidecar)
+	@mkdir -p homestead/bin
+	@BUN=$$(command -v bun || echo $$HOME/.bun/bin/bun); \
+	for plat in $(RELEASE_PLATFORMS); do \
+	  os=$${plat%-*}; barch=$${plat#*-}; \
+	  goarch=$$( [ "$$barch" = "x64" ] && echo amd64 || echo $$barch ); \
+	  echo "→ $$os/$$goarch"; \
+	  rm -f homestead/internal/edge/sidecar-*; \
+	  $$BUN build --compile --target=bun-$$plat \
+	    packages/homestead-sidecar/src/server.ts \
+	    --outfile homestead/internal/edge/sidecar-$$plat || exit 1; \
+	  (cd homestead && GOOS=$$os GOARCH=$$goarch \
+	    go build -tags release -o bin/homestead-$$plat .) || exit 1; \
+	done
+	@rm -f homestead/internal/edge/sidecar-*
+	@echo "→ homestead/bin/homestead-<platform> ($(words $(RELEASE_PLATFORMS)) binaries)"
 
 all: install lint type-check build ## Run install, lint, type-check, and build
 

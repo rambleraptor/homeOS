@@ -1,11 +1,11 @@
 /**
  * Playwright Configuration for Homestead E2E Tests.
  *
- * Both aepbase and the Next.js dev server are managed in
- * `globalSetup` so we can guarantee aepbase is up before the dev
- * server's instrumentation hook tries to push the schema. The dev
- * server is launched on :3000 and aepbase on :8092 (kept off the
- * developer's :8090).
+ * aepbase, the Bun sidecar, and the Vite dev server are all managed in
+ * `globalSetup` so we can sequence them: aepbase first, then the sidecar
+ * (which applies the schema on boot), then the dev server. Vite is on
+ * :5173 and aepbase on :8092 (kept off the developer's :8090); the sidecar
+ * is on :4002 (off the dev :4000).
  */
 
 import { defineConfig, devices } from '@playwright/test';
@@ -38,7 +38,7 @@ export default defineConfig({
   ],
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
