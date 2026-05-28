@@ -6,13 +6,12 @@
  * grocery list has been updated.
  */
 
-import { NextResponse } from 'next/server';
-import { sendNotificationForAuth } from '@/app/api/notifications/utils/send-user-notification';
+import { sendNotificationForAuth } from '@rambleraptor/homestead-core/server/notifications';
 import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
 
 const handler: ModuleWorkerHandler = async ({ auth }) => {
   if (!auth) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Unauthorized - authentication required' },
       { status: 401 },
     );

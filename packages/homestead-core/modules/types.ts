@@ -7,7 +7,6 @@
 
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import type { NextRequest } from 'next/server';
 import type { OmniboxAdapter } from '../shared/omnibox/types';
 import type { ModuleFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
@@ -377,7 +376,7 @@ export interface ModuleWorkerAuth {
  * Context passed to a worker handler when the dispatcher invokes it.
  */
 export interface ModuleWorkerContext {
-  request: NextRequest;
+  request: Request;
   /**
    * Authenticated caller. Always set when the worker requires auth
    * (the default); only `null` for workers declared with

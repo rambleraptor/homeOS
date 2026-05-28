@@ -6,7 +6,6 @@
  * Returns `{ items: [{ name }], message }`.
  */
 
-import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
 
@@ -58,7 +57,7 @@ Lettuce
 const handler: ModuleWorkerHandler = async ({ request, auth }) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Service unavailable', message: 'Gemini API is not configured on the server' },
       { status: 503 },
     );
@@ -66,7 +65,7 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
 
   const data = await request.json().catch(() => null);
   if (!data || !data.image || !data.mimeType) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Bad request', message: 'Missing required fields: image, mimeType' },
       { status: 400 },
     );
@@ -74,7 +73,7 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
 
   const { image, mimeType } = data;
   if (typeof mimeType !== 'string' || !mimeType.startsWith('image/')) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Bad request', message: 'Invalid file type. Must be an image.' },
       { status: 400 },
     );
@@ -86,15 +85,15 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
   try {
     const items = await extractGroceryItemsFromImage(image, mimeType, genAI);
     if (items.length === 0) {
-      return NextResponse.json({ items: [], message: 'No grocery items found in the image' });
+      return Response.json({ items: [], message: 'No grocery items found in the image' });
     }
-    return NextResponse.json({
+    return Response.json({
       items,
       message: `Extracted ${items.length} items from image`,
     });
   } catch (error) {
     console.error('Failed to extract grocery items from image:', error);
-    return NextResponse.json(
+    return Response.json(
       {
         error: 'Processing failed',
         message:
