@@ -6,7 +6,6 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { NextRequest, NextResponse } from 'next/server';
 import { dispatchModuleWorker } from '../dispatcher';
 import type {
   ModuleWorker,
@@ -19,8 +18,8 @@ const fakeAuth: ModuleWorkerAuth = {
   user: { id: 'u1', path: '/users/u1', email: 'a@b.c' },
 };
 
-function makeRequest(method: string, body?: unknown): NextRequest {
-  return new NextRequest('http://localhost/api/modules/m/w', {
+function makeRequest(method: string, body?: unknown): Request {
+  return new Request('http://localhost/api/modules/m/w', {
     method,
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -84,7 +83,7 @@ describe('dispatchModuleWorker', () => {
 
   it('passes auth through to the handler when authentication succeeds', async () => {
     const handler = vi.fn(async ({ auth }) => {
-      return NextResponse.json({ userId: auth?.user.id });
+      return Response.json({ userId: auth?.user.id });
     });
     const res = await dispatchModuleWorker({
       request: makeRequest('POST'),
@@ -105,7 +104,7 @@ describe('dispatchModuleWorker', () => {
 
   it('skips authentication and passes auth=null when requireAuth is false', async () => {
     const handler = vi.fn(async ({ auth }) =>
-      NextResponse.json({ auth }),
+      Response.json({ auth }),
     );
     const authenticate = vi.fn();
     const res = await dispatchModuleWorker({
@@ -122,7 +121,7 @@ describe('dispatchModuleWorker', () => {
   });
 
   it('defaults the worker method to POST when none is declared', async () => {
-    const handler = vi.fn(async () => NextResponse.json({ ok: true }));
+    const handler = vi.fn(async () => Response.json({ ok: true }));
     const ok = await dispatchModuleWorker({
       request: makeRequest('POST'),
       moduleId: 'm',

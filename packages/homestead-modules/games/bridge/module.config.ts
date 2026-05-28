@@ -6,18 +6,22 @@
  * built-in `enabled` flag so it can be turned off independently.
  */
 
-import { Club } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { BridgeHome } from './components/BridgeHome';
 
 export const bridgeModule: HomeModule = {
   id: 'bridge',
   name: 'Bridge',
   description: 'Record bids for each hand of Bridge',
-  icon: Club,
+  icon: () => import('lucide-react').then((m) => m.Club),
   basePath: '/games/bridge',
   routes: [
-    { path: '', index: true, component: BridgeHome, gates: ['enabled'] },
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/BridgeHome').then((m) => m.BridgeHome),
+      gates: ['enabled'],
+    },
   ],
   enabled: true,
 };

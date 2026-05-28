@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Gift, Loader2, AlertCircle, Upload } from 'lucide-react';
 import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
 import { useCreateGiftCard } from '../hooks/useCreateGiftCard';
@@ -25,7 +25,7 @@ import type { GiftCard, GiftCardFormData } from '../types';
 type View = 'list' | 'detail' | 'form';
 
 export function GiftCardHome() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
   const [selectedMerchant, setSelectedMerchant] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<GiftCard | null>(null);
@@ -130,7 +130,7 @@ export function GiftCardHome() {
             actions={
               <>
                 <button
-                  onClick={() => router.push('/gift-cards/import')}
+                  onClick={() => navigate('/gift-cards/import')}
                   data-testid="import-gift-cards-button"
                   className="flex items-center gap-2 px-4 py-2 bg-bg-pearl hover:bg-gray-100 text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200"
                 >

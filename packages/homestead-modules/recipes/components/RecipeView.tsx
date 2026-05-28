@@ -9,7 +9,7 @@
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowLeft,
@@ -58,7 +58,7 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
     return (
       <div className="space-y-4">
         <Link
-          href="/recipes"
+          to="/recipes"
           className="inline-flex items-center gap-1 text-sm text-brand-slate hover:text-brand-navy"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -113,7 +113,7 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
   return (
     <div className="space-y-6">
       <Link
-        href="/recipes"
+        to="/recipes"
         className="inline-flex items-center gap-1 text-sm text-brand-slate hover:text-brand-navy"
         data-testid="recipe-view-back"
       >

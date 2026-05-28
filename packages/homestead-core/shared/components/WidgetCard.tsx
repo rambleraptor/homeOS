@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useState, type ReactNode } from 'react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import {
   ChevronDown,
   ChevronUp,
@@ -88,7 +88,7 @@ export function WidgetCard({
         )}
       >
         <Link
-          href={href}
+          to={href}
           className="flex items-center gap-3 min-w-0 group rounded-lg -m-1 p-1 hover:bg-bg-pearl/60 transition-colors"
         >
           {Icon && (
@@ -103,7 +103,7 @@ export function WidgetCard({
         <div className="flex items-center gap-1 ml-2">
           {configHref && (
             <Link
-              href={configHref}
+              to={configHref}
               aria-label={configLabel}
               className="p-1.5 rounded-lg text-text-muted hover:text-brand-navy hover:bg-bg-pearl/60 transition-colors"
               data-testid="widget-config-link"

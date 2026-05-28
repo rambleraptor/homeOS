@@ -5,7 +5,6 @@
  * row per direction with its final bid.
  */
 
-import React from 'react';
 import { Trash2 } from 'lucide-react';
 import type { Hand } from '../types';
 import { bidsFromHand } from '../types';

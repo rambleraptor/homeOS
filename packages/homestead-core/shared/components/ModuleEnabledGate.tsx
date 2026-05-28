@@ -12,8 +12,8 @@
  * disabled module isn't reachable just by typing the URL.
  */
 
-import React, { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useModuleFlag } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlag';
 import {
@@ -39,7 +39,7 @@ export function ModuleEnabledGate({
     moduleId,
     'enabled',
   );
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const isLoading = authLoading || flagLoading;
   const visibility: ModuleVisibility = value ?? DEFAULT_MODULE_VISIBILITY;
@@ -47,8 +47,8 @@ export function ModuleEnabledGate({
 
   useEffect(() => {
     if (isLoading) return;
-    if (!allowed) router.replace(fallbackPath);
-  }, [isLoading, allowed, router, fallbackPath]);
+    if (!allowed) navigate(fallbackPath, { replace: true });
+  }, [isLoading, allowed, navigate, fallbackPath]);
 
   if (!allowed) {
     return (

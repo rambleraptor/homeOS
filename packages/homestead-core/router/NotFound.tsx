@@ -2,7 +2,7 @@
  * 404 Not Found Page
  */
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { Home, ArrowLeft } from 'lucide-react';
 
 export function NotFound() {
@@ -22,7 +22,7 @@ export function NotFound() {
           The page you&apos;re looking for doesn&apos;t exist or has been moved.
         </p>
         <Link
-          href="/dashboard"
+          to="/dashboard"
           className="inline-flex items-center gap-2 px-6 py-3 font-body font-medium bg-accent-terracotta text-white rounded-lg hover:bg-accent-terracotta-hover transition-colors shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" />

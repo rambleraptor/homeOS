@@ -6,7 +6,6 @@
  * `{ data: ParsedReceiptData, message }`.
  */
 
-import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
 
@@ -73,7 +72,7 @@ Rules:
 const handler: ModuleWorkerHandler = async ({ request, auth }) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Service unavailable', message: 'Gemini API is not configured on the server' },
       { status: 503 },
     );
@@ -81,7 +80,7 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
 
   const data = await request.json().catch(() => null);
   if (!data || !data.image || !data.mimeType) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Bad request', message: 'Missing required fields: image, mimeType' },
       { status: 400 },
     );
@@ -89,7 +88,7 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
 
   const { image, mimeType } = data;
   if (typeof mimeType !== 'string' || !mimeType.startsWith('image/')) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Bad request', message: 'Invalid file type. Must be an image.' },
       { status: 400 },
     );
@@ -100,10 +99,10 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
 
   try {
     const receiptData = await parseReceiptFromImage(image, mimeType, genAI);
-    return NextResponse.json({ data: receiptData, message: 'Receipt parsed successfully' });
+    return Response.json({ data: receiptData, message: 'Receipt parsed successfully' });
   } catch (error) {
     console.error('Failed to parse receipt from image:', error);
-    return NextResponse.json(
+    return Response.json(
       {
         error: 'Parsing failed',
         message:

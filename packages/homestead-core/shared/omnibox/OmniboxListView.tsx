@@ -6,7 +6,6 @@
  * `<ModuleFiltersProvider>` picks the seed up as `initialValues`.
  */
 
-import React from 'react';
 import type { OmniboxAdapter } from '@rambleraptor/homestead-core/shared/omnibox/types';
 import { OmniboxFilterSeedProvider } from '@rambleraptor/homestead-core/shared/filters';
 

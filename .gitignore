@@ -40,3 +40,7 @@ aepbase/terraform/terraform.lock.hcl
 homestead/bin/
 homestead/internal/embedfs/workspace/*
 !homestead/internal/embedfs/workspace/.gitkeep
+
+# Edge build artifacts embedded into the homestead binary (built by `make homestead`)
+homestead/internal/edge/dist/
+homestead/internal/edge/sidecar-*

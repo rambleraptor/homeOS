@@ -1,4 +1,3 @@
-import React from 'react';
 import type { InputHTMLAttributes } from 'react';
 import { Input as ShadcnInput } from '@rambleraptor/homestead-core/shared/components/ui/input';
 import { Label } from '@rambleraptor/homestead-core/shared/components/ui/label';

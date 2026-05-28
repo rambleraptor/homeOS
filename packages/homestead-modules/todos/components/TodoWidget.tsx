@@ -6,7 +6,7 @@
  * `todosModule.widgets`.
  */
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ListTodo, Loader2 } from 'lucide-react';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
@@ -55,7 +55,7 @@ export function TodoWidget() {
               >
                 {href ? (
                   <Link
-                    href={href}
+                    to={href}
                     data-testid={`todos-widget-item-${todo.id}-link`}
                     className="flex-1 font-display text-lg text-text-main truncate hover:text-accent-terracotta transition-colors"
                   >

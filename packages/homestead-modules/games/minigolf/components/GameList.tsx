@@ -5,7 +5,6 @@
  * Tapping an in-progress game resumes play from its next unscored hole.
  */
 
-import React from 'react';
 import { Flag, Trophy, Play } from 'lucide-react';
 import type { Game } from '../types';
 

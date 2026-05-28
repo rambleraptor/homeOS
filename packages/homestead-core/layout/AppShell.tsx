@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { AuthGuard } from '../auth/AuthGuard';
@@ -21,7 +21,7 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const router = useRouter();
+  const navigate = useNavigate();
   const canUseOmnibox = useCanUseOmnibox();
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
@@ -35,12 +35,12 @@ export function AppShell({ children }: AppShellProps) {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        router.push('/search');
+        navigate('/search');
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [canUseOmnibox, router]);
+  }, [canUseOmnibox, navigate]);
 
   return (
     <AuthGuard>

@@ -5,21 +5,23 @@
  * Source of truth for the dashboard's upcoming-events widget.
  */
 
-import { CalendarHeart } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { EventsHome } from './components/EventsHome';
-import { UpcomingEventsWidget } from './components/UpcomingEventsWidget';
-import { CountdownWidget } from './components/CountdownWidget';
-import { EventsSettingsWidget } from './components/EventsSettingsWidget';
 import { eventsResources } from './resources';
 
 export const eventsModule: HomeModule = {
   id: 'events',
   name: 'Events',
   description: 'Track yearly-recurring household events',
-  icon: CalendarHeart,
+  icon: () => import('lucide-react').then((m) => m.CalendarHeart),
   basePath: '/events',
-  routes: [{ path: '', index: true, component: EventsHome }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/EventsHome').then((m) => m.EventsHome),
+    },
+  ],
   showInNav: true,
   navOrder: 4,
   section: 'Relationships',
@@ -71,18 +73,25 @@ export const eventsModule: HomeModule = {
       default: false,
     },
   },
-  settingsWidget: EventsSettingsWidget,
+  settingsWidget: () =>
+    import('./components/EventsSettingsWidget').then(
+      (m) => m.EventsSettingsWidget,
+    ),
   widgets: [
     {
       id: 'events-countdown',
       label: 'Countdown',
-      component: CountdownWidget,
+      component: () =>
+        import('./components/CountdownWidget').then((m) => m.CountdownWidget),
       order: 10,
     },
     {
       id: 'events-upcoming',
       label: 'Upcoming events',
-      component: UpcomingEventsWidget,
+      component: () =>
+        import('./components/UpcomingEventsWidget').then(
+          (m) => m.UpcomingEventsWidget,
+        ),
       order: 20,
     },
   ],

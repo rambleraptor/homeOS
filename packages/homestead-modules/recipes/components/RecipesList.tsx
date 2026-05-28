@@ -7,7 +7,7 @@
  * presentation — data fetching is handled by the caller.
  */
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ChefHat, Clock, Pencil, Trash2 } from 'lucide-react';
 import type { Recipe } from '../types';
 
@@ -42,7 +42,7 @@ export function RecipesList({ recipes, onEdit, onDelete }: RecipesListProps) {
           className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col relative focus-within:ring-2 focus-within:ring-accent-terracotta hover:shadow-md transition-shadow"
         >
           <Link
-            href={`/recipes/${recipe.id}`}
+            to={`/recipes/${recipe.id}`}
             aria-label={`View ${recipe.title}`}
             data-testid={`recipe-view-${recipe.title}`}
             className="absolute inset-0 rounded-lg focus:outline-none"

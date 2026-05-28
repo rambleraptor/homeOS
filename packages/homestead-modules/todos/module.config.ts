@@ -2,19 +2,22 @@
  * Todos Module Configuration
  */
 
-import { ListTodo } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { TodosHome } from './components/TodosHome';
-import { TodoWidget } from './components/TodoWidget';
 import { todosResources } from './resources';
 
 export const todosModule: HomeModule = {
   id: 'todos',
   name: 'Todos',
   description: 'Daily todo list with progress tracking.',
-  icon: ListTodo,
+  icon: () => import('lucide-react').then((m) => m.ListTodo),
   basePath: '/todos',
-  routes: [{ path: '', index: true, component: TodosHome }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () => import('./components/TodosHome').then((m) => m.TodosHome),
+    },
+  ],
   showInNav: true,
   navOrder: 5,
   section: 'Tasks',
@@ -25,7 +28,7 @@ export const todosModule: HomeModule = {
     {
       id: 'todos-active',
       label: 'Active todos',
-      component: TodoWidget,
+      component: () => import('./components/TodoWidget').then((m) => m.TodoWidget),
       order: 5,
     },
   ],

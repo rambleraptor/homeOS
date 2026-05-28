@@ -11,7 +11,6 @@
  * never need to hand-maintain a static value list.
  */
 
-import React from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';

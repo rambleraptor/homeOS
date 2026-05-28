@@ -6,7 +6,12 @@
  * `UserSettingsAutoForm` (when only `userSettings` is declared).
  */
 
+import { Suspense } from 'react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
+import {
+  ModuleIcon,
+  getLazyComponent,
+} from '@rambleraptor/homestead-core/modules/lazy';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { UserSettingsAutoForm } from './UserSettingsAutoForm';
 
@@ -15,14 +20,15 @@ interface ModuleUserSettingsCardProps {
 }
 
 export function ModuleUserSettingsCard({ module }: ModuleUserSettingsCardProps) {
-  const Icon = module.icon;
-  const Widget = module.settingsWidget;
+  const Widget = module.settingsWidget
+    ? getLazyComponent(module.settingsWidget)
+    : undefined;
   const settings = module.userSettings;
 
   return (
     <Card>
       <div className="flex items-start gap-4">
-        <Icon className="w-6 h-6 text-blue-500 mt-1" />
+        <ModuleIcon icon={module.icon} className="w-6 h-6 text-blue-500 mt-1" />
         <div className="flex-1 space-y-4">
           <div>
             <h3
@@ -36,7 +42,9 @@ export function ModuleUserSettingsCard({ module }: ModuleUserSettingsCardProps) 
             ) : null}
           </div>
           {Widget ? (
-            <Widget />
+            <Suspense fallback={null}>
+              <Widget />
+            </Suspense>
           ) : settings ? (
             <UserSettingsAutoForm moduleId={module.id} defs={settings} />
           ) : null}

@@ -17,7 +17,7 @@
  * The record is persisted on `Next` / `Finish`.
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,

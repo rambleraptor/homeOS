@@ -6,8 +6,8 @@
  * in MinigolfHome / GiftCardHome.
  */
 
-import React, { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Upload, Loader2, AlertCircle, Trophy } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
@@ -29,7 +29,7 @@ import type {
 type View = 'list' | 'create' | 'edit' | 'detail';
 
 export function PictionaryHome() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
 
@@ -131,7 +131,7 @@ export function PictionaryHome() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => router.push('/games/pictionary/leaderboard')}
+                  onClick={() => navigate('/games/pictionary/leaderboard')}
                   data-testid="pictionary-leaderboard-button"
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium font-body transition-colors shadow-sm"
                 >
@@ -140,7 +140,7 @@ export function PictionaryHome() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => router.push('/games/pictionary/import')}
+                  onClick={() => navigate('/games/pictionary/import')}
                   data-testid="pictionary-import-button"
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium font-body transition-colors shadow-sm"
                 >

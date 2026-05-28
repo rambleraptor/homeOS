@@ -10,7 +10,7 @@
  * direction is tapped all four bids are submitted and the form resets.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type {
   BridgeDirection,
   BridgeLevel,

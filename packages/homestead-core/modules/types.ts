@@ -7,12 +7,34 @@
 
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import type { NextRequest } from 'next/server';
 import type { OmniboxAdapter } from '../shared/omnibox/types';
 import type { ModuleFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
 import type { ModuleVisibility } from '../settings/visibility';
 import type { ResourceMutationOpts } from '../api/registerResourceMutationDefaults';
+
+/**
+ * A lazily-loaded React component. The thunk resolves to either a module
+ * namespace with a `default` export or the component itself, so both
+ * `() => import('./Foo')` (default export) and
+ * `() => import('./Foo').then(m => m.Foo)` (named export) are valid.
+ *
+ * Declaring components this way keeps `module.config.ts` free of eager
+ * React/component imports: client consumers wrap the thunk in
+ * `React.lazy` (see `modules/lazy.tsx`) and the catch-all server route
+ * resolves it with `await`. This both enables per-module code-splitting
+ * and lets a non-React consumer import a config without dragging the
+ * component graph (and its browser-only side effects) into scope.
+ */
+export type LazyComponent<P = unknown> = () => Promise<
+  { default: ComponentType<P> } | ComponentType<P>
+>;
+
+/**
+ * A lazily-loaded Lucide icon. Resolves directly to the icon component,
+ * e.g. `() => import('lucide-react').then(m => m.ShoppingCart)`.
+ */
+export type LazyIcon = () => Promise<LucideIcon>;
 
 /**
  * A widget a module contributes to the dashboard. The component is
@@ -27,8 +49,8 @@ export interface DashboardWidget {
    * Falls back to `id` when omitted.
    */
   label?: string;
-  /** Self-contained widget component. Receives no props. */
-  component: ComponentType;
+  /** Self-contained widget component (lazily loaded). Receives no props. */
+  component: LazyComponent;
   /** Lower numbers render first. Defaults to 100. */
   order?: number;
 }
@@ -61,9 +83,10 @@ export interface ModuleRoute {
   index?: boolean;
 
   /**
-   * Component rendered at this route. Receives resolved `:name` params.
+   * Component rendered at this route (lazily loaded). Receives resolved
+   * `:name` params.
    */
-  component: ComponentType<ModuleRouteProps>;
+  component: LazyComponent<ModuleRouteProps>;
 
   /**
    * Optional gates wrapping the component. Names resolve to wrapper
@@ -101,9 +124,10 @@ export interface HomeModule {
   description: string;
 
   /**
-   * Lucide icon component for navigation
+   * Lucide icon for navigation (lazily loaded). Client consumers render
+   * it via `<ModuleIcon icon={...} />`.
    */
-  icon: LucideIcon;
+  icon: LazyIcon;
 
   /**
    * Base path for module routes (must start with /)
@@ -201,7 +225,7 @@ export interface HomeModule {
    * resources, or grouped controls). The component receives no props
    * and reads/writes its own state via `useUserSetting`.
    */
-  settingsWidget?: ComponentType;
+  settingsWidget?: LazyComponent;
 
   /**
    * Optional aepbase resource definitions owned by this module. The
@@ -352,7 +376,7 @@ export interface ModuleWorkerAuth {
  * Context passed to a worker handler when the dispatcher invokes it.
  */
 export interface ModuleWorkerContext {
-  request: NextRequest;
+  request: Request;
   /**
    * Authenticated caller. Always set when the worker requires auth
    * (the default); only `null` for workers declared with

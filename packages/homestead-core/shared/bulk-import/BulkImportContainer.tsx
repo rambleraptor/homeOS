@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import {
   Upload,
   Download,
@@ -26,7 +26,7 @@ interface BulkImportContainerProps<T> {
 }
 
 export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [parsedItems, setParsedItems] = useState<ParsedItem<T>[]>([]);
@@ -137,13 +137,13 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
       toast.success(
         `Successfully imported ${itemsToImport.length} ${config.moduleNamePlural}`
       );
-      router.push(config.backRoute);
+      navigate(config.backRoute);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : `Failed to import ${config.moduleNamePlural}`;
       toast.error(errorMessage);
     }
-  }, [parsedItems, selectedItemIds, config, router, toast]);
+  }, [parsedItems, selectedItemIds, config, navigate, toast]);
 
   const handleDownloadTemplate = useCallback(() => {
     const template = config.schema.generateTemplate();
@@ -161,7 +161,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
       <div className="mb-6">
         <Button
           variant="secondary"
-          onClick={() => router.push(config.backRoute)}
+          onClick={() => navigate(config.backRoute)}
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

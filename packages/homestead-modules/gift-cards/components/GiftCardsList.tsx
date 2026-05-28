@@ -12,13 +12,13 @@
  * drill into the merchant detail view there.
  */
 
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
 import { MerchantList } from './MerchantList';
 
 export function GiftCardsList() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { stats, isLoading, isError, error } = useMerchantSummaries();
 
   if (isLoading) {
@@ -52,7 +52,7 @@ export function GiftCardsList() {
   return (
     <MerchantList
       merchants={stats.merchants}
-      onMerchantClick={() => router.push('/gift-cards')}
+      onMerchantClick={() => navigate('/gift-cards')}
     />
   );
 }

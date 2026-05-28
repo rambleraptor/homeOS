@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { Check, Moon, Pause, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
@@ -165,7 +165,7 @@ export function TodoRow({
     >
       {href ? (
         <Link
-          href={href}
+          to={href}
           data-testid={`todo-row-${todo.id}-link`}
           className={titleClassName}
         >

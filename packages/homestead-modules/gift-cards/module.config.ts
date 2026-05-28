@@ -5,21 +5,27 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { Gift } from 'lucide-react';
 import { GiftCardsList } from './components/GiftCardsList';
-import { GiftCardHome } from './components/GiftCardHome';
-import { GiftCardsBulkImport } from './bulk-import';
 import { giftCardsResources } from './resources';
 
 export const giftCardsModule: HomeModule = {
   id: 'gift-cards',
   name: 'Gift Cards',
   description: 'Manage and track household gift cards',
-  icon: Gift,
+  icon: () => import('lucide-react').then((m) => m.Gift),
   basePath: '/gift-cards',
   routes: [
-    { path: '', index: true, component: GiftCardHome },
-    { path: 'import', component: GiftCardsBulkImport },
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/GiftCardHome').then((m) => m.GiftCardHome),
+    },
+    {
+      path: 'import',
+      component: () =>
+        import('./bulk-import').then((m) => m.GiftCardsBulkImport),
+    },
   ],
   showInNav: true,
   navOrder: 4,

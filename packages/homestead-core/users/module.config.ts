@@ -13,7 +13,6 @@
  * `user`.
  */
 
-import { UserCog } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { UsersHome } from './components/UsersHome';
 import { usersResources } from './resources';
@@ -22,13 +21,13 @@ export const usersModule: HomeModule = {
   id: 'users',
   name: 'Users',
   description: 'Create and manage user accounts.',
-  icon: UserCog,
+  icon: () => import('lucide-react').then((m) => m.UserCog),
   basePath: '/users',
   routes: [
     {
       path: '',
       index: true,
-      component: UsersHome,
+      component: () => import('./components/UsersHome').then((m) => m.UsersHome),
       gates: ['superuser', 'enabled'],
     },
   ],

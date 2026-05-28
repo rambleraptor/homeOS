@@ -1,13 +1,13 @@
 /**
  * Module worker dispatcher.
  *
- * Pure function consumed by the Next.js catch-all route at
- * `app/api/modules/[moduleId]/[...path]/route.ts`. Pulled into its
- * own module so the wiring (registry lookup, request authentication)
- * can be swapped out in unit tests.
+ * Pure function consumed by the sidecar's `/api/modules/:moduleId/*`
+ * route. Runtime-agnostic — it speaks Web `Request`/`Response`, so the
+ * same dispatcher works under Bun, Next, or any Fetch-based server, and
+ * the wiring (registry lookup, request authentication) can be swapped
+ * out in unit tests.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
 import type {
   ModuleWorker,
   ModuleWorkerAuth,
@@ -15,13 +15,13 @@ import type {
 } from '../types';
 
 export interface DispatchOptions {
-  request: NextRequest;
+  request: Request;
   moduleId: string;
   workerName: string;
   /** Looks up a worker by `(moduleId, workerName)`. */
   resolveWorker: (moduleId: string, name: string) => ModuleWorker | undefined;
   /** Authenticates the request when the worker requires it. */
-  authenticate: (request: NextRequest) => Promise<ModuleWorkerAuth | null>;
+  authenticate: (request: Request) => Promise<ModuleWorkerAuth | null>;
 }
 
 /**
@@ -38,7 +38,7 @@ export async function dispatchModuleWorker({
 }: DispatchOptions): Promise<Response> {
   const worker = resolveWorker(moduleId, workerName);
   if (!worker) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Worker not found', moduleId, workerName },
       { status: 404 },
     );
@@ -46,7 +46,7 @@ export async function dispatchModuleWorker({
 
   const expectedMethod = worker.method ?? 'POST';
   if (request.method !== expectedMethod) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Method not allowed', expected: expectedMethod },
       { status: 405, headers: { Allow: expectedMethod } },
     );
@@ -56,7 +56,7 @@ export async function dispatchModuleWorker({
   if (worker.requireAuth !== false) {
     auth = await authenticate(request);
     if (!auth) {
-      return NextResponse.json(
+      return Response.json(
         { error: 'Unauthorized - authentication required' },
         { status: 401 },
       );
@@ -72,7 +72,7 @@ export async function dispatchModuleWorker({
       `Failed to load worker ${moduleId}/${workerName}:`,
       error,
     );
-    return NextResponse.json(
+    return Response.json(
       { error: 'Internal server error', message: 'Failed to load worker' },
       { status: 500 },
     );
@@ -82,7 +82,7 @@ export async function dispatchModuleWorker({
     return await handler({ request, auth, moduleId, workerName });
   } catch (error) {
     console.error(`Worker ${moduleId}/${workerName} threw:`, error);
-    return NextResponse.json(
+    return Response.json(
       {
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error',

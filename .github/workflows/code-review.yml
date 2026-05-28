@@ -148,10 +148,9 @@ jobs:
         run: make build
 
       - name: Check build output
-        working-directory: frontend
         run: |
           echo "Build completed successfully"
-          ls -la .next/
+          ls -la homestead/internal/edge/dist/
 
   test:
     runs-on: ubuntu-latest
@@ -216,8 +215,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install frontend dependencies
-        run: cd frontend && npm install
+      - name: Install workspace dependencies
+        run: make install
 
       - name: Install e2e test dependencies
         run: cd tests/e2e && npm install
@@ -229,6 +228,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Build aepbase
         run: cd aepbase && ./install.sh

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Upload } from 'lucide-react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
@@ -13,7 +13,7 @@ import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageH
 import type { PersonFormData } from '../types';
 
 export function PeopleHome() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const createPerson = useCreatePerson();
   const toast = useToast();
 
@@ -40,7 +40,7 @@ export function PeopleHome() {
         subtitle="Track important dates and information about people you know"
         actions={
           <>
-            <Button variant="secondary" onClick={() => router.push('/people/import')}>
+            <Button variant="secondary" onClick={() => navigate('/people/import')}>
               <Upload className="w-4 h-4 mr-2" />
               Import
             </Button>

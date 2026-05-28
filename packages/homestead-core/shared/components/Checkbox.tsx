@@ -1,4 +1,3 @@
-import React from 'react';
 import { forwardRef } from 'react';
 import type { ComponentPropsWithoutRef, ElementRef } from 'react';
 import { Checkbox as ShadcnCheckbox } from '@rambleraptor/homestead-core/shared/components/ui/checkbox';

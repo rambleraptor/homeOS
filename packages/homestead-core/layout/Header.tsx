@@ -6,7 +6,7 @@
  * Top navigation bar with menu toggle and breadcrumbs
  */
 
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { Menu, Bell, Search } from 'lucide-react';
 import { useNotificationStats } from '@rambleraptor/homestead-modules/notifications/hooks/useNotificationStats';
 import { useCanUseOmnibox } from '@rambleraptor/homestead-core/shared/omnibox/useCanUseOmnibox';
@@ -16,16 +16,16 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuClick }: HeaderProps) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { data: stats } = useNotificationStats();
   const canUseOmnibox = useCanUseOmnibox();
 
   const handleNotificationsClick = () => {
-    router.push('/notifications');
+    navigate('/notifications');
   };
 
   const handleSearchClick = () => {
-    router.push('/search');
+    navigate('/search');
   };
 
   return (

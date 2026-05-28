@@ -2,15 +2,10 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { OmniboxDispatcher } from '../OmniboxDispatcher';
 import type { OmniboxAdapter } from '../types';
-
-// Mock next/navigation since the dispatcher (via Link) renders client-side.
-const pushMock = vi.fn();
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: pushMock, replace: vi.fn() }),
-}));
 
 // Bypass ToastProvider — OmniboxFormView uses it but the list-branch tests
 // never reach that code path.
@@ -49,13 +44,14 @@ function withClient(children: ReactNode) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    </MemoryRouter>
+  );
 }
 
 describe('OmniboxDispatcher', () => {
-  beforeEach(() => {
-    pushMock.mockClear();
-  });
 
   it('renders the module list component for a list intent', () => {
     render(
@@ -72,7 +68,6 @@ describe('OmniboxDispatcher', () => {
     );
     expect(screen.getByTestId('fake-list')).toBeInTheDocument();
     expect(screen.getByTestId('omnibox-banner')).toBeInTheDocument();
-    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it('shows a not-recognized banner when intent is null', () => {

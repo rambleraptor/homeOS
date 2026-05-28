@@ -8,20 +8,23 @@
  * child. Each sub-page is gated independently in the App Router.
  */
 
-import { ShieldCheck } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { makeNestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/makeNestedModuleLanding';
 import { flagManagementModule } from './flag-management/module.config';
-import { SuperuserLanding } from './SuperuserLanding';
 
 export const superuserModule: HomeModule = {
   id: 'superuser',
   name: 'Superuser',
   description: 'Module flags and other superuser-only controls',
-  icon: ShieldCheck,
+  icon: () => import('lucide-react').then((m) => m.ShieldCheck),
   basePath: '/superuser',
   routes: [
-    { path: '', index: true, component: SuperuserLanding, gates: ['superuser'] },
+    {
+      path: '',
+      index: true,
+      component: () => import('./SuperuserLanding').then((m) => m.SuperuserLanding),
+      gates: ['superuser'],
+    },
   ],
   section: 'Settings',
   showInNav: true,

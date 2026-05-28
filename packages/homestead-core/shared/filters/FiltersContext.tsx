@@ -11,7 +11,7 @@
  * intent so the LLM-parsed filters populate the bar on mount.
  */
 
-import React, {
+import {
   createContext,
   useCallback,
   useContext,

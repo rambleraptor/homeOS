@@ -8,6 +8,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Gamepad2, Pencil, Flag, Club } from 'lucide-react';
 import { NestedModuleLanding } from '../NestedModuleLanding';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
@@ -17,40 +18,42 @@ vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled', () => 
   useModuleEnabledPredicate: vi.fn(),
 }));
 
+const route = { path: '', index: true, component: () => Promise.resolve(() => null) };
+
 const minigolf: HomeModule = {
   id: 'minigolf',
   name: 'Mini Golf',
   description: 'Play and track mini golf games',
-  icon: Flag,
+  icon: () => Promise.resolve(Flag),
   basePath: '/games/minigolf',
-  routes: [{ path: '', index: true, component: () => null }],
+  routes: [route],
 };
 
 const pictionary: HomeModule = {
   id: 'pictionary',
   name: 'Pictionary',
   description: 'Track Pictionary games, teams, and winning words',
-  icon: Pencil,
+  icon: () => Promise.resolve(Pencil),
   basePath: '/games/pictionary',
-  routes: [{ path: '', index: true, component: () => null }],
+  routes: [route],
 };
 
 const bridge: HomeModule = {
   id: 'bridge',
   name: 'Bridge',
   description: 'Record bids for each hand of Bridge',
-  icon: Club,
+  icon: () => Promise.resolve(Club),
   basePath: '/games/bridge',
-  routes: [{ path: '', index: true, component: () => null }],
+  routes: [route],
 };
 
 const games: HomeModule = {
   id: 'games',
   name: 'Games',
   description: 'Track games you play with the people in your life',
-  icon: Gamepad2,
+  icon: () => Promise.resolve(Gamepad2),
   basePath: '/games',
-  routes: [{ path: '', index: true, component: () => null }],
+  routes: [route],
   children: [minigolf, pictionary, bridge],
 };
 
@@ -62,7 +65,11 @@ describe('NestedModuleLanding', () => {
   it('renders one card per child when all are enabled', () => {
     vi.mocked(useModuleEnabledPredicate).mockReturnValue(() => true);
 
-    render(<NestedModuleLanding module={games} />);
+    render(
+      <MemoryRouter>
+        <NestedModuleLanding module={games} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByTestId('games-link-minigolf')).toBeInTheDocument();
     expect(screen.getByTestId('games-link-pictionary')).toBeInTheDocument();
@@ -74,7 +81,11 @@ describe('NestedModuleLanding', () => {
       (id) => id !== 'bridge',
     );
 
-    render(<NestedModuleLanding module={games} />);
+    render(
+      <MemoryRouter>
+        <NestedModuleLanding module={games} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByTestId('games-link-minigolf')).toBeInTheDocument();
     expect(screen.getByTestId('games-link-pictionary')).toBeInTheDocument();

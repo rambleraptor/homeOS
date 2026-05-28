@@ -10,14 +10,14 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Home, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/dashboard';
 
   const [email, setEmail] = useState('');
@@ -27,9 +27,9 @@ export function Login() {
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.replace(decodeURIComponent(returnUrl));
+      navigate(decodeURIComponent(returnUrl), { replace: true });
     }
-  }, [isAuthenticated, isLoading, router, returnUrl]);
+  }, [isAuthenticated, isLoading, navigate, returnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

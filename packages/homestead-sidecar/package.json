@@ -1,0 +1,17 @@
+{
+  "name": "@rambleraptor/homestead-sidecar",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/server.ts",
+    "start": "bun run src/server.ts"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@rambleraptor/homestead-core": "*",
+    "@rambleraptor/homestead-modules": "*",
+    "hono": "^4.6.14",
+    "web-push": "^3.6.7"
+  }
+}

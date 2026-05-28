@@ -6,22 +6,26 @@
  * Events module.
  */
 
-import { Users } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { peopleOmnibox } from './omnibox';
-import { PeopleHome } from './components/PeopleHome';
-import { PeopleBulkImport } from './bulk-import';
 import { peopleResources } from './resources';
 
 export const peopleModule: HomeModule = {
   id: 'people',
   name: 'People',
   description: 'Manage contact information and important dates for people you know',
-  icon: Users,
+  icon: () => import('lucide-react').then((m) => m.Users),
   basePath: '/people',
   routes: [
-    { path: '', index: true, component: PeopleHome },
-    { path: 'import', component: PeopleBulkImport },
+    {
+      path: '',
+      index: true,
+      component: () => import('./components/PeopleHome').then((m) => m.PeopleHome),
+    },
+    {
+      path: 'import',
+      component: () => import('./bulk-import').then((m) => m.PeopleBulkImport),
+    },
   ],
   section: 'Relationships',
   showInNav: true,

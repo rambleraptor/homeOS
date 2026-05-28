@@ -5,7 +5,6 @@
  * Displays event reminders and system notifications.
  */
 
-import { Bell } from 'lucide-react';
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
 import { NotificationsHome } from './components/NotificationsHome';
 import { notificationsResources } from './resources';
@@ -14,9 +13,16 @@ export const notificationsModule: HomeModule = {
   id: 'notifications',
   name: 'Notifications',
   description: 'View and manage your notifications',
-  icon: Bell,
+  icon: () => import('lucide-react').then((m) => m.Bell),
   basePath: '/notifications',
-  routes: [{ path: '', index: true, component: NotificationsHome }],
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/NotificationsHome').then((m) => m.NotificationsHome),
+    },
+  ],
   showInNav: false,
   navOrder: 4,
   enabled: true,

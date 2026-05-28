@@ -1,17 +1,19 @@
 /**
- * Spawn the Next.js dev server with the env vars its instrumentation
- * hook needs to push the aepbase schema on boot. Replaces Playwright's
- * built-in `webServer` config so we can guarantee aepbase is up first
- * (Playwright starts `webServer` before `globalSetup`, which would have
- * left the dev server with no aepbase to talk to).
+ * Spawn the Vite dev server for e2e. Vite serves the SPA and proxies
+ * `/api/aep/*` to the test aepbase and `/api/{omnibox,notifications,modules}/*`
+ * to the test sidecar (targets seeded via AEPBASE_URL / SIDECAR_URL, read by
+ * vite.config.ts). The schema is applied by the sidecar on boot, so this
+ * setup only waits for Vite to start listening.
  */
 
 import { spawn, ChildProcess } from 'child_process';
 import { join } from 'path';
 import { get as httpGet } from 'http';
 import { getAepbaseUrl, getProjectRoot, type AepbaseAdminCreds } from './aepbase.setup';
+import { getSidecarUrl } from './sidecar.setup';
 
-const DEV_SERVER_URL = 'http://localhost:3000';
+const DEV_SERVER_PORT = 5173;
+const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
 const READY_TIMEOUT_MS = 120000;
 const POLL_INTERVAL_MS = 500;
 
@@ -22,34 +24,36 @@ export function getDevServerUrl(): string {
 }
 
 /**
- * Start the Next.js dev server and resolve once it's listening on
- * port 3000 AND the instrumentation hook has applied the schema to
- * aepbase. Throws if either condition isn't met within the timeout.
+ * Start the Vite dev server and resolve once it's listening. Schema is
+ * already applied by the sidecar (see sidecar.setup.ts), so there's no
+ * separate schema wait here.
  */
-export async function startDevServer(creds: AepbaseAdminCreds): Promise<void> {
+export async function startDevServer(_creds: AepbaseAdminCreds): Promise<void> {
   if (process.env.PLAYWRIGHT_REUSE_DEV_SERVER && (await ping(DEV_SERVER_URL))) {
     console.log(`✅ Reusing existing dev server at ${DEV_SERVER_URL}`);
     return;
   }
 
   const cwd = join(getProjectRoot(), 'frontend');
-  devServerProcess = spawn('npm', ['run', 'dev'], {
-    cwd,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      AEPBASE_URL: getAepbaseUrl(),
-      AEPBASE_ADMIN_EMAIL: creds.email,
-      AEPBASE_ADMIN_PASSWORD: creds.password,
-      __NEXT_DISABLE_OVERLAY: '1',
+  devServerProcess = spawn(
+    'npm',
+    ['run', 'dev', '--', '--port', String(DEV_SERVER_PORT), '--strictPort', '--host', '127.0.0.1'],
+    {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        AEPBASE_URL: getAepbaseUrl(),
+        SIDECAR_URL: getSidecarUrl(),
+      },
     },
-  });
+  );
 
   devServerProcess.stdout?.on('data', (chunk) => {
-    process.stdout.write(`[next] ${chunk}`);
+    process.stdout.write(`[vite] ${chunk}`);
   });
   devServerProcess.stderr?.on('data', (chunk) => {
-    process.stderr.write(`[next ERR] ${chunk}`);
+    process.stderr.write(`[vite ERR] ${chunk}`);
   });
 
   const exitedEarly = new Promise<never>((_, reject) => {
@@ -59,20 +63,7 @@ export async function startDevServer(creds: AepbaseAdminCreds): Promise<void> {
   });
 
   await Promise.race([
-    waitFor(() => ping(DEV_SERVER_URL), READY_TIMEOUT_MS, 'dev server URL'),
-    exitedEarly,
-  ]);
-
-  // The dev server can respond before the instrumentation hook has
-  // finished pushing the schema (it runs async on first request).
-  // Poll aepbase until a sentinel resource definition exists so tests
-  // don't race the schema apply.
-  await Promise.race([
-    waitFor(
-      () => sentinelResourceExists(creds.token),
-      READY_TIMEOUT_MS,
-      'schema sync',
-    ),
+    waitFor(() => ping(DEV_SERVER_URL), READY_TIMEOUT_MS, 'vite dev server'),
     exitedEarly,
   ]);
 }
@@ -102,16 +93,6 @@ function ping(url: string): Promise<boolean> {
       resolve(false);
     });
   });
-}
-
-async function sentinelResourceExists(adminToken: string): Promise<boolean> {
-  // `gift-card` is declared by gift-cards/resources.ts and applied by
-  // the instrumentation runner. Its presence proves the runner ran.
-  const res = await fetch(
-    `${getAepbaseUrl()}/aep-resource-definitions/gift-card`,
-    { headers: { Authorization: `Bearer ${adminToken}` } },
-  ).catch(() => null);
-  return res?.ok === true;
 }
 
 async function waitFor(
