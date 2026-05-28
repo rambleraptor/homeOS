@@ -215,8 +215,8 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install frontend dependencies
-        run: cd frontend && npm install
+      - name: Install workspace dependencies
+        run: make install
 
       - name: Install e2e test dependencies
         run: cd tests/e2e && npm install
