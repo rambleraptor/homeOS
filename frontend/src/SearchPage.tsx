@@ -1,17 +1,15 @@
-'use client';
-
 /**
  * Natural-language omnibox page.
  *
  * Access is gated by the `settings.omnibox_access` module setting:
  * superusers always have access, other users only when it is `'all'`.
- * Users type a query; the server parses it into an `OmniboxIntent`;
+ * Users type a query; the sidecar parses it into an `OmniboxIntent`;
  * `OmniboxDispatcher` renders the resolved module's UI inline. URL is
  * kept in sync via `?q=` so intents are shareable.
  */
 
-import React, { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useCanUseOmnibox } from '@rambleraptor/homestead-core/shared/omnibox/useCanUseOmnibox';
 import { useModuleFlags } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlags';
@@ -21,20 +19,20 @@ import { OmniboxDispatcher } from '@rambleraptor/homestead-core/shared/omnibox/O
 import { useOmniboxParse } from '@rambleraptor/homestead-core/shared/omnibox/useOmniboxParse';
 import type { OmniboxParseResponse } from '@rambleraptor/homestead-core/shared/omnibox/types';
 
-export default function SearchPage() {
+export function SearchPage() {
   const { user, isLoading } = useAuth();
   const { isLoading: isFlagsLoading } = useModuleFlags();
   const canUseOmnibox = useCanUseOmnibox();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   // Once auth + flags have resolved, redirect anyone who isn't
   // allowed to use the omnibox back to the dashboard.
   const isReady = !isLoading && !isFlagsLoading && !!user;
   useEffect(() => {
     if (isReady && !canUseOmnibox) {
-      router.replace('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [isReady, canUseOmnibox, router]);
+  }, [isReady, canUseOmnibox, navigate]);
 
   if (!isReady || !canUseOmnibox) {
     return (
@@ -52,8 +50,8 @@ export default function SearchPage() {
 }
 
 function SearchPageInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') ?? '';
 
   const parseMutation = useOmniboxParse();
@@ -82,7 +80,7 @@ function SearchPageInner() {
   const handleSubmit = (query: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('q', query);
-    router.replace(`/search?${params.toString()}`);
+    navigate(`/search?${params.toString()}`, { replace: true });
   };
 
   return (

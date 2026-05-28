@@ -1,32 +1,41 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
+import js from '@eslint/js';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
+import reactHooks from 'eslint-plugin-react-hooks';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+export default tseslint.config(
   {
+    ignores: [
+      'dist',
+      'node_modules',
+      '.next',
+      'public',
+      '../homestead/internal/edge/dist',
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.browser, ...globals.node },
+    },
+    plugins: { 'react-hooks': reactHooks },
     rules: {
-      '@typescript-eslint/no-unused-vars': ['error', {
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_'
-      }],
-      // Disable Vite-specific rule that's not available in Next.js
-      'react-refresh/only-export-components': 'off',
-      // Allow unescaped entities in JSX for readability
-      'react/no-unescaped-entities': 'off',
-      // Allow img elements for dynamic images served from aepbase
-      '@next/next/no-img-element': 'off',
-      // Disable display-name requirement
-      'react/display-name': 'off',
+      ...reactHooks.configs.recommended.rules,
+      // Cached `React.lazy` returned from `getLazyComponent` is stable
+      // across renders (WeakMap-keyed on the thunk), but this rule can't
+      // see that and flags the catch-all renderer.
+      'react-hooks/static-components': 'off',
+      // TypeScript handles undefined-identifier checking; the core rule
+      // produces false positives on globals/types.
+      'no-undef': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
-];
-
-export default eslintConfig;
+);

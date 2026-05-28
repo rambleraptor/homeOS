@@ -6,7 +6,7 @@
  * for thumb selection on mobile. Minimum one player required to start.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { PersonSelector } from '@rambleraptor/homestead-core/shared/components/PersonSelector';

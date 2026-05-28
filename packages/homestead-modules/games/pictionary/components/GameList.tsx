@@ -6,7 +6,6 @@
  * view.
  */
 
-import React from 'react';
 import { Pencil, Trophy } from 'lucide-react';
 import type { PictionaryGame, PictionaryTeam } from '../types';
 

@@ -6,7 +6,6 @@
  * `New Hand` button.
  */
 
-import React from 'react';
 import { Club } from 'lucide-react';
 import type { Hand } from '../types';
 import { HandCard } from './HandCard';

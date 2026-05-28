@@ -9,7 +9,6 @@
  * stepper at the top of the hole screen.
  */
 
-import React from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 interface ScoreStepperProps {

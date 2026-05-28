@@ -7,7 +7,6 @@
  * component and the create form, and wires submit to `useCreatePerson`.
  */
 
-import React from 'react';
 import { z } from 'zod';
 import type { OmniboxAdapter } from '@rambleraptor/homestead-core/shared/omnibox/types';
 import type { PersonFormData } from './types';

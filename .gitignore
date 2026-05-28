@@ -40,3 +40,6 @@ aepbase/terraform/terraform.lock.hcl
 homestead/bin/
 homestead/internal/embedfs/workspace/*
 !homestead/internal/embedfs/workspace/.gitkeep
+
+# Vite SPA build output (embedded by the Go edge server in a later phase)
+homestead/internal/edge/dist/

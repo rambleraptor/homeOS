@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Card } from './Card';
 import { PageHeader } from './PageHeader';
@@ -34,7 +33,7 @@ export function NestedModuleLanding({ module }: Props) {
           return (
             <Link
               key={child.id}
-              href={child.basePath}
+              to={child.basePath}
               data-testid={`${module.id}-link-${child.id}`}
               className="block"
             >

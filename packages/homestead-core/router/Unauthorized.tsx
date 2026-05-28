@@ -2,7 +2,7 @@
  * Unauthorized Access Page
  */
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { ShieldX, ArrowLeft } from 'lucide-react';
 
 export function Unauthorized() {
@@ -22,7 +22,7 @@ export function Unauthorized() {
           You don&apos;t have permission to access this resource.
         </p>
         <Link
-          href="/dashboard"
+          to="/dashboard"
           className="inline-flex items-center gap-2 px-6 py-3 font-body font-medium bg-accent-terracotta text-white rounded-lg hover:bg-accent-terracotta-hover transition-colors shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" />

@@ -8,8 +8,8 @@
  * Never calls `router.push` — everything happens inline on `/search`.
  */
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink, Sparkles } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { getModuleById } from '@rambleraptor/homestead-core/modules/registry';
@@ -120,7 +120,7 @@ function IntentBanner({
         )}
       </div>
       <Link
-        href={moduleBasePath}
+        to={moduleBasePath}
         className="text-xs text-blue-600 hover:underline flex items-center gap-1"
         data-testid="omnibox-open-module"
       >

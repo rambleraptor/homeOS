@@ -7,8 +7,7 @@
  * based on user permissions and role.
  */
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Home, LogOut, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
@@ -25,7 +24,7 @@ const COLLAPSED_SECTIONS_STORAGE_KEY = 'homestead.sidebar.collapsedSections';
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   // Track which sections are collapsed. Persist to localStorage so the
   // preference survives reloads. Default: all sections expanded.
@@ -138,7 +137,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {/* Logo/Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <Link
-              href="/dashboard"
+              to="/dashboard"
               onClick={onClose}
               className="flex items-center gap-2 rounded-md hover:bg-bg-pearl px-1 -mx-1 py-0.5 transition-colors"
               data-testid="sidebar-home-link"
@@ -196,7 +195,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                           return (
                             <Link
                               key={module.id}
-                              href={module.basePath}
+                              to={module.basePath}
                               onClick={onClose}
                               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                                 active

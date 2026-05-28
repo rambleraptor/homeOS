@@ -10,7 +10,7 @@
  * paths, raw IDs, etc.).
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Loader2, Search } from 'lucide-react';
 
 export interface PersonOption {

@@ -6,7 +6,7 @@
  * completed game.
  */
 
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, Trophy, Flag, Sparkles, Trash2 } from 'lucide-react';
 import { computeTotals, computeWinners, computeTotalPar } from '../utils/scoring';
 import { computeHighlights } from '../utils/highlights';

@@ -5,7 +5,7 @@
  * highlighting the winner. Provides edit + delete actions.
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, Edit, Trash2, Trophy } from 'lucide-react';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useWinningWordImageUrl } from '../hooks/useWinningWordImageUrl';

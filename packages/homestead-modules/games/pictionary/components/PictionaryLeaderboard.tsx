@@ -6,8 +6,8 @@
  * gets the trophy/amber treatment used elsewhere for winners.
  */
 
-import React, { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, AlertCircle, Trophy, Pencil } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { usePeople } from '../../../people/hooks/usePeople';
@@ -65,7 +65,7 @@ function computeRanks(rows: Row[]): number[] {
 }
 
 export function PictionaryLeaderboard() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>('players');
 
   const playerStats = usePlayerStats();
@@ -116,7 +116,7 @@ export function PictionaryLeaderboard() {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => router.push('/games/pictionary')}
+          onClick={() => navigate('/games/pictionary')}
           aria-label="Back to Pictionary"
           data-testid="pictionary-leaderboard-back"
           className="p-2 rounded-md hover:bg-gray-100"

@@ -18,6 +18,7 @@ import './module-registry';
 import { omniboxRoute } from './routes/omnibox';
 import { notificationsRoute } from './routes/notifications';
 import { modulesRoute } from './routes/modules';
+import { syncSchema } from './schema-sync';
 
 const app = new Hono();
 
@@ -25,6 +26,10 @@ app.get('/health', (c) => c.json({ ok: true }));
 app.route('/api/omnibox', omniboxRoute);
 app.route('/api/notifications', notificationsRoute);
 app.route('/api/modules', modulesRoute);
+
+// Apply module-declared schema to aepbase in the background; serving the
+// API doesn't depend on it (the sync is idempotent and best-effort).
+void syncSchema();
 
 const port = Number(process.env.PORT ?? 4000);
 console.log(`[sidecar] listening on :${port}`);

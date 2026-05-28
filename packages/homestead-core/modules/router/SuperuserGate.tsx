@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { Spinner } from '../../shared/components/Spinner';
 
@@ -12,13 +12,13 @@ interface Props {
 
 export function SuperuserGate({ children, fallbackPath = '/dashboard' }: Props) {
   const { user, isLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isLoading && user && user.type !== 'superuser') {
-      router.replace(fallbackPath);
+      navigate(fallbackPath, { replace: true });
     }
-  }, [isLoading, user, router, fallbackPath]);
+  }, [isLoading, user, navigate, fallbackPath]);
 
   if (isLoading || !user || user.type !== 'superuser') {
     return (

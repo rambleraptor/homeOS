@@ -8,6 +8,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Gamepad2, Pencil, Flag, Club } from 'lucide-react';
 import { NestedModuleLanding } from '../NestedModuleLanding';
 import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
@@ -64,7 +65,11 @@ describe('NestedModuleLanding', () => {
   it('renders one card per child when all are enabled', () => {
     vi.mocked(useModuleEnabledPredicate).mockReturnValue(() => true);
 
-    render(<NestedModuleLanding module={games} />);
+    render(
+      <MemoryRouter>
+        <NestedModuleLanding module={games} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByTestId('games-link-minigolf')).toBeInTheDocument();
     expect(screen.getByTestId('games-link-pictionary')).toBeInTheDocument();
@@ -76,7 +81,11 @@ describe('NestedModuleLanding', () => {
       (id) => id !== 'bridge',
     );
 
-    render(<NestedModuleLanding module={games} />);
+    render(
+      <MemoryRouter>
+        <NestedModuleLanding module={games} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByTestId('games-link-minigolf')).toBeInTheDocument();
     expect(screen.getByTestId('games-link-pictionary')).toBeInTheDocument();

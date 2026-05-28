@@ -6,7 +6,7 @@
  * truth for household events.
  */
 
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { CalendarHeart, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
@@ -32,7 +32,7 @@ function isPeopleCenteredTag(tag?: string): boolean {
 }
 
 export function UpcomingEventsWidget() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { data: upcoming, isLoading } = useUpcomingEvents();
 
   return (
@@ -69,7 +69,7 @@ export function UpcomingEventsWidget() {
               <li key={id}>
                 <button
                   type="button"
-                  onClick={() => router.push('/events')}
+                  onClick={() => navigate('/events')}
                   className="w-full text-left py-4 flex items-start justify-between gap-3 hover:bg-bg-pearl/60 transition-colors rounded-lg px-2 -mx-2"
                 >
                   <div className="flex-1 min-w-0">

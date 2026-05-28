@@ -8,7 +8,7 @@
  */
 
 import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
 interface AuthGuardProps {
@@ -31,16 +31,16 @@ export function AuthGuard({
   showLoading = true,
 }: AuthGuardProps) {
   const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       // Save the location they were trying to access via query param
       const returnUrl = encodeURIComponent(pathname);
-      router.replace(`${redirectTo}?returnUrl=${returnUrl}`);
+      navigate(`${redirectTo}?returnUrl=${returnUrl}`, { replace: true });
     }
-  }, [isLoading, isAuthenticated, router, pathname, redirectTo]);
+  }, [isLoading, isAuthenticated, navigate, pathname, redirectTo]);
 
   if (isLoading) {
     if (!showLoading) return null;

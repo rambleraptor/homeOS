@@ -1,6 +1,4 @@
-'use client';
-
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { AuthProvider } from '@rambleraptor/homestead-core/auth/AuthContext';
 import { queryClient } from '@rambleraptor/homestead-core/api/queryClient';
@@ -8,7 +6,6 @@ import { persistOptions } from '@rambleraptor/homestead-core/api/persistQueryCli
 import { registerResourceMutationDefaults } from '@rambleraptor/homestead-core/api/registerResourceMutationDefaults';
 import { getAllResourceDefsWithModule } from '@/modules/registry';
 import { ToastProvider } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
-import dynamic from 'next/dynamic';
 
 // Mutation defaults must be installed on the QueryClient *before* any
 // `useMutation` references their key — including replays from the persisted
@@ -26,10 +23,10 @@ for (const { module, def } of getAllResourceDefsWithModule()) {
   });
 }
 
-// Only load React Query DevTools on client side to avoid hydration issues
-const ReactQueryDevtools = dynamic(
-  () => import('@tanstack/react-query-devtools').then((mod) => mod.ReactQueryDevtools),
-  { ssr: false }
+const ReactQueryDevtools = lazy(() =>
+  import('@tanstack/react-query-devtools').then((m) => ({
+    default: m.ReactQueryDevtools,
+  })),
 );
 
 interface ProvidersProps {
@@ -50,11 +47,13 @@ export function Providers({ children }: ProvidersProps) {
       }}
     >
       <AuthProvider>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <ToastProvider>{children}</ToastProvider>
       </AuthProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {import.meta.env.DEV && (
+        <Suspense fallback={null}>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </Suspense>
+      )}
     </PersistQueryClientProvider>
   );
 }

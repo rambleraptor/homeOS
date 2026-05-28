@@ -13,9 +13,10 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useModuleFlag } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlag';
 import type { User } from '@rambleraptor/homestead-core/auth/types';
 
-const replace = vi.fn();
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace }),
+const navigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => navigate,
 }));
 
 vi.mock('@rambleraptor/homestead-core/auth/useAuth', () => ({
@@ -75,7 +76,7 @@ describe('ModuleEnabledGate', () => {
     );
 
     expect(screen.getByText('protected')).toBeInTheDocument();
-    expect(replace).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it("redirects regular users away from a 'superusers' module", async () => {
@@ -89,7 +90,7 @@ describe('ModuleEnabledGate', () => {
     );
 
     expect(screen.queryByText('protected')).not.toBeInTheDocument();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard', { replace: true }));
   });
 
   it("redirects everyone (even superusers) away from a 'none' module", async () => {
@@ -103,7 +104,7 @@ describe('ModuleEnabledGate', () => {
     );
 
     expect(screen.queryByText('protected')).not.toBeInTheDocument();
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/dashboard'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard', { replace: true }));
   });
 
   it('does not redirect while auth or flags are still loading', () => {
@@ -116,7 +117,7 @@ describe('ModuleEnabledGate', () => {
       </ModuleEnabledGate>,
     );
 
-    expect(replace).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
     expect(screen.queryByText('protected')).not.toBeInTheDocument();
   });
 
@@ -130,6 +131,6 @@ describe('ModuleEnabledGate', () => {
       </ModuleEnabledGate>,
     );
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/games'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/games', { replace: true }));
   });
 });
