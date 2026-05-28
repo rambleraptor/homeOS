@@ -138,6 +138,14 @@ export class EventsPage {
     await this.page.waitForLoadState('networkidle');
   }
 
+  async filterByName(query: string) {
+    await this.page.getByTestId('filter-text-name').fill(query);
+  }
+
+  async toggleTagFilter(tag: string) {
+    await this.page.getByTestId(`filter-chip-tag-${tag}`).click();
+  }
+
   async deleteEvent(eventName: string) {
     await this.expectEventInList(eventName);
     const deleteButton = this.page

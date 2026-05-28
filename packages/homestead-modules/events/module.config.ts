@@ -27,6 +27,10 @@ export const eventsModule: HomeModule = {
   section: 'Relationships',
   enabled: true,
   resources: eventsResources,
+  filters: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'tag', label: 'Tag', type: 'enum', multi: true },
+  ],
   userSettings: {
     countdown_event_id: {
       type: 'string',

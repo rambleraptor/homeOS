@@ -103,6 +103,35 @@ test.describe('Events CRUD', () => {
     expect(created!.recurrence_rule).toBe('2:0');
   });
 
+  test('filters events by name and by tag', async ({ userToken }) => {
+    await createEvent(userToken, {
+      name: 'Alice Birthday',
+      date: '1990-06-20',
+      tag: 'birthday',
+    });
+    await createEvent(userToken, {
+      name: 'Wedding Anniversary',
+      date: '2010-08-15',
+      tag: 'anniversary',
+    });
+
+    await eventsPage.goto();
+    await eventsPage.expectEventInList('Alice Birthday');
+    await eventsPage.expectEventInList('Wedding Anniversary');
+
+    // Name filter narrows to the matching event.
+    await eventsPage.filterByName('alice');
+    await eventsPage.expectEventInList('Alice Birthday');
+    await eventsPage.expectEventNotInList('Wedding Anniversary');
+
+    // Clearing the name filter restores both, then filter by tag.
+    await eventsPage.filterByName('');
+    await eventsPage.expectEventInList('Wedding Anniversary');
+    await eventsPage.toggleTagFilter('anniversary');
+    await eventsPage.expectEventInList('Wedding Anniversary');
+    await eventsPage.expectEventNotInList('Alice Birthday');
+  });
+
   test('tags multiple people on an anniversary event', async ({
     userToken,
   }) => {
