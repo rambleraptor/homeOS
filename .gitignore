@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# Sidecar extraction cache (homestead start writes the embedded sidecar here)
+deployment/.cache/
+
 # Logs
 logs
 *.log

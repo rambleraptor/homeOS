@@ -1,0 +1,36 @@
+[Unit]
+Description=Homestead (single-binary launcher: aepbase + sidecar + SPA)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=homeosuser
+WorkingDirectory=/path/to/homeOS
+# The single binary embeds the SPA + Bun sidecar and runs aepbase in-process.
+# --data-dir keeps the sqlite db + uploaded files where the previous aepbase
+# service wrote them, so existing data carries over.
+ExecStart=/path/to/homeOS/homestead/bin/homestead start --port 3000 --data-dir /path/to/homeOS/aepbase/data
+Restart=on-failure
+RestartSec=5s
+
+# VAPID + Gemini secrets for the Bun sidecar (notifications + OCR). The
+# sidecar inherits this process's environment. The legacy AEPBASE_* vars in
+# this file are ignored — homestead manages aepbase's URL/credentials itself.
+EnvironmentFile=/path/to/homeOS/frontend/.env
+
+# homestead extracts its embedded sidecar binary under $XDG_CACHE_HOME; pin
+# it inside the repo so it stays writable under ProtectSystem=strict.
+Environment="XDG_CACHE_HOME=/path/to/homeOS/deployment/.cache"
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/path/to/homeOS/aepbase/data /path/to/homeOS/deployment/.cache
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

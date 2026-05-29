@@ -1,296 +1,226 @@
-# HomeOS Deployment Guide
+# Homestead Deployment Guide
 
-Simple deployment for HomeOS on Linux with systemd.
+Homestead deploys as a **single binary**. `homestead start` runs aepbase
+in-process, spawns the embedded Bun sidecar (notifications + omnibox OCR),
+and serves the embedded SPA — all behind one user-facing port. One systemd
+service supervises it.
+
+> Migrated from the old two-service layout (a separate `aepbase` Go binary
+> plus a Next.js `npm start` server). Those are gone; everything now lives
+> in the `homestead` binary built by `make homestead`.
 
 ## Quick Setup
 
 ```bash
-# 1. Install aepbase (builds the Go wrapper)
-./deployment/install-aepbase.sh
+# 1. Configure environment
+# The build + service read frontend/.env. Ensure it has your VAPID keys
+# (and GEMINI_API_KEY if used). See frontend/.env.example.
+# Generate VAPID keys: cd frontend && npx web-push generate-vapid-keys
 
-# 2. Start aepbase once to bootstrap the superuser
-cd aepbase && ./run.sh
-# Copy the printed admin email + password. Ctrl-C when you're done.
-# (The schema is applied automatically by the Next.js server on boot —
-# set AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD in step 3.)
-
-# 3. Build frontend
+# 2. Build the single binary (embeds SPA + sidecar)
 ./deployment/build.sh
 
-# 4. Configure environment
-cp deployment/.env.production frontend/.env
-# Set AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD to the superuser
-# creds from step 2 so the schema sync runs at boot.
-# Generate VAPID keys: cd frontend && npx web-push generate-vapid-keys
-# Edit frontend/.env and add your VAPID public key.
-
-# 5. Set up systemd services
+# 3. Install + enable the systemd service
 sudo make setup-services
 
-# 6. Start services
-sudo make start
+# 4. Start it
+sudo make start-services
 
-# 7. Access HomeOS at http://localhost:3000
+# 5. Open http://localhost:3000
+```
+
+On first start against an empty data dir, homestead generates a superuser
+and writes its credentials to `<data-dir>/credentials.json`. Read them with:
+
+```bash
+cat aepbase/data/credentials.json
 ```
 
 ## Prerequisites
 
-- Linux with systemd (Ubuntu, Debian, Fedora, etc.)
-- Node.js 20+
-- Go 1.25+ (for building aepbase)
-- Git
+The **build host** (here, the device itself) needs:
 
-Install on Ubuntu/Debian:
-```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs git golang-go
-```
+- **Go 1.25+** — builds the launcher. `homestead/go.mod` pins 1.25; an
+  older `go` will try to auto-download the 1.25 toolchain (needs network).
+- **Bun** — compiles the sidecar (`curl -fsSL https://bun.sh/install | bash`).
+- **Node.js 20+** and npm — builds the SPA.
+- **Git**.
+
+The resulting binary is self-contained: it embeds the SPA and the sidecar
+and runs aepbase in-process, so nothing but the binary is needed at runtime.
 
 ## Common Commands
 
 ```bash
-# Service management
-make start              # Start services
-make stop               # Stop services
-make restart            # Restart services
-make status             # Check status
-make logs               # Follow logs
+make start-services     # Start the service (sudo)
+make stop               # Stop the service (sudo)
+make restart            # Restart the service (sudo)
+make status             # Check status (sudo)
+make logs               # Follow logs (sudo)
 
-# Deployment
-make deploy             # Deploy current code
-make deploy-force       # Force rebuild and deploy
-
-# Development
-make dev                # Start dev server
-make build              # Build for production
-make ci && make test    # Run all checks
+make deploy             # Build current code + restart the service
+make deploy-force       # Force rebuild + restart
+make homestead          # Just build the binary (no service interaction)
 ```
 
 ## Deployment
 
-### Manual Deployment
+### Manual deployment
 
 ```bash
-sudo make deploy
+sudo make deploy          # rebuilds if source changed, then restarts
+sudo make deploy-force    # always rebuilds
 ```
 
-The deploy script:
-- Detects changes (aepbase source, frontend, dependencies) between the
-  current and target commit
-- Rebuilds only what changed
-- Rebuilds and restarts aepbase if `aepbase/` changed
-- Rebuilds and restarts the frontend if `frontend/` changed
-- Rolls back (git reset --hard) on failure
-- Verifies both services came back up
+`deploy.sh`:
+- (in `--auto`) fetches `origin/main` and fast-forwards via `git reset --hard`
+- runs `npm ci` when `package*.json` changed
+- rebuilds the single binary when any source (`frontend/`, `packages/`,
+  `aepbase/`, `homestead/`, `homestead.config.ts`) changed or `--force`
+- restarts the `homeos` service and verifies it came up
+- rolls back (`git reset --hard` to the previous commit, rebuild, restart)
+  if the service fails to start after an auto update
 
 ### Schema changes (per-module `resources.ts`)
 
-**Auto-applied on Next.js boot.** Resource definitions live alongside
-each module (`packages/homestead-modules/<module>/resources.ts`); the
-Next.js instrumentation hook diffs them against aepbase and POST/PATCHes
-on startup. After deploying a schema change, restart the frontend
-service so the new definitions take effect:
+**Auto-applied on boot.** The Bun sidecar diffs each module's resource
+definitions against aepbase and POST/PATCHes them when the service starts.
+After deploying a schema change, restart the service:
 
 ```bash
-sudo systemctl restart homeos-frontend
+sudo systemctl restart homeos
 ```
 
-If the change drops or renames a resource, delete the affected
-definition manually first (`DELETE /aep-resource-definitions/...`).
-aepbase preserves data across schema updates but does not support
-mutating a field's `type` or changing `parents` on an existing
-definition — delete + recreate in those cases. See `CLAUDE.md` for the
+If a change drops/renames a resource or mutates a field `type`/`parents`,
+delete the affected definition manually first (`DELETE
+/aep-resource-definitions/...`) — aepbase preserves data across schema
+updates but won't mutate `type`/`parents` in place. See `CLAUDE.md` for the
 full set of schema-evolution gotchas.
 
-### Automatic Updates
+### Automatic updates
 
-Set up automatic deployment (pulls from GitHub every 10 minutes):
+Pulls from GitHub on a timer and redeploys:
 
 ```bash
 sudo make setup-auto-update
-sudo systemctl enable homeos-auto-update.timer
-sudo systemctl start homeos-auto-update.timer
+sudo systemctl enable --now homeos-auto-update.timer
 sudo systemctl status homeos-auto-update.timer
 ```
 
-Configure update frequency by editing `/etc/systemd/system/homeos-auto-update.timer`:
-```ini
-[Timer]
-OnBootSec=1min
-OnUnitActiveSec=10min
-```
-
-Then reload: `sudo systemctl daemon-reload && sudo systemctl restart homeos-auto-update.timer`
+Update frequency lives in `/etc/systemd/system/homeos-auto-update.timer`
+(`OnUnitActiveSec=10min` by default). Edit it, then
+`sudo systemctl daemon-reload && sudo systemctl restart homeos-auto-update.timer`.
 
 ### Rollback
 
-If deployment fails, the script automatically `git reset --hard`s to the
-previous commit and restarts services. For manual rollback:
+Auto deploys roll back on their own. Manual rollback:
 
 ```bash
-sudo systemctl stop homeos-aepbase homeos-frontend
+sudo systemctl stop homeos
 
-# aepbase data lives in aepbase/data/. Back it up if concerned before
-# touching the binary:
+# Back up data first if you're concerned:
 cp -a aepbase/data aepbase/data.backup.$(date +%Y%m%d_%H%M%S)
 
-# Rollback code
 git reset --hard HEAD~1
-
-# Rebuild aepbase if its Go source changed
-cd aepbase && ./install.sh && cd ..
-
-sudo systemctl start homeos-aepbase homeos-frontend
+./deployment/build.sh
+sudo systemctl start homeos
 ```
 
 ## Tailscale Access (Optional)
-
-Access HomeOS from anywhere on your Tailscale network:
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up
 tailscale ip -4
-
-# Then point the frontend's aepbase proxy at the Tailscale IP. Either:
-#   - set AEPBASE_URL in frontend/.env and rebuild, or
-#   - leave the proxy at localhost and rely on frontend access via
-#     http://<tailscale ip>:3000 (aepbase stays on localhost).
-
-./deployment/build.sh
-sudo make restart
+# Reach the app at http://<tailscale-ip>:3000 — the edge server already
+# serves the SPA, sidecar, and aepbase proxy on that one port.
 ```
 
 ## Configuration
 
-### Environment variables
+### Environment (`frontend/.env`)
 
-Edit `frontend/.env`:
+Both the build (bakes `VAPID_PUBLIC_KEY` into the SPA) and the systemd
+service (`EnvironmentFile`, inherited by the sidecar at runtime) read
+`frontend/.env`:
+
 ```bash
-# Proxy targets (Next.js server-side — do NOT prefix with NEXT_PUBLIC_)
-AEPBASE_URL=http://127.0.0.1:8090
-
-# VAPID keys for web push
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=YOUR_VAPID_PUBLIC_KEY_HERE
-VAPID_PUBLIC_KEY=YOUR_VAPID_PUBLIC_KEY_HERE
-VAPID_PRIVATE_KEY=YOUR_VAPID_PRIVATE_KEY_HERE
+VAPID_PUBLIC_KEY=...      # also baked into the SPA at build time
+VAPID_PRIVATE_KEY=...     # keep secret
 VAPID_EMAIL=mailto:admin@example.com
-
-# Admin credentials for the notification cron (superuser only)
-AEPBASE_ADMIN_EMAIL=admin@example.com
-AEPBASE_ADMIN_PASSWORD=<superuser password>
-
-# Gemini for OCR routes (optional)
-GEMINI_API_KEY=...
+GEMINI_API_KEY=...        # optional, omnibox/receipt OCR
 ```
 
-Generate VAPID keys:
-```bash
-cd frontend && npx web-push generate-vapid-keys
-```
+The legacy `AEPBASE_URL` / `AEPBASE_ADMIN_*` entries in that file are
+ignored — homestead generates and wires aepbase's URL and superuser
+credentials internally (see `aepbase/data/credentials.json`).
 
-### Service configuration
+### Port
 
-Systemd services are in `deployment/systemd/`:
-- `aepbase.service` — aepbase on port 8090
-- `homeos-frontend.service` — Next.js on port 3000
-- `homeos-auto-update.service` — Auto-update service
-- `homeos-auto-update.timer` — Update schedule
+The service runs `homestead start --port 3000`. To change it, edit
+`ExecStart=` in `/etc/systemd/system/homeos.service` (or the template at
+`deployment/systemd/homeos.service` before `make setup-services`), then
+`sudo systemctl daemon-reload && sudo systemctl restart homeos`.
 
-View logs:
-```bash
-make logs                    # Both services
-make logs-aepbase            # aepbase only
-make logs-frontend           # Frontend only
-sudo journalctl -u homeos-aepbase -n 100
-```
+### Data directory
+
+The service passes `--data-dir <repo>/aepbase/data`, so the sqlite db
+(`aepbase.db`) and uploaded files persist there across deploys.
 
 ## Troubleshooting
 
-### Services won't start
+### Service won't start
 ```bash
 make status
-sudo journalctl -u homeos-aepbase -n 50
-sudo journalctl -u homeos-frontend -n 50
+sudo journalctl -u homeos -n 100
 ```
+- `no embedded SPA` / `no embedded sidecar` → rebuild with
+  `./deployment/build.sh` (the binary must be built with `-tags release`,
+  which `make homestead` does).
+- `database already contains users but credentials.json is missing` →
+  homestead can't recover the superuser password for an existing DB.
+  Restore `aepbase/data/credentials.json` (email + password), or start
+  fresh by archiving `aepbase/data`.
+
+### Build fails
+- `bun: command not found` → install Bun (see Prerequisites).
+- Go toolchain download fails → install Go 1.25+ directly.
 
 ### Port already in use
 ```bash
-sudo lsof -i :8090
 sudo lsof -i :3000
-```
-
-### Build fails
-```bash
-cd frontend
-rm -rf node_modules package-lock.json
-npm install
-npm run build
-```
-
-### Schema sync fails
-- Look for `[resources] schema sync failed` in the frontend logs.
-- "cannot change type" / "changing parents is not supported": delete
-  the resource definition (DELETE /aep-resource-definitions/...) and
-  restart the frontend so the runner re-creates it. Data is wiped —
-  only do this in dev.
-- "401" / "forbidden": `AEPBASE_ADMIN_EMAIL` / `AEPBASE_ADMIN_PASSWORD`
-  in `frontend/.env` are wrong or the password rotated.
-
-### Can't access via Tailscale
-```bash
-tailscale status
-sudo ufw allow 3000
-sudo ufw allow 8090
 ```
 
 ## Backup and Restore
 
-### Backup
 ```bash
-# aepbase data (SQLite + uploaded files)
+# Back up (sqlite db + uploaded files + superuser creds)
 mkdir -p backups
 cp -a aepbase/data backups/aepbase-data.$(date +%Y%m%d_%H%M%S)
 
-# Environment
-cp frontend/.env backups/.env.$(date +%Y%m%d_%H%M%S)
-```
-
-### Restore
-```bash
-sudo systemctl stop homeos-aepbase
+# Restore
+sudo systemctl stop homeos
 rm -rf aepbase/data
 cp -a backups/aepbase-data.YYYYMMDD_HHMMSS aepbase/data
-sudo systemctl start homeos-aepbase
+sudo systemctl start homeos
 ```
 
 ## Scripts Reference
 
 | Script | Description |
 |--------|-------------|
-| `install-aepbase.sh` | Build aepbase from Go source |
-| `build.sh` | Build frontend for production |
-| `deploy.sh` | Deploy with rollback on failure |
-| `setup-services.sh` | Set up systemd services |
-| `setup-auto-update.sh` | Set up automatic updates |
-
-## Security
-
-1. **Use strong passwords** for the aepbase superuser.
-2. **Regular backups** of `aepbase/data/` (SQLite DB + uploaded files).
-3. **Keep updated**: `git pull && sudo make deploy`.
-4. **Review `packages/homestead-modules/*/resources.ts` diffs** before
-   restarting the frontend after a schema change.
-5. **Use deploy keys** for auto-updates (read-only GitHub access).
+| `build.sh` | Build the single `homestead` binary (`make homestead`) |
+| `deploy.sh` | Rebuild + restart the service, with rollback |
+| `setup-services.sh` | Install the `homeos` systemd service |
+| `setup-auto-update.sh` | Install the auto-update service + timer |
 
 ## Production Checklist
 
-- [ ] aepbase built and running
-- [ ] Frontend built successfully
-- [ ] Environment variables configured (VAPID keys, admin creds)
-- [ ] Schema synced (look for `[resources]` log line on frontend boot)
-- [ ] Services enabled for auto-start
-- [ ] Can access at http://localhost:3000
+- [ ] `frontend/.env` filled in (VAPID keys)
+- [ ] `homestead` binary built (`./deployment/build.sh`)
+- [ ] `homeos` service installed + enabled
+- [ ] Superuser credentials saved (`aepbase/data/credentials.json`)
+- [ ] Reachable at http://localhost:3000
 - [ ] (Optional) Tailscale configured
 - [ ] (Optional) Auto-updates enabled
 - [ ] (Optional) Backup strategy configured

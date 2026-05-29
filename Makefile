@@ -121,30 +121,24 @@ setup-services: ## Set up systemd services (requires sudo)
 setup-auto-update: ## Set up automatic updates (requires sudo)
 	@sudo ./deployment/setup-auto-update.sh
 
-start-services: ## Start Homestead services (requires sudo)
-	@echo "Starting Homestead services..."
-	@sudo systemctl start homeos-aepbase homeos-frontend
-	@echo "✅ Services started"
+start-services: ## Start the Homestead service (requires sudo)
+	@echo "Starting Homestead service..."
+	@sudo systemctl start homeos
+	@echo "✅ Service started"
 
-stop: ## Stop Homestead services (requires sudo)
-	@echo "Stopping Homestead services..."
-	@sudo systemctl stop homeos-aepbase homeos-frontend
-	@echo "✅ Services stopped"
+stop: ## Stop the Homestead service (requires sudo)
+	@echo "Stopping Homestead service..."
+	@sudo systemctl stop homeos
+	@echo "✅ Service stopped"
 
-restart: ## Restart Homestead services (requires sudo)
-	@echo "Restarting Homestead services..."
-	@sudo systemctl restart homeos-aepbase homeos-frontend
-	@echo "✅ Services restarted"
+restart: ## Restart the Homestead service (requires sudo)
+	@echo "Restarting Homestead service..."
+	@sudo systemctl restart homeos
+	@echo "✅ Service restarted"
 
 status: ## Check service status
-	@sudo systemctl status homeos-aepbase homeos-frontend
+	@sudo systemctl status homeos
 
 logs: ## Follow service logs
 	@echo "Following logs (Ctrl+C to stop)..."
-	@sudo journalctl -u homeos-aepbase -u homeos-frontend -f
-
-logs-aepbase: ## Follow aepbase logs
-	@sudo journalctl -u homeos-aepbase -f
-
-logs-frontend: ## Follow frontend logs
-	@sudo journalctl -u homeos-frontend -f
+	@sudo journalctl -u homeos -f

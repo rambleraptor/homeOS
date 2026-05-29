@@ -158,10 +158,12 @@ fixtures.
 
 ## 6. Production deployment
 
-For a long-lived instance behind systemd (or Tailscale), see
-[`deployment/README.md`](../deployment/README.md). The deployment
-package builds the frontend, wires up systemd services for aepbase and
-Next.js, and includes sample `.env.production` templates.
+For a long-lived instance, Homestead ships as a **single binary**:
+`homestead start` runs aepbase in-process, the Bun sidecar, and the
+embedded SPA behind one port. `./deployment/build.sh` builds it and one
+systemd service (`homeos`) supervises it. See
+[`deployment/README.md`](../deployment/README.md) for the full walkthrough
+(env setup via `frontend/.env`, auto-updates, Tailscale, backups).
 
 ## Where things live
 
