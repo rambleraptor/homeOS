@@ -7,12 +7,18 @@ import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner'
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import {
+  FilterBar,
+  ModuleFiltersProvider,
+  useFilteredItems,
+} from '@rambleraptor/homestead-core/shared/filters';
+import {
   getNextEventOccurrence,
   parseDateString,
 } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { useEvents } from '../hooks/useEvents';
 import { useUpdateEvent } from '../hooks/useUpdateEvent';
 import { useDeleteEvent } from '../hooks/useDeleteEvent';
+import { eventsModule } from '../module.config';
 import { EventForm } from './EventForm';
 import { EventCard } from './EventCard';
 import type { Event, EventFormData } from '../types';
@@ -28,13 +34,6 @@ function eventNextOccurrenceMs(e: Event): number {
 
 export function EventsList() {
   const { data: events, isLoading } = useEvents();
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [confirm, setConfirm] = useState<{ id: string; name: string } | null>(
-    null,
-  );
-  const updateEvent = useUpdateEvent();
-  const deleteEvent = useDeleteEvent();
-  const toast = useToast();
 
   if (isLoading) {
     return (
@@ -44,7 +43,28 @@ export function EventsList() {
     );
   }
 
-  const sorted = [...(events ?? [])].sort(
+  return (
+    <ModuleFiltersProvider
+      moduleId={eventsModule.id}
+      decls={eventsModule.filters ?? []}
+      items={events ?? []}
+    >
+      <EventsListInner hasAny={(events?.length ?? 0) > 0} />
+    </ModuleFiltersProvider>
+  );
+}
+
+function EventsListInner({ hasAny }: { hasAny: boolean }) {
+  const filteredEvents = useFilteredItems<Event>();
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [confirm, setConfirm] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const updateEvent = useUpdateEvent();
+  const deleteEvent = useDeleteEvent();
+  const toast = useToast();
+
+  const sorted = [...filteredEvents].sort(
     (a, b) => eventNextOccurrenceMs(a) - eventNextOccurrenceMs(b),
   );
 
@@ -77,10 +97,17 @@ export function EventsList() {
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">All Events</h2>
-      {sorted.length === 0 ? (
+      <FilterBar />
+      {!hasAny ? (
         <Card>
           <p className="text-center text-gray-600 py-8">
             No events yet. Add your first event to get started!
+          </p>
+        </Card>
+      ) : sorted.length === 0 ? (
+        <Card>
+          <p className="text-center text-gray-600 py-8">
+            No events match the current filters
           </p>
         </Card>
       ) : (
