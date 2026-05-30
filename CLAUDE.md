@@ -2,8 +2,12 @@
 
 This document gives both Claude and human contributors the ground rules for
 working on the Homestead repo. The backend is **aepbase** (an AEP-compliant
-dynamic REST server). The frontend is a Next.js app that talks to aepbase
-through a same-origin `/api/aep` proxy.
+dynamic REST server). The frontend is a **Vite + React SPA**
+(`react-router-dom`) that talks to aepbase through a same-origin `/api/aep`
+proxy. A small **Bun + Hono sidecar** owns the few API routes the SPA can't
+serve itself (omnibox parsing, test notifications, module workers) and runs
+the schema sync. In production a single Go binary — the `homestead` launcher
+— boots aepbase in-process, spawns the sidecar, and serves the embedded SPA.
 
 ## Table of Contents
 
@@ -50,23 +54,24 @@ make test-e2e              # Playwright end-to-end tests
 
 ### Full local stack
 
-You need two processes running to develop against the real backend:
+The `homestead` launcher orchestrates the whole stack. In dev mode it boots
+aepbase in-process, spawns the Bun sidecar, and starts the Vite dev server:
 
 ```bash
-# Terminal 1 — aepbase
-cd aepbase
-./install.sh               # first time only
-./run.sh
-
-# Terminal 2 — Next.js frontend
-cd frontend
-npm run dev
+make homestead             # build the launcher (SPA + sidecar embedded)
+./homestead/bin/homestead start --dev
 ```
 
 On aepbase's first start, the superuser's email + password are printed to
 stdout. Save them; you'll need them to log in to the app and to set
-`AEPBASE_ADMIN_EMAIL` / `AEPBASE_ADMIN_PASSWORD` in the Next.js
-environment so the schema sync runs at boot.
+`AEPBASE_ADMIN_EMAIL` / `AEPBASE_ADMIN_PASSWORD` in the sidecar's
+environment so its boot-time schema sync runs.
+
+For pure frontend iteration against an already-running backend + sidecar,
+`make dev` starts just the Vite dev server (port 5173); it proxies
+`/api/aep` to aepbase and the other `/api/*` routes to the sidecar (see
+`frontend/vite.config.ts`). aepbase can also be run standalone via
+`aepbase/install.sh` + `aepbase/run.sh` (serves on :8090).
 
 ### Pre-push checklist
 
@@ -154,9 +159,12 @@ the UI. API seed is 10-100× faster.
 
 Feature modules ship in the `@rambleraptor/homestead-modules` workspace
 package at `packages/homestead-modules/<feature>/`. The registry, the
-`HomeModule`/`ModuleFlagDef` types, and the `settings` + `superuser`
-modules stay in `frontend/src/modules/` because they are part of the core
-experience.
+`HomeModule`/`ModuleFlagDef` types, and the always-installed core modules
+(`settings`, `superuser`, `users`) live in the
+`@rambleraptor/homestead-core` package (`packages/homestead-core/`) because
+they are part of the core experience. `frontend/src/modules/registry.ts` is
+just a boot shim that installs the registry singleton with the operator's
+modules from `homestead.config.ts` plus those core modules.
 
 Every feature is a self-contained module:
 
@@ -171,16 +179,20 @@ packages/homestead-modules/<feature>/
 
 Consumers import via the package, e.g.
 `import { GiftCardHome } from '@rambleraptor/homestead-modules/gift-cards/components/GiftCardHome'`.
-The package keeps its existing reliance on `@/core/...` and `@/shared/...`
-through a TypeScript path alias and Next.js `transpilePackages`.
+The package resolves `@rambleraptor/homestead-core/...` through the npm
+workspace and a TypeScript path alias defined in
+`packages/homestead-modules/tsconfig.json`; Vite resolves the workspace
+packages natively (no Next.js `transpilePackages`).
 
 The list of modules served by an instance lives in
 `homestead.config.ts` (at the repo root) — that is the only file an operator edits
 to add or remove a module. Routes are declared inline on each
-`ModuleRoute` (the `component` field) and served by the catch-all at
-`frontend/src/app/(app)/[...slug]/page.tsx`; do not create per-route
-`page.tsx` files. See [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md) for
-the operator-facing walkthrough.
+`ModuleRoute` (the `component` field). The SPA's react-router setup
+(`frontend/src/App.tsx`) sends every unmatched path to the catch-all
+renderer in `frontend/src/modules/ModuleRoute.tsx`, which resolves the
+route's lazy component — there are no per-route page files. See
+[`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md) for the operator-facing
+walkthrough.
 
 ### Style
 - Meaningful variable / function names
@@ -191,35 +203,66 @@ the operator-facing walkthrough.
 ## Project Structure
 
 The repo is an npm workspace. The root `package.json` declares
-`workspaces: ["frontend", "packages/*"]`; install once at the root with
-`npm install`.
+`workspaces: ["frontend", "packages/*", "tests/e2e"]`; install once at the
+root with `npm install`.
 
-### Frontend (`frontend/`)
+### Frontend SPA (`frontend/`)
 
-- `src/core/api/aepbase.ts` — thin REST client wrapper for aepbase
-- `src/core/auth/` — AuthContext, types, route guards
-- `src/app/api/` — Next.js server routes (notifications, OCR, actions)
-- `src/app/api/_lib/aepbase-server.ts` — server-side aepbase helper (the
-  client-side wrapper uses localStorage, so server routes use this instead)
-- `src/modules/` — module registry, contract types, and the in-tree
-  `settings` + `superuser` modules (core experience)
-- `src/shared/` — shared components + utilities
+The Vite + React SPA is a thin shell — most app code lives in the
+`homestead-core` and `homestead-modules` packages.
+
+- `src/main.tsx` — SPA entry; mounts `<App>` under `BrowserRouter` and
+  installs the module registry singleton (`src/modules/registry.ts`)
+- `src/App.tsx` — react-router routes; authenticated pages render inside
+  the `AppShell`, with a catch-all that dispatches to `ModuleRoute`
+- `src/modules/ModuleRoute.tsx` — catch-all renderer that resolves a
+  path to its module's lazy component
+- `vite.config.ts` — dev server + `/api/*` proxy config
+
+### Core package (`packages/homestead-core/`)
+
+The `@rambleraptor/homestead-core` workspace package. Holds everything the
+SPA and modules share:
+
+- `api/aepbase.ts` — thin REST client wrapper for aepbase (client-side)
+- `server/aepbase.ts` — server-side aepbase helper used by the sidecar
+  routes (the client-side wrapper uses localStorage, so the sidecar uses
+  this instead)
+- `auth/` — AuthContext, types, route guards
+- `modules/` — registry, the `HomeModule`/`ModuleFlagDef` contract types
+- `settings/`, `superuser/`, `users/` — the always-installed core modules
+- `layout/`, `shared/`, `resources/`, `module-flags/`, `user-settings/` —
+  shared chrome, components, and schema/sync plumbing
 
 ### Feature modules package (`packages/homestead-modules/`)
 
-The user-facing feature modules (`credit-cards`, `dashboard`, `games`,
-`gift-cards`, `groceries`, `hsa`, `notifications`, `people`, `recipes`,
-`todos`) live here as the `@rambleraptor/homestead-modules` workspace
-package. Frontend lists it as a dependency and adds it to
-`next.config.ts`'s `transpilePackages`. Modules continue to import
-`@/core/...` and `@/shared/...` through a TypeScript path alias defined in
+The user-facing feature modules (`credit-cards`, `dashboard`, `events`,
+`games`, `gift-cards`, `groceries`, `hsa`, `notifications`, `people`,
+`recipes`, `todos`) live here as the `@rambleraptor/homestead-modules`
+workspace package. Modules import `@rambleraptor/homestead-core/...`
+through the workspace + a TypeScript path alias defined in
 `packages/homestead-modules/tsconfig.json`.
 
-### Backend (`aepbase/`)
+### Sidecar (`packages/homestead-sidecar/`)
+
+A small Bun + Hono server (`src/server.ts`) that owns the API routes the
+SPA can't serve itself: `POST /api/omnibox/parse`,
+`POST /api/notifications/send-test`, and `ALL /api/modules/:moduleId/*`
+(module workers). It also runs the boot-time schema sync
+(`src/schema-sync.ts`).
+
+### Launcher (`homestead/`)
+
+A Go single-binary launcher (`main.go` + `cmd/` + `internal/`). `homestead
+start` boots aepbase in-process, spawns the Bun sidecar (and, with
+`--dev`, the Vite dev server), embeds the built SPA, and reverse-proxies
+`/api/*` to the sidecar / aepbase. Built via `make homestead`.
+
+### Backend library (`aepbase/`)
 
 - `main.go` — thin wrapper that imports aepbase as a Go library and opts
   into `EnableUsers` and `EnableFileFields`
-- `install.sh` — builds the binary into `bin/aepbase`
+- `install.sh` — builds the standalone binary into `bin/aepbase`
 - `run.sh` — runs it on :8090
 - `data/` — sqlite db + uploaded files (gitignored)
 
@@ -236,19 +279,18 @@ exported `HomeModule`. Resource definitions that don't belong to a
 feature module (`user-preference`, `action`, `run`) live in
 `packages/homestead-core/resources/builtins.ts`.
 
-At Next.js server boot, `frontend/src/instrumentation.ts` aggregates
-every declared definition through `getAllResourceDefs()` plus
+At sidecar boot, `packages/homestead-sidecar/src/schema-sync.ts`
+aggregates every declared definition through `getAllResourceDefs()` plus
 `BUILTIN_RESOURCE_DEFS`, topologically sorts by `parents`, and applies
 the result via aepbase's `/aep-resource-definitions` endpoint. The
 runner (`@rambleraptor/homestead-core/resources/sync.ts`) is
 idempotent: it creates missing definitions, patches drifted ones, and
 no-ops when everything is in sync.
 
-Set `AEPBASE_ADMIN_EMAIL` and `AEPBASE_ADMIN_PASSWORD` in the Next.js
+Set `AEPBASE_ADMIN_EMAIL` and `AEPBASE_ADMIN_PASSWORD` in the sidecar's
 environment to enable the sync. Without them the app still serves
 pages but aepbase will return 404 for unregistered collections — bring
-up the dev server with credentials at least once after a schema
-change.
+up the sidecar with credentials at least once after a schema change.
 
 The same runner is used by the e2e bootstrap
 (`tests/e2e/config/apply-schema.ts`) so e2e and runtime stay in sync.
@@ -258,8 +300,8 @@ The same runner is used by the e2e bootstrap
 1. Add a new entry in the relevant module's `resources.ts` (or in
    `packages/homestead-core/resources/builtins.ts` if it's
    platform-level).
-2. Restart the Next.js dev server with admin creds set; the new
-   definition is created on boot.
+2. Restart the sidecar with admin creds set; the new definition is
+   created on boot.
 3. If the change is to an existing definition, the runner emits a
    PATCH automatically.
 
@@ -313,18 +355,18 @@ first.
 
 The `module-flags` resource is generated dynamically from declared
 module flags rather than defined statically. Each module can declare
-typed flags in its `module.config.ts` (`flags: { ... }`). At Next.js
-server startup, `frontend/src/instrumentation.ts` aggregates every
-declared flag (via `getAllModuleFlagDefs` in
-`src/modules/registry.ts`), builds a JSON-schema payload, and
-POST/PATCHes it against aepbase's `/aep-resource-definitions`
-endpoint. One record of `module-flags` is the household-wide
-singleton; fields are flattened as `${moduleId_snake}__${key}` on the
-wire.
+typed flags in its `module.config.ts` (`flags: { ... }`). At sidecar
+boot, the schema sync aggregates every declared flag (via
+`getAllModuleFlagDefs` in
+`@rambleraptor/homestead-core/modules/registry`), builds a JSON-schema
+payload, and POST/PATCHes it against aepbase's
+`/aep-resource-definitions` endpoint. One record of `module-flags` is
+the household-wide singleton; fields are flattened as
+`${moduleId_snake}__${key}` on the wire.
 
-Consumers: `useModuleFlag(moduleId, key)` from `@/modules/settings`
-is the one public hook for reading/writing a single flag from any
-component.
+Consumers: `useModuleFlag(moduleId, key)` from
+`@rambleraptor/homestead-core/settings` is the one public hook for
+reading/writing a single flag from any component.
 
 ---
 
@@ -335,8 +377,9 @@ component.
 2. **Follow the modular architecture** — don't create monolithic
    components. Module hooks own their data access.
 3. **Respect existing patterns** — review similar code before implementing.
-4. **Use the aepbase wrapper** (`@/core/api/aepbase`) for client-side data
-   access, and `@/app/api/_lib/aepbase-server` for server routes.
+4. **Use the aepbase wrapper** (`@rambleraptor/homestead-core/api/aepbase`)
+   for client-side data access, and
+   `@rambleraptor/homestead-core/server/aepbase` for the sidecar routes.
 5. **Ask before touching schema** — `resources.ts` changes affect real data.
 6. **Security first** — validate inputs, sanitize outputs, follow OWASP.
 
