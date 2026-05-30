@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Store Management Component
  *

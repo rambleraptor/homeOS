@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Auto-generated form for a module's `userSettings` declarations. The
  * Settings page uses this whenever a module declares `userSettings`

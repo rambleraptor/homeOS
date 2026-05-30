@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Shared roster picker used by features that select people from the
  * People module (minigolf, pictionary, …). Renders a search input that

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * People List Component
  *

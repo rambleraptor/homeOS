@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Credit Cards List Component
  *

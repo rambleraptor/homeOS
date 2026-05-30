@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Pictionary game form — captures the game record (date, location,
  * winning word, notes) plus a dynamic list of teams. Each team has a
@@ -259,7 +257,6 @@ export function GameForm({
           </span>
           {imagePreviewUrl ? (
             <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={imagePreviewUrl}
                 alt="Winning word"

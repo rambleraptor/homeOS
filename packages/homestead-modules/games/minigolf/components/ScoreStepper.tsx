@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Big stepper control for minigolf score entry.
  *

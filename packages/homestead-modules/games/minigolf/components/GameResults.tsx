@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Game results — shows winner + per-hole score grid. Read-only: used
  * both for the "just finished" state and when viewing a historical

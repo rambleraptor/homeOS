@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Hooks for gating access to a module via its built-in `enabled` flag.
  *

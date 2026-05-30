@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Renders the module's own list/home component with the omnibox-parsed
  * filter values seeded via context. The list component's inner

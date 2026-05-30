@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Dashboard widget showing the active todos (pending + in_progress),
  * excluding do_later, completed, and cancelled. Registered via

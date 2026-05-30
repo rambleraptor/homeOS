@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * AuthGuard Component
  *

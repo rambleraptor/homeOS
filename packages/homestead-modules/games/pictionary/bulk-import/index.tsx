@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo } from 'react';
 import { BulkImportContainer } from '@rambleraptor/homestead-core/shared/bulk-import';
 import { usePeopleNameMap } from './peopleMap';

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Page-level gate that hides a module's content from viewers who don't
  * pass its built-in `enabled` flag. Mirrors the audience resolution

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Pictionary leaderboard — ranks players or teams across every recorded
  * game by total wins, then win rate, then games played. The rank-1 row

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Quick-entry hand form. Three button rows at the top: level (1-7), suit
  * (clubs/diamonds/hearts/spades/no-trump/pass), and direction (N/E/S/W).

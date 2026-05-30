@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Gift Card Home Component
  *

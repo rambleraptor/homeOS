@@ -8,7 +8,6 @@ export default tseslint.config(
     ignores: [
       'dist',
       'node_modules',
-      '.next',
       'public',
       '../homestead/internal/edge/dist',
     ],

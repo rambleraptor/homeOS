@@ -16,6 +16,5 @@ interface GiftCardImageProps {
 export function GiftCardImage({ card, field, alt, className }: GiftCardImageProps) {
   const url = useGiftCardImageUrl(card, field);
   if (!url) return null;
-  // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt={alt} className={className} />;
 }

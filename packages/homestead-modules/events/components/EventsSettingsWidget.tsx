@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Per-user countdown configuration shown on the Settings page.
  *

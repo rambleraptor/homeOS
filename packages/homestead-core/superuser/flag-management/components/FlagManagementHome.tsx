@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';

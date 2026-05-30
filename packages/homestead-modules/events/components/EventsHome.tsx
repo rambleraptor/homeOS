@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';

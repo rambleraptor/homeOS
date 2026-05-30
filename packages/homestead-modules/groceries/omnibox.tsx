@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Groceries module — omnibox adapter.
  *

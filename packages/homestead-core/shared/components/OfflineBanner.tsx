@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Global offline indicator. Renders a fixed strip at the bottom of the
  * viewport while the browser reports `navigator.onLine === false`. Mounts

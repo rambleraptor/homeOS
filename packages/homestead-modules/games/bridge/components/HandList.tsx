@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * All saved hands rendered one-per-card so every direction's bid is
  * visible at a glance on a single page. Empty state points to the

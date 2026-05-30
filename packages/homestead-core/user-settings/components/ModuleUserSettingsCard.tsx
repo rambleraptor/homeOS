@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Renders one module's section of the Settings page. Iterates either
  * the module's custom `settingsWidget` (when supplied) or

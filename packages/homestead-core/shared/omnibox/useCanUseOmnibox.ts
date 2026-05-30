@@ -8,8 +8,6 @@
  * updates reactively across the app when a superuser changes it.
  */
 
-'use client';
-
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useModuleFlag } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlag';
 import type { OmniboxAccess } from '@rambleraptor/homestead-core/settings/module.config';

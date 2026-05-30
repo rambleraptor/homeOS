@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Single-line search input for the natural-language omnibox. Submit via
  * Enter. The parent page owns the query state (so it can sync to `?q=`).

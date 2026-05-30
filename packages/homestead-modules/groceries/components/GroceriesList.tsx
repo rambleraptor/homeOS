@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Groceries List Component
  *

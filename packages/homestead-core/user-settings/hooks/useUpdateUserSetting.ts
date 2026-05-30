@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Upsert a single per-user setting on the signed-in user's
  * `user-preference` record.

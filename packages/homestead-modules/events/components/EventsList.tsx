@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';

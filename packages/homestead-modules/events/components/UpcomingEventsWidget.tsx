@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Dashboard widget showing yearly-recurring events that fall within the
  * next 7 days. Reads from the `events` collection — the sole source of

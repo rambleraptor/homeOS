@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * List of past games. Tapping a completed game opens its results.
  * Tapping an in-progress game resumes play from its next unscored hole.

@@ -1,5 +1,3 @@
-'use client';
-
 import { Cake, CalendarHeart, Edit, Heart, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';

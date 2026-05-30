@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * HolePlay — the one-handed scoring screen.
  *

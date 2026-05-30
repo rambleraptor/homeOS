@@ -1,5 +1,3 @@
-'use client';
-
 import { Link } from 'react-router-dom';
 import { Check, Moon, Pause, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';

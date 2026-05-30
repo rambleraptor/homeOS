@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Dashboard widget that counts down to a single configured event.
  *

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Reusable Bulk Import Framework - Container Component
  */
