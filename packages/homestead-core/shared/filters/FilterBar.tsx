@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Generic filter bar.
  *

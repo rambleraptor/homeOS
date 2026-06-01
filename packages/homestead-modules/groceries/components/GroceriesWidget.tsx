@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Dashboard widget showing the count of grocery items still to be
  * purchased. Registered via `groceriesModule.widgets`.

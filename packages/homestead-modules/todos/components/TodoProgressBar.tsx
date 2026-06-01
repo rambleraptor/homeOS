@@ -1,5 +1,3 @@
-'use client';
-
 import type { TodoProgress } from '../types';
 
 interface TodoProgressBarProps {

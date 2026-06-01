@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Read + write the events module's countdown configuration.
  *

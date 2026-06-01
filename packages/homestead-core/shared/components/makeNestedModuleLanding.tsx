@@ -9,12 +9,6 @@ import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
  * getter-of-module dance avoids the temporal-dead-zone error you'd
  * get from referencing the in-flight const directly inside its own
  * object literal.
- *
- * Lives outside `NestedModuleLanding.tsx` so server-side imports of
- * the omnibox listComponent (e.g. the `/api/omnibox/parse` route)
- * can call this factory without crossing the `'use client'`
- * boundary. The returned component is still a client component —
- * it's the wrapper that's server-safe.
  */
 export function makeNestedModuleLanding(
   getModule: () => HomeModule,

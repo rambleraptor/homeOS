@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
 import { Label } from '@rambleraptor/homestead-core/shared/components/ui/label';

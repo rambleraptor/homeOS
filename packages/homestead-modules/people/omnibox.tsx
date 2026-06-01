@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * People module — omnibox adapter.
  *

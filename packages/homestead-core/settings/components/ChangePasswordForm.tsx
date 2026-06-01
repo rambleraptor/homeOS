@@ -1,5 +1,3 @@
-'use client';
-
 import React, { useState } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';

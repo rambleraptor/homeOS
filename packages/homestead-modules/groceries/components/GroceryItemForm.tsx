@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Grocery Item Form Component
  *

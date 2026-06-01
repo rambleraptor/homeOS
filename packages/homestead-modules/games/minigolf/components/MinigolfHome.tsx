@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Minigolf module root — view switcher between list, setup, play and
  * results. Mirrors the view-state pattern used by GiftCardHome.

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * A single saved hand rendered as a compact 4-row table (N/E/S/W), one
  * row per direction with its final bid.

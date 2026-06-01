@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Game setup screen — pick players from the `people` module and choose
  * the number of holes. Player list is a tap-to-toggle chip grid, sized

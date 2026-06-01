@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Bridge module root — quick-entry form on top, saved hands as tables
  * below. The form resets itself after each hand is submitted, so the

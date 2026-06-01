@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Pictionary module root — switches between the games list, the
  * create/edit form, and a detail view. Mirrors the view-state pattern

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Module-level filter state.
  *

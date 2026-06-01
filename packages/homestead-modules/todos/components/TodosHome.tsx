@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useTodoBuckets } from '../hooks/useTodos';

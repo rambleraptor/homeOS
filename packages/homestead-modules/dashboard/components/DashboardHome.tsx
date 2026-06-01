@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Dashboard Home Component
  *

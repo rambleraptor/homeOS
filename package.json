@@ -7,7 +7,6 @@
     "tests/e2e"
   ],
   "optionalDependencies": {
-    "@next/swc-linux-arm64-gnu": "^16.2.6",
     "@rollup/rollup-linux-arm64-gnu": "^4.53.5",
     "@tailwindcss/oxide-linux-arm64-gnu": "^4.3.0",
     "lightningcss-linux-arm64-gnu": "^1.32.0"

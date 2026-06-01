@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Recipe View (Cooking Mode)
  *

@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Pictionary game detail — read-only summary of one game with all teams,
  * highlighting the winner. Provides edit + delete actions.
@@ -106,7 +104,6 @@ export function GameDetail({
           </div>
         )}
         {winningWordImageUrl && (
-          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={winningWordImageUrl}
             alt={

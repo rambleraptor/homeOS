@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Dashboard widget showing perks that haven't been redeemed for their
  * current period, sorted by deadline. Registered via

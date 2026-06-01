@@ -1,5 +1,3 @@
-'use client';
-
 import { NestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/NestedModuleLanding';
 import { gamesModule } from './module.config';
 

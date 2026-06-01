@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Pictionary games list. Each row shows the game's date, location,
  * winning word, and the winning team's roster. Tapping opens the detail

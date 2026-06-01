@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Fetch the single event the countdown widget is configured for, plus
  * its next occurrence resolved through the same recurrence logic the

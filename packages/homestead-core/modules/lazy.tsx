@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Client-side adapters for the lazy thunks declared on a `HomeModule`.
  *

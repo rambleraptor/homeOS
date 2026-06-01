@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Routes a parsed `OmniboxIntent` to the right inline rendering:
  *  - `list` → the module's Home component (via `OmniboxListView`).

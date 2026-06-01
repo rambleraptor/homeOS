@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Todometer-style date header — big day number on the left with month + year
  * stacked next to it, day-of-week on the right. Pure presentation; the date

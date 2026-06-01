@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Plus, Shield, User as UserIcon, Pencil, Trash2 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';

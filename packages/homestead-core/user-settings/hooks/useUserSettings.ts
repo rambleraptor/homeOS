@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Fetch the signed-in user's `user-preference` record and unflatten it
  * into a `{ moduleId: { key: value } }` tree, with declared defaults

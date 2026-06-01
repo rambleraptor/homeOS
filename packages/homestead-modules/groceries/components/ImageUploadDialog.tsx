@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Image Upload Dialog Component
  *

@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, type FormEvent } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';

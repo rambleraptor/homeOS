@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Renders a module's form inline as the confirmation step for an action
  * intent, with the LLM's parsed params pre-filled. The module's existing

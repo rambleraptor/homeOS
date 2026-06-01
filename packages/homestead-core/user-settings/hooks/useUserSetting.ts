@@ -1,5 +1,3 @@
-'use client';
-
 /**
  * Public hook for reading + writing a single per-user module setting.
  *
