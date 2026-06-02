@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Providers } from './providers';
 import { AppShell } from '@rambleraptor/homestead-core/layout/AppShell';
 import { Login } from '@rambleraptor/homestead-core/router/Login';
+import { AuthCallback } from '@rambleraptor/homestead-core/router/AuthCallback';
 import { ModuleRoute } from './modules/ModuleRoute';
 import { SearchPage } from './SearchPage';
 
@@ -34,6 +35,20 @@ export function App() {
               }
             >
               <Login />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/auth/callback"
+          element={
+            <Suspense
+              fallback={
+                <div className="min-h-screen flex items-center justify-center">
+                  Loading...
+                </div>
+              }
+            >
+              <AuthCallback />
             </Suspense>
           }
         />

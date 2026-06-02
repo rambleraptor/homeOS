@@ -45,6 +45,12 @@ export interface LoginCredentials {
 
 export interface AuthContextValue extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
+  /**
+   * Finish an OAuth login from the callback page: aepbase's callback handed us
+   * a bare `token`; this resolves the user via whoami, hydrates preferences,
+   * and seeds the auth state, mirroring `login`.
+   */
+  completeOAuthLogin: (token: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }

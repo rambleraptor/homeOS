@@ -28,6 +28,10 @@ func main() {
 	opts.EnableUsers = true
 	opts.EnableFileFields = true
 
+	// OAuth login is wired up by the homestead launcher (state.EnableOAuth),
+	// not here — aepbase.Run has no OAuth hook, and this standalone wrapper is
+	// only used for local backend dev via run.sh.
+
 	if err := aepbase.Run(opts); err != nil {
 		log.Fatal(err)
 	}

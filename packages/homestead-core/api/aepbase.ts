@@ -383,6 +383,66 @@ export function logout(): void {
   authStore.clear();
 }
 
+// ----------------------------------------------------------------------------
+// OAuth / OIDC login
+// ----------------------------------------------------------------------------
+
+/** A login provider advertised by aepbase's `GET /auth/providers`. */
+export interface OAuthProvider {
+  name: string;
+  display_name: string;
+}
+
+/**
+ * List the OAuth providers aepbase is configured with (`GET /oauth/providers`).
+ * Unauthenticated. Returns an empty array when OAuth is disabled or on any
+ * error, so callers can render zero buttons without special-casing.
+ */
+export async function listOAuthProviders(): Promise<OAuthProvider[]> {
+  try {
+    const res = await request<{ providers?: OAuthProvider[] }>('/oauth/providers');
+    return res.providers ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Begin an OAuth login by navigating the browser to aepbase's `/start`
+ * endpoint, which 302-redirects to the provider. This never returns — it
+ * replaces the current document. On success the provider → aepbase callback
+ * lands back on the SPA's configured success URL (`/auth/callback`).
+ */
+export function startOAuth(providerName: string): void {
+  window.location.href = `${AEP_BASE}/oauth/${encodeURIComponent(providerName)}/start`;
+}
+
+/**
+ * Finish an OAuth login. aepbase's callback handed us a bare `token` in the URL
+ * fragment; we resolve the user via the `/users/me` whoami endpoint and persist
+ * both, mirroring the tail of `login()`. The fetch uses the token explicitly
+ * (rather than the auth store) so we don't emit a transient null-user state
+ * before the real user lands.
+ */
+export async function completeOAuthLogin(token: string): Promise<User> {
+  const url = `${AEP_BASE}/users/me`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const envelope = (await res.json()) as { error?: { message?: string } };
+      if (envelope?.error?.message) message = envelope.error.message;
+    } catch {
+      // not JSON
+    }
+    throw new AepbaseError(res.status, message, url);
+  }
+  const raw = (await res.json()) as RawAepUser;
+  const user = mapAepUser(raw);
+  authStore.save(token, user);
+  return user;
+}
+
 /** Re-fetch the current user from the server. No-op if not authenticated. */
 export async function refreshCurrentUser(): Promise<User | null> {
   if (!authStore.isValid || !authStore.model) return null;
@@ -411,6 +471,9 @@ export const aepbase = {
   logout,
   refreshCurrentUser,
   getCurrentUser,
+  listOAuthProviders,
+  startOAuth,
+  completeOAuthLogin,
   authStore,
 };
 

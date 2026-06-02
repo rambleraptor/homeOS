@@ -128,6 +128,20 @@ func Start(opts Options) (*Server, *Credentials, error) {
 		return nil, nil, fmt.Errorf("enable users: %w", err)
 	}
 
+	// OAuth login is opt-in via OAUTH_* env vars. With OAUTH_PROVIDERS unset
+	// this returns no providers and we leave OAuth off.
+	providers, err := oauthProvidersFromEnv()
+	if err != nil {
+		sqlDB.Close()
+		return nil, nil, fmt.Errorf("oauth config: %w", err)
+	}
+	if len(providers) > 0 {
+		if err := state.EnableOAuth(providers...); err != nil {
+			sqlDB.Close()
+			return nil, nil, fmt.Errorf("enable oauth: %w", err)
+		}
+	}
+
 	defs, err := meta.LoadAll(sqlDB)
 	if err != nil {
 		sqlDB.Close()
