@@ -3,7 +3,7 @@ module homestead/aepbase
 go 1.25.1
 
 require (
-	github.com/rambleraptor/aepbase v0.0.0-20260419213629-93e4fdec7f10
+	github.com/rambleraptor/aepbase v0.1.1-0.20260602194713-24cf9c0fbaed
 	modernc.org/sqlite v1.49.1
 )
 
@@ -15,7 +15,10 @@ require (
 	github.com/google/cel-go v0.28.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.21 // indirect
+	github.com/ncruces/go-sqlite3 v0.34.0 // indirect
+	github.com/ncruces/go-sqlite3-wasm/v2 v2.1.35300 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect

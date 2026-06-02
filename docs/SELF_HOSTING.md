@@ -105,6 +105,39 @@ Open http://localhost:3000 and log in with the superuser credentials
 from step 3. `/` redirects to the dashboard; the sidebar shows whichever
 modules you kept in `homestead.config.ts`.
 
+## Optional: OAuth login
+
+You can let people sign in with Google (or any OAuth2/OIDC provider)
+instead of a password. aepbase runs the authorization-code exchange,
+reads the provider's userinfo, and mints the same bearer token password
+login uses, so nothing else in the stack changes.
+
+By default login is **existing-users-only**: the email returned by the
+provider must match a user you already created via `POST /users`. Unknown
+emails are rejected. Set `"allow_registration": true` on a provider to let
+first-time sign-ins create a new account instead.
+
+Configure it with three environment variables read by the launcher at boot
+(OAuth is wired up by the launcher, not the standalone aepbase binary):
+
+```bash
+# JSON array of providers. aepbase does no OIDC discovery, so the
+# authorize/token/userinfo endpoints are explicit. The URLs below are Google's;
+# any OAuth2/OIDC provider works with its own.
+OAUTH_PROVIDERS='[{"name":"google","display_name":"Google","client_id":"…","client_secret":"…","scopes":["openid","email","profile"],"auth_url":"https://accounts.google.com/o/oauth2/v2/auth","token_url":"https://oauth2.googleapis.com/token","userinfo_url":"https://openidconnect.googleapis.com/v1/userinfo"}]'
+
+# App origin + /api/aep. Each provider's redirect_uri is
+#   {OAUTH_REDIRECT_BASE_URL}/oauth/{name}/callback
+# Register that exact URL in the provider console (e.g. Google Cloud → Credentials).
+OAUTH_REDIRECT_BASE_URL=http://localhost:3000/api/aep
+
+# SPA route the callback returns to (with the token in the URL fragment).
+OAUTH_SUCCESS_REDIRECT=http://localhost:3000/auth/callback
+```
+
+When `OAUTH_PROVIDERS` is set, the login page shows a "Sign in with …"
+button per provider. Leaving it unset keeps OAuth off entirely.
+
 ## 5. Add a custom module
 
 A module is self-describing. The minimum is a `module.config.ts` and

@@ -10,6 +10,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { aepbase, type OAuthProvider } from '../api/aepbase';
 import { Home, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export function Login() {
@@ -22,6 +23,22 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [providers, setProviders] = useState<OAuthProvider[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    aepbase
+      .listOAuthProviders()
+      .then((list) => {
+        if (active) setProviders(list);
+      })
+      .catch(() => {
+        // No providers / OAuth disabled — leave the list empty.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
@@ -139,6 +156,35 @@ export function Login() {
               )}
             </button>
           </form>
+
+          {/* OAuth / OIDC providers */}
+          {providers.length > 0 && (
+            <div className="mt-6" data-testid="oauth-providers">
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-surface-white px-2 text-sm font-body text-text-muted">
+                    or
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {providers.map((provider) => (
+                  <button
+                    key={provider.name}
+                    type="button"
+                    data-testid={`oauth-${provider.name}`}
+                    onClick={() => aepbase.startOAuth(provider.name)}
+                    className="w-full flex justify-center py-3 px-4 rounded-lg border border-gray-200 bg-surface-white text-base font-body font-semibold text-brand-navy hover:bg-bg-pearl focus:outline-none focus:ring-2 focus:ring-accent-terracotta/40 focus:ring-offset-1 transition-colors"
+                  >
+                    Sign in with {provider.display_name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

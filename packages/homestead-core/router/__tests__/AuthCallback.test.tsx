@@ -1,0 +1,59 @@
+/**
+ * Tests for the OAuth callback page: fragment parsing → completeOAuthLogin on
+ * success, friendly error copy on failure.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { AuthCallback } from '../AuthCallback';
+
+const completeOAuthLogin = vi.fn();
+const navigate = vi.fn();
+
+vi.mock('@rambleraptor/homestead-core/auth/useAuth', () => ({
+  useAuth: () => ({ completeOAuthLogin }),
+}));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return { ...actual, useNavigate: () => navigate };
+});
+
+function setHash(hash: string) {
+  window.location.hash = hash;
+}
+
+describe('AuthCallback', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    completeOAuthLogin.mockResolvedValue(undefined);
+    setHash('');
+  });
+
+  it('completes login from the fragment token and navigates to the dashboard', async () => {
+    setHash('#token=tok-1');
+
+    render(
+      <MemoryRouter>
+        <AuthCallback />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(completeOAuthLogin).toHaveBeenCalledWith('tok-1'));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard', { replace: true }));
+  });
+
+  it('shows an error when the token is missing', async () => {
+    setHash('#');
+
+    render(
+      <MemoryRouter>
+        <AuthCallback />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId('oauth-callback-error')).toBeInTheDocument();
+    expect(completeOAuthLogin).not.toHaveBeenCalled();
+  });
+});

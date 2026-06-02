@@ -208,6 +208,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const completeOAuthLogin = useCallback(async (token: string) => {
+    setState((prev) => ({ ...prev, isLoading: true }));
+    try {
+      const baseUser = await aepbase.completeOAuthLogin(token);
+      const hydrated = await hydrateUserPreferences(baseUser);
+      aepbase.authStore.save(aepbase.authStore.token, hydrated);
+      await queryClient.invalidateQueries();
+    } catch (error) {
+      setState((prev) => ({ ...prev, isLoading: false }));
+      throw error;
+    }
+  }, []);
+
   const logout = useCallback(() => {
     aepbase.logout();
     setState({
@@ -234,6 +247,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [logout]);
 
-  const value: AuthContextValue = { ...state, login, logout, refreshUser };
+  const value: AuthContextValue = {
+    ...state,
+    login,
+    completeOAuthLogin,
+    logout,
+    refreshUser,
+  };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
