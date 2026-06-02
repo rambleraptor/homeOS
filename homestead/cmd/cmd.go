@@ -20,6 +20,8 @@ func Dispatch(args []string) error {
 		return runInit(rest)
 	case "doctor":
 		return runDoctor(rest)
+	case "users":
+		return runUsers(rest)
 	default:
 		printUsage()
 		return fmt.Errorf("unknown subcommand %q", sub)
@@ -34,6 +36,7 @@ func printUsage() {
 		"  homestead init [<dir>]        Scaffold a new project (homestead.config.ts + modules/).",
 		"  homestead start [--dev]       Boot aepbase + sidecar + SPA using the homestead.config.ts in CWD.",
 		"  homestead doctor              Check whether the host can run `homestead start`.",
+		"  homestead users <verb>        Manage user accounts (list/get/create/update/delete).",
 		"",
 		"Flags for `start`:",
 		"  --dev                          Serve the SPA via Vite (HMR) instead of the embedded build.",
