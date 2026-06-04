@@ -5,7 +5,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { CreditCardsList } from './components/CreditCardsList';
 import { creditCardsResources } from './resources';
 
 export const creditCardsModule: HomeModule = {
@@ -34,19 +33,6 @@ export const creditCardsModule: HomeModule = {
   offlineOverrides: {
     perk: false,
     redemption: false,
-  },
-  omnibox: {
-    synonyms: [
-      'credit',
-      'card',
-      'cards',
-      'perk',
-      'perks',
-      'rewards',
-      'chase',
-      'amex',
-    ],
-    listComponent: CreditCardsList,
   },
   widgets: [
     {

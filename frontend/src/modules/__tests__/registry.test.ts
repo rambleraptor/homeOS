@@ -65,10 +65,10 @@ describe('getAllModuleFlagDefs', () => {
 
   it('preserves module-declared flags alongside the built-in one', () => {
     const defs = getAllModuleFlagDefs();
-    // `settings.omnibox_access` is a module-declared flag; it should
+    // `groceries.default_store` is a module-declared flag; it should
     // still be present after the built-in is merged in.
-    expect(defs.settings.omnibox_access).toBeDefined();
-    expect(defs.settings[BUILTIN_ENABLED_FLAG_KEY]).toBeDefined();
+    expect(defs.groceries.default_store).toBeDefined();
+    expect(defs.groceries[BUILTIN_ENABLED_FLAG_KEY]).toBeDefined();
   });
 
   it('injects an `enabled_tags` string flag into every module for tag-based gating', () => {

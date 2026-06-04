@@ -1,6 +1,6 @@
 /**
  * Spawn the Vite dev server for e2e. Vite serves the SPA and proxies
- * `/api/aep/*` to the test aepbase and `/api/{omnibox,notifications,modules}/*`
+ * `/api/aep/*` to the test aepbase and `/api/{notifications,modules}/*`
  * to the test sidecar (targets seeded via AEPBASE_URL / SIDECAR_URL, read by
  * vite.config.ts). The schema is applied by the sidecar on boot, so this
  * setup only waits for Vite to start listening.

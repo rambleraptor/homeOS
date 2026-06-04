@@ -4,9 +4,6 @@
  * `ModuleFiltersProvider` owns the current filter values, exposes setters
  * to `<FilterBar>`, and memoizes the filtered list for the module's list
  * component via `useFilteredItems`.
- *
- * The omnibox dispatcher passes `initialValues` when it routes to a list
- * intent so the LLM-parsed filters populate the bar on mount.
  */
 
 import {
@@ -31,35 +28,6 @@ interface FiltersContextValue<T = unknown> {
 }
 
 const FiltersContext = createContext<FiltersContextValue | null>(null);
-
-/**
- * Seed context. The omnibox dispatcher wraps a module's list component in
- * `<OmniboxFilterSeedProvider>` so the list's `ModuleFiltersProvider` can
- * pick up the LLM-parsed filter values as `initialValues`. Outside the
- * omnibox (a direct module page visit) `useOmniboxFilterSeed()` returns
- * `undefined` and the provider starts with empty state.
- */
-const OmniboxFilterSeedContext = createContext<
-  Record<string, unknown> | undefined
->(undefined);
-
-export function OmniboxFilterSeedProvider({
-  values,
-  children,
-}: {
-  values?: Record<string, unknown>;
-  children: ReactNode;
-}) {
-  return (
-    <OmniboxFilterSeedContext.Provider value={values}>
-      {children}
-    </OmniboxFilterSeedContext.Provider>
-  );
-}
-
-export function useOmniboxFilterSeed(): Record<string, unknown> | undefined {
-  return useContext(OmniboxFilterSeedContext);
-}
 
 interface ModuleFiltersProviderProps<T> {
   moduleId: string;

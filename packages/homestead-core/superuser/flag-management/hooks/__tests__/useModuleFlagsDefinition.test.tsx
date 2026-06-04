@@ -46,10 +46,10 @@ describe('useModuleFlagsDefinition', () => {
     vi.mocked(aepbase.get).mockResolvedValue({
       schema: {
         properties: {
-          settings__omnibox_access: {
+          settings__theme: {
             type: 'string',
             description:
-              'Who can use the omnibox. (default: superuser) (one of: superuser, all)',
+              'Color theme for the app. (default: light) (one of: light, dark)',
           },
         },
       },
@@ -61,12 +61,12 @@ describe('useModuleFlagsDefinition', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isMissing).toBe(false);
-    expect(result.current.defs.settings.omnibox_access).toEqual({
+    expect(result.current.defs.settings.theme).toEqual({
       type: 'enum',
-      label: 'Omnibox access',
-      description: 'Who can use the omnibox.',
-      options: ['superuser', 'all'],
-      default: 'superuser',
+      label: 'Theme',
+      description: 'Color theme for the app.',
+      options: ['light', 'dark'],
+      default: 'light',
     });
   });
 

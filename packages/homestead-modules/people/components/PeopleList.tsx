@@ -2,10 +2,7 @@
  * People List Component
  *
  * Renders the people list with the shared `<FilterBar>` for client-side
- * filtering. Used by `PeopleHome` and by the omnibox list view — it
- * deliberately omits the page header and "Add Person" button so the
- * omnibox doesn't render chrome that belongs to the module's full home
- * page.
+ * filtering. Used by `PeopleHome`.
  */
 
 import { useState } from 'react';
@@ -18,7 +15,6 @@ import {
   FilterBar,
   ModuleFiltersProvider,
   useFilteredItems,
-  useOmniboxFilterSeed,
 } from '@rambleraptor/homestead-core/shared/filters';
 import { usePeople } from '../hooks/usePeople';
 import { useUpdatePerson } from '../hooks/useUpdatePerson';
@@ -30,7 +26,6 @@ import type { Person, PersonFormData } from '../types';
 
 export function PeopleList() {
   const { data: people, isLoading } = usePeople();
-  const seed = useOmniboxFilterSeed();
 
   if (isLoading) {
     return (
@@ -45,7 +40,6 @@ export function PeopleList() {
       moduleId={peopleModule.id}
       decls={peopleModule.filters ?? []}
       items={people ?? []}
-      initialValues={seed}
     >
       <PeopleListInner hasAny={(people?.length ?? 0) > 0} />
     </ModuleFiltersProvider>

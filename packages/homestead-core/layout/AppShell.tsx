@@ -5,12 +5,10 @@
  * Combines sidebar, header, and content area.
  */
 
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { AuthGuard } from '../auth/AuthGuard';
-import { useCanUseOmnibox } from '@rambleraptor/homestead-core/shared/omnibox/useCanUseOmnibox';
 import { OfflineBanner } from '../shared/components/OfflineBanner';
 
 interface AppShellProps {
@@ -19,26 +17,9 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const navigate = useNavigate();
-  const canUseOmnibox = useCanUseOmnibox();
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
   const closeSidebar = () => setSidebarOpen(false);
-
-  // Global Cmd/Ctrl+K shortcut to open the omnibox. Gated by
-  // settings.omnibox_access — for users without access the shortcut is a
-  // no-op, which also prevents accidental discovery.
-  useEffect(() => {
-    if (!canUseOmnibox) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        navigate('/search');
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [canUseOmnibox, navigate]);
 
   return (
     <AuthGuard>

@@ -2,7 +2,7 @@
 
 Homestead deploys as a **single binary**. `homestead start` (a Bun-compiled
 CLI) spawns aepbase as a child process (its binary is extracted from the
-launcher at boot), serves the Bun sidecar (notifications + omnibox OCR)
+launcher at boot), serves the Bun sidecar (notifications + receipt OCR)
 in-process, and serves the embedded SPA behind one user-facing port. One
 systemd service supervises it.
 
@@ -152,7 +152,7 @@ service (`EnvironmentFile`, inherited by the sidecar at runtime) read
 VAPID_PUBLIC_KEY=...      # also baked into the SPA at build time
 VAPID_PRIVATE_KEY=...     # keep secret
 VAPID_EMAIL=mailto:admin@example.com
-GEMINI_API_KEY=...        # optional, omnibox/receipt OCR
+GEMINI_API_KEY=...        # optional, receipt OCR
 ```
 
 The legacy `AEPBASE_URL` / `AEPBASE_ADMIN_*` entries in that file are

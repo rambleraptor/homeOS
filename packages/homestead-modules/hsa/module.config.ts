@@ -5,7 +5,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { HSAHome } from './components/HSAHome';
 import { hsaResources } from './resources';
 
 export const hsaModule: HomeModule = {
@@ -26,21 +25,6 @@ export const hsaModule: HomeModule = {
   section: 'Money',
   enabled: true,
   resources: hsaResources,
-  omnibox: {
-    synonyms: [
-      'hsa',
-      'medical',
-      'receipt',
-      'receipts',
-      'dental',
-      'vision',
-      'rx',
-      'prescription',
-      'doctor',
-      'pharmacy',
-    ],
-    listComponent: HSAHome,
-  },
   workers: {
     'parse-receipt': {
       method: 'POST',

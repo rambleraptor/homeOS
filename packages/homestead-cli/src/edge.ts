@@ -12,13 +12,13 @@ export interface EdgeOptions {
   spa: SpaAssets;
 }
 
-const SIDECAR_PREFIXES = ['/api/omnibox', '/api/notifications', '/api/modules'];
+const SIDECAR_PREFIXES = ['/api/notifications', '/api/modules'];
 
 /**
  * The user-facing server (prod): one port fanning out to aepbase, the sidecar,
  * and the static SPA. Mirrors the Go edge:
  *   - /api/aep/*  → aepbase, with the /api/aep prefix stripped
- *   - /api/{omnibox,notifications,modules}/* → sidecar, path intact
+ *   - /api/{notifications,modules}/* → sidecar, path intact
  *   - everything else → static file, falling back to index.html (SPA routing)
  */
 export function startEdge(opts: EdgeOptions): EdgeServer {

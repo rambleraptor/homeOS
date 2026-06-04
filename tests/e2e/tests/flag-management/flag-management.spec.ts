@@ -13,7 +13,7 @@ import { aepList, aepRemove } from '../../utils/aepbase-helpers';
 
 interface ModuleFlagsRecord {
   id: string;
-  settings__omnibox_access?: string;
+  groceries__enabled?: string;
   [field: string]: unknown;
 }
 
@@ -38,19 +38,19 @@ test.describe('Superuser → Flag Management sub-page (superuser)', () => {
     await resetModuleFlags(adminToken);
   });
 
-  test('renders the settings module section with the omnibox_access flag and its description', async () => {
-    await flagPage.expectModuleSectionVisible('settings');
+  test('renders the groceries module section with the built-in enabled flag and its description', async () => {
+    await flagPage.expectModuleSectionVisible('groceries');
     await flagPage.expectFlagDescriptionVisible(
-      'Who can use the natural-language omnibox (⌘K / search bar).',
+      "Who can use this module. 'superusers' restricts it to superusers;",
     );
-    // Defaults to 'superuser' when no record exists yet.
-    await flagPage.expectEnumFlagValue('settings', 'omnibox_access', 'superuser');
+    // Defaults to 'all' when no record exists yet.
+    await flagPage.expectEnumFlagValue('groceries', 'enabled', 'all');
   });
 
   test('superuser can change an enum flag and the value persists to aepbase', async ({
     adminToken,
   }) => {
-    await flagPage.selectEnumFlag('settings', 'omnibox_access', 'all');
+    await flagPage.selectEnumFlag('groceries', 'enabled', 'superusers');
 
     // Poll aepbase until the singleton shows the new value (the mutation
     // round-trips through the aepbase proxy; give it a few hundred ms).
@@ -61,15 +61,15 @@ test.describe('Superuser → Flag Management sub-page (superuser)', () => {
             adminToken,
             'module-flags',
           );
-          return records[0]?.settings__omnibox_access;
+          return records[0]?.groceries__enabled;
         },
         { timeout: 5000 },
       )
-      .toBe('all');
+      .toBe('superusers');
 
     // A reload should surface the persisted value rather than the default.
     await flagPage.goto();
-    await flagPage.expectEnumFlagValue('settings', 'omnibox_access', 'all');
+    await flagPage.expectEnumFlagValue('groceries', 'enabled', 'superusers');
   });
 });
 

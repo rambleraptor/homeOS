@@ -12,13 +12,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { aepbase, AepbaseError } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
 import { initializeModuleRegistry } from '@rambleraptor/homestead-core/modules/registry';
-import { settingsModule } from '../module.config';
+import { groceriesModule } from '@rambleraptor/homestead-modules/groceries/module.config';
 import { useModuleFlag } from '../hooks/useModuleFlag';
 
 beforeAll(() => {
-  // Register the settings module so `getAllModuleFlagDefs` returns the
-  // declared `omnibox_access` default this suite relies on.
-  initializeModuleRegistry([settingsModule]);
+  // Register the groceries module so `getAllModuleFlagDefs` returns the
+  // declared `default_store` default this suite relies on.
+  initializeModuleRegistry([groceriesModule]);
 });
 
 vi.mock('@rambleraptor/homestead-core/module-flags/sync', () => ({
@@ -47,48 +47,48 @@ describe('useModuleFlag', () => {
     vi.mocked(aepbase.list).mockResolvedValue([]);
 
     const { result } = renderHook(
-      () => useModuleFlag<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('groceries', 'default_store'),
       { wrapper: createWrapper() },
     );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.value).toBe('superuser');
+    expect(result.current.value).toBe('');
   });
 
   it('reflects the value stored on the singleton record', async () => {
     vi.mocked(aepbase.list).mockResolvedValue([
-      { id: 'rec-1', settings__omnibox_access: 'all' },
+      { id: 'rec-1', groceries__default_store: 'store-1' },
     ]);
 
     const { result } = renderHook(
-      () => useModuleFlag<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('groceries', 'default_store'),
       { wrapper: createWrapper() },
     );
 
-    await waitFor(() => expect(result.current.value).toBe('all'));
+    await waitFor(() => expect(result.current.value).toBe('store-1'));
   });
 
   it('PATCHes the existing record via setValue', async () => {
     vi.mocked(aepbase.list).mockResolvedValue([
-      { id: 'rec-1', settings__omnibox_access: 'superuser' },
+      { id: 'rec-1', groceries__default_store: 'store-1' },
     ]);
     vi.mocked(aepbase.update).mockResolvedValue({
       id: 'rec-1',
-      settings__omnibox_access: 'all',
+      groceries__default_store: 'store-2',
     });
 
     const { result } = renderHook(
-      () => useModuleFlag<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('groceries', 'default_store'),
       { wrapper: createWrapper() },
     );
 
-    await waitFor(() => expect(result.current.value).toBe('superuser'));
+    await waitFor(() => expect(result.current.value).toBe('store-1'));
     await act(async () => {
-      await result.current.setValue('all');
+      await result.current.setValue('store-2');
     });
 
     expect(aepbase.update).toHaveBeenCalledWith('module-flags', 'rec-1', {
-      settings__omnibox_access: 'all',
+      groceries__default_store: 'store-2',
     });
     expect(aepbase.create).not.toHaveBeenCalled();
   });
@@ -97,21 +97,21 @@ describe('useModuleFlag', () => {
     vi.mocked(aepbase.list).mockResolvedValue([]);
     vi.mocked(aepbase.create).mockResolvedValue({
       id: 'new-rec',
-      settings__omnibox_access: 'all',
+      groceries__default_store: 'store-1',
     });
 
     const { result } = renderHook(
-      () => useModuleFlag<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('groceries', 'default_store'),
       { wrapper: createWrapper() },
     );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await act(async () => {
-      await result.current.setValue('all');
+      await result.current.setValue('store-1');
     });
 
     expect(aepbase.create).toHaveBeenCalledWith('module-flags', {
-      settings__omnibox_access: 'all',
+      groceries__default_store: 'store-1',
     });
   });
 
@@ -125,22 +125,22 @@ describe('useModuleFlag', () => {
       .mockResolvedValueOnce([]);
     vi.mocked(aepbase.create).mockResolvedValue({
       id: 'new-rec',
-      settings__omnibox_access: 'all',
+      groceries__default_store: 'store-1',
     });
 
     const { result } = renderHook(
-      () => useModuleFlag<string>('settings', 'omnibox_access'),
+      () => useModuleFlag<string>('groceries', 'default_store'),
       { wrapper: createWrapper() },
     );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     await act(async () => {
-      await result.current.setValue('all');
+      await result.current.setValue('store-1');
     });
 
     expect(syncModuleFlagsSchema).toHaveBeenCalledTimes(1);
     expect(aepbase.create).toHaveBeenCalledWith('module-flags', {
-      settings__omnibox_access: 'all',
+      groceries__default_store: 'store-1',
     });
   });
 });

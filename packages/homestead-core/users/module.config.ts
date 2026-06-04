@@ -14,7 +14,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { UsersHome } from './components/UsersHome';
 import { usersResources } from './resources';
 
 export const usersModule: HomeModule = {
@@ -37,8 +36,4 @@ export const usersModule: HomeModule = {
   enabled: true,
   defaultEnabled: 'superusers',
   resources: usersResources,
-  omnibox: {
-    synonyms: ['users', 'accounts', 'members'],
-    listComponent: UsersHome,
-  },
 };

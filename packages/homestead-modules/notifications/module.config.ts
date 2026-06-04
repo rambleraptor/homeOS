@@ -6,7 +6,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { NotificationsHome } from './components/NotificationsHome';
 import { notificationsResources } from './resources';
 
 export const notificationsModule: HomeModule = {
@@ -27,8 +26,4 @@ export const notificationsModule: HomeModule = {
   navOrder: 4,
   enabled: true,
   resources: notificationsResources,
-  omnibox: {
-    synonyms: ['notifications', 'reminders', 'alerts', 'inbox'],
-    listComponent: NotificationsHome,
-  },
 };

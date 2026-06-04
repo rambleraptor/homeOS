@@ -14,7 +14,7 @@
 export type ModuleFilterType = 'text' | 'enum' | 'boolean' | 'dateRange';
 
 export interface ModuleFilterDecl {
-  /** Stable key used for state and the omnibox manifest. */
+  /** Stable key used for filter state. */
   key: string;
   /** Human-readable label rendered above the input. */
   label: string;
@@ -30,7 +30,7 @@ export interface ModuleFilterDecl {
    * with OR semantics when applied.
    */
   multi?: boolean;
-  /** Optional hint passed to the omnibox LLM. */
+  /** Optional descriptive hint for the filter. */
   description?: string;
   /** Optional placeholder for text inputs. */
   placeholder?: string;
