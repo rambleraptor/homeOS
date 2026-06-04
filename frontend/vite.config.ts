@@ -109,8 +109,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: '../homestead/internal/edge/dist',
+    // Built SPA. `make homestead` embeds this directory into the single binary
+    // via scripts/gen-embedded.ts, so sourcemaps are off — they'd bloat the
+    // binary with .map files. Flip on locally if you need to debug a prod build.
+    outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
   },
 }));

@@ -3,8 +3,10 @@
 Homestead is my opinionated app for doing things at home.
 
 It ships as a **single binary**. `homestead start` boots everything — the
-[aepbase](https://www.github.com/rambleraptor/aepbase) backend (in-process),
-the Bun sidecar, and a web server that serves the app — on one port.
+[aepbase](https://www.github.com/rambleraptor/aepbase) backend, the Bun
+sidecar, and a web server that serves the app — on one port. (aepbase and the
+sidecar are baked into the binary — aepbase runs as a child process, the
+sidecar in-process.)
 
 ## Features
 - Grocery list with notifications
@@ -35,8 +37,8 @@ Go.
 ```bash
 git clone https://github.com/rambleraptor/homestead.git
 cd homestead
-make homestead          # builds ./homestead/bin/homestead (SPA + sidecar + aepbase)
-./homestead/bin/homestead start
+make homestead          # builds ./bin/homestead (SPA + sidecar + aepbase)
+./bin/homestead start
 ```
 
 `homestead start` prints a ready banner once everything is up:
@@ -112,7 +114,7 @@ homestead doctor --port=8080 --aepbase-port=9000
 A running Homestead is a single process that supervises three pieces behind
 one web server:
 
-- **aepbase** (in-process) — a Go backend that serves an
+- **aepbase** (child process) — a Go backend that serves an
   [AEP](https://www.aep.dev)-compliant REST API backed by SQLite. Holds all
   your data and binds to loopback.
 - **sidecar** (Bun) — server-side APIs (notifications, OCR, scheduled

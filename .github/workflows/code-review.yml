@@ -150,7 +150,7 @@ jobs:
       - name: Check build output
         run: |
           echo "Build completed successfully"
-          ls -la homestead/internal/edge/dist/
+          ls -la frontend/dist/
 
   test:
     runs-on: ubuntu-latest
@@ -168,10 +168,23 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Install frontend dependencies
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: aepbase/go.sum
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
         run: make install
 
-      - name: Run frontend tests
+      # `make test` runs the frontend (vitest), CLI (bun test) and aepbase (go
+      # test) suites, so this job needs Node + Bun + Go.
+      - name: Run tests
         run: make test
 
   security-scan:

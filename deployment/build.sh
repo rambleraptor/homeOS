@@ -2,9 +2,10 @@
 set -euo pipefail
 
 # Homestead build script.
-# Builds the single `homestead` binary (embeds the Vite SPA + the compiled
-# Bun sidecar) via `make homestead`. The binary runs aepbase in-process, so
-# there is no separate aepbase build or Next.js server anymore.
+# Builds the single `homestead` binary (a Bun-compiled CLI embedding the Vite
+# SPA + the compiled Bun sidecar + the aepbase Go binary) via `make homestead`.
+# At runtime the binary spawns aepbase as a child process and serves the
+# sidecar in-process.
 
 cd "$(dirname "$0")/.."
 PROJECT_ROOT="$(pwd)"
@@ -35,13 +36,13 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 if ! command -v go >/dev/null 2>&1; then
-  echo "❌ Go toolchain not found. Install Go 1.25+ (see homestead/go.mod)." >&2
+  echo "❌ Go toolchain not found. Install Go 1.25+ (see aepbase/go.mod)." >&2
   fail=1
 else
   GO_VER="$(go env GOVERSION 2>/dev/null | sed 's/^go//')"
   case "$GO_VER" in
     1.1[0-9]*|1.2[0-4]*)
-      echo "⚠️  Go $GO_VER is older than the 1.25 required by homestead/go.mod."
+      echo "⚠️  Go $GO_VER is older than the 1.25 required by aepbase/go.mod."
       echo "    Go will try to auto-download the 1.25 toolchain (needs network)."
       echo "    If the build fails to fetch it, install Go 1.25+ directly."
       ;;
@@ -66,7 +67,7 @@ echo "🔨 make homestead"
 make homestead
 
 echo ""
-echo "✅ Build complete: $PROJECT_ROOT/homestead/bin/homestead"
+echo "✅ Build complete: $PROJECT_ROOT/bin/homestead"
 echo ""
 echo "Next steps:"
 echo "  1. Set up service:  sudo make setup-services"
