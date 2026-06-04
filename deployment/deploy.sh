@@ -10,7 +10,7 @@ set -euo pipefail
 #   ./deploy.sh --auto    - Pull from origin, deploy if there are updates (timer)
 #   ./deploy.sh --force   - Rebuild even if no changes are detected
 #
-# aepbase runs in-process inside the homestead binary and its schema is
+# aepbase runs as a child process of the homestead binary and its schema is
 # synced by the Bun sidecar on boot, so a restart picks up schema changes.
 # Data persists in aepbase/data/ (passed to homestead via --data-dir).
 
@@ -22,7 +22,7 @@ BRANCH="${DEPLOY_BRANCH:-main}"
 SERVICE="${DEPLOY_SERVICE:-homeos}"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_FILE="${DEPLOY_LOG_FILE:-$PROJECT_ROOT/deployment.log}"
-BINARY="$PROJECT_ROOT/homestead/bin/homestead"
+BINARY="$PROJECT_ROOT/bin/homestead"
 
 for arg in "$@"; do
   case $arg in
@@ -89,7 +89,7 @@ NEEDS_BUILD=false
 DEPS_CHANGED=false
 if [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ]; then
   CHANGED=$(git diff --name-only "$PREVIOUS_COMMIT..$NEW_COMMIT")
-  if echo "$CHANGED" | grep -qE "^(frontend|packages|aepbase|homestead)/|^homestead\.config\.ts$"; then
+  if echo "$CHANGED" | grep -qE "^(frontend|packages|aepbase|scripts)/|^homestead\.config\.ts$"; then
     NEEDS_BUILD=true
     log "${YELLOW}🔄 Source changes detected${NC}"
   fi

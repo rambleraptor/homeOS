@@ -6,8 +6,8 @@ real aepbase backend.
 ## Overview
 
 These tests verify the full integration of the Homestead application,
-exercising both the Next.js frontend and the aepbase backend together in
-a real browser environment.
+exercising the Vite + React frontend, the Bun sidecar, and the aepbase
+backend together in a real browser environment.
 
 ### What's Tested
 
@@ -25,7 +25,7 @@ a real browser environment.
 tests/e2e/                            # Cross-cutting test plumbing
 ├── config/
 │   ├── aepbase.setup.ts              # aepbase test instance management
-│   └── dev-server.setup.ts           # Next.js dev server bootstrap
+│   └── dev-server.setup.ts           # Vite dev server bootstrap
 ├── fixtures/
 │   ├── aepbase.fixture.ts            # Auth + user/admin Playwright fixtures
 │   └── test-data.ts                  # `testUsers` (cross-cutting only)

@@ -11,7 +11,7 @@ Two processes:
 
 - **aepbase** — a small Go binary that serves an AEP-compliant REST API
   backed by SQLite. Holds all your data.
-- **frontend** — a Next.js app that talks to aepbase over a same-origin
+- **frontend** — a Vite + React SPA that talks to aepbase over a same-origin
   `/api/aep` proxy.
 
 Each user-facing feature (gift cards, recipes, todos, …) is an opt-in
@@ -73,7 +73,7 @@ management — surfaces the rest of the app depends on.
 
 Removing a module hides it from the sidebar, makes its URLs 404, and
 drops its dashboard widget. The collections it owned are no longer
-applied on the next Next.js boot — old data still lives in aepbase
+applied on the next sidecar boot — old data still lives in aepbase
 (deleting a resource definition is destructive and isn't done
 automatically), but new writes will 404.
 
@@ -85,12 +85,13 @@ cd aepbase
 ./run.sh               # serves on :8090
 ```
 
-aepbase prints the superuser email + password to stdout on first start.
-**Save these credentials** — set them as `AEPBASE_ADMIN_EMAIL` and
-`AEPBASE_ADMIN_PASSWORD` in the Next.js environment (e.g. in
-`frontend/.env.local`) so the schema sync runs automatically when the
-Next.js server starts. The schema is applied once at boot — no
-separate `apply` step is needed.
+aepbase writes the superuser email + password to `data/credentials.json`
+on first start. Set them as `AEPBASE_ADMIN_EMAIL` and
+`AEPBASE_ADMIN_PASSWORD` in the **sidecar's** environment so its boot-time
+schema sync runs automatically. The schema is applied once at sidecar
+boot — no separate `apply` step is needed. (The `homestead` launcher does
+this wiring for you; these manual steps are only for running the pieces
+standalone.)
 
 ## 4. Run the frontend
 
@@ -117,26 +118,50 @@ provider must match a user you already created via `POST /users`. Unknown
 emails are rejected. Set `"allow_registration": true` on a provider to let
 first-time sign-ins create a new account instead.
 
-Configure it with three environment variables read by the launcher at boot
-(OAuth is wired up by the launcher, not the standalone aepbase binary):
+Configure OAuth in **`homestead.config.ts`** under `auth.oauth`. The launcher
+reads it natively and passes it to aepbase; secrets are pulled from the
+environment so they never live in source or the client bundle. The shipped
+config enables a Google provider when `GOOGLE_OAUTH_CLIENT_ID` +
+`GOOGLE_OAUTH_CLIENT_SECRET` are set — edit the `providers` array to add others
+(aepbase does no OIDC discovery, so the authorize/token/userinfo URLs are
+explicit):
 
-```bash
-# JSON array of providers. aepbase does no OIDC discovery, so the
-# authorize/token/userinfo endpoints are explicit. The URLs below are Google's;
-# any OAuth2/OIDC provider works with its own.
-OAUTH_PROVIDERS='[{"name":"google","display_name":"Google","client_id":"…","client_secret":"…","scopes":["openid","email","profile"],"auth_url":"https://accounts.google.com/o/oauth2/v2/auth","token_url":"https://oauth2.googleapis.com/token","userinfo_url":"https://openidconnect.googleapis.com/v1/userinfo"}]'
-
-# App origin + /api/aep. Each provider's redirect_uri is
-#   {OAUTH_REDIRECT_BASE_URL}/oauth/{name}/callback
-# Register that exact URL in the provider console (e.g. Google Cloud → Credentials).
-OAUTH_REDIRECT_BASE_URL=http://localhost:3000/api/aep
-
-# SPA route the callback returns to (with the token in the URL fragment).
-OAUTH_SUCCESS_REDIRECT=http://localhost:3000/auth/callback
+```ts
+// homestead.config.ts (excerpt)
+auth: {
+  oauth: {
+    // App origin + /api/aep. Each provider's redirect_uri is
+    //   {redirectBaseUrl}/oauth/{name}/callback
+    // Register that exact URL in the provider console (e.g. Google Cloud).
+    redirectBaseUrl: 'http://localhost:3000/api/aep',
+    // SPA route the callback returns to (token in the URL fragment).
+    successRedirect: 'http://localhost:3000/auth/callback',
+    providers: [
+      {
+        name: 'google',
+        displayName: 'Google',
+        clientId: process.env.GOOGLE_OAUTH_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
+        scopes: ['openid', 'email', 'profile'],
+        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+        userInfoUrl: 'https://openidconnect.googleapis.com/v1/userinfo',
+        // allowRegistration: true,  // let first-time sign-ins create accounts
+      },
+    ],
+  },
+},
 ```
 
-When `OAUTH_PROVIDERS` is set, the login page shows a "Sign in with …"
-button per provider. Leaving it unset keeps OAuth off entirely.
+```bash
+# Set these in the launcher's environment (e.g. systemd EnvironmentFile):
+GOOGLE_OAUTH_CLIENT_ID=…
+GOOGLE_OAUTH_CLIENT_SECRET=…
+```
+
+With at least one provider configured, the login page shows a "Sign in with …"
+button per provider. Leaving `auth.oauth` off (or its `providers` empty) keeps
+OAuth disabled entirely.
 
 ## 5. Add a custom module
 
@@ -183,8 +208,8 @@ const config: HomesteadConfig = {
 
 If your module needs its own aepbase collection, add a `resources.ts`
 next to `module.config.ts` exporting a `ResourceDefinition[]`, and
-reference it from the module's config (`resources: [...]`). The Next.js
-boot hook applies the schema; restart the dev server to pick up the
+reference it from the module's config (`resources: [...]`). The sidecar's
+boot-time schema sync applies it; restart the stack to pick up the
 change. The `create-module` skill scaffolds a new module end-to-end —
 resource definitions, hooks, components, config wiring, and e2e
 fixtures.
@@ -192,27 +217,24 @@ fixtures.
 ## 6. Production deployment
 
 For a long-lived instance, Homestead ships as a **single binary**:
-`homestead start` runs aepbase in-process, the Bun sidecar, and the
-embedded SPA behind one port. `./deployment/build.sh` builds it and one
-systemd service (`homeos`) supervises it. See
+`homestead start` spawns aepbase as a child process, serves the Bun sidecar
+in-process, and serves the embedded SPA behind one port. `./deployment/build.sh`
+builds it and one systemd service (`homeos`) supervises it. See
 [`deployment/README.md`](../deployment/README.md) for the full walkthrough
 (env setup via `frontend/.env`, auto-updates, Tailscale, backups).
 
 ## Where things live
 
 ```
-homestead/
-├── frontend/                       # Next.js app
-│   ├── homestead.config.ts         # ← the file you edit
-│   └── src/
-│       ├── app/(app)/              # layout + catch-all router + root redirect
-│       ├── core/                   # auth, aepbase client, layout chrome
-│       ├── modules/                # core modules (settings, superuser) + registry
-│       └── shared/                 # reusable components
+homeOS/
+├── homestead.config.ts             # ← the file you edit (modules + auth)
+├── frontend/                       # Vite + React SPA
+│   └── src/                        # entry, App router, module route shim
 ├── packages/
+│   ├── homestead-cli/              # the `homestead` launcher (Bun TS)
 │   ├── homestead-modules/          # opt-in feature modules
-│   └── homestead-core/             # shared types and clients
-├── aepbase/                        # Go backend
-│   └── main.go                     # thin wrapper over aepbase library
+│   ├── homestead-core/             # shared types, clients, core modules
+│   └── homestead-sidecar/          # Bun + Hono API routes + schema sync
+├── aepbase/                        # Go aepbase host binary (main.go + oauth.go …)
 └── deployment/                     # systemd unit files + scripts
 ```

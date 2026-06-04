@@ -2,26 +2,30 @@
 
 Homestead's backend is **aepbase** — a dynamic, AEP-compliant REST
 backend (https://github.com/rambleraptor/aepbase). This directory is a
-thin Go wrapper that imports aepbase as a library so we can opt into
-the `EnableUsers` and `EnableFileFields` features (which are
-deliberately not exposed as CLI flags upstream).
+standalone Go host that imports aepbase as a library so we can opt into
+`EnableUsers` + `EnableFileFields` (not exposed as flags upstream),
+enable OAuth from the environment, and bootstrap + persist the superuser
+credentials. It's configured entirely via flags + env, and the
+`homestead` launcher spawns it as a child process.
 
 The schema is managed in **TypeScript**, not HCL. Each Homestead
 feature module declares the aepbase collections it owns in a
-`resources.ts` file next to its `module.config.ts`, and the Next.js
-server applies them via the `/aep-resource-definitions` endpoint at
-boot. See [`CLAUDE.md` § aepbase schema](../CLAUDE.md#aepbase-schema-typescript).
+`resources.ts` file next to its `module.config.ts`, and the Bun sidecar
+applies them via the `/aep-resource-definitions` endpoint on boot. See
+[`CLAUDE.md` § aepbase schema](../CLAUDE.md#aepbase-schema-typescript).
 
 ## Layout
 
 ```
 aepbase/
-├── main.go           # thin wrapper that imports aepbase as a Go library
+├── main.go           # standalone host: flags/env, serve, graceful shutdown
+├── oauth.go          # OAuth providers from the AEPBASE_OAUTH env var
+├── bootstrap.go      # first-boot superuser + data/credentials.json
 ├── go.mod / go.sum   # module deps (pulls upstream aepbase)
-├── install.sh        # `go build` the wrapper into ./bin/aepbase
+├── install.sh        # `go build` into ./bin/aepbase
 ├── run.sh            # run aepbase on :8090 with data in ./data
 ├── bin/              # built binary (gitignored)
-└── data/             # sqlite db + uploaded files (gitignored)
+└── data/             # sqlite db + uploaded files + credentials.json (gitignored)
 ```
 
 ## Quickstart
@@ -34,12 +38,14 @@ aepbase/
 ./run.sh
 ```
 
-On first start, aepbase prints the superuser email + password to
-stdout. Set them as `AEPBASE_ADMIN_EMAIL` / `AEPBASE_ADMIN_PASSWORD`
-in `frontend/.env.local` so the schema sync runs when the Next.js
-server boots — that's the only step needed to register the schema.
+On first start, aepbase writes the superuser email + password to
+`data/credentials.json`. Set them as `AEPBASE_ADMIN_EMAIL` /
+`AEPBASE_ADMIN_PASSWORD` in the **sidecar's** environment so its schema
+sync runs on boot — that's the only step needed to register the schema.
+(The `homestead` launcher wires this automatically; do it by hand only
+when running aepbase + sidecar standalone.)
 
-After the frontend has run once with admin credentials, the OpenAPI
+After the sidecar has run once with admin credentials, the OpenAPI
 spec at `http://localhost:8090/openapi.json` exposes CRUD endpoints
 for every resource definition — e.g.:
 

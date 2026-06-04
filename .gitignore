@@ -39,11 +39,11 @@ scripts/node_modules/
 
 aepbase/terraform/terraform.lock.hcl
 
-# homestead launcher binary + embed mirror (populated by sync-embed.sh)
-homestead/bin/
-homestead/internal/embedfs/workspace/*
-!homestead/internal/embedfs/workspace/.gitkeep
+# homestead single-binary launcher output (built by `make homestead` / `release`)
+bin/
 
-# Edge build artifacts embedded into the homestead binary (built by `make homestead`)
-homestead/internal/edge/dist/
-homestead/internal/edge/sidecar-*
+# Built SPA (embedded into the homestead binary by `make homestead`)
+frontend/dist/
+
+# homestead-cli build artifacts (compiled sidecar/aepbase, etc.)
+packages/homestead-cli/.build/

@@ -1,13 +1,15 @@
 # Homestead Deployment Guide
 
-Homestead deploys as a **single binary**. `homestead start` runs aepbase
-in-process, spawns the embedded Bun sidecar (notifications + omnibox OCR),
-and serves the embedded SPA — all behind one user-facing port. One systemd
-service supervises it.
+Homestead deploys as a **single binary**. `homestead start` (a Bun-compiled
+CLI) spawns aepbase as a child process (its binary is extracted from the
+launcher at boot), serves the Bun sidecar (notifications + omnibox OCR)
+in-process, and serves the embedded SPA behind one user-facing port. One
+systemd service supervises it.
 
 > Migrated from the old two-service layout (a separate `aepbase` Go binary
-> plus a Next.js `npm start` server). Those are gone; everything now lives
-> in the `homestead` binary built by `make homestead`.
+> plus a Next.js `npm start` server), and then from the Go single-binary
+> launcher. Everything now lives in the `homestead` binary built by
+> `make homestead`.
 
 ## Quick Setup
 
@@ -40,14 +42,16 @@ cat aepbase/data/credentials.json
 
 The **build host** (here, the device itself) needs:
 
-- **Go 1.25+** — builds the launcher. `homestead/go.mod` pins 1.25; an
+- **Bun** — compiles the launcher CLI + the sidecar
+  (`curl -fsSL https://bun.sh/install | bash`).
+- **Go 1.25+** — builds the aepbase binary. `aepbase/go.mod` pins 1.25; an
   older `go` will try to auto-download the 1.25 toolchain (needs network).
-- **Bun** — compiles the sidecar (`curl -fsSL https://bun.sh/install | bash`).
 - **Node.js 20+** and npm — builds the SPA.
 - **Git**.
 
-The resulting binary is self-contained: it embeds the SPA and the sidecar
-and runs aepbase in-process, so nothing but the binary is needed at runtime.
+The resulting binary is self-contained: it embeds the SPA, the sidecar code,
+and the aepbase binary (extracting aepbase to a cache dir on first boot), so
+nothing but the binary is needed at runtime.
 
 ## Common Commands
 
@@ -76,7 +80,7 @@ sudo make deploy-force    # always rebuilds
 - (in `--auto`) fetches `origin/main` and fast-forwards via `git reset --hard`
 - runs `npm ci` when `package*.json` changed
 - rebuilds the single binary when any source (`frontend/`, `packages/`,
-  `aepbase/`, `homestead/`, `homestead.config.ts`) changed or `--force`
+  `aepbase/`, `scripts/`, `homestead.config.ts`) changed or `--force`
 - restarts the `homeos` service and verifies it came up
 - rolls back (`git reset --hard` to the previous commit, rebuild, restart)
   if the service fails to start after an auto update
@@ -174,9 +178,9 @@ The service passes `--data-dir <repo>/aepbase/data`, so the sqlite db
 make status
 sudo journalctl -u homeos -n 100
 ```
-- `no embedded SPA` / `no embedded sidecar` → rebuild with
-  `./deployment/build.sh` (the binary must be built with `-tags release`,
-  which `make homestead` does).
+- `built SPA not found` / `aepbase binary not found` → you're running the
+  launcher from source without building. Rebuild the single binary with
+  `./deployment/build.sh` (i.e. `make homestead`) and run `bin/homestead`.
 - `database already contains users but credentials.json is missing` →
   homestead can't recover the superuser password for an existing DB.
   Restore `aepbase/data/credentials.json` (email + password), or start

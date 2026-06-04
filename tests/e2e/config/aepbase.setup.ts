@@ -3,13 +3,13 @@
  *
  * Manages an isolated aepbase instance for e2e tests. Builds the binary
  * via aepbase/install.sh (idempotent), starts it on a dedicated port with
- * a fresh data directory, captures the bootstrap superuser credentials
- * from stdout, and exposes them to the rest of the suite.
+ * a fresh data directory, reads the bootstrap superuser credentials from
+ * the data dir's credentials.json, and exposes them to the rest of the suite.
  */
 
 import { spawn, ChildProcess, execSync } from 'child_process';
 import { existsSync } from 'fs';
-import { mkdir, rm, writeFile } from 'fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { get as httpGet } from 'http';
 
@@ -52,8 +52,9 @@ function ensureBinaryBuilt(): void {
 }
 
 /**
- * Start aepbase on TEST_PORT with a fresh data directory. Parses the
- * bootstrap credentials from stdout and resolves with them.
+ * Start aepbase on TEST_PORT with a fresh data directory. Once it's listening,
+ * read the bootstrap superuser password from the data dir's credentials.json
+ * (aepbase writes it before it starts serving) and resolve with admin creds.
  */
 export async function startAepbase(): Promise<AepbaseAdminCreds> {
   const { dataDir, binary, credsFile } = getTestDirs();
@@ -76,42 +77,40 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
 
     let stdout = '';
     let ready = false;
-    let password: string | null = null;
 
-    const handleOutput = async (text: string) => {
-      // Parse "  Password: <16 hex chars>"
-      const match = text.match(/Password:\s+([a-f0-9]{16})/);
-      if (match) password = match[1];
-
-      // aepbase logs something like "aepbase listening on :8092"
-      if (!ready && (text.includes('listening on') || text.includes('Listening on'))) {
-        if (!password) {
-          // Wait briefly in case the password line lags
-          await new Promise((r) => setTimeout(r, 200));
-        }
-        if (!password) {
-          reject(new Error('aepbase started but no bootstrap password captured'));
-          return;
-        }
-        ready = true;
+    const onReady = async () => {
+      if (ready) return;
+      ready = true;
+      try {
+        // aepbase writes the bootstrap superuser to data/credentials.json
+        // before it begins serving, so it's present by the time we see the
+        // "listening on" log line.
+        const raw = await readFile(join(dataDir, 'credentials.json'), 'utf8');
+        const { password } = JSON.parse(raw) as { email: string; password: string };
         const creds = await loginAdmin(password);
         await writeFile(credsFile, JSON.stringify(creds, null, 2));
         resolve(creds);
+      } catch (err) {
+        reject(err);
       }
+    };
+
+    const handleOutput = (text: string) => {
+      if (!ready && /listening on/i.test(text)) void onReady();
     };
 
     aepbaseProcess.stdout?.on('data', (chunk) => {
       const text = chunk.toString();
       stdout += text;
       process.stdout.write(`[aepbase] ${text}`);
-      void handleOutput(text);
+      handleOutput(text);
     });
 
     aepbaseProcess.stderr?.on('data', (chunk) => {
       const text = chunk.toString();
       stdout += text;
       process.stderr.write(`[aepbase ERR] ${text}`);
-      void handleOutput(text);
+      handleOutput(text);
     });
 
     aepbaseProcess.on('error', (err) => reject(err));

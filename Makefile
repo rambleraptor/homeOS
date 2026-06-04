@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check build build-sidecar test test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs homestead homestead-test release
+.PHONY: help install clean lint type-check type-check-cli build test test-cli test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs aepbase homestead homestead-test release
 
 # Release target platforms (filename arch follows Bun's convention: x64/arm64).
 RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
@@ -7,6 +7,9 @@ RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 .DEFAULT_GOAL := help
 
 FRONTEND_DIR := frontend
+CLI_DIR := packages/homestead-cli
+GEN := scripts/gen-embedded.ts
+BUN := $(shell command -v bun || echo $$HOME/.bun/bin/bun)
 
 help: ## Show this help message
 	@echo "Homestead - Available Make Targets"
@@ -19,32 +22,33 @@ install: ## Install all dependencies
 
 clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
-	rm -rf $(FRONTEND_DIR)/.next
+	rm -rf $(FRONTEND_DIR)/dist
 	rm -rf $(FRONTEND_DIR)/node_modules
-	rm -rf homestead/internal/edge/dist
-	rm -f homestead/internal/edge/sidecar-*
-	rm -rf homestead/bin
+	rm -rf $(CLI_DIR)/.build
+	rm -rf aepbase/bin
+	rm -rf bin
+	$(BUN) $(GEN) --restore 2>/dev/null || true
 
 lint: ## Run ESLint
 	@echo "Running ESLint..."
 	cd $(FRONTEND_DIR) && npm run lint
 
-type-check: ## Run TypeScript type checking
+type-check: type-check-cli ## Run TypeScript type checking (frontend + CLI)
 	@echo "Running TypeScript type check..."
 	cd $(FRONTEND_DIR) && npm run type-check
 
-build: ## Build the SPA (Vite -> homestead/internal/edge/dist)
+type-check-cli: ## Type-check the homestead CLI package
+	@echo "Type-checking homestead CLI..."
+	npx tsc -p $(CLI_DIR)/tsconfig.json
+
+build: ## Build the SPA (Vite -> frontend/dist)
 	@echo "Building SPA..."
 	cd $(FRONTEND_DIR) && npm run build
 
-build-sidecar: ## Compile the Bun sidecar for the host platform into the edge package
-	@echo "Compiling sidecar (host platform)..."
-	@BUN=$$(command -v bun || echo $$HOME/.bun/bin/bun); \
-	GOOS=$$(go env GOOS); GOARCH=$$(go env GOARCH); \
-	BARCH=$$( [ "$$GOARCH" = "amd64" ] && echo x64 || echo $$GOARCH ); \
-	$$BUN build --compile packages/homestead-sidecar/src/server.ts \
-	  --outfile homestead/internal/edge/sidecar-$$GOOS-$$BARCH
-	@echo "→ homestead/internal/edge/sidecar-*"
+aepbase: ## Build the aepbase host binary (Go)
+	@echo "Building aepbase host binary..."
+	cd aepbase && go build -o bin/aepbase .
+	@echo "→ aepbase/bin/aepbase"
 
 dev: ## Start the Vite dev server only (no backend)
 	@echo "Starting Vite dev server..."
@@ -52,11 +56,17 @@ dev: ## Start the Vite dev server only (no backend)
 
 start: homestead ## Build and run the homestead launcher (prod, single binary)
 	@echo "Starting homestead..."
-	./homestead/bin/homestead start
+	./bin/homestead start
 
-test: ## Run frontend tests with Vitest
+test: test-cli ## Run frontend tests with Vitest (+ CLI tests)
 	@echo "Running frontend tests..."
 	cd $(FRONTEND_DIR) && npm run test
+
+test-cli: ## Run the homestead CLI unit tests (Bun) + aepbase Go tests
+	@echo "Running homestead CLI tests..."
+	$(BUN) test $(CLI_DIR)/
+	@echo "Running aepbase Go tests..."
+	cd aepbase && go test ./...
 
 test-e2e: ## Run end-to-end tests with Playwright
 	@echo "Running e2e tests..."
@@ -77,31 +87,31 @@ format: ## Format code with Prettier
 	@echo "Formatting code with Prettier..."
 	cd $(FRONTEND_DIR) && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
 
-homestead: build build-sidecar ## Build the single-binary `homestead` launcher (embeds SPA + sidecar)
-	@echo "Building homestead launcher..."
-	@mkdir -p homestead/bin
-	cd homestead && go build -tags release -o bin/homestead .
-	@echo "→ homestead/bin/homestead"
+homestead: build ## Build the single-binary `homestead` launcher (embeds SPA + sidecar + aepbase)
+	@echo "Building homestead launcher (host platform)..."
+	@mkdir -p bin
+	cd aepbase && go build -o bin/aepbase .
+	$(BUN) $(GEN) --aepbase aepbase/bin/aepbase --dist $(FRONTEND_DIR)/dist
+	$(BUN) build --compile $(CLI_DIR)/src/cli.ts --outfile bin/homestead; \
+	  status=$$?; $(BUN) $(GEN) --restore; exit $$status
+	@echo "→ bin/homestead"
 
-homestead-test: ## Build + test the homestead launcher (dev build, no embed)
-	cd homestead && go build ./... && go vet ./... && go test ./...
+homestead-test: type-check-cli test-cli ## Type-check + test the CLI and aepbase
 
-release: build ## Cross-compile per-platform homestead binaries (each embeds the SPA + its own sidecar)
-	@mkdir -p homestead/bin
-	@BUN=$$(command -v bun || echo $$HOME/.bun/bin/bun); \
-	for plat in $(RELEASE_PLATFORMS); do \
+release: build ## Cross-compile per-platform homestead binaries (each embeds SPA + sidecar + aepbase)
+	@mkdir -p bin aepbase/bin
+	@for plat in $(RELEASE_PLATFORMS); do \
 	  os=$${plat%-*}; barch=$${plat#*-}; \
 	  goarch=$$( [ "$$barch" = "x64" ] && echo amd64 || echo $$barch ); \
 	  echo "→ $$os/$$goarch"; \
-	  rm -f homestead/internal/edge/sidecar-*; \
-	  $$BUN build --compile --target=bun-$$plat \
-	    packages/homestead-sidecar/src/server.ts \
-	    --outfile homestead/internal/edge/sidecar-$$plat || exit 1; \
-	  (cd homestead && GOOS=$$os GOARCH=$$goarch \
-	    go build -tags release -o bin/homestead-$$plat .) || exit 1; \
+	  (cd aepbase && GOOS=$$os GOARCH=$$goarch CGO_ENABLED=0 \
+	    go build -o bin/aepbase-$$plat .) || exit 1; \
+	  $(BUN) $(GEN) --aepbase aepbase/bin/aepbase-$$plat --dist $(FRONTEND_DIR)/dist || exit 1; \
+	  $(BUN) build --compile --target=bun-$$plat $(CLI_DIR)/src/cli.ts \
+	    --outfile bin/homestead-$$plat; status=$$?; \
+	  $(BUN) $(GEN) --restore; [ $$status -eq 0 ] || exit $$status; \
 	done
-	@rm -f homestead/internal/edge/sidecar-*
-	@echo "→ homestead/bin/homestead-<platform> ($(words $(RELEASE_PLATFORMS)) binaries)"
+	@echo "→ bin/homestead-<platform> ($(words $(RELEASE_PLATFORMS)) binaries)"
 
 all: install lint type-check build ## Run install, lint, type-check, and build
 

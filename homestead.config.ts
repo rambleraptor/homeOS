@@ -24,6 +24,48 @@ import {
 } from '@rambleraptor/homestead-modules';
 import type { HomesteadConfig } from '@rambleraptor/homestead-core/modules/config';
 
+/**
+ * Read an env var. Guarded so this file stays importable in the browser (the
+ * SPA registry imports it for `modules`): `process` is undefined there, so the
+ * guard short-circuits to `undefined` rather than throwing. Under Bun (the
+ * `homestead` launcher) it reads the real environment — which is where OAuth
+ * secrets are sourced. Secrets therefore never land in the client bundle.
+ */
+const fromEnv = (key: string): string | undefined =>
+  typeof process !== 'undefined' ? process.env[key] : undefined;
+
+// OAuth is opt-in: enabled only when a provider's client id + secret are set in
+// the launcher's environment. Edit this block to add or change providers.
+const googleClientId = fromEnv('GOOGLE_OAUTH_CLIENT_ID');
+const googleClientSecret = fromEnv('GOOGLE_OAUTH_CLIENT_SECRET');
+
+const auth: HomesteadConfig['auth'] =
+  googleClientId && googleClientSecret
+    ? {
+        oauth: {
+          redirectBaseUrl:
+            fromEnv('OAUTH_REDIRECT_BASE_URL') ??
+            'http://localhost:3000/api/aep',
+          successRedirect:
+            fromEnv('OAUTH_SUCCESS_REDIRECT') ??
+            'http://localhost:3000/auth/callback',
+          providers: [
+            {
+              name: 'google',
+              displayName: 'Google',
+              clientId: googleClientId,
+              clientSecret: googleClientSecret,
+              scopes: ['openid', 'email', 'profile'],
+              authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+              tokenUrl: 'https://oauth2.googleapis.com/token',
+              userInfoUrl:
+                'https://openidconnect.googleapis.com/v1/userinfo',
+            },
+          ],
+        },
+      }
+    : undefined;
+
 const config: HomesteadConfig = {
   modules: [
     dashboardModule,
@@ -38,6 +80,7 @@ const config: HomesteadConfig = {
     gamesModule,
     notificationsModule,
   ],
+  auth,
 };
 
 export default config;
