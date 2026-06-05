@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "embedded",
-  "dolt_database": "homeOS",
-  "project_id": "251d0138-f897-4886-84e4-c68ef2353c03"
-}
