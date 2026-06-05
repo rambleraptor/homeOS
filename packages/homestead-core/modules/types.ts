@@ -129,6 +129,19 @@ export interface HomeModule {
   icon: LazyIcon;
 
   /**
+   * Optional custom icon used when this app is added to a device's home
+   * screen (PWA install). A URL/path to a square raster image (PNG, ideally
+   * 512×512). When set, navigating anywhere within this app swaps the
+   * document's `apple-touch-icon` and web app manifest so an "Add to Home
+   * Screen" uses this image — and the app's own name and start path —
+   * instead of the shared Homestead icon. Apps that omit it fall back to the
+   * global Homestead home-screen icon.
+   *
+   * Example: `homeScreenIcon: '/module-icons/groceries.png'`
+   */
+  homeScreenIcon?: string;
+
+  /**
    * Base path for module routes (must start with /)
    * Example: '/dashboard', '/chores'
    */

@@ -10,6 +10,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { AuthGuard } from '../auth/AuthGuard';
 import { OfflineBanner } from '../shared/components/OfflineBanner';
+import { useHomeScreenIcon } from '../shared/pwa';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -17,6 +18,9 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Swap the home-screen (PWA) icon to the active app's, when it has one.
+  useHomeScreenIcon();
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
   const closeSidebar = () => setSidebarOpen(false);
