@@ -11,12 +11,12 @@ import type { ModuleFlagDefs } from '@rambleraptor/homestead-core/settings/flags
 
 const defs: ModuleFlagDefs = {
   settings: {
-    omnibox_access: {
+    theme: {
       type: 'enum',
-      label: 'Omnibox access',
-      description: 'Who can use the omnibox.',
-      options: ['superuser', 'all'],
-      default: 'superuser',
+      label: 'Theme',
+      description: 'Color theme for the app.',
+      options: ['light', 'dark'],
+      default: 'light',
     },
   },
 };
@@ -62,17 +62,17 @@ describe('syncModuleFlagsSchema', () => {
     const body = JSON.parse(postInit.body as string);
     expect(body.singular).toBe('module-flag');
     expect(body.plural).toBe('module-flags');
-    expect(body.schema.properties.settings__omnibox_access.type).toBe('string');
+    expect(body.schema.properties.settings__theme.type).toBe('string');
   });
 
   it('is a no-op when the existing schema already matches', async () => {
     const existingSchema = {
       type: 'object',
       properties: {
-        settings__omnibox_access: {
+        settings__theme: {
           type: 'string',
           description:
-            'Who can use the omnibox. (default: superuser) (one of: superuser, all)',
+            'Color theme for the app. (default: light) (one of: light, dark)',
         },
       },
     };
@@ -130,7 +130,7 @@ describe('syncModuleFlagsSchema', () => {
       'application/merge-patch+json',
     );
     const patchBody = JSON.parse(patchInit.body as string);
-    expect(patchBody.schema.properties.settings__omnibox_access).toBeDefined();
+    expect(patchBody.schema.properties.settings__theme).toBeDefined();
   });
 
   it('throws when aepbase returns an unexpected status on GET', async () => {

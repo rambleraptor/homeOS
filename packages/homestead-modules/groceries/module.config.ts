@@ -5,7 +5,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { groceriesOmnibox } from './omnibox';
 import { groceriesResources } from './resources';
 
 export const groceriesModule: HomeModule = {
@@ -36,7 +35,6 @@ export const groceriesModule: HomeModule = {
         import('./offline').then((m) => m.storeCascadeDelete),
     },
   },
-  omnibox: groceriesOmnibox,
   flags: {
     default_store: {
       type: 'string',

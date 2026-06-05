@@ -5,9 +5,8 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Menu, Bell, Search } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
 import { useNotificationStats } from '@rambleraptor/homestead-modules/notifications/hooks/useNotificationStats';
-import { useCanUseOmnibox } from '@rambleraptor/homestead-core/shared/omnibox/useCanUseOmnibox';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -16,14 +15,9 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
   const { data: stats } = useNotificationStats();
-  const canUseOmnibox = useCanUseOmnibox();
 
   const handleNotificationsClick = () => {
     navigate('/notifications');
-  };
-
-  const handleSearchClick = () => {
-    navigate('/search');
   };
 
   return (
@@ -45,18 +39,6 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Right side - Actions */}
         <div className="flex items-center gap-2 ml-auto">
-          {/* Omnibox search (gated by settings.omnibox_access) */}
-          {canUseOmnibox && (
-            <button
-              onClick={handleSearchClick}
-              className="p-2 rounded-md hover:bg-gray-100 transition-colors"
-              aria-label="Open natural-language search"
-              data-testid="header-search-button"
-            >
-              <Search className="w-5 h-5 text-gray-600" />
-            </button>
-          )}
-
           {/* Notifications */}
           <button
             onClick={handleNotificationsClick}

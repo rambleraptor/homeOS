@@ -3,10 +3,8 @@
  *
  * Data-backed wrapper around `GroceryList` that owns its own fetching,
  * toggle/delete wiring, and store-complete confirmation. Used by
- * `GroceriesHome` and by the omnibox list view — it deliberately omits the
- * page header, quick-add, notify, upload, new-list and store-management
- * controls so the omnibox doesn't render chrome that belongs to the
- * module's full home page.
+ * `GroceriesHome` — it deliberately omits the page header, quick-add,
+ * notify, upload, new-list and store-management controls.
  */
 
 import { useState } from 'react';

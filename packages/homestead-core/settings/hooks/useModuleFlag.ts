@@ -2,7 +2,7 @@
  * Public hook for reading + writing a single module flag.
  *
  *   const { value, setValue } =
- *     useModuleFlag<'superuser' | 'all'>('settings', 'omnibox_access');
+ *     useModuleFlag<string>('groceries', 'default_store');
  *
  * Returns the declared default when nothing has been saved yet, so
  * callers never have to guard against `undefined`. `setValue` upserts

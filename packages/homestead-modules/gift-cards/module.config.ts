@@ -5,7 +5,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { GiftCardsList } from './components/GiftCardsList';
 import { giftCardsResources } from './resources';
 
 export const giftCardsModule: HomeModule = {
@@ -32,18 +31,4 @@ export const giftCardsModule: HomeModule = {
   section: 'Money',
   enabled: true,
   resources: giftCardsResources,
-  omnibox: {
-    synonyms: [
-      'gift',
-      'gifts',
-      'card',
-      'cards',
-      'gift-cards',
-      'giftcards',
-      'redeem',
-      'unredeemed',
-      'balance',
-    ],
-    listComponent: GiftCardsList,
-  },
 };

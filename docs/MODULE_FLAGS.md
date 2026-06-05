@@ -142,19 +142,18 @@ export type ModuleFlagDef =
 ### Example: enum flag
 
 ```ts
-// frontend/src/modules/settings/module.config.ts
-export const OMNIBOX_ACCESS_OPTIONS = ['superuser', 'all'] as const;
+// packages/homestead-core/settings/module.config.ts
+export const THEME_OPTIONS = ['light', 'dark'] as const;
 
 export const settingsModule: HomeModule = {
   // ...
   flags: {
-    omnibox_access: {
+    theme: {
       type: 'enum',
-      label: 'Omnibox access',
-      description:
-        'Who can use the natural-language omnibox (⌘K / search bar).',
-      options: OMNIBOX_ACCESS_OPTIONS,
-      default: 'superuser',
+      label: 'Theme',
+      description: 'Color theme for the app.',
+      options: THEME_OPTIONS,
+      default: 'light',
     },
   },
 };
@@ -188,9 +187,9 @@ const { value, setValue, isLoading, isSaving, error } =
 Pass the value type as a generic so call sites stay type-safe:
 
 ```ts
-type Access = 'superuser' | 'all';
-const { value } = useModuleFlag<Access>('settings', 'omnibox_access');
-//      ^? Access | undefined
+type Theme = 'light' | 'dark';
+const { value } = useModuleFlag<Theme>('settings', 'theme');
+//      ^? Theme | undefined
 ```
 
 `value` is only `undefined` if you didn't declare a `default`.
@@ -304,7 +303,7 @@ Examples:
 | Module      | Flag key           | Wire field                  |
 | ----------- | ------------------ | --------------------------- |
 | `gift-cards`| `show_archived`    | `gift_cards__show_archived` |
-| `settings`  | `omnibox_access`   | `settings__omnibox_access`  |
+| `settings`  | `theme`            | `settings__theme`           |
 | `groceries` | `refill_threshold` | `groceries__refill_threshold` |
 
 The double-underscore separator ensures keys with their own underscores
@@ -319,7 +318,7 @@ A live record looks like:
   "create_time": "...",
   "update_time": "...",
   "gift_cards__show_archived": true,
-  "settings__omnibox_access": "all",
+  "settings__theme": "dark",
   "groceries__refill_threshold": 5
 }
 ```

@@ -18,12 +18,12 @@ const defs: ModuleFlagDefs = {
     },
   },
   settings: {
-    omnibox_access: {
+    theme: {
       type: 'enum',
-      label: 'Omnibox access',
-      description: 'Who can use the omnibox.',
-      options: ['superuser', 'all'],
-      default: 'superuser',
+      label: 'Theme',
+      description: 'Color theme for the app.',
+      options: ['light', 'dark'],
+      default: 'light',
     },
   },
   groceries: {
@@ -63,47 +63,47 @@ describe('unflatten', () => {
         id: 'abc',
         create_time: '2024-01-01',
         gift_cards__show_archived: true,
-        settings__omnibox_access: 'all',
+        settings__theme: 'dark',
         groceries__refill_threshold: 5,
       },
       defs,
     );
     expect(nested).toEqual({
       'gift-cards': { show_archived: true },
-      settings: { omnibox_access: 'all' },
+      settings: { theme: 'dark' },
       groceries: { refill_threshold: 5 },
     });
   });
 
   it('drops values that are not in the allowed enum options', () => {
     const nested = unflatten(
-      { settings__omnibox_access: 'nobody' },
+      { settings__theme: 'rainbow' },
       defs,
     );
     // Falls back to the declared default instead of the invalid value.
-    expect(nested.settings.omnibox_access).toBe('superuser');
+    expect(nested.settings.theme).toBe('light');
   });
 
   it('merges defaults for unset keys', () => {
     const nested = unflatten({}, defs);
     expect(nested).toEqual({
       'gift-cards': { show_archived: false },
-      settings: { omnibox_access: 'superuser' },
+      settings: { theme: 'light' },
       groceries: { refill_threshold: 3 },
     });
   });
 
   it('handles a null record gracefully', () => {
-    expect(unflatten(null, defs).settings.omnibox_access).toBe('superuser');
+    expect(unflatten(null, defs).settings.theme).toBe('light');
   });
 });
 
 describe('withDefaults', () => {
   it('leaves existing values alone and fills in defaults only where missing', () => {
     const merged = withDefaults(defs, {
-      settings: { omnibox_access: 'all' },
+      settings: { theme: 'dark' },
     });
-    expect(merged.settings.omnibox_access).toBe('all');
+    expect(merged.settings.theme).toBe('dark');
     expect(merged['gift-cards'].show_archived).toBe(false);
   });
 });
@@ -115,7 +115,7 @@ describe('buildResourceSchema', () => {
     expect(Object.keys(schema.properties)).toEqual([
       'gift_cards__show_archived',
       'groceries__refill_threshold',
-      'settings__omnibox_access',
+      'settings__theme',
     ]);
   });
 
@@ -123,16 +123,16 @@ describe('buildResourceSchema', () => {
     const schema = buildResourceSchema(defs);
     expect(schema.properties.gift_cards__show_archived.type).toBe('boolean');
     expect(schema.properties.groceries__refill_threshold.type).toBe('number');
-    expect(schema.properties.settings__omnibox_access).toEqual({
+    expect(schema.properties.settings__theme).toEqual({
       type: 'string',
-      description: expect.stringContaining('superuser, all'),
+      description: expect.stringContaining('light, dark'),
     });
   });
 
   it('encodes declared defaults in the description so aepbase can round-trip them', () => {
     const schema = buildResourceSchema(defs);
-    expect(schema.properties.settings__omnibox_access.description).toContain(
-      '(default: superuser)',
+    expect(schema.properties.settings__theme.description).toContain(
+      '(default: light)',
     );
     expect(schema.properties.gift_cards__show_archived.description).toContain(
       '(default: false)',

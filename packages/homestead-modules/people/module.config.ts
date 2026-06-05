@@ -7,7 +7,6 @@
  */
 
 import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
-import { peopleOmnibox } from './omnibox';
 import { peopleResources } from './resources';
 
 export const peopleModule: HomeModule = {
@@ -32,7 +31,6 @@ export const peopleModule: HomeModule = {
   navOrder: 3,
   enabled: true,
   resources: peopleResources,
-  omnibox: peopleOmnibox,
   filters: [
     {
       key: 'name',

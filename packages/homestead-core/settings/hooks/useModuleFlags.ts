@@ -31,9 +31,9 @@ export interface UseModuleFlagsResult {
 export function useModuleFlags(): UseModuleFlagsResult {
   const query = useQuery({
     queryKey: MODULE_FLAGS_QUERY_KEY,
-    // This hook is on the hot path for every authenticated page (via
-    // Header → useCanUseOmnibox). Keep it quiet: don't retry on error,
-    // don't refetch on window focus — callers tolerate stale values.
+    // This hook is on the hot path for every authenticated page. Keep
+    // it quiet: don't retry on error, don't refetch on window focus —
+    // callers tolerate stale values.
     retry: false,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<ModuleFlagsRecord | null> => {

@@ -5,7 +5,7 @@ working on the Homestead repo. The backend is **aepbase** (an AEP-compliant
 dynamic REST server). The frontend is a **Vite + React SPA**
 (`react-router-dom`) that talks to aepbase through a same-origin `/api/aep`
 proxy. A small **Bun + Hono sidecar** owns the few API routes the SPA can't
-serve itself (omnibox parsing, test notifications, module workers) and runs
+serve itself (test notifications, module workers) and runs
 the schema sync. In production a single Bun-compiled binary — the `homestead`
 launcher (`packages/homestead-cli`) — spawns aepbase as a child process and
 serves the sidecar in-process, behind the embedded SPA. The SPA, the sidecar's
@@ -258,10 +258,9 @@ through the workspace + a TypeScript path alias defined in
 ### Sidecar (`packages/homestead-sidecar/`)
 
 A small Bun + Hono server (`src/server.ts`) that owns the API routes the
-SPA can't serve itself: `POST /api/omnibox/parse`,
-`POST /api/notifications/send-test`, and `ALL /api/modules/:moduleId/*`
-(module workers). It also runs the boot-time schema sync
-(`src/schema-sync.ts`).
+SPA can't serve itself: `POST /api/notifications/send-test` and
+`ALL /api/modules/:moduleId/*` (module workers). It also runs the
+boot-time schema sync (`src/schema-sync.ts`).
 
 ### Launcher (`packages/homestead-cli/`)
 

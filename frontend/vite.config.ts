@@ -103,7 +103,6 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api\/aep/, ''),
       },
-      '/api/omnibox': { target: SIDECAR_URL, changeOrigin: true },
       '/api/notifications': { target: SIDECAR_URL, changeOrigin: true },
       '/api/modules': { target: SIDECAR_URL, changeOrigin: true },
     },

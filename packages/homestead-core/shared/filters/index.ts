@@ -6,7 +6,5 @@ export {
   useModuleFilterValues,
   useFilteredItems,
   useEnumOptions,
-  OmniboxFilterSeedProvider,
-  useOmniboxFilterSeed,
 } from './FiltersContext';
 export { FilterBar } from './FilterBar';

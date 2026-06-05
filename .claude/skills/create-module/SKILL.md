@@ -27,7 +27,6 @@ Before scaffolding, make sure you have answers for:
 5. **Primary resource**: singular + plural (kebab-case), field list with types.
 6. **Child resources?** If yes, the parent id and URL pattern.
 7. **Module flags?** Typed knobs exposed in the settings UI.
-8. **Omnibox synonyms**: words a user might type to jump here.
 
 If any of these are missing, ASK before scaffolding — names bleed into file
 paths, URL segments, and DB records and are painful to rename later.
@@ -155,10 +154,6 @@ export const featureModule: HomeModule = {
   section: 'Games',       // or 'Money', 'Relationships', etc.
   enabled: true,
   resources: featureResources,
-  omnibox: {
-    synonyms: ['feature', 'alt-name'],
-    listComponent: FeatureHome,
-  },
   // Optional: typed flags. See packages/homestead-modules/groceries/module.config.ts.
   // flags: { ... }
 };
@@ -212,7 +207,7 @@ otherwise.
 
 Open `homestead.config.ts` and add the import + array entry.
 That is the only registration step — nav, routes, dashboard widgets,
-omnibox, module flags, and the resource schema are all picked up
+module flags, and the resource schema are all picked up
 automatically.
 
 ### 7. Write unit/integration tests (Vitest)

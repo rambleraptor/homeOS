@@ -7,7 +7,6 @@
 
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import type { OmniboxAdapter } from '../shared/omnibox/types';
 import type { ModuleFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
 import type { ModuleVisibility } from '../settings/visibility';
@@ -130,6 +129,19 @@ export interface HomeModule {
   icon: LazyIcon;
 
   /**
+   * Optional custom icon used when this app is added to a device's home
+   * screen (PWA install). A URL/path to a square raster image (PNG, ideally
+   * 512×512). When set, navigating anywhere within this app swaps the
+   * document's `apple-touch-icon` and web app manifest so an "Add to Home
+   * Screen" uses this image — and the app's own name and start path —
+   * instead of the shared Homestead icon. Apps that omit it fall back to the
+   * global Homestead home-screen icon.
+   *
+   * Example: `homeScreenIcon: '/module-icons/groceries.png'`
+   */
+  homeScreenIcon?: string;
+
+  /**
    * Base path for module routes (must start with /)
    * Example: '/dashboard', '/chores'
    */
@@ -180,17 +192,9 @@ export interface HomeModule {
   metadata?: Record<string, unknown>;
 
   /**
-   * Optional declarative integration with the natural-language omnibox
-   * (`/search`). When present, the module is discoverable + addressable
-   * via the omnibox. See `homestead-core/shared/omnibox/types` for the shape.
-   */
-  omnibox?: OmniboxAdapter;
-
-  /**
    * Optional filterable fields for the module's list view. A shared
    * `<FilterBar>` renders one input per decl and the list is filtered
-   * in-memory client-side — no server round-trip. The same decls are
-   * forwarded to the omnibox manifest so the LLM can set values.
+   * in-memory client-side — no server round-trip.
    */
   filters?: ModuleFilterDecl[];
 
@@ -270,12 +274,11 @@ export interface HomeModule {
    * the registry validates each child's `basePath` is a prefix-match
    * of the parent's, aggregates child routes and dashboard widgets,
    * and a generic `<NestedModuleLanding>` renders cards for each
-   * child on the parent's index page (and as the omnibox
-   * `listComponent`). Children get their own `enabled` flag (and any
-   * other declared flags) and can be reached via `getModule(id)`, so
-   * each nested page can be gated independently. Children still stay
-   * out of top-level navigation: the parent owns the sidebar placement
-   * and the omnibox synonyms.
+   * child on the parent's index page. Children get their own `enabled`
+   * flag (and any other declared flags) and can be reached via
+   * `getModule(id)`, so each nested page can be gated independently.
+   * Children still stay out of top-level navigation: the parent owns
+   * the sidebar placement.
    */
   children?: HomeModule[];
 }

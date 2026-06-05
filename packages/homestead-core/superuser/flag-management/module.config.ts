@@ -1,8 +1,8 @@
 /**
  * Flag Management — child of the Superuser module.
  *
- * Sidebar placement and the omnibox surface are owned by the parent
- * (`superuserModule`); the page itself is gated by this module's own
+ * Sidebar placement is owned by the parent (`superuserModule`); the page itself
+ * is gated by this module's own
  * built-in `enabled` flag, defaulting to `'superusers'` to match the
  * parent's audience.
  */
