@@ -6,7 +6,7 @@ RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 # Default target
 .DEFAULT_GOAL := help
 
-FRONTEND_DIR := frontend
+FRONTEND_DIR := packages/homestead-app
 CLI_DIR := packages/homestead-cli
 GEN := scripts/gen-embedded.ts
 BUN := $(shell command -v bun || echo $$HOME/.bun/bin/bun)

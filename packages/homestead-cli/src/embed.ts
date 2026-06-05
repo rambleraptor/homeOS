@@ -78,7 +78,7 @@ export function spaAssets(): SpaAssets {
       },
     };
   }
-  const dir = join(repoRoot, 'frontend', 'dist');
+  const dir = join(repoRoot, 'packages', 'homestead-app', 'dist');
   const indexPath = join(dir, 'index.html');
   if (!existsSync(indexPath)) {
     throw new Error(`built SPA not found at ${dir} — run \`make build\`, or start with --dev`);

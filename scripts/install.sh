@@ -12,7 +12,7 @@
 #
 # The installer is non-interactive. It clones the repo, installs npm
 # workspaces, builds aepbase, runs it once to capture the bootstrap
-# superuser credentials, writes them into frontend/.env.local, and then
+# superuser credentials, writes them into packages/homestead-app/.env.local, and then
 # prints the two commands you need to bring the stack up.
 
 set -euo pipefail
@@ -94,7 +94,7 @@ done
 [[ "$listening" -eq 1 ]] || { cat "$AEPBASE_LOG" >&2; fail "aepbase did not start within 30s"; }
 
 if ! grep -q "DEFAULT SUPERUSER CREATED" "$AEPBASE_LOG"; then
-  fail "aepbase booted but did not create a new superuser — aepbase/data already contains users. Remove aepbase/data and re-run, or set AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD in frontend/.env.local manually."
+  fail "aepbase booted but did not create a new superuser — aepbase/data already contains users. Remove aepbase/data and re-run, or set AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD in packages/homestead-app/.env.local manually."
 fi
 
 SUPERUSER_EMAIL="$(awk '/^[[:space:]]*Email:/    {print $2; exit}' "$AEPBASE_LOG")"
@@ -106,9 +106,9 @@ cleanup
 trap - EXIT
 rm -f "$AEPBASE_LOG"
 
-# 6. Write frontend/.env.local -----------------------------------------
-log "Writing frontend/.env.local"
-ENV_FILE="frontend/.env.local"
+# 6. Write packages/homestead-app/.env.local --------------------------
+log "Writing packages/homestead-app/.env.local"
+ENV_FILE="packages/homestead-app/.env.local"
 [[ -e "$ENV_FILE" ]] && cp "$ENV_FILE" "$ENV_FILE.bak.$(date +%s)"
 (
   umask 077
@@ -134,7 +134,7 @@ Superuser credentials (also stored in ${ENV_FILE}):
 Next steps — open two terminals:
 
   ${BOLD}Terminal 1${RST}  cd ${INSTALL_DIR}/aepbase && ./run.sh
-  ${BOLD}Terminal 2${RST}  cd ${INSTALL_DIR}/frontend && npm run dev
+  ${BOLD}Terminal 2${RST}  cd ${INSTALL_DIR}/packages/homestead-app && npm run dev
 
 Then open http://localhost:3000 and log in.
 

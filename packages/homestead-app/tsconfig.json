@@ -15,7 +15,7 @@
     "incremental": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@homestead/config": ["../homestead.config.ts"]
+      "@homestead/config": ["../../homestead.config.ts"]
     },
     "noUnusedLocals": true,
     "noUnusedParameters": true,

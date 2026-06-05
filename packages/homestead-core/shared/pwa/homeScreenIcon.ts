@@ -18,7 +18,7 @@
  * keeps the behavior self-contained and easy to test.
  */
 
-/** Brand color, kept in sync with `frontend/index.html`. */
+/** Brand color, kept in sync with `packages/homestead-app/index.html`. */
 const THEME_COLOR = '#F7F9FC';
 
 const DEFAULT_APPLE_TOUCH_ICON = '/apple-touch-icon.png';

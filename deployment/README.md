@@ -15,9 +15,9 @@ systemd service supervises it.
 
 ```bash
 # 1. Configure environment
-# The build + service read frontend/.env. Ensure it has your VAPID keys
-# (and GEMINI_API_KEY if used). See frontend/.env.example.
-# Generate VAPID keys: cd frontend && npx web-push generate-vapid-keys
+# The build + service read packages/homestead-app/.env. Ensure it has your VAPID keys
+# (and GEMINI_API_KEY if used). See packages/homestead-app/.env.example.
+# Generate VAPID keys: cd packages/homestead-app && npx web-push generate-vapid-keys
 
 # 2. Build the single binary (embeds SPA + sidecar)
 ./deployment/build.sh
@@ -79,7 +79,7 @@ sudo make deploy-force    # always rebuilds
 `deploy.sh`:
 - (in `--auto`) fetches `origin/main` and fast-forwards via `git reset --hard`
 - runs `npm ci` when `package*.json` changed
-- rebuilds the single binary when any source (`frontend/`, `packages/`,
+- rebuilds the single binary when any source (`packages/`,
   `aepbase/`, `scripts/`, `homestead.config.ts`) changed or `--force`
 - restarts the `homeos` service and verifies it came up
 - rolls back (`git reset --hard` to the previous commit, rebuild, restart)
@@ -142,11 +142,11 @@ tailscale ip -4
 
 ## Configuration
 
-### Environment (`frontend/.env`)
+### Environment (`packages/homestead-app/.env`)
 
 Both the build (bakes `VAPID_PUBLIC_KEY` into the SPA) and the systemd
 service (`EnvironmentFile`, inherited by the sidecar at runtime) read
-`frontend/.env`:
+`packages/homestead-app/.env`:
 
 ```bash
 VAPID_PUBLIC_KEY=...      # also baked into the SPA at build time
@@ -220,7 +220,7 @@ sudo systemctl start homeos
 
 ## Production Checklist
 
-- [ ] `frontend/.env` filled in (VAPID keys)
+- [ ] `packages/homestead-app/.env` filled in (VAPID keys)
 - [ ] `homestead` binary built (`./deployment/build.sh`)
 - [ ] `homeos` service installed + enabled
 - [ ] Superuser credentials saved (`aepbase/data/credentials.json`)

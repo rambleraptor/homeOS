@@ -29,21 +29,21 @@ itself is a small Go binary (`aepbase/`) configured entirely via flags + env.
 
 ```bash
 make build
-# or: cd frontend && npm run build
+# or: cd packages/homestead-app && npm run build
 ```
 
 ### 2. Lint ✅
 
 ```bash
 make lint
-# or: cd frontend && npm run lint
+# or: cd packages/homestead-app && npm run lint
 ```
 
 ### 3. Type Check ✅
 
 ```bash
 make type-check
-# or: cd frontend && npm run type-check
+# or: cd packages/homestead-app && npm run type-check
 ```
 
 ### 4. Tests ✅
@@ -82,7 +82,7 @@ environment so its boot-time schema sync runs.
 For pure frontend iteration against an already-running backend + sidecar,
 `make dev` starts just the Vite dev server (port 5173); it proxies
 `/api/aep` to aepbase and the other `/api/*` routes to the sidecar (see
-`frontend/vite.config.ts`). aepbase can also be run standalone via
+`packages/homestead-app/vite.config.ts`). aepbase can also be run standalone via
 `aepbase/install.sh` + `aepbase/run.sh` (serves on :8090).
 
 ### Pre-push checklist
@@ -174,7 +174,7 @@ package at `packages/homestead-modules/<feature>/`. The registry, the
 `HomeModule`/`ModuleFlagDef` types, and the always-installed core modules
 (`settings`, `superuser`, `users`) live in the
 `@rambleraptor/homestead-core` package (`packages/homestead-core/`) because
-they are part of the core experience. `frontend/src/modules/registry.ts` is
+they are part of the core experience. `packages/homestead-app/src/modules/registry.ts` is
 just a boot shim that installs the registry singleton with the operator's
 modules from `homestead.config.ts` plus those core modules.
 
@@ -200,8 +200,8 @@ The list of modules served by an instance lives in
 `homestead.config.ts` (at the repo root) — that is the only file an operator edits
 to add or remove a module. Routes are declared inline on each
 `ModuleRoute` (the `component` field). The SPA's react-router setup
-(`frontend/src/App.tsx`) sends every unmatched path to the catch-all
-renderer in `frontend/src/modules/ModuleRoute.tsx`, which resolves the
+(`packages/homestead-app/src/App.tsx`) sends every unmatched path to the catch-all
+renderer in `packages/homestead-app/src/modules/ModuleRoute.tsx`, which resolves the
 route's lazy component — there are no per-route page files. See
 [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md) for the operator-facing
 walkthrough.
@@ -215,10 +215,10 @@ walkthrough.
 ## Project Structure
 
 The repo is an npm workspace. The root `package.json` declares
-`workspaces: ["frontend", "packages/*", "tests/e2e"]`; install once at the
+`workspaces: ["packages/*", "tests/e2e"]`; install once at the
 root with `npm install`.
 
-### Frontend SPA (`frontend/`)
+### Frontend SPA (`packages/homestead-app/`)
 
 The Vite + React SPA is a thin shell — most app code lives in the
 `homestead-core` and `homestead-modules` packages.

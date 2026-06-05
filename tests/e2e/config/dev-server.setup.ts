@@ -34,7 +34,7 @@ export async function startDevServer(_creds: AepbaseAdminCreds): Promise<void> {
     return;
   }
 
-  const cwd = join(getProjectRoot(), 'frontend');
+  const cwd = join(getProjectRoot(), 'packages', 'homestead-app');
   devServerProcess = spawn(
     'npm',
     ['run', 'dev', '--', '--port', String(DEV_SERVER_PORT), '--strictPort', '--host', '127.0.0.1'],
