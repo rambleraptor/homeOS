@@ -32,7 +32,7 @@ requires HTTPS (localhost is exempt).
 ## Architecture
 
 There are two aepbase collections, both parented under `user`
-(see [`packages/homestead-modules/notifications/resources.ts`](../packages/homestead-modules/notifications/resources.ts)):
+(see [`packages/homestead-modules/notifications/resources.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-modules/notifications/resources.ts)):
 
 | Collection                  | URL pattern                                | Purpose                                                                 |
 |-----------------------------|--------------------------------------------|-------------------------------------------------------------------------|
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
 }
 ```
 
-`sendUserNotification` ([`utils/send-user-notification.ts`](../frontend/src/app/api/notifications/utils/send-user-notification.ts))
+`sendUserNotification` ([`utils/send-user-notification.ts`](https://github.com/rambleraptor/homestead/blob/main/frontend/src/app/api/notifications/utils/send-user-notification.ts))
 handles VAPID, fetches the caller's `notification-subscriptions`, sends the
 push, prunes expired endpoints, and writes the `notifications` row. It
 authenticates from the request's bearer token, so the notification always

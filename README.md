@@ -40,7 +40,7 @@ Homestead ships with a growing set of opt-in modules:
 
 Each feature is an opt-in **module**. You pick which ones ship by editing a
 single file, `homestead.config.ts`. Want a different mix, or your own
-custom module? See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+custom module? See **[the self-hosting guide](packages/homestead-site/docs/guides/self-hosting.md)**.
 
 ## Quick start
 

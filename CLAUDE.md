@@ -203,8 +203,8 @@ to add or remove a module. Routes are declared inline on each
 (`packages/homestead-app/src/App.tsx`) sends every unmatched path to the catch-all
 renderer in `packages/homestead-app/src/modules/ModuleRoute.tsx`, which resolves the
 route's lazy component — there are no per-route page files. See
-[`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md) for the operator-facing
-walkthrough.
+[`packages/homestead-site/docs/guides/self-hosting.md`](packages/homestead-site/docs/guides/self-hosting.md)
+for the operator-facing walkthrough.
 
 ### Style
 - Meaningful variable / function names

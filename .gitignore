@@ -47,6 +47,7 @@ packages/homestead-app/dist/
 packages/homestead-site/dist/
 packages/homestead-site/.astro/
 packages/homestead-site/docs/.vitepress/dist/
+packages/homestead-site/docs/.vitepress/cache/
 
 # Browser verification output
 .playwright-mcp/

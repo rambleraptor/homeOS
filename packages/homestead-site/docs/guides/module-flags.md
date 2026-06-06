@@ -327,7 +327,7 @@ A live record looks like:
 
 aepbase's resource-definition endpoint strips JSON-schema `enum`,
 `default`, `minimum`, and `maximum` on round-trip (see
-[CLAUDE.md § aepbase schema](../CLAUDE.md#aepbase-schema-typescript)).
+[CLAUDE.md § aepbase schema](https://github.com/rambleraptor/homestead/blob/main/CLAUDE.md#aepbase-schema-typescript)).
 The syncer works around this by encoding both `default` and `enum` into
 the `description` string with markers:
 

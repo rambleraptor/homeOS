@@ -1,5 +1,5 @@
 ---
 layout: landing
-title: Personal apps on your own server
-description: Personal apps on your own server.
+title: Build and deploy apps for you, your family, and your agents
+description: Build and deploy apps for you, your family, and your agents.
 ---
