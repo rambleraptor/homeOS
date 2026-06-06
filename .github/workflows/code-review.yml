@@ -147,11 +147,6 @@ jobs:
       - name: Build application
         run: make build
 
-      - name: Check build output
-        run: |
-          echo "Build completed successfully"
-          ls -la frontend/dist/
-
   test:
     runs-on: ubuntu-latest
     name: Run Tests

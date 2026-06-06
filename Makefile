@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check type-check-cli build test test-cli test-e2e test-e2e-ui test-all dev start audit format all ci deploy setup-services start-services stop restart status logs aepbase homestead homestead-test release
+.PHONY: help install clean lint type-check type-check-cli build test test-cli test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs aepbase homestead homestead-test release
 
 # Release target platforms (filename arch follows Bun's convention: x64/arm64).
 RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
@@ -43,7 +43,8 @@ type-check-cli: ## Type-check the homestead CLI package
 
 build: ## Build the SPA (Vite -> frontend/dist)
 	@echo "Building SPA..."
-	cd $(FRONTEND_DIR) && npm run build
+	@set -a; if [ -f "$(FRONTEND_DIR)/.env" ]; then . "$(FRONTEND_DIR)/.env"; fi; set +a; \
+	  cd $(FRONTEND_DIR) && npm run build
 
 aepbase: ## Build the aepbase host binary (Go)
 	@echo "Building aepbase host binary..."
@@ -118,37 +119,29 @@ all: install lint type-check build ## Run install, lint, type-check, and build
 ci: lint type-check build ## Run CI checks (lint, type-check, build)
 	@echo "All CI checks passed!"
 
-# Deployment targets
-deploy: ## Deploy Homestead (run as sudo)
-	@./deployment/deploy.sh
-
-deploy-force: ## Force deploy with rebuild
-	@./deployment/deploy.sh --force
-
-setup-services: ## Set up systemd services (requires sudo)
-	@sudo ./deployment/setup-services.sh
-
-setup-auto-update: ## Set up automatic updates (requires sudo)
-	@sudo ./deployment/setup-auto-update.sh
+# Service management (systemd). `install-service` builds the binary, then has it
+# generate + enable the systemd units (main service + auto-update timer).
+install-service: homestead ## Install the systemd service + auto-update timer (requires sudo)
+	@sudo ./bin/homestead install-service
 
 start-services: ## Start the Homestead service (requires sudo)
 	@echo "Starting Homestead service..."
-	@sudo systemctl start homeos
+	@sudo systemctl start homestead
 	@echo "✅ Service started"
 
 stop: ## Stop the Homestead service (requires sudo)
 	@echo "Stopping Homestead service..."
-	@sudo systemctl stop homeos
+	@sudo systemctl stop homestead
 	@echo "✅ Service stopped"
 
 restart: ## Restart the Homestead service (requires sudo)
 	@echo "Restarting Homestead service..."
-	@sudo systemctl restart homeos
+	@sudo systemctl restart homestead
 	@echo "✅ Service restarted"
 
 status: ## Check service status
-	@sudo systemctl status homeos
+	@sudo systemctl status homestead
 
 logs: ## Follow service logs
 	@echo "Following logs (Ctrl+C to stop)..."
-	@sudo journalctl -u homeos -f
+	@sudo journalctl -u homestead -f

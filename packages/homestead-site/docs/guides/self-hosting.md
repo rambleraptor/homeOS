@@ -246,12 +246,11 @@ commit automatically. Run it by hand any time with `homestead update`.
 
 ### Building from source
 
-If you deploy from a full source checkout instead, `./deployment/build.sh`
-compiles the binary. See
-[`deployment/README.md`](https://github.com/rambleraptor/homestead/blob/main/deployment/README.md)
-for that walkthrough (env setup via `packages/homestead-app/.env`, Tailscale,
-backups). The `deployment/*.sh` setup scripts are superseded by
-`homestead install-service` / `homestead update`.
+If you deploy from a full source checkout instead, `make homestead` compiles
+the binary into `bin/homestead` (and `make install-service` builds it, then has
+it install the systemd units). `make build`/`make homestead` source
+`packages/homestead-app/.env`, so set your VAPID keys there before building —
+they're baked into the SPA.
 
 ## Where things live
 
@@ -265,6 +264,5 @@ homeOS/
 │   ├── homestead-modules/          # opt-in feature modules
 │   ├── homestead-core/             # shared types, clients, core modules
 │   └── homestead-sidecar/          # Bun + Hono API routes + schema sync
-├── aepbase/                        # Go aepbase host binary (main.go + oauth.go …)
-└── deployment/                     # systemd unit files + scripts
+└── aepbase/                        # Go aepbase host binary (main.go + oauth.go …)
 ```
