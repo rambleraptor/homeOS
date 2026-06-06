@@ -182,8 +182,8 @@ export function resetModuleRegistry(): void {
 export function getModuleRegistry(): ModuleRegistryImpl {
   if (!_moduleRegistry) {
     throw new Error(
-      'Module registry not initialized. The frontend shim at ' +
-        '`frontend/src/modules/registry.ts` must run before any ' +
+      'Module registry not initialized. The app shim at ' +
+        '`packages/homestead-app/src/modules/registry.ts` must run before any ' +
         'registry helper is called.',
     );
   }

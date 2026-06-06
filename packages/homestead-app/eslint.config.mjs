@@ -9,7 +9,7 @@ export default tseslint.config(
       'dist',
       'node_modules',
       'public',
-      '../homestead/internal/edge/dist',
+      '../../homestead/internal/edge/dist',
     ],
   },
   js.configs.recommended,

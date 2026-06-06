@@ -1,5 +1,5 @@
 {
-  "extends": "../../frontend/tsconfig.json",
+  "extends": "../homestead-app/tsconfig.json",
   "compilerOptions": {
     "paths": {}
   },

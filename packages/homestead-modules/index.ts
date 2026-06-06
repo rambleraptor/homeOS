@@ -3,7 +3,7 @@
  *
  * Aggregate barrel of every feature module that ships in this package.
  * Settings, superuser, the registry itself, and the module-contract types
- * remain in the frontend tree (see `frontend/src/modules/`) — they are part
+ * remain in the app shell (see `packages/homestead-app/src/modules/`) — they are part
  * of the core experience, not feature content.
  */
 

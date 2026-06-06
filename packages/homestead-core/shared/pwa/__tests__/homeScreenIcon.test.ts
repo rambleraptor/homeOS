@@ -2,7 +2,7 @@
  * Tests for the per-app home-screen (PWA) icon head mutations.
  *
  * These run against jsdom's `document`, seeding the head with the same tags
- * `frontend/index.html` ships, then asserting apply/reset behavior.
+ * `packages/homestead-app/index.html` ships, then asserting apply/reset behavior.
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';

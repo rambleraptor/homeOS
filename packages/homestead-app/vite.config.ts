@@ -55,7 +55,7 @@ const commitMessage = git('log -1 --pretty=format:%s');
 
 const srcDir = fileURLToPath(new URL('./src', import.meta.url));
 const configPath = fileURLToPath(
-  new URL('../homestead.config.ts', import.meta.url),
+  new URL('../../homestead.config.ts', import.meta.url),
 );
 
 const AEPBASE_URL = process.env.AEPBASE_URL || 'http://127.0.0.1:8090';

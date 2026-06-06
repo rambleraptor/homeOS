@@ -12,10 +12,10 @@ PROJECT_ROOT="$(pwd)"
 
 echo "🏗️  Building the homestead launcher..."
 
-# VAPID_PUBLIC_KEY is baked into the SPA at build time (frontend/vite.config.ts
-# reads process.env.VAPID_PUBLIC_KEY). Load frontend/.env so the build picks
+# VAPID_PUBLIC_KEY is baked into the SPA at build time (packages/homestead-app/vite.config.ts
+# reads process.env.VAPID_PUBLIC_KEY). Load packages/homestead-app/.env so the build picks
 # it up; without it web-push subscriptions can't be created.
-ENV_FILE="$PROJECT_ROOT/frontend/.env"
+ENV_FILE="$PROJECT_ROOT/packages/homestead-app/.env"
 if [ -f "$ENV_FILE" ]; then
   echo "🔑 Loading $ENV_FILE"
   set -a
@@ -24,7 +24,7 @@ if [ -f "$ENV_FILE" ]; then
   set +a
 else
   echo "⚠️  $ENV_FILE not found — building without VAPID_PUBLIC_KEY."
-  echo "    Create frontend/.env with your VAPID keys (see frontend/.env.example)."
+  echo "    Create packages/homestead-app/.env with your VAPID keys (see packages/homestead-app/.env.example)."
 fi
 
 # --- Toolchain preflight -----------------------------------------------------

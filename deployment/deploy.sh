@@ -89,7 +89,7 @@ NEEDS_BUILD=false
 DEPS_CHANGED=false
 if [ "$PREVIOUS_COMMIT" != "$NEW_COMMIT" ]; then
   CHANGED=$(git diff --name-only "$PREVIOUS_COMMIT..$NEW_COMMIT")
-  if echo "$CHANGED" | grep -qE "^(frontend|packages|aepbase|scripts)/|^homestead\.config\.ts$"; then
+  if echo "$CHANGED" | grep -qE "^(packages|aepbase|scripts)/|^homestead\.config\.ts$"; then
     NEEDS_BUILD=true
     log "${YELLOW}🔄 Source changes detected${NC}"
   fi

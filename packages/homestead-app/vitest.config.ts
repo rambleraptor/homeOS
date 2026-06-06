@@ -14,7 +14,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: [
       'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
-      '../packages/*/**/*.{test,spec}.{js,jsx,ts,tsx}',
+      '../*/**/*.{test,spec}.{js,jsx,ts,tsx}',
     ],
     // Playwright e2e specs colocated next to their modules live under
     // `packages/homestead-modules/<module>/e2e/`. Vitest must not run them.
@@ -23,8 +23,8 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
-      '../packages/homestead-modules/**/e2e/**',
-      '../packages/homestead-cli/**',
+      '../homestead-modules/**/e2e/**',
+      '../homestead-cli/**',
     ],
     coverage: {
       provider: 'v8',
@@ -41,7 +41,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@homestead/config': path.resolve(__dirname, '../homestead.config.ts'),
+      '@homestead/config': path.resolve(__dirname, '../../homestead.config.ts'),
     },
   },
 });

@@ -18,7 +18,7 @@ RestartSec=5s
 # VAPID + Gemini secrets for the Bun sidecar (notifications + OCR), plus any
 # OAuth client secrets read by homestead.config.ts. The child processes inherit
 # this environment.
-EnvironmentFile=/path/to/homeOS/frontend/.env
+EnvironmentFile=/path/to/homeOS/packages/homestead-app/.env
 
 # homestead extracts its embedded aepbase binary to this cache dir before exec;
 # pin it inside the repo so it stays writable under ProtectSystem=strict.

@@ -17,9 +17,9 @@ echo "🔧 Setting up the Homestead systemd service..."
 echo "📍 Project directory: $PROJECT_DIR"
 echo "👤 Running as user: $CURRENT_USER"
 
-if [ ! -f "$PROJECT_DIR/frontend/.env" ]; then
-  echo "⚠️  frontend/.env not found — the service loads it as its EnvironmentFile."
-  echo "    Create it (see frontend/.env.example) with your VAPID keys before"
+if [ ! -f "$PROJECT_DIR/packages/homestead-app/.env" ]; then
+  echo "⚠️  packages/homestead-app/.env not found — the service loads it as its EnvironmentFile."
+  echo "    Create it (see packages/homestead-app/.env.example) with your VAPID keys before"
   echo "    starting the service."
 fi
 

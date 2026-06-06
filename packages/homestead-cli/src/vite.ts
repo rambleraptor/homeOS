@@ -26,7 +26,7 @@ export function startVite(opts: ViteOptions): Child {
       '--host',
       '127.0.0.1',
     ],
-    cwd: join(repoRoot, 'frontend'),
+    cwd: join(repoRoot, 'packages', 'homestead-app'),
     env: {
       AEPBASE_URL: opts.aepbaseUrl,
       SIDECAR_URL: opts.sidecarUrl,
@@ -38,7 +38,7 @@ export function startVite(opts: ViteOptions): Child {
 
 function viteBin(): string {
   const candidates = [
-    join(repoRoot, 'frontend', 'node_modules', '.bin', 'vite'),
+    join(repoRoot, 'packages', 'homestead-app', 'node_modules', '.bin', 'vite'),
     join(repoRoot, 'node_modules', '.bin', 'vite'),
   ];
   for (const c of candidates) {

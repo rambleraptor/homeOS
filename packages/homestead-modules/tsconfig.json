@@ -1,9 +1,9 @@
 {
-  "extends": "../../frontend/tsconfig.json",
+  "extends": "../homestead-app/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["../../frontend/src/*"]
+      "@/*": ["../homestead-app/src/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

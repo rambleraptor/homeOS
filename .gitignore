@@ -43,7 +43,7 @@ aepbase/terraform/terraform.lock.hcl
 bin/
 
 # Built SPA (embedded into the homestead binary by `make homestead`)
-frontend/dist/
+packages/homestead-app/dist/
 
 # homestead-cli build artifacts (compiled sidecar/aepbase, etc.)
 packages/homestead-cli/.build/
