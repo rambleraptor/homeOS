@@ -44,11 +44,13 @@ bin/
 
 # Built SPA (embedded into the homestead binary by `make homestead`)
 packages/homestead-app/dist/
+packages/homestead-site/dist/
+packages/homestead-site/.astro/
+packages/homestead-site/docs/.vitepress/dist/
+
+# Browser verification output
+.playwright-mcp/
+homestead-site-*.png
 
 # homestead-cli build artifacts (compiled sidecar/aepbase, etc.)
 packages/homestead-cli/.build/
-
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
