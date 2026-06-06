@@ -13,6 +13,24 @@ systemd service supervises it.
 
 ## Quick Setup
 
+For most servers, install the prebuilt binary first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
+homestead init my-home
+cd my-home
+homestead start
+```
+
+The installer downloads a GitHub Release binary for your OS and architecture,
+verifies it with `SHA256SUMS`, and installs it to `~/.local/bin/homestead` by
+default. No Node, Bun, or Go toolchain is required at runtime.
+
+Use the source-built flow below when developing Homestead itself or deploying
+unreleased changes from a checkout.
+
+## Source-built setup
+
 ```bash
 # 1. Configure environment
 # The build + service read packages/homestead-app/.env. Ensure it has your VAPID keys
@@ -38,9 +56,9 @@ and writes its credentials to `<data-dir>/credentials.json`. Read them with:
 cat aepbase/data/credentials.json
 ```
 
-## Prerequisites
+## Source build prerequisites
 
-The **build host** (here, the device itself) needs:
+The **build host** needs these only when building Homestead from source:
 
 - **Bun** — compiles the launcher CLI + the sidecar
   (`curl -fsSL https://bun.sh/install | bash`).

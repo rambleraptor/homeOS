@@ -2,7 +2,7 @@
 
 This guide walks you from a fresh clone to a running instance configured
 with the modules you want. If you're a contributor working on Homestead
-itself, the root [`README.md`](../README.md) covers the same backend
+itself, the root [`README.md`](https://github.com/rambleraptor/homestead/blob/main/README.md) covers the same backend
 bootstrap with less hand-holding around module choice.
 
 ## What you're building
@@ -16,7 +16,7 @@ Two processes:
 
 Each user-facing feature (gift cards, recipes, todos, …) is an opt-in
 **module**. You pick which ones to ship by editing one file:
-[`homestead.config.ts`](../homestead.config.ts).
+[`homestead.config.ts`](https://github.com/rambleraptor/homestead/blob/main/homestead.config.ts).
 
 ## Prerequisites
 
@@ -220,7 +220,7 @@ For a long-lived instance, Homestead ships as a **single binary**:
 `homestead start` spawns aepbase as a child process, serves the Bun sidecar
 in-process, and serves the embedded SPA behind one port. `./deployment/build.sh`
 builds it and one systemd service (`homeos`) supervises it. See
-[`deployment/README.md`](../deployment/README.md) for the full walkthrough
+[`deployment/README.md`](https://github.com/rambleraptor/homestead/blob/main/deployment/README.md) for the full walkthrough
 (env setup via `frontend/.env`, auto-updates, Tailscale, backups).
 
 ## Where things live

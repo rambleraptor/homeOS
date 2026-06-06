@@ -1,144 +1,156 @@
 #!/usr/bin/env bash
-# Homestead one-line installer.
+# Homestead binary installer.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
 #
 # Environment overrides:
-#   HOMESTEAD_DIR     Target directory (default: ./homestead)
-#   HOMESTEAD_REPO    Git URL          (default: https://github.com/rambleraptor/homestead.git)
-#   HOMESTEAD_BRANCH  Branch to clone  (default: main)
-#   AEPBASE_PORT      Port aepbase binds while bootstrapping (default: 8090)
+#   HOMESTEAD_VERSION       Release tag to install (default: latest)
+#   HOMESTEAD_INSTALL_DIR   Install directory (default: ~/.local/bin)
+#   HOMESTEAD_REPO          GitHub repo owner/name (default: rambleraptor/homestead)
 #
-# The installer is non-interactive. It clones the repo, installs npm
-# workspaces, builds aepbase, runs it once to capture the bootstrap
-# superuser credentials, writes them into packages/homestead-app/.env.local, and then
-# prints the two commands you need to bring the stack up.
+# The installer downloads a prebuilt release asset, verifies it with
+# SHA256SUMS, installs the `homestead` binary, and prints the next commands.
 
 set -euo pipefail
 
-HOMESTEAD_DIR="${HOMESTEAD_DIR:-./homestead}"
-HOMESTEAD_REPO="${HOMESTEAD_REPO:-https://github.com/rambleraptor/homestead.git}"
-HOMESTEAD_BRANCH="${HOMESTEAD_BRANCH:-main}"
-AEPBASE_PORT="${AEPBASE_PORT:-8090}"
+HOMESTEAD_REPO="${HOMESTEAD_REPO:-rambleraptor/homestead}"
+HOMESTEAD_VERSION="${HOMESTEAD_VERSION:-latest}"
+HOMESTEAD_INSTALL_DIR="${HOMESTEAD_INSTALL_DIR:-$HOME/.local/bin}"
 
 if [[ -t 1 ]]; then
   BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; GRN=$'\033[32m'; YLW=$'\033[33m'; RST=$'\033[0m'
 else
   BOLD=''; DIM=''; RED=''; GRN=''; YLW=''; RST=''
 fi
+
 log()  { printf '%s==>%s %s\n' "$BOLD" "$RST" "$*"; }
 warn() { printf '%s==>%s %s\n' "$YLW" "$RST" "$*" >&2; }
 fail() { printf '%serror:%s %s\n' "$RED" "$RST" "$*" >&2; exit 1; }
-need() { command -v "$1" >/dev/null 2>&1 || fail "missing prerequisite: $1${2:+ — $2}"; }
+need() { command -v "$1" >/dev/null 2>&1 || fail "missing prerequisite: $1"; }
 
-# 1. Prerequisites -------------------------------------------------------
-log "Checking prerequisites"
-need git
-need node "install Node.js 20+ from https://nodejs.org"
-need npm
-need go   "install Go 1.22+ from https://go.dev/dl"
+usage() {
+  cat <<EOF
+Install Homestead from a prebuilt GitHub Release binary.
 
-node_major="$(node -p 'process.versions.node.split(".")[0]')"
-[[ "$node_major" -ge 20 ]] || fail "Node.js 20+ required (have $(node -v))"
+Usage:
+  curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
 
-go_ver="$(go version | awk '{print $3}')"
-go_minor="$(printf '%s\n' "$go_ver" | sed -E 's/^go1\.([0-9]+).*$/\1/')"
-[[ "$go_minor" =~ ^[0-9]+$ && "$go_minor" -ge 22 ]] \
-  || fail "Go 1.22+ required (have $go_ver)"
+Environment:
+  HOMESTEAD_VERSION       Release tag to install, e.g. v0.1.0 (default: latest)
+  HOMESTEAD_INSTALL_DIR   Install directory (default: ~/.local/bin)
+  HOMESTEAD_REPO          GitHub repo owner/name (default: rambleraptor/homestead)
+EOF
+}
 
-# 2. Clone --------------------------------------------------------------
-if [[ -e "$HOMESTEAD_DIR" && -n "$(ls -A "$HOMESTEAD_DIR" 2>/dev/null || true)" ]]; then
-  fail "$HOMESTEAD_DIR exists and is not empty — set HOMESTEAD_DIR or remove it"
-fi
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+  '')
+    ;;
+  *)
+    fail "unknown argument: $1"
+    ;;
+esac
 
-log "Cloning $HOMESTEAD_REPO (branch $HOMESTEAD_BRANCH) into $HOMESTEAD_DIR"
-git clone --depth 1 --branch "$HOMESTEAD_BRANCH" "$HOMESTEAD_REPO" "$HOMESTEAD_DIR"
-cd "$HOMESTEAD_DIR"
+detect_platform() {
+  local os arch
+  os="$(uname -s)"
+  arch="$(uname -m)"
 
-# 3. npm workspaces -----------------------------------------------------
-log "Installing npm workspaces (this can take a minute)"
-npm install --no-audit --no-fund
+  case "$os" in
+    Linux) os="linux" ;;
+    Darwin) os="darwin" ;;
+    *) fail "unsupported OS: $os" ;;
+  esac
 
-# 4. Build aepbase ------------------------------------------------------
-log "Building aepbase"
-( cd aepbase && ./install.sh )
+  case "$arch" in
+    x86_64|amd64) arch="x64" ;;
+    arm64|aarch64) arch="arm64" ;;
+    *) fail "unsupported architecture: $arch" ;;
+  esac
 
-# 5. Bootstrap aepbase and capture creds --------------------------------
-log "Starting aepbase to capture the bootstrap superuser credentials"
-AEPBASE_LOG="$(mktemp -t homestead-aepbase.XXXXXX)"
+  printf '%s-%s' "$os" "$arch"
+}
 
-( cd aepbase && AEPBASE_PORT="$AEPBASE_PORT" ./run.sh ) >"$AEPBASE_LOG" 2>&1 &
-AEPBASE_PID=$!
-
-cleanup() {
-  if kill -0 "$AEPBASE_PID" 2>/dev/null; then
-    kill "$AEPBASE_PID" 2>/dev/null || true
-    wait "$AEPBASE_PID" 2>/dev/null || true
+download() {
+  local url="$1"
+  local dest="$2"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$dest"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q "$url" -O "$dest"
+  else
+    fail "missing prerequisite: curl or wget"
   fi
 }
-trap cleanup EXIT
 
-listening=0
-for _ in $(seq 1 60); do
-  if grep -q "aepbase listening on" "$AEPBASE_LOG" 2>/dev/null; then
-    listening=1
-    break
-  fi
-  if ! kill -0 "$AEPBASE_PID" 2>/dev/null; then
-    cat "$AEPBASE_LOG" >&2
-    fail "aepbase exited before reporting it was listening"
-  fi
-  sleep 0.5
-done
-[[ "$listening" -eq 1 ]] || { cat "$AEPBASE_LOG" >&2; fail "aepbase did not start within 30s"; }
+verify_checksum() {
+  local sums_file="$1"
+  local asset_file="$2"
+  local asset_name
+  asset_name="$(basename "$asset_file")"
 
-if ! grep -q "DEFAULT SUPERUSER CREATED" "$AEPBASE_LOG"; then
-  fail "aepbase booted but did not create a new superuser — aepbase/data already contains users. Remove aepbase/data and re-run, or set AEPBASE_ADMIN_EMAIL / AEPBASE_ADMIN_PASSWORD in packages/homestead-app/.env.local manually."
+  if command -v sha256sum >/dev/null 2>&1; then
+    (cd "$(dirname "$asset_file")" && grep "  $asset_name\$" "$sums_file" | sha256sum -c -)
+  elif command -v shasum >/dev/null 2>&1; then
+    (cd "$(dirname "$asset_file")" && grep "  $asset_name\$" "$sums_file" | shasum -a 256 -c -)
+  else
+    fail "missing prerequisite: sha256sum or shasum"
+  fi
+}
+
+need tar
+need mktemp
+
+platform="$(detect_platform)"
+asset="homestead-${platform}.tar.gz"
+
+if [[ "$HOMESTEAD_VERSION" = "latest" ]]; then
+  release_base="https://github.com/${HOMESTEAD_REPO}/releases/latest/download"
+  version_label="latest"
+else
+  release_base="https://github.com/${HOMESTEAD_REPO}/releases/download/${HOMESTEAD_VERSION}"
+  version_label="$HOMESTEAD_VERSION"
 fi
 
-SUPERUSER_EMAIL="$(awk '/^[[:space:]]*Email:/    {print $2; exit}' "$AEPBASE_LOG")"
-SUPERUSER_PASSWORD="$(awk '/^[[:space:]]*Password:/ {print $2; exit}' "$AEPBASE_LOG")"
-[[ -n "$SUPERUSER_EMAIL" && -n "$SUPERUSER_PASSWORD" ]] \
-  || fail "failed to parse superuser credentials from $AEPBASE_LOG"
+tmpdir="$(mktemp -d)"
+cleanup() { rm -rf "$tmpdir"; }
+trap cleanup EXIT
 
-cleanup
-trap - EXIT
-rm -f "$AEPBASE_LOG"
+log "Installing Homestead ${version_label} for ${platform}"
+download "${release_base}/${asset}" "${tmpdir}/${asset}"
+download "${release_base}/SHA256SUMS" "${tmpdir}/SHA256SUMS"
 
-# 6. Write packages/homestead-app/.env.local --------------------------
-log "Writing packages/homestead-app/.env.local"
-ENV_FILE="packages/homestead-app/.env.local"
-[[ -e "$ENV_FILE" ]] && cp "$ENV_FILE" "$ENV_FILE.bak.$(date +%s)"
-(
-  umask 077
-  cat > "$ENV_FILE" <<EOF
-# Generated by scripts/install.sh
-AEPBASE_URL=http://127.0.0.1:$AEPBASE_PORT
-AEPBASE_ADMIN_EMAIL=$SUPERUSER_EMAIL
-AEPBASE_ADMIN_PASSWORD=$SUPERUSER_PASSWORD
-EOF
-)
+log "Verifying checksum"
+verify_checksum "${tmpdir}/SHA256SUMS" "${tmpdir}/${asset}"
 
-# 7. Hand-off ----------------------------------------------------------
-INSTALL_DIR="$(pwd)"
+log "Installing binary to ${HOMESTEAD_INSTALL_DIR}"
+mkdir -p "$HOMESTEAD_INSTALL_DIR"
+tar -xzf "${tmpdir}/${asset}" -C "$tmpdir"
+install -m 0755 "${tmpdir}/homestead" "${HOMESTEAD_INSTALL_DIR}/homestead"
+
+if [[ ":$PATH:" = *":${HOMESTEAD_INSTALL_DIR}:"* ]]; then
+  homestead_cmd="homestead"
+else
+  homestead_cmd="${HOMESTEAD_INSTALL_DIR}/homestead"
+  warn "${HOMESTEAD_INSTALL_DIR} is not on PATH."
+  warn "Add it with: export PATH=\"${HOMESTEAD_INSTALL_DIR}:\$PATH\""
+fi
+
 cat <<EOF
 
-${GRN}✓ Homestead is installed at ${INSTALL_DIR}${RST}
+${GRN}✓ Homestead installed:${RST} ${HOMESTEAD_INSTALL_DIR}/homestead
 
-Superuser credentials (also stored in ${ENV_FILE}):
-  Email:    ${SUPERUSER_EMAIL}
-  Password: ${SUPERUSER_PASSWORD}
-  ${DIM}Change this password the first time you log in.${RST}
+Next steps:
+  ${BOLD}${homestead_cmd} init my-home${RST}
+  ${BOLD}cd my-home${RST}
+  ${BOLD}${homestead_cmd} start${RST}
 
-Next steps — open two terminals:
+Then open http://localhost:3000 and log in with the superuser credentials
+printed by \`homestead start\`.
 
-  ${BOLD}Terminal 1${RST}  cd ${INSTALL_DIR}/aepbase && ./run.sh
-  ${BOLD}Terminal 2${RST}  cd ${INSTALL_DIR}/packages/homestead-app && npm run dev
-
-Then open http://localhost:3000 and log in.
-
-To customize which feature modules ship, edit
-  ${INSTALL_DIR}/homestead.config.ts
-See docs/SELF_HOSTING.md for the full self-hosting walkthrough.
+${DIM}Install a specific version with HOMESTEAD_VERSION=v0.1.0.${RST}
 EOF

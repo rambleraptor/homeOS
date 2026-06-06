@@ -1,44 +1,69 @@
 # Homestead
 
-Homestead is my opinionated app for doing things at home.
+Homestead is a full-stack platform for personal apps: private software you
+can shape for your own life, run on your own server, and expose through a
+backend that agents can actually understand.
 
-It ships as a **single binary**. `homestead start` boots everything — the
-[aepbase](https://www.github.com/rambleraptor/aepbase) backend, the Bun
-sidecar, and a web server that serves the app — on one port. (aepbase and the
-sidecar are baked into the binary — aepbase runs as a child process, the
-sidecar in-process.)
+The product is intentionally CLI-first. Install the `homestead` binary, put it
+on a home server, and `homestead start` boots the whole stack: the React app,
+the [aepbase](https://www.github.com/rambleraptor/aepbase) backend, the Bun
+sidecar, schema sync, and a same-origin web server on one public port.
 
-## Features
-- Grocery list with notifications
+Homestead is warm personal infrastructure with a little agent-native app OS
+underneath: modules give you useful app surfaces, while the AEP-compliant
+backend gives humans and agents a structured API for the same data.
+
+## Why Homestead
+
+- **One binary for a real stack** — ship the SPA, backend, sidecar, and web
+  proxy together instead of assembling a small constellation of services.
+- **Built for home servers** — keep a long-lived personal app platform on a
+  mini PC, private VPS, or machine reachable over Tailscale.
+- **Agent-accessible by design** — every module can expose AEP resources, so
+  agents can inspect schemas, call APIs, and help build or operate features
+  without scraping UI state.
+- **Modular personal software** — start with useful apps, then add the
+  specific workflows that commercial SaaS will never prioritize.
+
+## Included modules
+
+Homestead ships with a growing set of opt-in modules:
+
+- Todos and projects
+- Groceries with notifications and image processing
+- People and shared personal data
+- Recipes
+- Gift card tracking
+- Credit card perk tracking
 - HSA receipt upload
-- Credit card perk tracker
-- Gift card tracker
+- Games and small social scorekeepers
 
 Each feature is an opt-in **module**. You pick which ones ship by editing a
 single file, `homestead.config.ts`. Want a different mix, or your own
-custom module? See **[docs/SELF_HOSTING.md](docs/SELF_HOSTING.md)**.
+custom module? See **[the self-hosting guide](packages/homestead-site/docs/guides/self-hosting.md)**.
 
-## 🚀 Quick Start
+## Quick start
 
-### Prerequisites
-
-To build the binary you need:
-
-- **Go 1.25+** — compiles the launcher (aepbase is embedded as a library)
-- **Node.js 20+ and npm** — builds the SPA
-- **Bun** — compiles the sidecar ([install](https://bun.sh))
-
-Pre-built binaries embed all three outputs, so a binary you download or
-cross-compile via `make release` has no runtime dependency on Node, Bun, or
-Go.
-
-### Build and run
+### Install the CLI
 
 ```bash
-git clone https://github.com/rambleraptor/homestead.git
-cd homestead
-make homestead          # builds ./bin/homestead (SPA + sidecar + aepbase)
-./bin/homestead start
+curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
+```
+
+The installer downloads the right prebuilt binary for macOS or Linux, verifies
+it against the release checksums, and installs it to `~/.local/bin/homestead`
+by default. Set `HOMESTEAD_INSTALL_DIR=/usr/local/bin` or
+`HOMESTEAD_VERSION=v0.1.0` if you need a different destination or version.
+
+Prebuilt binaries embed the SPA, sidecar code, and aepbase binary. They do not
+need Node, Bun, or Go at runtime.
+
+### Create and run a personal app workspace
+
+```bash
+homestead init my-home
+cd my-home
+homestead start
 ```
 
 `homestead start` prints a ready banner once everything is up:
@@ -55,11 +80,15 @@ banner. On first run aepbase generates them and saves them to the data dir;
 change the password after you log in. That's the whole stack — no separate
 terminals, env vars, or schema step.
 
-> Prefer `make start` to build and run in one step.
+A Homestead project is a directory with `homestead.config.ts`. That file
+chooses the modules that ship and becomes the natural place to add your own
+personal app surfaces.
 
 ## The `homestead` CLI
 
-The binary is self-contained. Run `homestead help` for the full list.
+The binary is self-contained. It is the way you create projects, run the full
+stack, and check whether a machine is ready to host Homestead. Run
+`homestead help` for the full list.
 
 ### `homestead start`
 
@@ -111,8 +140,8 @@ homestead doctor --port=8080 --aepbase-port=9000
 
 ## Architecture
 
-A running Homestead is a single process that supervises three pieces behind
-one web server:
+A running Homestead is personal infrastructure in one supervised process. It
+coordinates three pieces behind one web server:
 
 - **aepbase** (child process) — a Go backend that serves an
   [AEP](https://www.aep.dev)-compliant REST API backed by SQLite. Holds all
@@ -126,6 +155,11 @@ one web server:
 Because the API is AEP-compliant, the frontend is optional: you can reach
 your data through the AEP ecosystem (a Terraform provider, CLI, or the
 [resource explorer UI](https://ui.aep.dev)).
+
+That API surface is also what makes Homestead practical for agents. Modules
+declare real resources instead of hiding state inside components, so an agent
+can discover the shape of the system, write against the same backend the UI
+uses, and help create new modules without guessing how the app works.
 
 ### Modular design
 
@@ -147,7 +181,7 @@ Every feature is a **module** with its own:
 The `create-module` skill scaffolds a new module end-to-end (resource
 definitions, hooks, components, config wiring, and e2e fixtures).
 
-## 🚀 Production Deployment
+## Production deployment
 
 For a long-lived instance on a local machine (e.g. reachable over
 Tailscale), the single binary runs cleanly under a process manager.
@@ -157,9 +191,37 @@ management scripts, and sample production environment files.
 
 ## Development
 
-Working on Homestead itself? The full contributor workflow, the make
-targets (`make ci`, `make test`, `make test-e2e`), and the schema rules
-live in [CLAUDE.md](CLAUDE.md).
+Working on Homestead itself requires the source toolchain:
+
+- **Go 1.25+** — compiles the launcher (aepbase is embedded as a library)
+- **Node.js 20+ and npm** — builds the SPA
+- **Bun** — compiles the sidecar ([install](https://bun.sh))
+
+```bash
+git clone https://github.com/rambleraptor/homestead.git
+cd homestead
+make homestead          # builds ./bin/homestead for your current platform
+make release            # cross-compiles release binaries
+```
+
+Use `make start` to build and run the source checkout in one step.
+
+The full contributor workflow, the make targets (`make ci`, `make test`,
+`make test-e2e`), and the schema rules live in [CLAUDE.md](CLAUDE.md).
+
+## Publishing releases
+
+Push a semver tag to publish prebuilt binaries:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow runs tests, cross-compiles Linux/macOS binaries for x64
+and arm64, packages them as `.tar.gz` archives, writes `SHA256SUMS`, and
+uploads everything to the GitHub Release. `scripts/install.sh` downloads from
+those release assets.
 
 ## 📝 License
 
