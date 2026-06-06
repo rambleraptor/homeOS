@@ -48,6 +48,22 @@ export interface AuthConfig {
 }
 
 /**
+ * Git-tracking configuration for this instance. The project directory (the one
+ * holding this `homestead.config.ts`) is itself a git checkout of an upstream
+ * repo. `homestead update` fetches that upstream and, when the checkout is
+ * behind, fast-forwards to it and restarts the service so the new config takes
+ * effect. This is what lets you edit your config from a phone (push to the
+ * upstream) and have the server pick it up. Consumed by the launcher, not the
+ * SPA bundle.
+ */
+export interface GitConfig {
+  /** Remote to track. Default `origin`. */
+  remote?: string;
+  /** Branch to track. Default `main`. */
+  branch?: string;
+}
+
+/**
  * Shape of the user-supplied configuration consumed by the registry.
  * Operators declare their instance by exporting a value of this type
  * from `homestead.config.ts` at the repo root.
@@ -65,4 +81,10 @@ export interface HomesteadConfig {
    * when the launcher evaluates this file under Bun.
    */
   auth?: AuthConfig;
+
+  /**
+   * Optional git-tracking configuration. Consumed by `homestead update` (the
+   * launcher), not the SPA bundle. Omit to use the defaults (`origin`/`main`).
+   */
+  git?: GitConfig;
 }

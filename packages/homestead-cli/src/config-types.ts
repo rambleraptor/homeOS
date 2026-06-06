@@ -14,7 +14,15 @@ export interface CliOAuthConfig {
   providers: unknown[];
 }
 
+export interface CliGitConfig {
+  /** Remote to track. Default `origin`. */
+  remote?: string;
+  /** Branch to track. Default `main`. */
+  branch?: string;
+}
+
 export interface CliConfig {
   modules: unknown[];
   auth?: { oauth?: CliOAuthConfig };
+  git?: CliGitConfig;
 }

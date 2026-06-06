@@ -81,6 +81,14 @@ const config: HomesteadConfig = {
     notificationsModule,
   ],
   auth,
+  // The directory holding this file is a git checkout. `homestead update`
+  // fast-forwards it to this upstream and restarts the service, so config edits
+  // (e.g. pushed from a phone) take effect. These are the defaults — omit the
+  // block entirely to use them.
+  git: {
+    remote: 'origin',
+    branch: 'main',
+  },
 };
 
 export default config;

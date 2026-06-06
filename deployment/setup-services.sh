@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATED: superseded by `sudo homestead install-service`, which generates
+# the same service (plus an auto-update timer) from homestead.config.ts and
+# works from the compiled binary without a source checkout. Kept for
+# source-tree deployments of this repo.
+#
 # Homestead service setup.
 # Installs the single systemd service that runs the `homestead` binary
 # (aepbase in-process + Bun sidecar + embedded SPA).

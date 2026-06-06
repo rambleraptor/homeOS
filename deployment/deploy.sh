@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# For binary + homestead.config.ts deployments, prefer `homestead update`
+# (pull the config repo + restart) — no source tree or toolchain required.
+# This script is for SOURCE-TREE deployments of this repo: it additionally
+# rebuilds the binary from source, which `homestead update` deliberately does
+# not do.
+#
 # Homestead deployment script.
 # Rebuilds the single `homestead` binary and restarts the one systemd
 # service, with automatic rollback on failure.

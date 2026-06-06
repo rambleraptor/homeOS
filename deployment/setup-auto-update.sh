@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# DEPRECATED: superseded by `sudo homestead install-service --update-interval=<dur>`,
+# which installs the auto-update timer (running `homestead update`) alongside the
+# main service. That flow pulls the config repo + restarts; it does not rebuild
+# from source, matching the binary + homestead.config.ts deployment model.
+#
 # HomeOS Auto-Update Setup Script
 # Sets up systemd timer for automatic updates
 

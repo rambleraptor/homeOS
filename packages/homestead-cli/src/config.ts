@@ -12,3 +12,18 @@ export const homesteadConfig: CliConfig = rootConfig;
 export function aepbaseOAuthEnv(): string | undefined {
   return serializeOAuth(homesteadConfig);
 }
+
+/** The git remote + branch `homestead update` tracks, with defaults applied. */
+export interface ResolvedGitConfig {
+  remote: string;
+  branch: string;
+}
+
+/** Resolve the `git` block of the loaded config, filling in defaults. */
+export function gitConfig(): ResolvedGitConfig {
+  const git = homesteadConfig.git ?? {};
+  return {
+    remote: git.remote ?? 'origin',
+    branch: git.branch ?? 'main',
+  };
+}
