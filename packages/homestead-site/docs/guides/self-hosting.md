@@ -252,6 +252,35 @@ it install the systemd units). `make build`/`make homestead` source
 `packages/homestead-app/.env`, so set your VAPID keys there before building —
 they're baked into the SPA.
 
+## Managing data from the CLI
+
+`homestead resources` is a dynamic CRUD/List client for the resources your
+instance serves — handy for scripting, debugging, and one-off fixes without the
+UI. It reads the running aepbase's OpenAPI document, so the available commands
+always match your installed modules. It connects to an already-running instance
+(start the stack first) and authenticates as the superuser using
+`data/credentials.json`.
+
+```bash
+homestead resources                       # list every resource + its verbs
+homestead resources gift-card             # show one resource's fields + usage
+homestead resources gift-card list
+homestead resources gift-card get <id>
+homestead resources gift-card create --id <id> --merchant "Foo" --amount 25
+homestead resources gift-card update <id> --amount 30
+homestead resources gift-card delete <id>
+```
+
+Schema fields become flags (arrays are comma-separated, objects take inline
+JSON, or pass a whole body with `--@data body.json`). Nested resources take
+their parent ids as flags, e.g.
+`homestead resources transaction --gift_card_id <id> list`. Output is JSON;
+exit codes are `0` ok, `1` for a usage error, `2` for an aepbase/HTTP error.
+
+Connection/auth flags: `--server-url` (or `--aepbase-port`, default 8090),
+`--token`, `--email`/`--password`, and `--data-dir` (where `credentials.json`
+lives). File fields (images) are set in the app, not the CLI.
+
 ## Where things live
 
 ```

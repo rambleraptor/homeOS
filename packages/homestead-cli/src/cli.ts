@@ -21,6 +21,11 @@ async function main(argv: string[]): Promise<number> {
       return updateCmd(rest);
     case 'install-service':
       return installServiceCmd(rest);
+    case 'resources': {
+      // Lazy import: only `resources` pulls in aep-lib-ts + axios.
+      const { resourcesCmd } = await import('./resources.ts');
+      return resourcesCmd(rest);
+    }
     default:
       printUsage();
       console.error(`\nunknown subcommand ${JSON.stringify(sub)}`);
@@ -119,6 +124,7 @@ function printUsage(): void {
       '  homestead doctor            Check whether the host can run `homestead start`.',
       '  homestead update            Pull the tracked config repo; restart the service if it changed.',
       '  homestead install-service   Install the systemd service + auto-update timer (run with sudo).',
+      '  homestead resources [...]   CRUD/List aepbase resources (run bare to list them).',
       '',
       'Flags for `start`:',
       '  --dev                       Serve the SPA via Vite (HMR) instead of the embedded build.',
@@ -139,6 +145,13 @@ function printUsage(): void {
       '  --port=N                    App port baked into the service (default 3000).',
       '  --data-dir=PATH             aepbase data dir (default <project>/data).',
       '  --env-file=PATH             EnvironmentFile for the units (default <project>/.env if present).',
+      '',
+      'Flags for `resources`:',
+      '  --server-url=URL            aepbase base URL (default http://127.0.0.1:<aepbase-port>).',
+      '  --aepbase-port=N            aepbase port when --server-url is unset (default 8090).',
+      '  --token=TOKEN               Bearer token; skips login.',
+      '  --email=EMAIL --password=PW Superuser creds (else read from <data-dir>/credentials.json).',
+      '  --data-dir=PATH             Data dir holding credentials.json (default <project>/data).',
     ].join('\n'),
   );
 }
