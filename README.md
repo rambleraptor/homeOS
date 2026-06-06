@@ -184,10 +184,18 @@ definitions, hooks, components, config wiring, and e2e fixtures).
 ## Production deployment
 
 For a long-lived instance on a local machine (e.g. reachable over
-Tailscale), the single binary runs cleanly under a process manager.
+Tailscale), the single binary runs cleanly under systemd. Install the
+service and an auto-update timer with one command:
 
-**[📖 Deployment Guide](deployment/README.md)** — systemd unit files,
-management scripts, and sample production environment files.
+```bash
+sudo homestead install-service --update-interval=5m
+sudo systemctl start homestead
+```
+
+`homestead update` keeps the box in sync with your config repo — edit
+`homestead.config.ts` from anywhere, push, and the timer pulls + restarts.
+See the **[📖 Self-Hosting Guide](docs/SELF_HOSTING.md#6-production-deployment)**
+for the full walkthrough.
 
 ## Development
 

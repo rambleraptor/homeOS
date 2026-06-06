@@ -55,6 +55,11 @@ const config: HomesteadConfig = {
     groceriesModule,
     recipesModule,
   ],
+
+  // Optional: make this directory a git checkout and \`homestead update\` will
+  // fast-forward it to the upstream below and restart the service — handy for
+  // editing config from a phone. Defaults shown; remove to use them.
+  // git: { remote: 'origin', branch: 'main' },
 };
 
 export default config;

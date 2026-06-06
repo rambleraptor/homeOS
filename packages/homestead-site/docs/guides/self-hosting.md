@@ -218,10 +218,39 @@ fixtures.
 
 For a long-lived instance, Homestead ships as a **single binary**:
 `homestead start` spawns aepbase as a child process, serves the Bun sidecar
-in-process, and serves the embedded SPA behind one port. `./deployment/build.sh`
-builds it and one systemd service (`homeos`) supervises it. See
-[`deployment/README.md`](https://github.com/rambleraptor/homestead/blob/main/deployment/README.md) for the full walkthrough
-(env setup via `frontend/.env`, auto-updates, Tailscale, backups).
+in-process, and serves the embedded SPA behind one port.
+
+### systemd + auto-update (the binary way)
+
+On the host that holds your `homestead.config.ts` (a git checkout of your
+config repo), install the services with the CLI:
+
+```bash
+sudo homestead install-service --update-interval=5m
+sudo systemctl start homestead
+```
+
+This generates and enables three units (idempotent — re-run any time, e.g. to
+change `--update-interval`):
+
+- `homestead.service` — runs `homestead start`.
+- `homestead-update.service` / `.timer` — runs `homestead update` on a cadence
+  (default every 5 minutes).
+
+`homestead update` fetches the upstream of your config repo (the `git` block in
+`homestead.config.ts`, default `origin/main`) and, when the checkout is behind,
+fast-forwards to it and restarts `homestead.service`. So you can **edit your
+config from a phone** — push to the upstream and the server picks it up on the
+next tick. A failed restart (e.g. a bad config) rolls back to the previous
+commit automatically. Run it by hand any time with `homestead update`.
+
+### Building from source
+
+If you deploy from a full source checkout instead, `make homestead` compiles
+the binary into `bin/homestead` (and `make install-service` builds it, then has
+it install the systemd units). `make build`/`make homestead` source
+`packages/homestead-app/.env`, so set your VAPID keys there before building —
+they're baked into the SPA.
 
 ## Where things live
 
@@ -235,6 +264,5 @@ homeOS/
 │   ├── homestead-modules/          # opt-in feature modules
 │   ├── homestead-core/             # shared types, clients, core modules
 │   └── homestead-sidecar/          # Bun + Hono API routes + schema sync
-├── aepbase/                        # Go aepbase host binary (main.go + oauth.go …)
-└── deployment/                     # systemd unit files + scripts
+└── aepbase/                        # Go aepbase host binary (main.go + oauth.go …)
 ```

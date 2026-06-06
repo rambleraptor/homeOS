@@ -17,6 +17,10 @@ async function main(argv: string[]): Promise<number> {
       return initCmd(rest);
     case 'doctor':
       return doctorCmd(rest);
+    case 'update':
+      return updateCmd(rest);
+    case 'install-service':
+      return installServiceCmd(rest);
     default:
       printUsage();
       console.error(`\nunknown subcommand ${JSON.stringify(sub)}`);
@@ -66,6 +70,39 @@ async function doctorCmd(args: string[]): Promise<number> {
   return 0;
 }
 
+async function updateCmd(args: string[]): Promise<number> {
+  const { flags } = parseFlags(args, new Set(['force', 'no-restart']));
+  const { runUpdate } = await import('./update.ts');
+  return runUpdate({
+    projectDir: '.',
+    serviceName: strFlag(flags['service-name'], 'homestead'),
+    force: flags.force === true,
+    restart: flags['no-restart'] !== true,
+  });
+}
+
+async function installServiceCmd(args: string[]): Promise<number> {
+  const { flags } = parseFlags(args);
+  const { installServices, parseInterval } = await import('./service.ts');
+  let intervalSeconds: number;
+  try {
+    intervalSeconds = parseInterval(strFlag(flags['update-interval'], '5m'));
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+  return installServices({
+    projectDir: '.',
+    serviceName: strFlag(flags['service-name'], 'homestead'),
+    user:
+      strFlag(flags.user, process.env.SUDO_USER ?? process.env.USER ?? 'root'),
+    port: numFlag(flags.port, 3000),
+    dataDir: typeof flags['data-dir'] === 'string' ? flags['data-dir'] : undefined,
+    intervalSeconds,
+    envFile: typeof flags['env-file'] === 'string' ? flags['env-file'] : undefined,
+  });
+}
+
 function formatCheck(c: Check): string {
   const mark = c.status === 'ok' ? '✓' : c.status === 'warn' ? '⚠' : '✗';
   return `  ${mark}  ${c.name.padEnd(16)}  ${c.detail}`;
@@ -77,9 +114,11 @@ function printUsage(): void {
       'homestead — run a Homestead instance from a single binary.',
       '',
       'Usage:',
-      '  homestead init [<dir>]     Scaffold a new project (homestead.config.ts + modules/).',
-      '  homestead start [--dev]    Boot aepbase + sidecar + SPA using homestead.config.ts in CWD.',
-      '  homestead doctor           Check whether the host can run `homestead start`.',
+      '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + modules/).',
+      '  homestead start [--dev]     Boot aepbase + sidecar + SPA using homestead.config.ts in CWD.',
+      '  homestead doctor            Check whether the host can run `homestead start`.',
+      '  homestead update            Pull the tracked config repo; restart the service if it changed.',
+      '  homestead install-service   Install the systemd service + auto-update timer (run with sudo).',
       '',
       'Flags for `start`:',
       '  --dev                       Serve the SPA via Vite (HMR) instead of the embedded build.',
@@ -87,6 +126,19 @@ function printUsage(): void {
       '  --aepbase-port=N            aepbase port, loopback (default 8090).',
       '  --sidecar-port=N            sidecar port, loopback (default 4000).',
       '  --data-dir=PATH             aepbase data dir (default <project>/data).',
+      '',
+      'Flags for `update`:',
+      '  --service-name=NAME         systemd service to restart (default homestead).',
+      '  --no-restart                Sync the checkout but do not restart the service.',
+      '  --force                     Restart even when there are no new commits.',
+      '',
+      'Flags for `install-service`:',
+      '  --update-interval=DUR       Auto-update cadence: 30s, 5m, 2h, or bare minutes (default 5m).',
+      '  --service-name=NAME         Base unit name (default homestead).',
+      '  --user=NAME                 User the units run as (default $SUDO_USER).',
+      '  --port=N                    App port baked into the service (default 3000).',
+      '  --data-dir=PATH             aepbase data dir (default <project>/data).',
+      '  --env-file=PATH             EnvironmentFile for the units (default <project>/.env if present).',
     ].join('\n'),
   );
 }
@@ -129,6 +181,10 @@ function numFlag(v: string | boolean | undefined, def: number): number {
     if (Number.isFinite(n)) return n;
   }
   return def;
+}
+
+function strFlag(v: string | boolean | undefined, def: string): string {
+  return typeof v === 'string' ? v : def;
 }
 
 process.exit(await main(process.argv.slice(2)));
