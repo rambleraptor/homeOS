@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { loadProject } from './project.ts';
 
@@ -153,6 +153,14 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
     opts.envFile ??
     (existsSync(join(project.root, '.env')) ? join(project.root, '.env') : undefined);
 
+  // systemd sets up the ProtectSystem=strict namespace from ReadWritePaths
+  // *before* exec, and fails with 226/NAMESPACE if any listed path is missing.
+  // homestead would create the cache dir at runtime (it extracts its embedded
+  // aepbase/sidecar binaries there), but that's too late — create both up front,
+  // owned by the service user so the runtime extraction + db writes can proceed.
+  ensureOwnedDir(cacheDir, opts.user);
+  ensureOwnedDir(dataDir, opts.user);
+
   const params: RenderParams = {
     projectDir: project.root,
     serviceName: opts.serviceName,
@@ -201,6 +209,23 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
   const { remote, branch } = gitConfig();
   console.log(`  tracking ${remote}/${branch} (set via the \`git\` block in homestead.config.ts)`);
   return 0;
+}
+
+/**
+ * Create `path` (and parents) if missing and hand it to the service user, so
+ * the long-running unit — which runs as that user under ProtectSystem=strict —
+ * can write into it. Leaves an existing dir (and its contents/ownership)
+ * untouched, so re-running install-service never stomps a live data dir.
+ */
+function ensureOwnedDir(path: string, user: string): void {
+  if (existsSync(path)) return;
+  mkdirSync(path, { recursive: true });
+  // Non-recursive: the dir is freshly empty, and `user:` resolves the group to
+  // the user's login group. Best-effort — warn rather than abort the install.
+  const res = run(['chown', `${user}:`, path]);
+  if (res.code !== 0) {
+    console.error(`[homestead] warning: could not chown ${path} to ${user}: ${res.err}`);
+  }
 }
 
 function log(msg: string): void {
