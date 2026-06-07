@@ -7,9 +7,10 @@
  * the data dir's credentials.json, and exposes them to the rest of the suite.
  */
 
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess, execSync, execFileSync } from 'child_process';
 import { existsSync } from 'fs';
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { homedir } from 'os';
 import { join } from 'path';
 import { get as httpGet } from 'http';
 
@@ -51,6 +52,32 @@ function ensureBinaryBuilt(): void {
   execSync('./install.sh', { cwd: aepbaseDir, stdio: 'inherit' });
 }
 
+/** Resolve bun: prefer the default install location, fall back to PATH. */
+function bunBin(): string {
+  const installed = join(homedir(), '.bun', 'bin', 'bun');
+  return existsSync(installed) ? installed : 'bun';
+}
+
+/**
+ * Serialize the module-access map (collection→module + default visibility) the
+ * same way the launcher does, so the e2e aepbase enforces module access exactly
+ * like production. Computed in a bun subprocess (it handles the app/module
+ * graph). Returns '' on failure, which leaves enforcement off.
+ */
+function computeModuleAccessEnv(): string {
+  const script = join(getProjectRoot(), 'tests/e2e/config/compute-module-access.ts');
+  try {
+    return execFileSync(bunBin(), ['run', script], {
+      cwd: getProjectRoot(),
+    })
+      .toString()
+      .trim();
+  } catch (err) {
+    console.warn('⚠️  Failed to compute module-access map; e2e enforcement off:', err);
+    return '';
+  }
+}
+
 /**
  * Start aepbase on TEST_PORT with a fresh data directory. Once it's listening,
  * read the bootstrap superuser password from the data dir's credentials.json
@@ -67,13 +94,31 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
 
   ensureBinaryBuilt();
 
+  // Enforce module access like production. Keep a short (not zero) access-cache
+  // TTL: aepbase's sqlite allows a single open connection, so caching the
+  // module_flags row lets a page-load burst share one read instead of each
+  // gated request hammering the connection. 1s is brief enough that
+  // flag-flipping specs (which poll) see changes quickly.
+  const moduleAccessEnv = computeModuleAccessEnv();
+
   return new Promise((resolve, reject) => {
     aepbaseProcess = spawn(binary, [
       '-port', String(TEST_PORT),
       '-data-dir', dataDir,
       '-db', 'aepbase.db',
       '-cors-allowed-origins', '*',
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        // Escape hatch for debugging: set E2E_DISABLE_MODULE_ACCESS=1 to run
+        // the suite with backend enforcement off.
+        AEPBASE_MODULE_ACCESS: process.env.E2E_DISABLE_MODULE_ACCESS
+          ? ''
+          : moduleAccessEnv,
+        AEPBASE_ACCESS_CACHE_TTL_MS: '1000',
+      },
+    });
 
     let stdout = '';
     let ready = false;

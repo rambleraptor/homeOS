@@ -53,7 +53,17 @@ export class SettingsPage {
    */
   async selectMapProvider(provider: 'google' | 'apple') {
     const select = this.page.getByTestId('user-setting-people-map_provider');
+    // The change handler persists the value to the user's `preferences`
+    // record. Wait for that write to land so a subsequent reload reads the
+    // saved value rather than racing the in-flight save.
+    const saved = this.page.waitForResponse(
+      (r) =>
+        /\/preferences(\/|\?|$)/.test(r.url()) &&
+        ['POST', 'PATCH'].includes(r.request().method()) &&
+        r.ok(),
+    );
     await select.selectOption(provider);
+    await saved;
   }
 
   async expectMapProvider(provider: 'google' | 'apple') {

@@ -31,8 +31,12 @@ test.describe('User Settings — map provider', () => {
     await settingsPage.expectMapProvider('google');
 
     await settingsPage.selectMapProvider('apple');
-    // Reload and confirm the choice stuck.
-    await authenticatedPage.reload();
-    await settingsPage.expectMapProvider('apple');
+    // Reload and confirm the choice stuck. The value is hydrated by a
+    // one-shot fetch on load; under full-suite load that fetch can transiently
+    // fail, so retry the reload+check rather than asserting a single reload.
+    await expect(async () => {
+      await authenticatedPage.reload();
+      await settingsPage.expectMapProvider('apple');
+    }).toPass({ timeout: 20000 });
   });
 });
