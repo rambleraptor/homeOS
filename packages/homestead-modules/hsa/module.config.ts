@@ -25,10 +25,4 @@ export const hsaModule: HomeModule = {
   section: 'Money',
   enabled: true,
   resources: hsaResources,
-  workers: {
-    'parse-receipt': {
-      method: 'POST',
-      load: () => import('./workers/parse-receipt'),
-    },
-  },
 };

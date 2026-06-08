@@ -12,19 +12,10 @@ export function useSendGroceryNotification() {
     // Notifications make no sense queued — fail fast offline.
     networkMode: 'online',
     mutationFn: async () => {
-      const token = aepbase.authStore.token;
-      const userId = aepbase.getCurrentUser()?.id || '';
-      const res = await fetch('/api/modules/groceries/send-grocery-notification', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'X-User-Id': userId,
-        },
-      });
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-      return (await res.json()) as GroceryNotificationResponse;
+      return aepbase.customMethod<GroceryNotificationResponse>(
+        'groceries',
+        'send-notification',
+      );
     },
   });
 }

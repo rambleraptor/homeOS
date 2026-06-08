@@ -1,13 +1,13 @@
 /**
- * Groceries `process-image` worker.
+ * `grocery-items:process-image` custom method (AEP-136).
  *
- * Mounted at `POST /api/modules/groceries/process-image` by the
- * module worker dispatcher. Body: `{ image: base64, mimeType }`.
+ * Lives on the grocery collection; dispatched by the sidecar gateway as
+ * `POST /api/aep/groceries:process-image`. Body: `{ image: base64, mimeType }`.
  * Returns `{ items: [{ name }], message }`.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
+import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
 
 interface ExtractedItem {
   name: string;
@@ -54,7 +54,7 @@ Lettuce
     .map((item): ExtractedItem => ({ name: item }));
 }
 
-const handler: ModuleWorkerHandler = async ({ request, auth }) => {
+const handler: CustomMethodHandler = async ({ request, auth }) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -80,7 +80,7 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  console.log(`Processing grocery image for user ${auth?.user.id}`);
+  console.log(`Processing grocery image for user ${auth.user.id}`);
 
   try {
     const items = await extractGroceryItemsFromImage(image, mimeType, genAI);

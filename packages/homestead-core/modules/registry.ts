@@ -27,10 +27,12 @@ import type {
   HomeModule,
   ModuleFlagDef,
   ModuleRegistry,
-  ModuleWorker,
   UserSettingDef,
 } from './types';
-import type { ResourceDefinition } from '../resources/types';
+import type {
+  ResourceCustomMethod,
+  ResourceDefinition,
+} from '../resources/types';
 import {
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
   DEFAULT_MODULE_VISIBILITY,
@@ -455,33 +457,36 @@ export function getAllResourceDefsWithModule(): {
 }
 
 /**
- * Resolve a single module worker by `(moduleId, workerName)`. Walks
- * children so nested modules can declare workers under their own id.
- * Used by the catch-all dispatcher at
- * `app/api/modules/[moduleId]/[...path]/route.ts`.
+ * Resolve a single AEP-136 custom method by `(plural, verb)`. Scans every
+ * declared resource definition (top-level and nested) for one whose plural
+ * matches and that declares the verb under `customMethods`. Used by the
+ * sidecar's `/api/aep` gateway to dispatch `POST /<plural>:<verb>` calls.
  */
-export function getModuleWorker(
-  moduleId: string,
-  workerName: string,
-): ModuleWorker | undefined {
-  const mod = getModuleRegistry().getModule(moduleId);
-  return mod?.workers?.[workerName];
+export function getResourceCustomMethod(
+  plural: string,
+  verb: string,
+): ResourceCustomMethod | undefined {
+  for (const def of getAllResourceDefs()) {
+    if (def.plural === plural) {
+      const method = def.customMethods?.[verb];
+      if (method) return method;
+    }
+  }
+  return undefined;
 }
 
 /**
- * Collect every declared worker across all registered modules,
- * flattened to a `${moduleId}/${workerName}` key. Useful for
- * diagnostic UIs and tests.
+ * Collect every declared custom method across all registered resources,
+ * flattened to a `${plural}:${verb}` key. Useful for diagnostic UIs,
+ * the CLI, and tests.
  */
-export function getAllModuleWorkers(): Record<string, ModuleWorker> {
-  const out: Record<string, ModuleWorker> = {};
-  const visit = (mod: HomeModule): void => {
-    for (const [name, worker] of Object.entries(mod.workers ?? {})) {
-      out[`${mod.id}/${name}`] = worker;
+export function getAllResourceCustomMethods(): Record<string, ResourceCustomMethod> {
+  const out: Record<string, ResourceCustomMethod> = {};
+  for (const def of getAllResourceDefs()) {
+    for (const [verb, method] of Object.entries(def.customMethods ?? {})) {
+      out[`${def.plural}:${verb}`] = method;
     }
-    for (const child of mod.children ?? []) visit(child);
-  };
-  for (const mod of getModuleRegistry().modules) visit(mod);
+  }
   return out;
 }
 

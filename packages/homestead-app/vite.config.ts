@@ -4,20 +4,21 @@ import tailwindcss from '@tailwindcss/vite';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const WORKER_STUB_ID = '\0homestead-module-worker-stub';
+const METHOD_STUB_ID = '\0homestead-custom-method-stub';
 
 /**
- * Module workers (HomeModule.workers[].load) are server-only — they run in
- * the Bun sidecar, never the browser — but `module.config.ts` is reachable
- * from the client registry, so their `() => import('./workers/x')` thunks
- * would otherwise be code-split into dead client chunks (pulling in
- * web-push and friends). Stub those imports in the production build so they
- * never ship. The sidecar is a separate Bun build and is unaffected.
+ * Resource custom-method handlers (ResourceDefinition.customMethods[].load)
+ * are server-only — they run in the Bun sidecar, never the browser — but
+ * `resources.ts` is reachable from the client registry, so their
+ * `() => import('./methods/x')` thunks would otherwise be code-split into
+ * dead client chunks (pulling in web-push and friends). Stub those imports in
+ * the production build so they never ship. The sidecar is a separate Bun
+ * build and is unaffected.
  */
-function stubModuleWorkers(): Plugin {
-  const WORKER_RE = /homestead-modules[/\\].*[/\\]workers[/\\][^/\\]+$/;
+function stubCustomMethods(): Plugin {
+  const METHOD_RE = /homestead-modules[/\\].*[/\\]methods[/\\][^/\\]+$/;
   return {
-    name: 'homestead:stub-module-workers',
+    name: 'homestead:stub-custom-methods',
     enforce: 'pre',
     apply: 'build',
     async resolveId(source, importer, options) {
@@ -26,12 +27,12 @@ function stubModuleWorkers(): Plugin {
         ...options,
         skipSelf: true,
       });
-      if (resolved && WORKER_RE.test(resolved.id)) return WORKER_STUB_ID;
+      if (resolved && METHOD_RE.test(resolved.id)) return METHOD_STUB_ID;
       return null;
     },
     load(id) {
-      if (id === WORKER_STUB_ID) {
-        return 'export default function moduleWorkerStub() {\n  throw new Error("module worker invoked in the browser bundle");\n}\n';
+      if (id === METHOD_STUB_ID) {
+        return 'export default function customMethodStub() {\n  throw new Error("custom method handler invoked in the browser bundle");\n}\n';
       }
       return null;
     },
@@ -67,7 +68,7 @@ const HMR_CLIENT_PORT = process.env.VITE_HMR_CLIENT_PORT
   : undefined;
 
 export default defineConfig(({ mode }) => ({
-  plugins: [stubModuleWorkers(), react(), tailwindcss()],
+  plugins: [stubCustomMethods(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': srcDir,
@@ -96,15 +97,24 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     hmr: HMR_CLIENT_PORT ? { clientPort: HMR_CLIENT_PORT } : undefined,
     proxy: {
+      // AEP-136 custom methods (resource:verb) live on the sidecar gateway,
+      // which dispatches module handlers and proxies aepbase's own
+      // `:login`/`:download` through. Must precede the generic `/api/aep`
+      // rule so colon-verb paths route to the sidecar, not straight to
+      // aepbase. `[^?]*` stops the verb match at any query string.
+      '^/api/aep/[^?]*:[a-z][a-z-]*': {
+        target: SIDECAR_URL,
+        changeOrigin: true,
+      },
       // aepbase: strip the `/api/aep` prefix and forward (matches the old
-      // Next rewrite). Everything else under /api goes to the sidecar.
+      // Next rewrite).
       '/api/aep': {
         target: AEPBASE_URL,
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api\/aep/, ''),
       },
       '/api/notifications': { target: SIDECAR_URL, changeOrigin: true },
-      '/api/modules': { target: SIDECAR_URL, changeOrigin: true },
+      '/api/custom-methods': { target: SIDECAR_URL, changeOrigin: true },
     },
   },
   build: {

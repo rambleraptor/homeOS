@@ -1,5 +1,11 @@
+import { readFileSync } from 'node:fs';
 import type { Resource } from '@aep_dev/aep-lib-ts';
-import { connect, type ConnectOptions, type ResourceContext } from './resources-model.ts';
+import {
+  connect,
+  type ConnectOptions,
+  type CustomMethodInfo,
+  type ResourceContext,
+} from './resources-model.ts';
 import {
   buildBody,
   buildItemPath,
@@ -11,12 +17,20 @@ import {
   ID_FLAG,
   type RawFlags,
 } from './resources-flags.ts';
-import { renderIndex, renderResourceHelp, supportedVerbs, type Verb } from './resources-help.ts';
+import {
+  customMethodsFor,
+  renderIndex,
+  renderResourceHelp,
+  supportedVerbs,
+  type Verb,
+} from './resources-help.ts';
 
 /** Flags consumed by connect/output rather than treated as resource fields. */
 const GLOBAL_FLAGS = [
   'server-url',
   'aepbase-port',
+  'sidecar-url',
+  'sidecar-port',
   'token',
   'email',
   'password',
@@ -43,7 +57,7 @@ export async function resourcesCmd(args: string[]): Promise<number> {
   }
 
   if (!resourceName) {
-    console.log(renderIndex(model.resources));
+    console.log(renderIndex(model.resources, model.customMethods));
     return 0;
   }
 
@@ -54,26 +68,129 @@ export async function resourcesCmd(args: string[]): Promise<number> {
   }
 
   if (!verbArg) {
-    console.log(renderResourceHelp(resource));
+    console.log(renderResourceHelp(resource, model.customMethods));
     return 0;
   }
 
-  const verbs = supportedVerbs(resource);
-  if (!verbs.includes(verbArg as Verb)) {
+  const crudVerbs = supportedVerbs(resource);
+  const custom = customMethodsFor(resource, model.customMethods).find(
+    (m) => m.verb === verbArg,
+  );
+  if (!crudVerbs.includes(verbArg as Verb) && !custom) {
+    const supported = [
+      ...crudVerbs,
+      ...customMethodsFor(resource, model.customMethods).map((m) => m.verb),
+    ];
     console.error(
-      `resource "${resource.singular}" has no "${verbArg}" verb — supported: ${verbs.join(', ') || '(none)'}`,
+      `resource "${resource.singular}" has no "${verbArg}" verb — supported: ${supported.join(', ') || '(none)'}`,
     );
     return 1;
   }
 
   try {
-    const result = await runVerb(model, resource, verbArg as Verb, idArg, flags);
+    const result = custom
+      ? await runCustomMethod(model, resource, custom, idArg, flags)
+      : await runVerb(model, resource, verbArg as Verb, idArg, flags);
     if (result !== undefined) console.log(JSON.stringify(result, null, 2));
     return 0;
   } catch (err) {
     // Usage problems (bad/missing flags) are the operator's fault → 1;
     // anything else is an aepbase/HTTP failure → 2 (aepcli convention).
     return fail(err, err instanceof FlagError ? 1 : 2);
+  }
+}
+
+/**
+ * Invoke an AEP-136 custom method on `resource` via the sidecar gateway:
+ * `POST /api/aep/<plural>[/<id>]:<verb>`. The body comes from `--@data`.
+ */
+async function runCustomMethod(
+  model: ResourceContext,
+  resource: Resource,
+  method: CustomMethodInfo,
+  idArg: string | undefined,
+  flags: RawFlags,
+): Promise<unknown> {
+  const parentParams = collectParentParams(resource, flags);
+  let resourcePath: string;
+  if (method.target === 'item') {
+    if (!idArg) {
+      throw new FlagError(
+        `"${method.verb}" is a per-record method — pass an id: ` +
+          `homestead resources ${resource.singular} ${method.verb} <id>`,
+      );
+    }
+    resourcePath = buildItemPath(resource, parentParams, idArg);
+  } else {
+    resourcePath = buildCollectionPath(resource, parentParams);
+  }
+
+  const body = readCustomMethodBody(flags);
+  const url = `${model.sidecarUrl}/api/aep/${resourcePath}:${method.verb}`;
+  const res = await fetch(url, {
+    method: method.method || 'POST',
+    headers: {
+      Authorization: `Bearer ${model.token}`,
+      'X-User-Id': model.userId,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text();
+  let parsed: unknown = undefined;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      // non-JSON; surface raw text below
+    }
+  }
+  if (!res.ok) {
+    const detail =
+      parsed !== undefined ? JSON.stringify(parsed) : text || `HTTP ${res.status}`;
+    throw new Error(`${resource.plural}:${method.verb} → ${res.status}: ${detail}`);
+  }
+  return parsed ?? text;
+}
+
+/** Collection path for a (possibly nested) resource: drop the trailing id. */
+function buildCollectionPath(
+  resource: Resource,
+  parentParams: Record<string, string>,
+): string {
+  const elems = resource.patternElems;
+  const parts: string[] = [];
+  for (let i = 0; i < elems.length - 1; i++) {
+    if (i % 2 === 0) {
+      parts.push(elems[i]);
+      continue;
+    }
+    const name = elems[i].slice(1, -1);
+    const value = parentParams[name];
+    if (!value) throw new FlagError(`missing id for ${name}`);
+    parts.push(value);
+  }
+  return parts.join('/');
+}
+
+/** The custom-method request body comes from `--@data <file.json>`. */
+function readCustomMethodBody(flags: RawFlags): unknown {
+  const data = flags[DATA_FLAG];
+  if (data === undefined) return undefined;
+  if (typeof data !== 'string') {
+    throw new FlagError('--@data needs a path to a JSON file');
+  }
+  let raw: string;
+  try {
+    raw = readFileSync(data, 'utf8');
+  } catch {
+    throw new FlagError(`cannot read --@data file: ${data}`);
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new FlagError(`--@data file is not valid JSON: ${data}`);
   }
 }
 
@@ -124,6 +241,8 @@ function connectOptions(flags: RawFlags): ConnectOptions {
   return {
     serverUrl: str(flags['server-url']),
     aepbasePort: num(flags['aepbase-port']),
+    sidecarUrl: str(flags['sidecar-url']),
+    sidecarPort: num(flags['sidecar-port']),
     dataDir: str(flags['data-dir']),
     token: str(flags.token),
     email: str(flags.email),

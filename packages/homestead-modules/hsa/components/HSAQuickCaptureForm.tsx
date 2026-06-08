@@ -9,6 +9,15 @@ import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import type { HSAReceiptFormData, ReceiptCategory } from '../types';
 
+/** Shape returned by the `hsa-receipts:parse-receipt` custom method. */
+interface ParsedReceiptData {
+  merchant: string;
+  service_date: string;
+  amount: number;
+  category: ReceiptCategory;
+  patient?: string;
+}
+
 /**
  * Convert the first page of a PDF to a PNG image
  * Dynamically imports pdfjs-dist to avoid SSR issues
@@ -136,28 +145,13 @@ export function HSAQuickCaptureForm({
         mimeType = selectedFile.type;
       }
 
-      // Call API to parse receipt
-      const token = aepbase.authStore.token;
-      const userId = aepbase.getCurrentUser()?.id || '';
-      const response = await fetch('/api/modules/hsa/parse-receipt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          'X-User-Id': userId,
-        },
-        body: JSON.stringify({
-          image: base64Data,
-          mimeType: mimeType,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to parse receipt');
-      }
-
-      const result = await response.json();
+      // Call the AEP-136 custom method on the hsa-receipt collection to
+      // parse the receipt: POST /api/aep/hsa-receipts:parse-receipt
+      const result = await aepbase.customMethod<{ data: ParsedReceiptData }>(
+        'hsa-receipts',
+        'parse-receipt',
+        { image: base64Data, mimeType },
+      );
 
       // Auto-fill form with parsed data
       setFormData({

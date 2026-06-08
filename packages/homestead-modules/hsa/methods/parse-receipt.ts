@@ -1,13 +1,13 @@
 /**
- * HSA `parse-receipt` worker.
+ * `hsa-receipts:parse-receipt` custom method (AEP-136).
  *
- * Mounted at `POST /api/modules/hsa/parse-receipt` by the module
- * worker dispatcher. Body: `{ image: base64, mimeType }`. Returns
- * `{ data: ParsedReceiptData, message }`.
+ * Lives on the hsa-receipt collection; dispatched by the sidecar gateway as
+ * `POST /api/aep/hsa-receipts:parse-receipt`. Body: `{ image: base64, mimeType }`.
+ * Returns `{ data: ParsedReceiptData, message }`.
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { ModuleWorkerHandler } from '@rambleraptor/homestead-core/modules/types';
+import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
 
 interface ParsedReceiptData {
   merchant: string;
@@ -69,7 +69,7 @@ Rules:
   };
 }
 
-const handler: ModuleWorkerHandler = async ({ request, auth }) => {
+const handler: CustomMethodHandler = async ({ request, auth }) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -95,7 +95,7 @@ const handler: ModuleWorkerHandler = async ({ request, auth }) => {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  console.log(`Parsing receipt image for user ${auth?.user.id}`);
+  console.log(`Parsing receipt image for user ${auth.user.id}`);
 
   try {
     const receiptData = await parseReceiptFromImage(image, mimeType, genAI);

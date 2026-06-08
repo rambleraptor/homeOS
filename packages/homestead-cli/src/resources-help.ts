@@ -1,5 +1,6 @@
 import type { Resource } from '@aep_dev/aep-lib-ts';
 import { fieldFlags, parentPlaceholders, type FieldFlag } from './resources-flags.ts';
+import type { CustomMethodInfo } from './resources-model.ts';
 
 export type Verb = 'list' | 'get' | 'create' | 'update' | 'delete';
 
@@ -14,8 +15,19 @@ export function supportedVerbs(resource: Resource): Verb[] {
   return verbs;
 }
 
-/** The `homestead resources` index: every resource and its verbs. */
-export function renderIndex(resources: Record<string, Resource>): string {
+/** The custom methods that live on a given resource, by plural match. */
+export function customMethodsFor(
+  resource: Resource,
+  customMethods: CustomMethodInfo[],
+): CustomMethodInfo[] {
+  return customMethods.filter((m) => m.plural === resource.plural);
+}
+
+/** The `homestead resources` index: every resource, its verbs + custom methods. */
+export function renderIndex(
+  resources: Record<string, Resource>,
+  customMethods: CustomMethodInfo[] = [],
+): string {
   const entries = Object.values(resources).sort((a, b) =>
     a.singular.localeCompare(b.singular),
   );
@@ -27,16 +39,24 @@ export function renderIndex(resources: Record<string, Resource>): string {
   for (const r of entries) {
     const verbs = supportedVerbs(r).join(', ') || '(none)';
     const parents = parentPlaceholders(r);
-    const suffix =
+    const parentSuffix =
       parents.length > 0 ? `   (parent: ${parents.map((p) => `--${p}`).join(' ')})` : '';
-    lines.push(`  ${r.singular.padEnd(width)}  ${verbs}${suffix}`);
+    const methods = customMethodsFor(r, customMethods);
+    const methodSuffix =
+      methods.length > 0
+        ? `   (custom: ${methods.map((m) => `:${m.verb}`).join(', ')})`
+        : '';
+    lines.push(`  ${r.singular.padEnd(width)}  ${verbs}${parentSuffix}${methodSuffix}`);
   }
   lines.push('', 'Run `homestead resources <resource>` for fields and usage.');
   return lines.join('\n');
 }
 
-/** Per-resource help: usage lines, fields, and parent flags. */
-export function renderResourceHelp(resource: Resource): string {
+/** Per-resource help: usage lines, fields, custom methods, and parent flags. */
+export function renderResourceHelp(
+  resource: Resource,
+  customMethods: CustomMethodInfo[] = [],
+): string {
   const verbs = supportedVerbs(resource);
   const fields = fieldFlags(resource);
   const parents = parentPlaceholders(resource);
@@ -50,6 +70,12 @@ export function renderResourceHelp(resource: Resource): string {
   lines.push('Usage:');
   for (const verb of verbs) {
     lines.push(`  homestead resources ${parentPrefix}${resource.singular} ${usageForVerb(verb, fields, resource)}`);
+  }
+  for (const m of customMethodsFor(resource, customMethods)) {
+    const idHint = m.target === 'item' ? '<id> ' : '';
+    lines.push(
+      `  homestead resources ${parentPrefix}${resource.singular} ${m.verb} ${idHint}[--@data body.json]`,
+    );
   }
 
   const settable = fields.filter((f) => !f.fileField);
@@ -67,6 +93,16 @@ export function renderResourceHelp(resource: Resource): string {
   if (fileFields.length > 0) {
     lines.push('', 'File fields (set via the app, not the CLI):');
     for (const f of fileFields) lines.push(`  ${f.name}`);
+  }
+
+  const methods = customMethodsFor(resource, customMethods);
+  if (methods.length > 0) {
+    lines.push('', 'Custom methods (AEP-136, served by the sidecar):');
+    const width = Math.max(...methods.map((m) => m.verb.length), 4);
+    for (const m of methods) {
+      const scope = m.target === 'item' ? 'per-record (pass <id>)' : 'collection';
+      lines.push(`  ${m.verb.padEnd(width)}  ${m.method} :${m.verb}  (${scope})`);
+    }
   }
 
   if (parents.length > 0) {

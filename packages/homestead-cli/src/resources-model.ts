@@ -16,6 +16,10 @@ export interface ConnectOptions {
   serverUrl?: string;
   /** aepbase loopback port (default 8090) when `serverUrl` is not given. */
   aepbasePort?: number;
+  /** Full sidecar base URL (serves custom methods). Wins over `sidecarPort`. */
+  sidecarUrl?: string;
+  /** Sidecar loopback port (default 4000) when `sidecarUrl` is not given. */
+  sidecarPort?: number;
   /** Explicit data dir holding credentials.json; overrides the project's. */
   dataDir?: string;
   /** Pre-obtained bearer token; skips login. */
@@ -26,13 +30,33 @@ export interface ConnectOptions {
   password?: string;
 }
 
-/** Everything a verb handler needs to talk to aepbase. */
+/** An AEP-136 custom method advertised by the sidecar's `/api/custom-methods`. */
+export interface CustomMethodInfo {
+  /** Plural of the resource the method lives on, e.g. `groceries`. */
+  plural: string;
+  /** Kebab-case custom verb, e.g. `process-image`. */
+  verb: string;
+  /** `collection` (`/<plural>:<verb>`) or `item` (`/<plural>/<id>:<verb>`). */
+  target: 'collection' | 'item';
+  /** HTTP method the sidecar expects (default POST). */
+  method: string;
+}
+
+/** Everything a verb handler needs to talk to aepbase + the sidecar. */
 export interface ResourceContext {
   apiClient: APIClient;
   client: Client;
   serverUrl: string;
+  /** Sidecar base URL — where custom methods are invoked. */
+  sidecarUrl: string;
+  /** Bearer token of the authenticated caller. */
+  token: string;
+  /** The caller's user id (sent as `X-User-Id` to the custom-method gateway). */
+  userId: string;
   /** Resource model keyed by singular, e.g. `gift-card`. */
   resources: Record<string, Resource>;
+  /** Custom methods registered on the sidecar, across all resources. */
+  customMethods: CustomMethodInfo[];
 }
 
 /**
@@ -49,9 +73,10 @@ export class ConnectError extends Error {}
  */
 export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
   const serverUrl = resolveServerUrl(opts);
+  const sidecarUrl = resolveSidecarUrl(opts);
   await probe(serverUrl);
 
-  const token = opts.token ?? (await loginFromOptions(serverUrl, opts));
+  const { token, userId } = await resolveAuth(serverUrl, opts);
   const openapi = await fetchOpenApi(serverUrl);
 
   const apiClient = await APIClient.fromOpenAPI(openapi, serverUrl);
@@ -64,12 +89,43 @@ export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
     );
   }
 
+  const customMethods = await fetchCustomMethods(sidecarUrl);
+
   const http = axios.create({ timeout: 30_000 });
   const headers = { Authorization: `Bearer ${token}` };
   const noop = (): void => {};
   const client = new Client(http, headers, noop, noop);
 
-  return { apiClient, client, serverUrl, resources };
+  return {
+    apiClient,
+    client,
+    serverUrl,
+    sidecarUrl,
+    token,
+    userId,
+    resources,
+    customMethods,
+  };
+}
+
+/**
+ * Fetch the custom methods registered on the sidecar. Best-effort: the
+ * `resources` command still works (CRUD only) when the sidecar is down or
+ * predates this endpoint, so we degrade to an empty list rather than fail.
+ */
+async function fetchCustomMethods(
+  sidecarUrl: string,
+): Promise<CustomMethodInfo[]> {
+  try {
+    const res = await fetch(`${sidecarUrl}/api/custom-methods`, {
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { methods?: CustomMethodInfo[] };
+    return body.methods ?? [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -100,6 +156,12 @@ function resolveServerUrl(opts: ConnectOptions): string {
   return `http://127.0.0.1:${port}`;
 }
 
+function resolveSidecarUrl(opts: ConnectOptions): string {
+  if (opts.sidecarUrl) return opts.sidecarUrl.replace(/\/$/, '');
+  const port = opts.sidecarPort ?? 4000;
+  return `http://127.0.0.1:${port}`;
+}
+
 /** One-shot reachability check so we fail fast with a clear message. */
 async function probe(serverUrl: string): Promise<void> {
   try {
@@ -112,13 +174,32 @@ async function probe(serverUrl: string): Promise<void> {
   }
 }
 
-/** Resolve credentials (flags → credentials.json) and exchange them for a token. */
-async function loginFromOptions(
+/**
+ * Resolve the caller's bearer token + user id. The id is needed for the
+ * custom-method gateway's `X-User-Id` header. With `--token` we read it back
+ * via aepbase's `/users/me`; otherwise the `:login` response carries it.
+ */
+async function resolveAuth(
   serverUrl: string,
   opts: ConnectOptions,
-): Promise<string> {
+): Promise<{ token: string; userId: string }> {
+  if (opts.token) {
+    return { token: opts.token, userId: await whoami(serverUrl, opts.token) };
+  }
   const creds = resolveCredentials(opts);
   return login(serverUrl, creds.email, creds.password);
+}
+
+async function whoami(serverUrl: string, token: string): Promise<string> {
+  const res = await fetch(`${serverUrl}/users/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    throw new ConnectError(`GET ${serverUrl}/users/me → ${res.status}`);
+  }
+  const user = (await res.json()) as { id?: string };
+  if (!user.id) throw new ConnectError('aepbase /users/me response missing id');
+  return user.id;
 }
 
 interface Credentials {
@@ -148,12 +229,12 @@ function resolveCredentials(opts: ConnectOptions): Credentials {
   return { email: parsed.email, password: parsed.password };
 }
 
-/** Mirror of the sidecar's schema-sync login: POST /users/:login → token. */
+/** POST /users/:login → { token, user }. Captures the user id too. */
 async function login(
   serverUrl: string,
   email: string,
   password: string,
-): Promise<string> {
+): Promise<{ token: string; userId: string }> {
   const res = await fetch(`${serverUrl}/users/:login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -163,11 +244,11 @@ async function login(
     const text = await res.text();
     throw new ConnectError(`aepbase login → ${res.status}: ${text}`);
   }
-  const body = (await res.json()) as { token?: string };
-  if (!body.token) {
-    throw new ConnectError('aepbase login response missing token');
+  const body = (await res.json()) as { token?: string; user?: { id?: string } };
+  if (!body.token || !body.user?.id) {
+    throw new ConnectError('aepbase login response missing token or user id');
   }
-  return body.token;
+  return { token: body.token, userId: body.user.id };
 }
 
 async function fetchOpenApi(serverUrl: string): Promise<OpenAPI> {
