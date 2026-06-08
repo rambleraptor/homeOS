@@ -259,15 +259,12 @@ export interface HomeModule {
   widgets?: DashboardWidget[];
 
   /**
-   * Optional HTTP workers — module-owned server endpoints, à la
-   * Cloudflare Workers. Each entry is mounted at
-   * `/api/modules/<moduleId>/<workerName>`; the catch-all dispatcher
-   * at `app/api/modules/[moduleId]/[...path]/route.ts` resolves the
-   * worker, enforces method + auth, and invokes the lazy-loaded
-   * handler. Workers run in-process inside Next.js — they're not
-   * isolated like real Cloudflare Workers, just modular.
+   * Server-side endpoints are declared as AEP-136 custom methods on the
+   * module's resource definitions (`ResourceDefinition.customMethods`),
+   * not on the module itself — they live on the resource they act on and
+   * are addressed as `POST /<plural>:<verb>`. See
+   * `core/resources/types.ts#ResourceCustomMethod`.
    */
-  workers?: Record<string, ModuleWorker>;
 
   /**
    * Optional sub-modules. When set, this module is a container —
@@ -351,78 +348,6 @@ export type UserSettingValue = string | number | boolean;
  * on the same union.
  */
 export type UserSettingDef = ModuleFlagDef;
-
-/**
- * HTTP method a module worker accepts. The dispatcher returns 405 if
- * the request method doesn't match.
- */
-export type ModuleWorkerMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-
-/**
- * Authenticated caller info handed to a worker. Mirrors the shape
- * returned by `app/api/_lib/aepbase-server.ts#authenticate` — kept
- * inline here so the module-contract types stay free of server-only
- * runtime imports.
- */
-export interface ModuleWorkerAuth {
-  token: string;
-  user: {
-    id: string;
-    path: string;
-    email: string;
-    display_name?: string;
-    type?: string;
-  };
-}
-
-/**
- * Context passed to a worker handler when the dispatcher invokes it.
- */
-export interface ModuleWorkerContext {
-  request: Request;
-  /**
-   * Authenticated caller. Always set when the worker requires auth
-   * (the default); only `null` for workers declared with
-   * `requireAuth: false`.
-   */
-  auth: ModuleWorkerAuth | null;
-  moduleId: string;
-  workerName: string;
-}
-
-export type ModuleWorkerHandler = (
-  ctx: ModuleWorkerContext,
-) => Promise<Response>;
-
-/**
- * Declarative definition of a single module worker.
- *
- * The handler is referenced via a lazy `import()` so the runtime
- * code stays out of the client bundle when `module.config.ts` is
- * loaded by client components.
- *
- * @example
- *   workers: {
- *     'process-image': {
- *       method: 'POST',
- *       load: () => import('./workers/process-image'),
- *     },
- *   }
- */
-export interface ModuleWorker {
-  /** HTTP method this worker accepts. Defaults to `'POST'`. */
-  method?: ModuleWorkerMethod;
-  /**
-   * Whether the dispatcher should require an authenticated caller
-   * before invoking the handler. Defaults to `true`.
-   */
-  requireAuth?: boolean;
-  /**
-   * Lazy import of the handler module. The dispatcher awaits this
-   * on demand and invokes the default export.
-   */
-  load: () => Promise<{ default: ModuleWorkerHandler }>;
-}
 
 /**
  * Module Registry

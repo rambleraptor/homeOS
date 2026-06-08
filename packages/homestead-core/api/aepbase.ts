@@ -354,6 +354,81 @@ export async function download(
 }
 
 // ----------------------------------------------------------------------------
+// Custom methods (AEP-136)
+// ----------------------------------------------------------------------------
+
+interface CustomMethodOptions {
+  /** Addressed record id for an item-target method (`/<plural>/<id>:<verb>`). */
+  id?: string;
+  /** Parent chain for a nested resource. */
+  parent?: ParentPath;
+  /** HTTP method. Defaults to POST (AEP-136 custom methods are POST). */
+  method?: string;
+}
+
+/**
+ * Invoke an AEP-136 custom method that lives on a resource, e.g.
+ * `customMethod('grocery-items', 'process-image', { image, mimeType })` →
+ * `POST /api/aep/grocery-items:process-image`. Pass `options.id` to address a
+ * single record (`/<plural>/<id>:<verb>`).
+ *
+ * Unlike the CRUD helpers, these are served by the sidecar gateway, which
+ * authenticates via both the bearer token and an `X-User-Id` header (the id
+ * of the token holder) — so we send both here.
+ */
+export async function customMethod<T>(
+  plural: string,
+  verb: string,
+  body?: unknown,
+  options: CustomMethodOptions = {},
+): Promise<T> {
+  const base = options.id
+    ? itemPath(plural, options.id, options.parent)
+    : collectionPath(plural, options.parent);
+  const url = `${AEP_BASE}${base}:${verb}`;
+
+  const headers: Record<string, string> = {};
+  if (authStore.token) headers.Authorization = `Bearer ${authStore.token}`;
+  const userId = authStore.model?.id;
+  if (userId) headers['X-User-Id'] = userId;
+
+  const init: RequestInit = { method: options.method ?? 'POST', headers };
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(body);
+  }
+
+  const res = await fetch(url, init);
+  if (res.status === 204) return undefined as T;
+
+  const text = await res.text();
+  let parsed: unknown = undefined;
+  if (text) {
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      // Non-JSON response — fall through and surface the raw text.
+    }
+  }
+  if (!res.ok) {
+    const envelope = parsed as
+      | { error?: { code?: number; message?: string } | string; message?: string }
+      | undefined;
+    const errObj =
+      envelope && typeof envelope.error === 'object' ? envelope.error : undefined;
+    const code = errObj?.code ?? res.status;
+    const message =
+      errObj?.message ??
+      (typeof envelope?.error === 'string' ? envelope.error : undefined) ??
+      envelope?.message ??
+      text ??
+      `HTTP ${res.status}`;
+    throw new AepbaseError(code, message, url);
+  }
+  return parsed as T;
+}
+
+// ----------------------------------------------------------------------------
 // Auth
 // ----------------------------------------------------------------------------
 
@@ -467,6 +542,7 @@ export const aepbase = {
   update,
   remove,
   download,
+  customMethod,
   login,
   logout,
   refreshCurrentUser,

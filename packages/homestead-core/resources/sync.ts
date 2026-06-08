@@ -192,7 +192,10 @@ async function createDefinition(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(def),
+      // Only the wire fields aepbase understands — never the server-only
+      // `customMethods` (whose lazy `load` thunks JSON.stringify drops, but
+      // whose `target`/`method` metadata would otherwise leak through).
+      body: JSON.stringify(wireDefinition(def)),
     },
   );
   if (!res.ok) {
@@ -231,6 +234,18 @@ async function patchDefinition(
       `aepbase PATCH /${DEFINITIONS_PATH}/${def.singular} → ${res.status}: ${text}`,
     );
   }
+}
+
+/** Project a definition down to the fields aepbase's endpoint accepts. */
+function wireDefinition(def: ResourceDefinition): Record<string, unknown> {
+  return {
+    singular: def.singular,
+    plural: def.plural,
+    description: def.description,
+    user_settable_create: def.user_settable_create,
+    parents: def.parents,
+    schema: def.schema,
+  };
 }
 
 function definitionsMatch(

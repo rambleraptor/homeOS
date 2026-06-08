@@ -30,24 +30,14 @@ export async function extractGroceryItemsFromImage(
   try {
     logger.info('Sending image to backend for processing');
     const base64Image = await fileToBase64(imageFile);
-    const token = aepbase.authStore.token;
-    const userId = aepbase.getCurrentUser()?.id || '';
 
-    const res = await fetch('/api/modules/groceries/process-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'X-User-Id': userId,
-      },
-      body: JSON.stringify({ image: base64Image, mimeType: imageFile.type }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-
-    const response = (await res.json()) as {
+    const response = await aepbase.customMethod<{
       items: ExtractedGroceryItem[];
       message: string;
-    };
+    }>('groceries', 'process-image', {
+      image: base64Image,
+      mimeType: imageFile.type,
+    });
     logger.info(response.message);
     return response.items;
   } catch (error) {

@@ -53,14 +53,4 @@ export const groceriesModule: HomeModule = {
       order: 10,
     },
   ],
-  workers: {
-    'process-image': {
-      method: 'POST',
-      load: () => import('./workers/process-image'),
-    },
-    'send-grocery-notification': {
-      method: 'POST',
-      load: () => import('./workers/send-grocery-notification'),
-    },
-  },
 };

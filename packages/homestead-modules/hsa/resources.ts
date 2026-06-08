@@ -41,5 +41,13 @@ export const hsaResources: ResourceDefinition[] = [
         'receipt_file',
       ],
     },
+    // AEP-136 custom method on the hsa-receipt collection:
+    //   POST /api/aep/hsa-receipts:parse-receipt
+    customMethods: {
+      'parse-receipt': {
+        target: 'collection',
+        load: () => import('./methods/parse-receipt'),
+      },
+    },
   },
 ];

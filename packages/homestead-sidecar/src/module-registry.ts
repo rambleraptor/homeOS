@@ -4,12 +4,13 @@
  * Mirrors the app boot shim (`packages/homestead-app/src/modules/registry.ts`):
  * the operator's modules from the repo-root `homestead.config.ts` plus
  * the always-installed core modules (settings, users, superuser). Other
- * sidecar modules import this for its side effect (and `getModuleWorker`).
+ * sidecar modules import this for its side effect (and
+ * `getResourceCustomMethod`).
  */
 
 import {
   initializeModuleRegistry,
-  getModuleWorker,
+  getResourceCustomMethod,
 } from '@rambleraptor/homestead-core/modules/registry';
 import { settingsModule } from '@rambleraptor/homestead-core/settings/module.config';
 import { superuserModule } from '@rambleraptor/homestead-core/superuser/module.config';
@@ -34,4 +35,4 @@ function withAlwaysInstalled(operatorModules: HomeModule[]): HomeModule[] {
 
 initializeModuleRegistry(withAlwaysInstalled(config.modules));
 
-export { getModuleWorker };
+export { getResourceCustomMethod };

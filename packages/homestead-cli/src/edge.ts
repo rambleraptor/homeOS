@@ -12,13 +12,24 @@ export interface EdgeOptions {
   spa: SpaAssets;
 }
 
-const SIDECAR_PREFIXES = ['/api/notifications', '/api/modules'];
+const SIDECAR_PREFIXES = ['/api/notifications', '/api/custom-methods'];
+
+/**
+ * A custom-method call addresses a resource with a trailing `:verb`
+ * (`/api/aep/<plural>:<verb>` or `/api/aep/<plural>/<id>:<verb>`). The colon
+ * always lives in the final path segment.
+ */
+function isCustomMethodPath(path: string): boolean {
+  if (!path.startsWith('/api/aep/')) return false;
+  return path.slice(path.lastIndexOf('/') + 1).includes(':');
+}
 
 /**
  * The user-facing server (prod): one port fanning out to aepbase, the sidecar,
  * and the static SPA. Mirrors the Go edge:
+ *   - /api/aep/...:verb → sidecar (resource custom methods + aepbase passthrough)
  *   - /api/aep/*  → aepbase, with the /api/aep prefix stripped
- *   - /api/{notifications,modules}/* → sidecar, path intact
+ *   - /api/notifications/* → sidecar, path intact
  *   - everything else → static file, falling back to index.html (SPA routing)
  */
 export function startEdge(opts: EdgeOptions): EdgeServer {
@@ -32,6 +43,11 @@ export function startEdge(opts: EdgeOptions): EdgeServer {
       const url = new URL(req.url);
       const path = url.pathname;
 
+      // Custom methods live on the sidecar gateway, which dispatches the
+      // module ones and proxies aepbase's own `:login`/`:download` through.
+      if (isCustomMethodPath(path)) {
+        return proxy(req, sidecar + path + url.search);
+      }
       if (path === '/api/aep' || path.startsWith('/api/aep/')) {
         const rest = path.slice('/api/aep'.length); // '' or '/...'
         return proxy(req, aepbase + rest + url.search);
