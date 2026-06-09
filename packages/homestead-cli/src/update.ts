@@ -69,8 +69,8 @@ export async function runUpdate(opts: UpdateOptions): Promise<number> {
     return 1;
   }
 
-  // Lazy so importing this module (e.g. in tests) doesn't pull in the operator's
-  // config + module graph; only `runUpdate` needs it.
+  // Lazy so importing this app (e.g. in tests) doesn't pull in the operator's
+  // config + app graph; only `runUpdate` needs it.
   const { gitConfig } = await import('./config.ts');
   const { remote, branch } = gitConfig();
   const ref = `${remote}/${branch}`;

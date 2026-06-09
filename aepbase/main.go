@@ -86,17 +86,17 @@ func run(port int, dataDir, dbFile string, cors []string) error {
 		return fmt.Errorf("enable users: %w", err)
 	}
 
-	// Module access enforcement is opt-in via AEPBASE_MODULE_ACCESS (see
-	// access.go + middleware.go); the launcher serializes it from the module
+	// App access enforcement is opt-in via AEPBASE_APP_ACCESS (see
+	// access.go + middleware.go); the launcher serializes it from the app
 	// registry. Registered AFTER EnableUsers so the built-in auth middleware
 	// runs first and the caller is resolved (user.FromContext) before we check.
-	access, err := moduleAccessFromEnv()
+	access, err := appAccessFromEnv()
 	if err != nil {
-		return fmt.Errorf("module access config: %w", err)
+		return fmt.Errorf("app access config: %w", err)
 	}
 	if access != nil {
-		state.Use(moduleAccessMiddleware(sqlDB, access))
-		log.Printf("aepbase: module access enforcement enabled (%d gated collection(s))", len(access.CollectionToModule))
+		state.Use(appAccessMiddleware(sqlDB, access))
+		log.Printf("aepbase: app access enforcement enabled (%d gated collection(s))", len(access.CollectionToApp))
 	}
 
 	// OAuth is opt-in via AEPBASE_OAUTH (see oauth.go); unset means disabled.

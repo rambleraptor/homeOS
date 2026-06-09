@@ -57,13 +57,13 @@ jobs:
             This is a modular Homestead application built with:
             - React 19 + TypeScript + Next.js
             - aepbase backend (AEP-compliant dynamic REST)
-            - Module Registry pattern for extensibility
+            - App Registry pattern for extensibility
             - Role-Based Access Control (RBAC)
 
             Please review this pull request and provide feedback on:
 
             **Code Quality & Architecture:**
-            - Adherence to modular architecture pattern (modules should be self-contained)
+            - Adherence to modular architecture pattern (apps should be self-contained)
             - TypeScript type safety and best practices
             - React 19 patterns and hooks usage (no unused React imports needed)
             - Component composition and reusability
@@ -75,11 +75,11 @@ jobs:
             - XSS, injection, and other OWASP vulnerabilities
             - Sensitive data handling
 
-            **Module System:**
-            - New modules follow the established pattern in src/modules/
-            - Module registration in src/modules/registry.ts
+            **App System:**
+            - New apps follow the established pattern in src/apps/
+            - App registration in src/apps/registry.ts
             - Proper route definitions and permissions
-            - Module-specific types are well-defined
+            - App-specific types are well-defined
 
             **Performance & Best Practices:**
             - Efficient React Query usage and caching

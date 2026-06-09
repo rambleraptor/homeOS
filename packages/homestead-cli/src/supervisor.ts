@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { loadProject } from './project.ts';
 import { aepbaseOAuthEnv } from './config.ts';
-import { moduleAccessEnv } from './module-access.js';
+import { appAccessEnv } from './app-access.js';
 import { startAepbase } from './aepbase.ts';
 import { startSidecar, type SidecarHandle } from './sidecar.ts';
 import { startVite } from './vite.ts';
@@ -40,7 +40,7 @@ export async function runStart(
     port: opts.aepbasePort,
     dataDir,
     oauthEnv: aepbaseOAuthEnv(),
-    moduleAccessEnv: moduleAccessEnv(),
+    appAccessEnv: appAccessEnv(),
   });
 
   // 2. sidecar

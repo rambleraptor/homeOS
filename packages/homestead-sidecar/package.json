@@ -10,7 +10,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@rambleraptor/homestead-core": "*",
-    "@rambleraptor/homestead-modules": "*",
+    "@rambleraptor/homestead-apps": "*",
     "hono": "^4.6.14",
     "web-push": "^3.6.7"
   }

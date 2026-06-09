@@ -132,7 +132,7 @@ test.describe('Users page (regular user gate)', () => {
   test('nav does not expose the Users link for regular users', async ({
     authenticatedPage,
   }) => {
-    // Sidebar filters out superuser-only modules.
+    // Sidebar filters out superuser-only apps.
     const link = authenticatedPage.getByRole('link', { name: 'Users' });
     await expect(link).toHaveCount(0);
   });

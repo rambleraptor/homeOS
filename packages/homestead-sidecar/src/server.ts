@@ -10,7 +10,7 @@
 import { app } from './app';
 import { syncSchema } from './schema-sync';
 
-// Apply module-declared schema to aepbase in the background; serving the API
+// Apply app-declared schema to aepbase in the background; serving the API
 // doesn't depend on it (the sync is idempotent and best-effort).
 void syncSchema();
 

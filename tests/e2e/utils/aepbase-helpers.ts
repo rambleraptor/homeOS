@@ -1,11 +1,11 @@
 /**
  * Generic aepbase REST helpers for e2e tests.
  *
- * Module-specific seed/cleanup helpers (createGiftCard, deleteAllPeople,
- * createGame, …) live next to each feature module under
- * `packages/homestead-modules/<module>/e2e/helpers.ts`. This file only
+ * App-specific seed/cleanup helpers (createGiftCard, deleteAllPeople,
+ * createGame, …) live next to each feature app under
+ * `packages/homestead-apps/<app>/e2e/helpers.ts`. This file only
  * holds the low-level primitives plus a handful of utilities that don't
- * belong to any one module (the household-wide `module-flags` singleton
+ * belong to any one app (the household-wide `app-flags` singleton
  * and superuser-only user CRUD).
  */
 
@@ -134,41 +134,41 @@ export async function aepRemove(
 }
 
 // ---------------------------------------------------------------------------
-// Module flags (household-wide singleton — not module-specific)
+// App flags (household-wide singleton — not app-specific)
 // ---------------------------------------------------------------------------
 
-interface ModuleFlagsRecord {
+interface AppFlagsRecord {
   id: string;
   [field: string]: unknown;
 }
 
-/** Upsert a single module flag. Mirrors `useUpdateModuleFlag.upsertFlag`. */
-export async function setModuleFlag(
+/** Upsert a single app flag. Mirrors `useUpdateAppFlag.upsertFlag`. */
+export async function setAppFlag(
   token: string,
-  moduleId: string,
+  appId: string,
   key: string,
   value: string | number | boolean,
 ): Promise<void> {
-  const flatField = `${moduleId.replace(/-/g, '_')}__${key}`;
+  const flatField = `${appId.replace(/-/g, '_')}__${key}`;
   const payload = { [flatField]: value };
-  const existing = await aepList<ModuleFlagsRecord>(token, 'module-flags');
+  const existing = await aepList<AppFlagsRecord>(token, 'app-flags');
   if (existing.length > 0) {
-    await aepUpdate<ModuleFlagsRecord>(
+    await aepUpdate<AppFlagsRecord>(
       token,
-      'module-flags',
+      'app-flags',
       existing[0].id,
       payload,
     );
     return;
   }
-  await aepCreate<ModuleFlagsRecord>(token, 'module-flags', payload);
+  await aepCreate<AppFlagsRecord>(token, 'app-flags', payload);
 }
 
-/** Delete every module-flags singleton record (resets all flags to defaults). */
-export async function resetModuleFlags(token: string) {
-  const records = await aepList<ModuleFlagsRecord>(token, 'module-flags');
+/** Delete every app-flags singleton record (resets all flags to defaults). */
+export async function resetAppFlags(token: string) {
+  const records = await aepList<AppFlagsRecord>(token, 'app-flags');
   for (const record of records) {
-    await aepRemove(token, 'module-flags', record.id);
+    await aepRemove(token, 'app-flags', record.id);
   }
 }
 
@@ -203,7 +203,7 @@ export async function createUser(
 }
 
 /**
- * Delete every user except the ids in `preserveIds`. Used by Users module
+ * Delete every user except the ids in `preserveIds`. Used by Users app
  * tests to tidy up without wiping the bootstrap superuser or the fixture-
  * owned `testUser`.
  */

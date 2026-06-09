@@ -6,7 +6,7 @@
  * against aepbase.
  *
  * Runtime-agnostic: returns a Web `Response`, so it works under Next, the
- * Bun sidecar, and module workers alike.
+ * Bun sidecar, and app workers alike.
  */
 
 import webpush from 'web-push';
@@ -47,7 +47,7 @@ export async function sendUserNotification(
   return sendNotificationForAuth(auth, options);
 }
 
-// Module workers receive an already-authenticated caller from the
+// App workers receive an already-authenticated caller from the
 // dispatcher, so they call this directly instead of re-running
 // `authenticate()` (which would issue a second `/users/{id}` round-trip).
 export async function sendNotificationForAuth(

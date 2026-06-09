@@ -15,7 +15,7 @@ backend together in a real browser environment.
 - **Gift Cards** - CRUD operations, merchant summaries
 - **Events** - CRUD operations, recurring events
 - **Settings** - Password changes, validation
-- **Navigation** - Module navigation, routing, 404 handling
+- **Navigation** - App navigation, routing, 404 handling
 
 ## Architecture
 
@@ -50,16 +50,16 @@ tests/e2e/                            # Cross-cutting test plumbing
 ├── tsconfig.json
 └── README.md
 
-packages/homestead-modules/<module>/  # Module-owned e2e artifacts
+packages/homestead-apps/<app>/  # App-owned e2e artifacts
 └── e2e/
-    ├── <Module>Page.ts               # Module POM
+    ├── <App>Page.ts               # App POM
     ├── helpers.ts                    # Seed helpers + test data
-    └── <module>-*.spec.ts            # Specs
+    └── <app>-*.spec.ts            # Specs
 ```
 
 Playwright `testDir` is the repo root; `testMatch` covers both
 `tests/e2e/tests/**/*.spec.ts` and
-`packages/homestead-modules/**/e2e/**/*.spec.ts`.
+`packages/homestead-apps/**/e2e/**/*.spec.ts`.
 
 ### Test Infrastructure
 
@@ -188,12 +188,12 @@ Opens the HTML report showing test results, screenshots, and videos of failures.
 
 ### Basic Test Structure
 
-Module specs live at `packages/homestead-modules/<module>/e2e/`. The
+App specs live at `packages/homestead-apps/<app>/e2e/`. The
 shared fixture, generic REST helpers, and core POMs live under
-`tests/e2e/`, so module specs import them via a relative path.
+`tests/e2e/`, so app specs import them via a relative path.
 
 ```typescript
-// packages/homestead-modules/gift-cards/e2e/gift-card-crud.spec.ts
+// packages/homestead-apps/gift-cards/e2e/gift-card-crud.spec.ts
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
 import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { GiftCardsPage } from './GiftCardsPage';
@@ -236,7 +236,7 @@ await page.getByLabel(/merchant/i).fill('Amazon');
 
 ### Seeding data via aepbase REST
 
-For tests that need existing data, import the module's seed helpers
+For tests that need existing data, import the app's seed helpers
 from its colocated `e2e/helpers.ts`:
 
 ```typescript
@@ -252,7 +252,7 @@ test('should edit gift card', async ({ userToken }) => {
 });
 ```
 
-Need a primitive that the module helpers don't expose (e.g. `aepGet`
+Need a primitive that the app helpers don't expose (e.g. `aepGet`
 or `aepList`)? Import it directly from
 `../../../../tests/e2e/utils/aepbase-helpers`.
 
@@ -345,7 +345,7 @@ Frontend not running or slow to start. Check:
 - Port 5173 is accessible
 - No build errors
 
-### "Cannot find module" Errors
+### "Cannot find app" Errors
 
 TypeScript configuration issue:
 ```bash

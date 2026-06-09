@@ -2,7 +2,7 @@
  * Flag Management Page Object Model
  *
  * Drives the superuser-only /superuser/flag-management surface that
- * lists every declared module flag and lets an operator flip values.
+ * lists every declared app flag and lets an operator flip values.
  */
 
 import { Page, expect } from '@playwright/test';
@@ -21,22 +21,22 @@ export class FlagManagementPage {
     ).toBeVisible();
   }
 
-  async expectModuleSectionVisible(moduleId: string) {
-    await expect(this.page.getByTestId(`flag-module-${moduleId}`)).toBeVisible();
+  async expectAppSectionVisible(appId: string) {
+    await expect(this.page.getByTestId(`flag-app-${appId}`)).toBeVisible();
   }
 
   async expectFlagDescriptionVisible(description: string) {
     await expect(this.page.getByText(description).first()).toBeVisible();
   }
 
-  async selectEnumFlag(moduleId: string, key: string, value: string) {
-    const control = this.page.getByTestId(`flag-${moduleId}-${key}`);
+  async selectEnumFlag(appId: string, key: string, value: string) {
+    const control = this.page.getByTestId(`flag-${appId}-${key}`);
     await control.waitFor({ state: 'visible' });
     await control.selectOption(value);
   }
 
-  async expectEnumFlagValue(moduleId: string, key: string, value: string) {
-    const control = this.page.getByTestId(`flag-${moduleId}-${key}`);
+  async expectEnumFlagValue(appId: string, key: string, value: string) {
+    const control = this.page.getByTestId(`flag-${appId}-${key}`);
     await expect(control).toHaveValue(value);
   }
 }

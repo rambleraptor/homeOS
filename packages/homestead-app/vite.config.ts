@@ -16,7 +16,7 @@ const METHOD_STUB_ID = '\0homestead-custom-method-stub';
  * build and is unaffected.
  */
 function stubCustomMethods(): Plugin {
-  const METHOD_RE = /homestead-modules[/\\].*[/\\]methods[/\\][^/\\]+$/;
+  const METHOD_RE = /homestead-apps[/\\].*[/\\]methods[/\\][^/\\]+$/;
   return {
     name: 'homestead:stub-custom-methods',
     enforce: 'pre',
@@ -98,7 +98,7 @@ export default defineConfig(({ mode }) => ({
     hmr: HMR_CLIENT_PORT ? { clientPort: HMR_CLIENT_PORT } : undefined,
     proxy: {
       // AEP-136 custom methods (resource:verb) live on the sidecar gateway,
-      // which dispatches module handlers and proxies aepbase's own
+      // which dispatches app handlers and proxies aepbase's own
       // `:login`/`:download` through. Must precede the generic `/api/aep`
       // rule so colon-verb paths route to the sidecar, not straight to
       // aepbase. `[^?]*` stops the verb match at any query string.

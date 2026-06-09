@@ -1,8 +1,8 @@
 /**
- * Module-level filter state.
+ * App-level filter state.
  *
- * `ModuleFiltersProvider` owns the current filter values, exposes setters
- * to `<FilterBar>`, and memoizes the filtered list for the module's list
+ * `AppFiltersProvider` owns the current filter values, exposes setters
+ * to `<FilterBar>`, and memoizes the filtered list for the app's list
  * component via `useFilteredItems`.
  */
 
@@ -15,11 +15,11 @@ import {
   type ReactNode,
 } from 'react';
 import { applyFilters, deriveEnumOptions } from './applyFilters';
-import type { ModuleFilterDecl } from './types';
+import type { AppFilterDecl } from './types';
 
 interface FiltersContextValue<T = unknown> {
-  moduleId: string;
-  decls: ModuleFilterDecl[];
+  appId: string;
+  decls: AppFilterDecl[];
   items: T[];
   values: Record<string, unknown>;
   setValue: (key: string, value: unknown) => void;
@@ -29,26 +29,26 @@ interface FiltersContextValue<T = unknown> {
 
 const FiltersContext = createContext<FiltersContextValue | null>(null);
 
-interface ModuleFiltersProviderProps<T> {
-  moduleId: string;
-  decls: ModuleFilterDecl[];
+interface AppFiltersProviderProps<T> {
+  appId: string;
+  decls: AppFilterDecl[];
   items: T[];
   initialValues?: Record<string, unknown>;
   children: ReactNode;
 }
 
-export function ModuleFiltersProvider<T>({
-  moduleId,
+export function AppFiltersProvider<T>({
+  appId,
   decls,
   items,
   initialValues,
   children,
-}: ModuleFiltersProviderProps<T>) {
+}: AppFiltersProviderProps<T>) {
   const [values, setValues] = useState<Record<string, unknown>>(
     () => initialValues ?? {},
   );
 
-  // When the dispatcher routes a new intent to the same module, replace
+  // When the dispatcher routes a new intent to the same app, replace
   // the values. React's recommended pattern for deriving state from a
   // changing prop: setState during render, keyed on the prop identity —
   // avoids the cascading-render penalty of setState-in-effect.
@@ -73,7 +73,7 @@ export function ModuleFiltersProvider<T>({
 
   const ctxValue = useMemo<FiltersContextValue<T>>(
     () => ({
-      moduleId,
+      appId,
       decls,
       items,
       values,
@@ -81,7 +81,7 @@ export function ModuleFiltersProvider<T>({
       reset,
       filteredItems,
     }),
-    [moduleId, decls, items, values, setValue, reset, filteredItems],
+    [appId, decls, items, values, setValue, reset, filteredItems],
   );
 
   return (
@@ -95,17 +95,17 @@ function useFiltersContext(): FiltersContextValue {
   const ctx = useContext(FiltersContext);
   if (!ctx) {
     throw new Error(
-      'Module filter hooks must be used inside <ModuleFiltersProvider>.',
+      'App filter hooks must be used inside <AppFiltersProvider>.',
     );
   }
   return ctx;
 }
 
-export function useModuleFilterDecls(): ModuleFilterDecl[] {
+export function useAppFilterDecls(): AppFilterDecl[] {
   return useFiltersContext().decls;
 }
 
-export function useModuleFilterValues(): {
+export function useAppFilterValues(): {
   values: Record<string, unknown>;
   setValue: (key: string, value: unknown) => void;
   reset: () => void;

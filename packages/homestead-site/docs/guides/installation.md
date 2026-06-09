@@ -36,7 +36,7 @@ homestead start
 ```
 
 `homestead init` creates a project: a `homestead.config.ts` that picks your
-modules, plus a `modules/` folder for your own.
+apps, plus a `apps/` folder for your own.
 
 `homestead start` boots the whole stack on one port and prints a banner:
 
@@ -53,7 +53,7 @@ after you log in.
 
 The credentials are also saved to `data/credentials.json` in your project.
 
-Next: [add your own module](./quick-start).
+Next: [add your own app](./quick-start).
 
 ## Build from source
 

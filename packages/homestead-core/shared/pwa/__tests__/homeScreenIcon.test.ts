@@ -19,7 +19,7 @@ const GROCERIES: HomeScreenApp = {
   name: 'Groceries',
   description: 'Shopping lists',
   basePath: '/groceries',
-  iconHref: '/module-icons/groceries.png',
+  iconHref: '/app-icons/groceries.png',
 };
 
 function seedHead(): void {
@@ -66,13 +66,13 @@ describe('buildAppManifestUrl', () => {
     expect(manifest.scope).toBe(`${ORIGIN}/groceries`);
     expect(manifest.icons).toEqual([
       {
-        src: `${ORIGIN}/module-icons/groceries.png`,
+        src: `${ORIGIN}/app-icons/groceries.png`,
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: `${ORIGIN}/module-icons/groceries.png`,
+        src: `${ORIGIN}/app-icons/groceries.png`,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any maskable',
@@ -106,7 +106,7 @@ describe('applyHomeScreenIcon / resetHomeScreenIcon', () => {
   it('points apple-touch-icon, manifest and app title at the app', () => {
     applyHomeScreenIcon(document, GROCERIES, ORIGIN);
 
-    expect(appleTouchHref()).toBe('/module-icons/groceries.png');
+    expect(appleTouchHref()).toBe('/app-icons/groceries.png');
     expect(appTitle()).toBe('Groceries');
     const manifest = decodeManifest(manifestHref()!);
     expect(manifest.name).toBe('Groceries');
@@ -125,12 +125,12 @@ describe('applyHomeScreenIcon / resetHomeScreenIcon', () => {
     const recipes: HomeScreenApp = {
       name: 'Recipes',
       basePath: '/recipes',
-      iconHref: '/module-icons/recipes.png',
+      iconHref: '/app-icons/recipes.png',
     };
     applyHomeScreenIcon(document, GROCERIES, ORIGIN);
     applyHomeScreenIcon(document, recipes, ORIGIN);
 
-    expect(appleTouchHref()).toBe('/module-icons/recipes.png');
+    expect(appleTouchHref()).toBe('/app-icons/recipes.png');
     expect(appTitle()).toBe('Recipes');
 
     resetHomeScreenIcon(document);
@@ -142,7 +142,7 @@ describe('applyHomeScreenIcon / resetHomeScreenIcon', () => {
     document.head.innerHTML = '';
     applyHomeScreenIcon(document, GROCERIES, ORIGIN);
 
-    expect(appleTouchHref()).toBe('/module-icons/groceries.png');
+    expect(appleTouchHref()).toBe('/app-icons/groceries.png');
     expect(manifestHref()).not.toBeNull();
     expect(appTitle()).toBe('Groceries');
   });

@@ -14,7 +14,7 @@ interface AepNotificationSubscription extends NotificationSubscription {
 
 export function useNotificationSubscription() {
   return useQuery({
-    queryKey: queryKeys.module('settings').list({ type: 'notification-subscription' }),
+    queryKey: queryKeys.app('settings').list({ type: 'notification-subscription' }),
     queryFn: async () => {
       try {
         const userId = aepbase.getCurrentUser()?.id;

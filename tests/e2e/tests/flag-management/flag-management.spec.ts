@@ -4,23 +4,23 @@
  * Only superusers may access /superuser/flag-management. These specs
  * verify the access gate, that declared flags render with their
  * descriptions, and that edits persist into the household-wide
- * `module-flags` singleton.
+ * `app-flags` singleton.
  */
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { FlagManagementPage } from '../../pages/FlagManagementPage';
 import { aepList, aepRemove } from '../../utils/aepbase-helpers';
 
-interface ModuleFlagsRecord {
+interface AppFlagsRecord {
   id: string;
   groceries__enabled?: string;
   [field: string]: unknown;
 }
 
-async function resetModuleFlags(adminToken: string) {
-  const records = await aepList<ModuleFlagsRecord>(adminToken, 'module-flags');
+async function resetAppFlags(adminToken: string) {
+  const records = await aepList<AppFlagsRecord>(adminToken, 'app-flags');
   for (const record of records) {
-    await aepRemove(adminToken, 'module-flags', record.id);
+    await aepRemove(adminToken, 'app-flags', record.id);
   }
 }
 
@@ -29,19 +29,19 @@ test.describe('Superuser → Flag Management sub-page (superuser)', () => {
 
   test.beforeEach(async ({ authenticatedAdminPage, adminToken }) => {
     flagPage = new FlagManagementPage(authenticatedAdminPage);
-    await resetModuleFlags(adminToken);
+    await resetAppFlags(adminToken);
     await flagPage.goto();
     await flagPage.expectToBeOnFlagManagementPage();
   });
 
   test.afterEach(async ({ adminToken }) => {
-    await resetModuleFlags(adminToken);
+    await resetAppFlags(adminToken);
   });
 
-  test('renders the groceries module section with the built-in enabled flag and its description', async () => {
-    await flagPage.expectModuleSectionVisible('groceries');
+  test('renders the groceries app section with the built-in enabled flag and its description', async () => {
+    await flagPage.expectAppSectionVisible('groceries');
     await flagPage.expectFlagDescriptionVisible(
-      "Who can use this module. 'superusers' restricts it to superusers;",
+      "Who can use this app. 'superusers' restricts it to superusers;",
     );
     // Defaults to 'all' when no record exists yet.
     await flagPage.expectEnumFlagValue('groceries', 'enabled', 'all');
@@ -57,9 +57,9 @@ test.describe('Superuser → Flag Management sub-page (superuser)', () => {
     await expect
       .poll(
         async () => {
-          const records = await aepList<ModuleFlagsRecord>(
+          const records = await aepList<AppFlagsRecord>(
             adminToken,
-            'module-flags',
+            'app-flags',
           );
           return records[0]?.groceries__enabled;
         },

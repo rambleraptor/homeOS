@@ -4,7 +4,7 @@
  * Runs once before all tests. Brings up the e2e stack in order:
  *   1. a dedicated aepbase instance (captures the bootstrap superuser)
  *   2. the Bun sidecar — applies the resource/flag/setting schema and
- *      serves the notifications/module-worker API routes
+ *      serves the notifications/app-worker API routes
  *   3. the Vite dev server — serves the SPA and proxies /api/* to the two
  *      above
  * aepbase must be up before the sidecar (which talks to it on boot), and

@@ -2,31 +2,31 @@
  * Homestead instance configuration.
  *
  * This is the ONE file you edit to choose what your homestead serves.
- * Comment out a module to remove it; import a new one to add it.
+ * Comment out an app to remove it; import a new one to add it.
  *
- * The settings and superuser modules are always installed by the
+ * The settings and superuser apps are always installed by the
  * registry — you don't list them here. They cover account management
  * and flag management, which the rest of the app depends on.
  */
 
 import {
-  creditCardsModule,
-  dashboardModule,
-  eventsModule,
-  gamesModule,
-  giftCardsModule,
-  groceriesModule,
-  hsaModule,
-  notificationsModule,
-  peopleModule,
-  recipesModule,
-  todosModule,
-} from '@rambleraptor/homestead-modules';
-import type { HomesteadConfig } from '@rambleraptor/homestead-core/modules/config';
+  creditCardsApp,
+  dashboardApp,
+  eventsApp,
+  gamesApp,
+  giftCardsApp,
+  groceriesApp,
+  hsaApp,
+  notificationsApp,
+  peopleApp,
+  recipesApp,
+  todosApp,
+} from '@rambleraptor/homestead-apps';
+import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
 
 /**
  * Read an env var. Guarded so this file stays importable in the browser (the
- * SPA registry imports it for `modules`): `process` is undefined there, so the
+ * SPA registry imports it for `apps`): `process` is undefined there, so the
  * guard short-circuits to `undefined` rather than throwing. Under Bun (the
  * `homestead` launcher) it reads the real environment — which is where OAuth
  * secrets are sourced. Secrets therefore never land in the client bundle.
@@ -67,18 +67,18 @@ const auth: HomesteadConfig['auth'] =
     : undefined;
 
 const config: HomesteadConfig = {
-  modules: [
-    dashboardModule,
-    todosModule,
-    giftCardsModule,
-    groceriesModule,
-    recipesModule,
-    peopleModule,
-    eventsModule,
-    hsaModule,
-    creditCardsModule,
-    gamesModule,
-    notificationsModule,
+  apps: [
+    dashboardApp,
+    todosApp,
+    giftCardsApp,
+    groceriesApp,
+    recipesApp,
+    peopleApp,
+    eventsApp,
+    hsaApp,
+    creditCardsApp,
+    gamesApp,
+    notificationsApp,
   ],
   auth,
   // The directory holding this file is a git checkout. `homestead update`

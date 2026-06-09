@@ -30,7 +30,7 @@ export interface FieldConfig<T = unknown> {
 }
 
 /**
- * Schema configuration for a module's bulk import
+ * Schema configuration for an app's bulk import
  */
 export interface BulkImportSchema<T> {
   /** Required fields */
@@ -59,7 +59,7 @@ export interface BulkImportSchema<T> {
  * Parsed item from CSV with validation results
  */
 export interface ParsedItem<T> {
-  /** The parsed data matching the module's form type */
+  /** The parsed data matching the app's form type */
   data: T;
   /** Row number in CSV (1-indexed, excluding header) */
   rowNumber: number;
@@ -99,10 +99,10 @@ export interface BulkImportResult {
  * Configuration for bulk import container
  */
 export interface BulkImportConfig<T> {
-  /** Module name (e.g., "Events", "Gift Cards") */
-  moduleName: string;
-  /** Plural module name (e.g., "events", "gift cards") */
-  moduleNamePlural: string;
+  /** App name (e.g., "Events", "Gift Cards") */
+  appName: string;
+  /** Plural app name (e.g., "events", "gift cards") */
+  appNamePlural: string;
   /** Route to navigate back to */
   backRoute: string;
   /** Import schema configuration */

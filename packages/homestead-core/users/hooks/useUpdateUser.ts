@@ -77,7 +77,7 @@ export function useUpdateUser() {
       qc.invalidateQueries({ queryKey: accountTagsQueryKey(vars.id) });
       // If the edited user is the signed-in user, re-hydrate the auth
       // store so `User.tags` (and any other server-derived fields)
-      // reflect the change. Without this, the sidebar / module gates
+      // reflect the change. Without this, the sidebar / app gates
       // keep seeing the stale tag list until the user signs back in.
       if (currentUser && currentUser.id === vars.id) {
         await refreshUser();

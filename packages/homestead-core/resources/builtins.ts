@@ -1,14 +1,14 @@
 /**
- * Resource definitions that aren't owned by a feature module.
+ * Resource definitions that aren't owned by a feature app.
  *
  * These cover platform-level concerns: the generic action/run pair
  * used by the actions runtime. Kept in core so the runner has a
- * single, deterministic list to apply alongside the per-module
+ * single, deterministic list to apply alongside the per-app
  * definitions.
  *
  * Two resources are *not* listed here because their schemas are
  * generated from declarations and applied by dedicated syncers:
- *   - `module-flag`     ← built from `getAllModuleFlagDefs()`
+ *   - `app-flag`     ← built from `getAllAppFlagDefs()`
  *   - `user-preference` ← built from `getAllUserSettingDefs()`
  *
  * Both syncers run from `frontend/src/instrumentation.ts` on Next.js

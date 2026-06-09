@@ -1,7 +1,7 @@
 /**
  * Persistence options for the React Query cache.
  *
- * Persists every `['module', ...]`-prefixed query and mutation to
+ * Persists every `['app', ...]`-prefixed query and mutation to
  * localStorage so reads survive cold offline loads and queued writes
  * survive a page reload. Auth/users/roles/permissions intentionally
  * stay out of the persisted cache (token-bound, may rotate).
@@ -37,7 +37,7 @@ const NEVER_PERSIST: ReadonlySet<string> = new Set([
   'auth',
   'users',
   'roles',
-  'module_permissions',
+  'app_permissions',
 ]);
 
 function hasStorage(): boolean {
@@ -72,7 +72,7 @@ export function createOfflinePersister() {
   return createSyncStoragePersister({
     storage: quotaSafeStorage(),
     key: PERSISTER_STORAGE_KEY,
-    // Bumped from 1s to 2s — persisting every module multiplies write
+    // Bumped from 1s to 2s — persisting every app multiplies write
     // pressure roughly 10× compared to the groceries-only baseline.
     throttleTime: 2000,
   });
@@ -82,15 +82,15 @@ export function createOfflinePersister() {
  * Decide whether a given query/mutation key should be dehydrated.
  *
  * Rules:
- *  - Module-prefixed keys (`['module', ...]`) are persisted.
- *  - `auth`, `users`, `roles`, `module_permissions` are never persisted.
+ *  - App-prefixed keys (`['app', ...]`) are persisted.
+ *  - `auth`, `users`, `roles`, `app_permissions` are never persisted.
  *  - Anything else (ad-hoc keys, dev-only queries) is skipped by default.
  */
 export function isPersistableKey(key: readonly unknown[]): boolean {
   if (!Array.isArray(key) || typeof key[0] !== 'string') return false;
   const head = key[0] as string;
   if (NEVER_PERSIST.has(head)) return false;
-  return head === 'module';
+  return head === 'app';
 }
 
 /**

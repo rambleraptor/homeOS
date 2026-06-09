@@ -1,8 +1,8 @@
 /**
  * Shared types for aepbase resource definitions declared in TypeScript.
  *
- * Each module declares the schema for the aepbase collections it owns
- * via `HomeModule.resources`. The shape mirrors what aepbase's
+ * Each app declares the schema for the aepbase collections it owns
+ * via `HomeApp.resources`. The shape mirrors what aepbase's
  * `/aep-resource-definitions` endpoint accepts on POST/PATCH — see
  * `packages/homestead-core/resources/sync.ts` for the runner.
  */
@@ -126,7 +126,7 @@ export interface ResourceCustomMethod {
   /** HTTP method this custom method accepts. Defaults to `'POST'`. */
   method?: CustomMethodHttpMethod;
   /**
-   * Lazy import of the handler module. The dispatcher awaits this on demand
+   * Lazy import of the handler app. The dispatcher awaits this on demand
    * and invokes the default export.
    */
   load: () => Promise<{ default: CustomMethodHandler }>;

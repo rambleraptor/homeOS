@@ -19,6 +19,6 @@
     "pages/**/*",
     "tests/**/*",
     "playwright.config.ts",
-    "../../packages/homestead-modules/**/e2e/**/*"
+    "../../packages/homestead-apps/**/e2e/**/*"
   ]
 }

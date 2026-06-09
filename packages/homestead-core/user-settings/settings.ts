@@ -1,8 +1,8 @@
 /**
  * Per-user setting schema helpers.
  *
- * The user-settings pipeline mirrors the module-flags one: declared
- * `(moduleId, key)` pairs flatten into snake_case fields on a single
+ * The user-settings pipeline mirrors the app-flags one: declared
+ * `(appId, key)` pairs flatten into snake_case fields on a single
  * aepbase record. The difference is scope — there is one
  * `user-preference` record per user, parented under
  * `/users/{id}/preferences/{id}`, instead of one household-wide
@@ -14,7 +14,7 @@
  * existing code splits flat field names on `__` regardless of source.
  */
 
-import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-core/modules/types';
+import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-core/apps/types';
 
 export const USER_SETTING_SEPARATOR = '__';
 
@@ -25,13 +25,13 @@ export type UserSettingValues = Record<
 >;
 
 /**
- * Build the aepbase field name for a `(moduleId, key)` pair.
+ * Build the aepbase field name for a `(appId, key)` pair.
  *
  *   fieldName('people', 'map_provider') → 'people__map_provider'
  *   fieldName('gift-cards', 'show_archived') → 'gift_cards__show_archived'
  */
-export function fieldName(moduleId: string, key: string): string {
-  return `${moduleId.replace(/-/g, '_')}${USER_SETTING_SEPARATOR}${key}`;
+export function fieldName(appId: string, key: string): string {
+  return `${appId.replace(/-/g, '_')}${USER_SETTING_SEPARATOR}${key}`;
 }
 
 /**
@@ -41,13 +41,13 @@ export function fieldName(moduleId: string, key: string): string {
  */
 export function parseFieldName(
   flat: string,
-): { moduleId: string; key: string } | null {
+): { appId: string; key: string } | null {
   const idx = flat.indexOf(USER_SETTING_SEPARATOR);
   if (idx <= 0) return null;
-  const moduleIdSnake = flat.slice(0, idx);
+  const appIdSnake = flat.slice(0, idx);
   const key = flat.slice(idx + USER_SETTING_SEPARATOR.length);
   if (!key) return null;
-  return { moduleId: moduleIdSnake.replace(/_/g, '-'), key };
+  return { appId: appIdSnake.replace(/_/g, '-'), key };
 }
 
 /**
@@ -60,23 +60,23 @@ export function withDefaults(
   values: UserSettingValues,
 ): UserSettingValues {
   const out: UserSettingValues = {};
-  for (const [moduleId, moduleDefs] of Object.entries(defs)) {
-    const moduleValues: Record<string, UserSettingValue> = {
-      ...(values[moduleId] ?? {}),
+  for (const [appId, appDefs] of Object.entries(defs)) {
+    const appValues: Record<string, UserSettingValue> = {
+      ...(values[appId] ?? {}),
     };
-    for (const [key, def] of Object.entries(moduleDefs)) {
-      if (moduleValues[key] === undefined && def.default !== undefined) {
-        moduleValues[key] = def.default;
+    for (const [key, def] of Object.entries(appDefs)) {
+      if (appValues[key] === undefined && def.default !== undefined) {
+        appValues[key] = def.default;
       }
     }
-    out[moduleId] = moduleValues;
+    out[appId] = appValues;
   }
   return out;
 }
 
 /**
  * Unflatten an aepbase per-user record into the nested
- * `{ moduleId: { key: value } }` shape, dropping unknown fields and
+ * `{ appId: { key: value } }` shape, dropping unknown fields and
  * out-of-options enum values.
  */
 export function unflatten(
@@ -89,13 +89,13 @@ export function unflatten(
   for (const [flatKey, rawValue] of Object.entries(record)) {
     const parsed = parseFieldName(flatKey);
     if (!parsed) continue;
-    const { moduleId, key } = parsed;
-    const def = defs[moduleId]?.[key];
+    const { appId, key } = parsed;
+    const def = defs[appId]?.[key];
     if (!def) continue;
 
     const coerced = coerceValue(def, rawValue);
     if (coerced === undefined) continue;
-    (nested[moduleId] ??= {})[key] = coerced;
+    (nested[appId] ??= {})[key] = coerced;
   }
 
   return withDefaults(defs, nested);
@@ -130,7 +130,7 @@ function coerceValue(
  * JSON-schema property object for a single setting. aepbase strips
  * `enum` / `default` / `minimum` / `maximum` on round-trip, so the
  * declared default and enum options ride inside `description` using
- * the same marker convention as module flags.
+ * the same marker convention as app flags.
  */
 function propertyFor(def: UserSettingDef): Record<string, unknown> {
   const base = def.description ?? def.label;
@@ -165,9 +165,9 @@ export function buildSchemaProperties(
 ): Record<string, Record<string, unknown>> {
   const properties: Record<string, Record<string, unknown>> = {};
   const entries: Array<[string, UserSettingDef]> = [];
-  for (const [moduleId, moduleDefs] of Object.entries(defs)) {
-    for (const [key, def] of Object.entries(moduleDefs)) {
-      entries.push([fieldName(moduleId, key), def]);
+  for (const [appId, appDefs] of Object.entries(defs)) {
+    for (const [key, def] of Object.entries(appDefs)) {
+      entries.push([fieldName(appId, key), def]);
     }
   }
   entries.sort(([a], [b]) => a.localeCompare(b));

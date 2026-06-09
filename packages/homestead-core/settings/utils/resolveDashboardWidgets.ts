@@ -2,12 +2,12 @@
  * Resolve the effective dashboard widget list for a user.
  *
  * Inputs:
- *   - `available`: every widget contributed by registered modules,
+ *   - `available`: every widget contributed by registered apps,
  *     pre-sorted by their declared `order` (the registry already does
  *     this in `getAllDashboardWidgets`).
  *   - `preferredOrder`: ids the user has placed in their preferred
  *     order via the settings UI. Ids no longer present in `available`
- *     are dropped (e.g. a module was removed); ids present in
+ *     are dropped (e.g. an app was removed); ids present in
  *     `available` but not in `preferredOrder` get appended to the end
  *     in their default order so newly registered widgets are surfaced
  *     to existing users instead of vanishing.
@@ -15,7 +15,7 @@
  *     after the order is resolved.
  */
 
-import type { DashboardWidget } from '@rambleraptor/homestead-core/modules/types';
+import type { DashboardWidget } from '@rambleraptor/homestead-core/apps/types';
 
 export function resolveDashboardWidgets(
   available: DashboardWidget[],

@@ -1,6 +1,6 @@
 /**
  * Shared roster picker used by features that select people from the
- * People module (minigolf, pictionary, …). Renders a search input that
+ * People app (minigolf, pictionary, …). Renders a search input that
  * filters the visible list client-side, plus a tap-to-toggle grid or
  * chip set. The component is stateless about which IDs are selected —
  * callers provide an `isSelected` predicate and an `onToggle` callback,
@@ -33,7 +33,7 @@ export interface PersonSelectorProps {
 }
 
 const DEFAULT_EMPTY =
-  'Add people in the People module first, then come back.';
+  'Add people in the People app first, then come back.';
 
 const GRID_BUTTON =
   'h-14 px-4 rounded-lg text-base font-medium border-2 transition-colors';

@@ -8,8 +8,8 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { ChangePasswordForm } from '../components/ChangePasswordForm';
-import * as useChangePasswordModule from '../hooks/useChangePassword';
-import * as useToastModule from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import * as useChangePasswordApp from '../hooks/useChangePassword';
+import * as useToastApp from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -36,13 +36,13 @@ describe('ChangePasswordForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.spyOn(useChangePasswordModule, 'useChangePassword').mockReturnValue({
+    vi.spyOn(useChangePasswordApp, 'useChangePassword').mockReturnValue({
       mutateAsync: mockMutateAsync,
       isPending: false,
       // Add other mutation properties as needed
-    } as unknown as ReturnType<typeof useChangePasswordModule.useChangePassword>);
+    } as unknown as ReturnType<typeof useChangePasswordApp.useChangePassword>);
 
-    vi.spyOn(useToastModule, 'useToast').mockReturnValue({
+    vi.spyOn(useToastApp, 'useToast').mockReturnValue({
       showToast: vi.fn(),
       success: mockSuccess,
       error: mockError,
@@ -236,10 +236,10 @@ describe('ChangePasswordForm', () => {
   });
 
   it('should show loading state during submission', async () => {
-    vi.spyOn(useChangePasswordModule, 'useChangePassword').mockReturnValue({
+    vi.spyOn(useChangePasswordApp, 'useChangePassword').mockReturnValue({
       mutateAsync: mockMutateAsync,
       isPending: true,
-    } as unknown as ReturnType<typeof useChangePasswordModule.useChangePassword>);
+    } as unknown as ReturnType<typeof useChangePasswordApp.useChangePassword>);
 
     render(<ChangePasswordForm />, { wrapper: createWrapper() });
 

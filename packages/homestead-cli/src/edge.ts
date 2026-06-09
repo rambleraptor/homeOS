@@ -44,7 +44,7 @@ export function startEdge(opts: EdgeOptions): EdgeServer {
       const path = url.pathname;
 
       // Custom methods live on the sidecar gateway, which dispatches the
-      // module ones and proxies aepbase's own `:login`/`:download` through.
+      // app ones and proxies aepbase's own `:login`/`:download` through.
       if (isCustomMethodPath(path)) {
         return proxy(req, sidecar + path + url.search);
       }

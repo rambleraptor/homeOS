@@ -1,5 +1,5 @@
 /**
- * Persistence options — every `['module', ...]`-prefixed query/mutation is
+ * Persistence options — every `['app', ...]`-prefixed query/mutation is
  * dehydrated; auth/user/role keys are excluded; mutations tagged
  * non-queueable (e.g. multipart writes) are skipped.
  */
@@ -41,43 +41,43 @@ function makeMutation(
 }
 
 describe('shouldDehydrateQuery', () => {
-  it('matches every module-prefixed key (groceries, gift-cards, credit-cards, …)', () => {
+  it('matches every app-prefixed key (groceries, gift-cards, credit-cards, …)', () => {
     expect(
-      dehydrate.shouldDehydrateQuery!(makeQuery(['module', 'groceries', 'list'])),
+      dehydrate.shouldDehydrateQuery!(makeQuery(['app', 'groceries', 'list'])),
     ).toBe(true);
     expect(
       dehydrate.shouldDehydrateQuery!(
-        makeQuery(['module', 'groceries', 'detail', 'stores']),
+        makeQuery(['app', 'groceries', 'detail', 'stores']),
       ),
     ).toBe(true);
     expect(
-      dehydrate.shouldDehydrateQuery!(makeQuery(['module', 'gift-cards', 'list'])),
+      dehydrate.shouldDehydrateQuery!(makeQuery(['app', 'gift-cards', 'list'])),
     ).toBe(true);
     expect(
-      dehydrate.shouldDehydrateQuery!(makeQuery(['module', 'credit-cards', 'list'])),
+      dehydrate.shouldDehydrateQuery!(makeQuery(['app', 'credit-cards', 'list'])),
     ).toBe(true);
   });
 
-  it('rejects auth, users, roles, module_permissions', () => {
+  it('rejects auth, users, roles, app_permissions', () => {
     expect(dehydrate.shouldDehydrateQuery!(makeQuery(['auth', 'user']))).toBe(false);
     expect(dehydrate.shouldDehydrateQuery!(makeQuery(['users', 'list']))).toBe(false);
     expect(dehydrate.shouldDehydrateQuery!(makeQuery(['roles']))).toBe(false);
     expect(
-      dehydrate.shouldDehydrateQuery!(makeQuery(['module_permissions', 'all'])),
+      dehydrate.shouldDehydrateQuery!(makeQuery(['app_permissions', 'all'])),
     ).toBe(false);
   });
 });
 
 describe('shouldDehydrateMutation', () => {
-  it('matches module-prefixed mutation keys', () => {
+  it('matches app-prefixed mutation keys', () => {
     expect(
       dehydrate.shouldDehydrateMutation!(
-        makeMutation(['module', 'groceries', 'create-item']),
+        makeMutation(['app', 'groceries', 'create-item']),
       ),
     ).toBe(true);
     expect(
       dehydrate.shouldDehydrateMutation!(
-        makeMutation(['module', 'credit-cards', 'create-credit-card']),
+        makeMutation(['app', 'credit-cards', 'create-credit-card']),
       ),
     ).toBe(true);
   });
@@ -89,7 +89,7 @@ describe('shouldDehydrateMutation', () => {
   it('skips mutations tagged non-queueable (e.g. multipart uploads)', () => {
     expect(
       dehydrate.shouldDehydrateMutation!(
-        makeMutation(['module', 'groceries', 'upload-image'], {
+        makeMutation(['app', 'groceries', 'upload-image'], {
           offlineQueueable: false,
         }),
       ),
@@ -98,12 +98,12 @@ describe('shouldDehydrateMutation', () => {
 });
 
 describe('isPersistableKey', () => {
-  it('accepts module-prefixed keys', () => {
-    expect(isPersistableKey(['module', 'groceries', 'list'])).toBe(true);
-    expect(isPersistableKey(['module', 'gift-cards'])).toBe(true);
+  it('accepts app-prefixed keys', () => {
+    expect(isPersistableKey(['app', 'groceries', 'list'])).toBe(true);
+    expect(isPersistableKey(['app', 'gift-cards'])).toBe(true);
   });
 
-  it('rejects auth and other non-module keys', () => {
+  it('rejects auth and other non-app keys', () => {
     expect(isPersistableKey(['auth', 'user'])).toBe(false);
     expect(isPersistableKey(['users'])).toBe(false);
     expect(isPersistableKey([])).toBe(false);

@@ -3,7 +3,7 @@
  *
  * The browser wrapper at `core/api/aepbase` is tuned for client-side use
  * (localStorage, same-origin `/api/aep` proxy). Server code (the sidecar's
- * API routes and module workers) needs to talk directly to aepbase over
+ * API routes and app workers) needs to talk directly to aepbase over
  * the network with the user's forwarded bearer token, so it uses this
  * tiny helper instead.
  *

@@ -59,13 +59,13 @@ function bunBin(): string {
 }
 
 /**
- * Serialize the module-access map (collection→module + default visibility) the
- * same way the launcher does, so the e2e aepbase enforces module access exactly
- * like production. Computed in a bun subprocess (it handles the app/module
+ * Serialize the app-access map (collection→app + default visibility) the
+ * same way the launcher does, so the e2e aepbase enforces app access exactly
+ * like production. Computed in a bun subprocess (it handles the app/app
  * graph). Returns '' on failure, which leaves enforcement off.
  */
-function computeModuleAccessEnv(): string {
-  const script = join(getProjectRoot(), 'tests/e2e/config/compute-module-access.ts');
+function computeAppAccessEnv(): string {
+  const script = join(getProjectRoot(), 'tests/e2e/config/compute-app-access.ts');
   try {
     return execFileSync(bunBin(), ['run', script], {
       cwd: getProjectRoot(),
@@ -73,7 +73,7 @@ function computeModuleAccessEnv(): string {
       .toString()
       .trim();
   } catch (err) {
-    console.warn('⚠️  Failed to compute module-access map; e2e enforcement off:', err);
+    console.warn('⚠️  Failed to compute app-access map; e2e enforcement off:', err);
     return '';
   }
 }
@@ -94,12 +94,12 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
 
   ensureBinaryBuilt();
 
-  // Enforce module access like production. Keep a short (not zero) access-cache
+  // Enforce app access like production. Keep a short (not zero) access-cache
   // TTL: aepbase's sqlite allows a single open connection, so caching the
-  // module_flags row lets a page-load burst share one read instead of each
+  // app_flags row lets a page-load burst share one read instead of each
   // gated request hammering the connection. 1s is brief enough that
   // flag-flipping specs (which poll) see changes quickly.
-  const moduleAccessEnv = computeModuleAccessEnv();
+  const appAccessEnv = computeAppAccessEnv();
 
   return new Promise((resolve, reject) => {
     aepbaseProcess = spawn(binary, [
@@ -111,11 +111,11 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        // Escape hatch for debugging: set E2E_DISABLE_MODULE_ACCESS=1 to run
+        // Escape hatch for debugging: set E2E_DISABLE_APP_ACCESS=1 to run
         // the suite with backend enforcement off.
-        AEPBASE_MODULE_ACCESS: process.env.E2E_DISABLE_MODULE_ACCESS
+        AEPBASE_APP_ACCESS: process.env.E2E_DISABLE_APP_ACCESS
           ? ''
-          : moduleAccessEnv,
+          : appAccessEnv,
         AEPBASE_ACCESS_CACHE_TTL_MS: '1000',
       },
     });

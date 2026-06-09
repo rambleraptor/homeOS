@@ -1,7 +1,7 @@
 # Bulk Import
 
-Let users import rows from a CSV into your module. This guide shows how to
-add a working CSV importer to a Homestead feature module.
+Let users import rows from a CSV into your app. This guide shows how to
+add a working CSV importer to a Homestead feature app.
 
 You declare **what** to import — a CSV schema, per-field validators, and a
 "save one row" function. The framework supplies the **how** — the file
@@ -14,7 +14,7 @@ from the workspace alias
 
 ## Table of Contents
 
-- [Adding bulk import to your module](#adding-bulk-import-to-your-module)
+- [Adding bulk import to your app](#adding-bulk-import-to-your-app)
   - [1. Create the bulk-import folder](#1-create-the-bulk-import-folder)
   - [2. Define the schema](#2-define-the-schema)
   - [3. Write per-field validators](#3-write-per-field-validators)
@@ -24,37 +24,37 @@ from the workspace alias
   - [7. Register the route](#7-register-the-route)
   - [8. Add a discoverable link](#8-add-a-discoverable-link)
 - [Patterns](#patterns)
-  - [Simple modules: one row → one resource](#simple-modules-one-row--one-resource)
-  - [Nested modules: one row → parent + children](#nested-modules-one-row--parent--children)
+  - [Simple apps: one row → one resource](#simple-apps-one-row--one-resource)
+  - [Nested apps: one row → parent + children](#nested-apps-one-row--parent--children)
   - [Reshaping multi-column input](#reshaping-multi-column-input)
   - [Cross-field validation](#cross-field-validation)
   - [Resolving references by name](#resolving-references-by-name)
 
 ---
 
-## Adding bulk import to your module
+## Adding bulk import to your app
 
-The shortest path is to copy the gift-cards module's setup
-(`packages/homestead-modules/gift-cards/bulk-import/`); for nested writes,
+The shortest path is to copy the gift-cards app's setup
+(`packages/homestead-apps/gift-cards/bulk-import/`); for nested writes,
 copy Pictionary's
-(`packages/homestead-modules/games/pictionary/bulk-import/`).
+(`packages/homestead-apps/games/pictionary/bulk-import/`).
 
 ### 1. Create the bulk-import folder
 
 ```
-packages/homestead-modules/<feature>/bulk-import/
+packages/homestead-apps/<feature>/bulk-import/
 ├── schema.ts          # column definitions + transformParsed
 ├── validators.ts      # per-field validators
 ├── types.ts           # the imported row shape (`T`)
 ├── index.tsx          # entry component
-├── <Module>Preview.tsx (optional)
-└── useBulkImport<Module>.ts (only if save logic is non-trivial)
+├── <App>Preview.tsx (optional)
+└── useBulkImport<App>.ts (only if save logic is non-trivial)
 ```
 
 ### 2. Define the schema
 
 ```ts
-// packages/homestead-modules/<feature>/bulk-import/schema.ts
+// packages/homestead-apps/<feature>/bulk-import/schema.ts
 import type { BulkImportSchema } from '@rambleraptor/homestead-core/shared/bulk-import';
 import { validateName, validateAmount } from './validators';
 
@@ -87,7 +87,7 @@ returns `{ value: U }` on success or `{ value, error }` on failure. The
 [Cross-field validation](#cross-field-validation)).
 
 ```ts
-// packages/homestead-modules/<feature>/bulk-import/validators.ts
+// packages/homestead-apps/<feature>/bulk-import/validators.ts
 import type { FieldValidator } from '@rambleraptor/homestead-core/shared/bulk-import';
 
 export const validateName: FieldValidator<string> = (value) => {
@@ -105,9 +105,9 @@ fetched async (e.g. "does this person exist?"), defer to the save step
 
 ### 4. Build the save hook
 
-For a simple one-row → one-resource module, just call `useBulkImport`
+For a simple one-row → one-resource app, just call `useBulkImport`
 directly with a `collection`. The collection is the kebab-case plural URL
-segment — import it from the module's `resources.ts` rather than hard-coding
+segment — import it from the app's `resources.ts` rather than hard-coding
 a string:
 
 ```ts
@@ -117,18 +117,18 @@ import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 
 const bulkImport = useBulkImport({
   collection: MY_THINGS,
-  queryKey: queryKeys.module('my-thing').list(),
+  queryKey: queryKeys.app('my-thing').list(),
 });
 ```
 
 For anything more complex (nested writes, name resolution, multi-step),
 write a wrapper hook that uses the `saveItem` path — see
-[Nested modules](#nested-modules-one-row--parent--children).
+[Nested apps](#nested-apps-one-row--parent--children).
 
 ### 5. Custom preview component (optional)
 
 Skipping `PreviewComponent` falls back to `DefaultItemPreview`, which
-just renders each field as a key/value row. Most modules want something
+just renders each field as a key/value row. Most apps want something
 prettier — see `GiftCardPreview.tsx`, `PersonPreview.tsx`, or
 `GamePreview.tsx` for examples. Set it on the schema:
 
@@ -143,23 +143,23 @@ export const myImportSchema: BulkImportSchema<MyImportData> = {
 ### 6. Wire the entry component
 
 ```tsx
-// packages/homestead-modules/<feature>/bulk-import/index.tsx
+// packages/homestead-apps/<feature>/bulk-import/index.tsx
 import { BulkImportContainer, useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
 import { MY_THINGS } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { myImportSchema } from './schema';
 
-export function MyModuleBulkImport() {
+export function MyAppBulkImport() {
   const bulkImport = useBulkImport({
     collection: MY_THINGS,
-    queryKey: queryKeys.module('my-thing').list(),
+    queryKey: queryKeys.app('my-thing').list(),
   });
 
   return (
     <BulkImportContainer
       config={{
-        moduleName: 'My Things',
-        moduleNamePlural: 'my things',
+        appName: 'My Things',
+        appNamePlural: 'my things',
         backRoute: '/my-thing',
         schema: myImportSchema,
         onImport: bulkImport.mutateAsync,
@@ -173,13 +173,13 @@ export function MyModuleBulkImport() {
 ### 7. Register the route
 
 The SPA has no per-route page files — routes are declared inline on each
-module. Add an `import` entry to the module's `routes` array in
-`module.config.ts`, pointing `component` at a lazy import of the entry
+app. Add an `import` entry to the app's `routes` array in
+`app.config.ts`, pointing `component` at a lazy import of the entry
 component:
 
 ```ts
-// packages/homestead-modules/<feature>/module.config.ts
-export const myModule: HomeModule = {
+// packages/homestead-apps/<feature>/app.config.ts
+export const myApp: HomeApp = {
   // ...
   basePath: '/my-thing',
   routes: [
@@ -192,7 +192,7 @@ export const myModule: HomeModule = {
     {
       path: 'import',
       component: () =>
-        import('./bulk-import').then((m) => m.MyModuleBulkImport),
+        import('./bulk-import').then((m) => m.MyAppBulkImport),
     },
   ],
   // ...
@@ -200,13 +200,13 @@ export const myModule: HomeModule = {
 ```
 
 The SPA's catch-all renderer
-(`packages/homestead-app/src/modules/ModuleRoute.tsx`) resolves the route's
+(`packages/homestead-app/src/apps/AppRoute.tsx`) resolves the route's
 lazy `component` for the matched path (here `/my-thing/import`), so there's
 nothing else to wire up.
 
 ### 8. Add a discoverable link
 
-In your module's home component, add an "Import" button alongside the
+In your app's home component, add an "Import" button alongside the
 primary "New X" action that navigates to `/<feature>/import` via
 react-router's `useNavigate`. See `PeopleHome.tsx` for the pattern:
 
@@ -222,11 +222,11 @@ const navigate = useNavigate();
 
 ## Patterns
 
-### Simple modules: one row → one resource
+### Simple apps: one row → one resource
 
 Gift cards is the canonical example. It uses the built-in `collection`
 path with no custom hook, pulling the collection constant from the
-module's `resources.ts`:
+app's `resources.ts`:
 
 ```ts
 import { GIFT_CARDS } from '../resources';
@@ -234,7 +234,7 @@ import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 
 useBulkImport({
   collection: GIFT_CARDS,
-  queryKey: queryKeys.module('gift-cards').resource('gift-card').list(),
+  queryKey: queryKeys.app('gift-cards').resource('gift-card').list(),
   transformData: (data) => ({
     ...(data as Record<string, unknown>),
     front_image: null,
@@ -247,12 +247,12 @@ useBulkImport({
 for adding fields the CSV doesn't carry (here the file fields the CSV
 import can't supply). The framework adds `created_by` automatically.
 
-### Nested modules: one row → parent + children
+### Nested apps: one row → parent + children
 
 When a row creates a parent record plus child records (e.g. one
 Pictionary game with N teams), use the `saveItem` path. The framework
 still owns the loop, error tracking, and query invalidation; you just
-provide the per-row write. Collection constants come from the module's
+provide the per-row write. Collection constants come from the app's
 `resources.ts`:
 
 ```ts
@@ -260,7 +260,7 @@ import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 
 useBulkImport<MyImportData, void>({
-  queryKey: queryKeys.module('pictionary').all(),
+  queryKey: queryKeys.app('pictionary').all(),
   saveItem: async (row, { createdBy }) => {
     const game = await aepbase.create(PICTIONARY_GAMES, {
       ...row, created_by: createdBy,
@@ -354,7 +354,7 @@ import { PEOPLE } from '../../people/resources';
 interface PersonRecord { id: string; name: string }
 
 useBulkImport<MyImportData, Map<string, string>>({
-  queryKey: queryKeys.module('my-thing').list(),
+  queryKey: queryKeys.app('my-thing').list(),
   prepare: async () => {
     const people = await aepbase.list<PersonRecord>(PEOPLE);
     return new Map(people.map((p) => [p.name.toLowerCase(), p.id]));
@@ -381,8 +381,8 @@ name is unknown. The same map also drives preview-time validation via the
 `usePeopleNameMap` query (see `peopleMap.ts`), so unknown names surface in
 the preview before the import even runs.
 
-> Not every module fits the generic hook. People's importer
-> (`packages/homestead-modules/people/hooks/useBulkImportPeople.ts`) is a
+> Not every app fits the generic hook. People's importer
+> (`packages/homestead-apps/people/hooks/useBulkImportPeople.ts`) is a
 > hand-written `useMutation` because it needs two passes — create everyone
 > first, then resolve partner-by-name references — and its `index.tsx`
 > simply imports that hook instead of `useBulkImport`. Reach for a custom

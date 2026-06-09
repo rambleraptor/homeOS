@@ -9,8 +9,8 @@ credentials. It's configured entirely via flags + env, and the
 `homestead` launcher spawns it as a child process.
 
 The schema is managed in **TypeScript**, not HCL. Each Homestead
-feature module declares the aepbase collections it owns in a
-`resources.ts` file next to its `module.config.ts`, and the Bun sidecar
+feature app declares the aepbase collections it owns in a
+`resources.ts` file next to its `app.config.ts`, and the Bun sidecar
 applies them via the `/aep-resource-definitions` endpoint on boot. See
 [`CLAUDE.md` § aepbase schema](../CLAUDE.md#aepbase-schema-typescript).
 
@@ -21,7 +21,7 @@ aepbase/
 ├── main.go           # standalone host: flags/env, serve, graceful shutdown
 ├── oauth.go          # OAuth providers from the AEPBASE_OAUTH env var
 ├── bootstrap.go      # first-boot superuser + data/credentials.json
-├── go.mod / go.sum   # module deps (pulls upstream aepbase)
+├── go.mod / go.sum   # app deps (pulls upstream aepbase)
 ├── install.sh        # `go build` into ./bin/aepbase
 ├── run.sh            # run aepbase on :8090 with data in ./data
 ├── bin/              # built binary (gitignored)

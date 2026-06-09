@@ -1,7 +1,7 @@
 /**
  * Unit tests for the OAuth client helpers in api/aepbase.ts.
  *
- * The global test setup mocks the aepbase module, so we pull the *real*
+ * The global test setup mocks the aepbase app, so we pull the *real*
  * implementation via importActual and drive it with a stubbed global fetch.
  */
 

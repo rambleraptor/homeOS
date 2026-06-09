@@ -15,7 +15,7 @@ interface DefaultItemPreviewProps<T> {
 
 /**
  * Default preview component - displays data as key-value pairs
- * Modules should provide their own custom preview component for better UX
+ * Apps should provide their own custom preview component for better UX
  */
 export function DefaultItemPreview<T>({
   item,

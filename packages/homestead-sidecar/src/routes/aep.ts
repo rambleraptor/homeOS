@@ -3,7 +3,7 @@
  * resource (`POST /<plural>:<verb>` and `POST /<plural>/<id>:<verb>`).
  *
  * The edge/vite proxy forwards any `/api/aep/...:verb` request here. We
- * dispatch the ones that resolve to a module-declared custom method and
+ * dispatch the ones that resolve to an app-declared custom method and
  * transparently reverse-proxy the rest (aepbase's own `:login` / `:download`,
  * or anything else) straight to aepbase, so the gateway is the single front
  * door for custom methods without breaking aepbase's built-ins.
@@ -12,7 +12,7 @@
 import { Hono } from 'hono';
 import { authenticate, AEPBASE_URL } from '@rambleraptor/homestead-core/server/aepbase';
 import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/custom-methods/dispatcher';
-import { getResourceCustomMethod } from '../module-registry';
+import { getResourceCustomMethod } from '../app-registry';
 
 export const aepRoute = new Hono();
 

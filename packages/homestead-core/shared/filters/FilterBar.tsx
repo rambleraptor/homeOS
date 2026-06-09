@@ -1,11 +1,11 @@
 /**
  * Generic filter bar.
  *
- * Reads the module's filter decls + current values from context and
+ * Reads the app's filter decls + current values from context and
  * renders one input per decl. No props — wire it inside a
- * `<ModuleFiltersProvider>` and it follows the data.
+ * `<AppFiltersProvider>` and it follows the data.
  *
- * Enum chip rows derive their options from the loaded items so modules
+ * Enum chip rows derive their options from the loaded items so apps
  * never need to hand-maintain a static value list.
  */
 
@@ -15,13 +15,13 @@ import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbo
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import {
   useEnumOptions,
-  useModuleFilterDecls,
-  useModuleFilterValues,
+  useAppFilterDecls,
+  useAppFilterValues,
 } from './FiltersContext';
-import type { DateRangeValue, ModuleFilterDecl } from './types';
+import type { DateRangeValue, AppFilterDecl } from './types';
 
 export function FilterBar() {
-  const decls = useModuleFilterDecls();
+  const decls = useAppFilterDecls();
   if (decls.length === 0) return null;
 
   return (
@@ -36,7 +36,7 @@ export function FilterBar() {
   );
 }
 
-function FilterControl({ decl }: { decl: ModuleFilterDecl }) {
+function FilterControl({ decl }: { decl: AppFilterDecl }) {
   switch (decl.type) {
     case 'text':
       return <TextFilter decl={decl} />;
@@ -53,8 +53,8 @@ function FilterControl({ decl }: { decl: ModuleFilterDecl }) {
   }
 }
 
-function TextFilter({ decl }: { decl: ModuleFilterDecl }) {
-  const { values, setValue } = useModuleFilterValues();
+function TextFilter({ decl }: { decl: AppFilterDecl }) {
+  const { values, setValue } = useAppFilterValues();
   const current = typeof values[decl.key] === 'string' ? (values[decl.key] as string) : '';
   return (
     <div className="flex flex-col min-w-[200px] flex-1">
@@ -82,8 +82,8 @@ function TextFilter({ decl }: { decl: ModuleFilterDecl }) {
   );
 }
 
-function EnumSingleFilter({ decl }: { decl: ModuleFilterDecl }) {
-  const { values, setValue } = useModuleFilterValues();
+function EnumSingleFilter({ decl }: { decl: AppFilterDecl }) {
+  const { values, setValue } = useAppFilterValues();
   const options = useEnumOptions(decl.key);
   const current = typeof values[decl.key] === 'string' ? (values[decl.key] as string) : '';
   return (
@@ -112,8 +112,8 @@ function EnumSingleFilter({ decl }: { decl: ModuleFilterDecl }) {
   );
 }
 
-function EnumMultiFilter({ decl }: { decl: ModuleFilterDecl }) {
-  const { values, setValue } = useModuleFilterValues();
+function EnumMultiFilter({ decl }: { decl: AppFilterDecl }) {
+  const { values, setValue } = useAppFilterValues();
   const options = useEnumOptions(decl.key);
   const raw = values[decl.key];
   const selected = Array.isArray(raw) ? (raw as string[]) : [];
@@ -166,8 +166,8 @@ function EnumMultiFilter({ decl }: { decl: ModuleFilterDecl }) {
   );
 }
 
-function BooleanFilter({ decl }: { decl: ModuleFilterDecl }) {
-  const { values, setValue } = useModuleFilterValues();
+function BooleanFilter({ decl }: { decl: AppFilterDecl }) {
+  const { values, setValue } = useAppFilterValues();
   const current = values[decl.key] === true;
   return (
     <div className="flex items-center gap-2 h-9">
@@ -187,8 +187,8 @@ function BooleanFilter({ decl }: { decl: ModuleFilterDecl }) {
   );
 }
 
-function DateRangeFilter({ decl }: { decl: ModuleFilterDecl }) {
-  const { values, setValue } = useModuleFilterValues();
+function DateRangeFilter({ decl }: { decl: AppFilterDecl }) {
+  const { values, setValue } = useAppFilterValues();
   const current = (values[decl.key] as DateRangeValue | undefined) ?? {};
   const update = (patch: Partial<DateRangeValue>) => {
     const next: DateRangeValue = { ...current, ...patch };

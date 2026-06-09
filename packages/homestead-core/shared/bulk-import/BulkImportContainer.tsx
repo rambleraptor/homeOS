@@ -54,7 +54,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
           const result = parseCSV(content, config.schema);
 
           if (result.items.length === 0) {
-            setParseError(`No ${config.moduleNamePlural} found in the CSV file`);
+            setParseError(`No ${config.appNamePlural} found in the CSV file`);
             return;
           }
 
@@ -68,12 +68,12 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
           setSelectedItemIds(new Set(validItemIndices));
 
           toast.success(
-            `Parsed ${result.validCount} valid ${config.moduleNamePlural} from CSV`
+            `Parsed ${result.validCount} valid ${config.appNamePlural} from CSV`
           );
 
           if (result.invalidCount > 0) {
             toast.warning(
-              `${result.invalidCount} ${config.moduleNamePlural} have errors and cannot be imported`
+              `${result.invalidCount} ${config.appNamePlural} have errors and cannot be imported`
             );
           }
         } catch (error) {
@@ -91,7 +91,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
 
       reader.readAsText(selectedFile);
     },
-    [config.schema, config.moduleNamePlural, toast]
+    [config.schema, config.appNamePlural, toast]
   );
 
   const handleToggleItem = useCallback((index: number) => {
@@ -126,28 +126,28 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
     );
 
     if (itemsToImport.length === 0) {
-      toast.error(`Please select at least one ${config.moduleName.toLowerCase()} to import`);
+      toast.error(`Please select at least one ${config.appName.toLowerCase()} to import`);
       return;
     }
 
     try {
       await config.onImport(itemsToImport);
       toast.success(
-        `Successfully imported ${itemsToImport.length} ${config.moduleNamePlural}`
+        `Successfully imported ${itemsToImport.length} ${config.appNamePlural}`
       );
       navigate(config.backRoute);
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : `Failed to import ${config.moduleNamePlural}`;
+        error instanceof Error ? error.message : `Failed to import ${config.appNamePlural}`;
       toast.error(errorMessage);
     }
   }, [parsedItems, selectedItemIds, config, navigate, toast]);
 
   const handleDownloadTemplate = useCallback(() => {
     const template = config.schema.generateTemplate();
-    const filename = `${config.moduleNamePlural.replace(/\s+/g, '_')}_import_template.csv`;
+    const filename = `${config.appNamePlural.replace(/\s+/g, '_')}_import_template.csv`;
     downloadCSVTemplate(template, filename);
-  }, [config.schema, config.moduleNamePlural]);
+  }, [config.schema, config.appNamePlural]);
 
   const validItems = parsedItems.filter((i) => i.isValid);
   const invalidItems = parsedItems.filter((i) => !i.isValid);
@@ -163,11 +163,11 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
           className="mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to {config.moduleName}
+          Back to {config.appName}
         </Button>
-        <h1 className="text-3xl font-bold">Bulk Import {config.moduleName}</h1>
+        <h1 className="text-3xl font-bold">Bulk Import {config.appName}</h1>
         <p className="text-muted-foreground mt-2">
-          Import multiple {config.moduleNamePlural} from a CSV file
+          Import multiple {config.appNamePlural} from a CSV file
         </p>
       </div>
 
@@ -235,7 +235,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
             <Upload className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">Upload CSV File</h3>
             <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-              Select a CSV file containing your {config.moduleNamePlural}. Make
+              Select a CSV file containing your {config.appNamePlural}. Make
               sure it follows the format described above.
             </p>
             <input
@@ -277,7 +277,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Total {config.moduleName}</p>
+                  <p className="text-sm text-muted-foreground">Total {config.appName}</p>
                   <p className="text-2xl font-bold">{parsedItems.length}</p>
                 </div>
                 <FileText className="h-8 w-8 text-muted-foreground" />
@@ -287,7 +287,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Valid {config.moduleName}</p>
+                  <p className="text-sm text-muted-foreground">Valid {config.appName}</p>
                   <p className="text-2xl font-bold text-green-600">
                     {validItems.length}
                   </p>
@@ -299,7 +299,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Invalid {config.moduleName}</p>
+                  <p className="text-sm text-muted-foreground">Invalid {config.appName}</p>
                   <p className="text-2xl font-bold text-destructive">
                     {invalidItems.length}
                   </p>
@@ -343,7 +343,7 @@ export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) 
               >
                 {config.isImporting
                   ? 'Importing...'
-                  : `Import ${selectedCount} ${selectedCount === 1 ? config.moduleName : config.moduleName + '(s)'}`}
+                  : `Import ${selectedCount} ${selectedCount === 1 ? config.appName : config.appName + '(s)'}`}
               </Button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 /**
- * Pure client-side filter evaluation for module filter decls.
+ * Pure client-side filter evaluation for app filter decls.
  *
  * Each decl is resolved against a dot-path into the record. Semantics per
  * type:
@@ -14,7 +14,7 @@
  * Undefined / empty / type-mismatched values are ignored (no-op clause).
  */
 
-import type { DateRangeValue, ModuleFilterDecl } from './types';
+import type { DateRangeValue, AppFilterDecl } from './types';
 
 export function getByPath(record: unknown, path: string): unknown {
   if (record == null || typeof record !== 'object') return undefined;
@@ -77,7 +77,7 @@ function matchesDateRange(fieldValue: unknown, value: unknown): boolean {
 }
 
 function evaluate(
-  decl: ModuleFilterDecl,
+  decl: AppFilterDecl,
   record: unknown,
   value: unknown,
 ): boolean {
@@ -97,7 +97,7 @@ function evaluate(
 
 export function applyFilters<T>(
   items: T[],
-  decls: ModuleFilterDecl[],
+  decls: AppFilterDecl[],
   values: Record<string, unknown>,
 ): T[] {
   if (decls.length === 0) return items;
@@ -117,7 +117,7 @@ export function applyFilters<T>(
  */
 export function deriveEnumOptions<T>(
   items: T[],
-  decl: ModuleFilterDecl,
+  decl: AppFilterDecl,
 ): string[] {
   const path = decl.field ?? decl.key;
   const seen = new Set<string>();

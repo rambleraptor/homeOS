@@ -3,7 +3,7 @@
  *
  * Pure function consumed by the sidecar's `/api/aep` gateway route. It owns
  * the colon-verb URLs that live on a resource — `POST /<plural>:<verb>` and
- * `POST /<plural>/<id>:<verb>` — resolving each to a module-declared handler.
+ * `POST /<plural>/<id>:<verb>` — resolving each to an app-declared handler.
  *
  * Runtime-agnostic: it speaks Web `Request`/`Response`, so the same dispatcher
  * works under Bun, Next, or any Fetch-based server, and the wiring (registry

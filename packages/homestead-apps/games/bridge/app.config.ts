@@ -1,0 +1,27 @@
+/**
+ * Bridge — child of the Games app.
+ *
+ * Sidebar placement is owned by the parent (`gamesApp`); the page itself
+ * is gated by this app's own
+ * built-in `enabled` flag so it can be turned off independently.
+ */
+
+import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+
+export const bridgeApp: HomeApp = {
+  id: 'bridge',
+  name: 'Bridge',
+  description: 'Record bids for each hand of Bridge',
+  icon: () => import('lucide-react').then((m) => m.Club),
+  basePath: '/games/bridge',
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/BridgeHome').then((m) => m.BridgeHome),
+      gates: ['enabled'],
+    },
+  ],
+  enabled: true,
+};

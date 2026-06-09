@@ -5,10 +5,10 @@ import {
   parseFieldName,
   unflatten,
   withDefaults,
-  type ModuleFlagDefs,
+  type AppFlagDefs,
 } from '../flags';
 
-const defs: ModuleFlagDefs = {
+const defs: AppFlagDefs = {
   'gift-cards': {
     show_archived: {
       type: 'boolean',
@@ -37,15 +37,15 @@ const defs: ModuleFlagDefs = {
 };
 
 describe('fieldName / parseFieldName', () => {
-  it('flattens a kebab-case module id to snake_case with a double-underscore separator', () => {
+  it('flattens a kebab-case app id to snake_case with a double-underscore separator', () => {
     expect(fieldName('gift-cards', 'show_archived')).toBe(
       'gift_cards__show_archived',
     );
   });
 
-  it('round-trips to the original module id and key', () => {
+  it('round-trips to the original app id and key', () => {
     expect(parseFieldName('gift_cards__show_archived')).toEqual({
-      moduleId: 'gift-cards',
+      appId: 'gift-cards',
       key: 'show_archived',
     });
   });

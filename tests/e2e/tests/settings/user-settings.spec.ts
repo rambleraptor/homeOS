@@ -1,7 +1,7 @@
 /**
- * User Settings E2E — module-declared per-user settings.
+ * User Settings E2E — app-declared per-user settings.
  *
- * The People module declares a `map_provider` user-setting; the
+ * The People app declares a `map_provider` user-setting; the
  * Settings page renders it via the auto-generated form. Verify the
  * value round-trips: changing the select persists across reloads.
  */
@@ -20,11 +20,11 @@ test.describe('User Settings — map provider', () => {
   test('persists per-user map provider across reloads', async ({
     authenticatedPage,
   }) => {
-    // The Module Settings section is rendered when at least one
-    // module declares userSettings or a settingsWidget. People +
+    // The App Settings section is rendered when at least one
+    // app declares userSettings or a settingsWidget. People +
     // Events both qualify, so this list should always be present.
     await expect(
-      authenticatedPage.getByTestId('module-user-settings-list'),
+      authenticatedPage.getByTestId('app-user-settings-list'),
     ).toBeVisible();
 
     // Default starts as the declared default.

@@ -47,8 +47,8 @@ export class SettingsPage {
   }
 
   /**
-   * Per-user "map provider" setting, declared by the People module and
-   * rendered through the auto-generated form in the Module Settings
+   * Per-user "map provider" setting, declared by the People app and
+   * rendered through the auto-generated form in the App Settings
    * section of the Settings page.
    */
   async selectMapProvider(provider: 'google' | 'apple') {

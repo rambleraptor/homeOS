@@ -55,40 +55,40 @@ func TestFirstPathSegment(t *testing.T) {
 	}
 }
 
-func TestModuleFieldName(t *testing.T) {
-	if got := moduleFieldName("gift-cards", "enabled"); got != "gift_cards__enabled" {
-		t.Errorf("moduleFieldName = %q, want gift_cards__enabled", got)
+func TestAppFieldName(t *testing.T) {
+	if got := appFieldName("gift-cards", "enabled"); got != "gift_cards__enabled" {
+		t.Errorf("appFieldName = %q, want gift_cards__enabled", got)
 	}
-	if got := moduleFieldName("todos", "enabled_tags"); got != "todos__enabled_tags" {
-		t.Errorf("moduleFieldName = %q, want todos__enabled_tags", got)
+	if got := appFieldName("todos", "enabled_tags"); got != "todos__enabled_tags" {
+		t.Errorf("appFieldName = %q, want todos__enabled_tags", got)
 	}
 }
 
-func TestModuleAccessFromEnv(t *testing.T) {
-	t.Setenv("AEPBASE_MODULE_ACCESS", "")
-	if cfg, err := moduleAccessFromEnv(); err != nil || cfg != nil {
+func TestAppAccessFromEnv(t *testing.T) {
+	t.Setenv("AEPBASE_APP_ACCESS", "")
+	if cfg, err := appAccessFromEnv(); err != nil || cfg != nil {
 		t.Fatalf("empty env: got cfg=%v err=%v, want nil,nil", cfg, err)
 	}
 
-	t.Setenv("AEPBASE_MODULE_ACCESS", "null")
-	if cfg, err := moduleAccessFromEnv(); err != nil || cfg != nil {
+	t.Setenv("AEPBASE_APP_ACCESS", "null")
+	if cfg, err := appAccessFromEnv(); err != nil || cfg != nil {
 		t.Fatalf("null env: got cfg=%v err=%v, want nil,nil", cfg, err)
 	}
 
-	t.Setenv("AEPBASE_MODULE_ACCESS", `{"collectionToModule":{"gift-cards":"gift-cards"},"moduleDefaults":{"gift-cards":"tagged"}}`)
-	cfg, err := moduleAccessFromEnv()
+	t.Setenv("AEPBASE_APP_ACCESS", `{"collectionToApp":{"gift-cards":"gift-cards"},"appDefaults":{"gift-cards":"tagged"}}`)
+	cfg, err := appAccessFromEnv()
 	if err != nil {
 		t.Fatalf("valid env: unexpected err %v", err)
 	}
-	if cfg.CollectionToModule["gift-cards"] != "gift-cards" {
-		t.Errorf("collectionToModule not parsed: %v", cfg.CollectionToModule)
+	if cfg.CollectionToApp["gift-cards"] != "gift-cards" {
+		t.Errorf("collectionToApp not parsed: %v", cfg.CollectionToApp)
 	}
-	if cfg.ModuleDefaults["gift-cards"] != "tagged" {
-		t.Errorf("moduleDefaults not parsed: %v", cfg.ModuleDefaults)
+	if cfg.AppDefaults["gift-cards"] != "tagged" {
+		t.Errorf("appDefaults not parsed: %v", cfg.AppDefaults)
 	}
 
-	t.Setenv("AEPBASE_MODULE_ACCESS", "{not json")
-	if _, err := moduleAccessFromEnv(); err == nil {
+	t.Setenv("AEPBASE_APP_ACCESS", "{not json")
+	if _, err := appAccessFromEnv(); err == nil {
 		t.Error("malformed env: expected error, got nil")
 	}
 }
@@ -100,19 +100,19 @@ func TestAccessStoreVisibilityAndTags(t *testing.T) {
 	}
 	defer d.Close()
 
-	// module_flags: one row carrying flattened per-module flag columns.
-	if err := db.CreateResourceTable(d, "module-flags", nil, []db.ColumnDef{
+	// app_flags: one row carrying flattened per-app flag columns.
+	if err := db.CreateResourceTable(d, "app-flags", nil, []db.ColumnDef{
 		{Name: "gift_cards__enabled", SQLType: "TEXT"},
 		{Name: "gift_cards__enabled_tags", SQLType: "TEXT"},
 		{Name: "todos__enabled", SQLType: "TEXT"},
 	}); err != nil {
-		t.Fatalf("create module_flags: %v", err)
+		t.Fatalf("create app_flags: %v", err)
 	}
 	if _, err := d.Exec(
-		`INSERT INTO module_flags (id, path, create_time, update_time, gift_cards__enabled, gift_cards__enabled_tags, todos__enabled)
-		 VALUES ('singleton','module-flags/singleton','t','t','tagged','adults,teens','superusers')`,
+		`INSERT INTO app_flags (id, path, create_time, update_time, gift_cards__enabled, gift_cards__enabled_tags, todos__enabled)
+		 VALUES ('singleton','app-flags/singleton','t','t','tagged','adults,teens','superusers')`,
 	); err != nil {
-		t.Fatalf("seed module_flags: %v", err)
+		t.Fatalf("seed app_flags: %v", err)
 	}
 
 	// account_tags: parented under user → user_id column.
@@ -137,7 +137,7 @@ func TestAccessStoreVisibilityAndTags(t *testing.T) {
 	if vis, _ := store.visibility("todos", "all"); vis != "superusers" {
 		t.Errorf("todos visibility = %q, want superusers", vis)
 	}
-	// Module with no stored value falls back to the supplied default.
+	// App with no stored value falls back to the supplied default.
 	if vis, _ := store.visibility("recipes", "none"); vis != "none" {
 		t.Errorf("recipes visibility = %q, want none (default)", vis)
 	}
@@ -184,7 +184,7 @@ func TestQueryFlagsRowMissingTable(t *testing.T) {
 		t.Fatalf("db init: %v", err)
 	}
 	defer d.Close()
-	// No module_flags table created → empty map, no panic (fail open to defaults).
+	// No app_flags table created → empty map, no panic (fail open to defaults).
 	if got := queryFlagsRow(d); len(got) != 0 {
 		t.Errorf("queryFlagsRow on missing table = %v, want empty", got)
 	}

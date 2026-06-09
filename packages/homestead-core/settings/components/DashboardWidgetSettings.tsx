@@ -2,7 +2,7 @@
  * DashboardWidgetSettings
  *
  * Lets the user choose which dashboard widgets are displayed and the
- * order they render in. Widgets are sourced from the module registry
+ * order they render in. Widgets are sourced from the app registry
  * (`getAllDashboardWidgets`); the user's choices are persisted on the
  * `user-preference` resource via `useUpdateDashboardWidgets` and
  * picked up by `DashboardHome` through `resolveDashboardWidgets`.
@@ -19,9 +19,9 @@ import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { getAllDashboardWidgets } from '@rambleraptor/homestead-core/modules/registry';
-import type { RegisteredDashboardWidget } from '@rambleraptor/homestead-core/modules/registry';
-import { useModuleEnabledPredicate } from '../hooks/useIsModuleEnabled';
+import { getAllDashboardWidgets } from '@rambleraptor/homestead-core/apps/registry';
+import type { RegisteredDashboardWidget } from '@rambleraptor/homestead-core/apps/registry';
+import { useAppEnabledPredicate } from '../hooks/useIsAppEnabled';
 import { useUpdateDashboardWidgets } from '../hooks/useUpdateDashboardWidgets';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 
@@ -50,14 +50,14 @@ function buildInitialEntries(
 export function DashboardWidgetSettings() {
   const toast = useToast();
   const { user } = useAuth();
-  const isModuleEnabled = useModuleEnabledPredicate();
+  const isAppEnabled = useAppEnabledPredicate();
   const updatePrefs = useUpdateDashboardWidgets();
 
-  // Widgets belonging to modules the viewer can't access shouldn't
+  // Widgets belonging to apps the viewer can't access shouldn't
   // appear in the customization list — they wouldn't render on the
   // dashboard either, and showing toggles for them would be confusing.
   const available = getAllDashboardWidgets().filter((w) =>
-    isModuleEnabled(w.moduleId),
+    isAppEnabled(w.appId),
   );
 
   const [entries, setEntries] = useState<WidgetEntry[]>(() =>
@@ -70,11 +70,11 @@ export function DashboardWidgetSettings() {
 
   // Refresh local state if the user's saved preferences change (e.g.
   // after `refreshUser` fires post-save). We intentionally do NOT
-  // depend on `isModuleEnabled` here: the predicate gets a fresh
-  // function reference every render (`useModuleFlags` returns a
+  // depend on `isAppEnabled` here: the predicate gets a fresh
+  // function reference every render (`useAppFlags` returns a
   // freshly-unflatten-ed object), so including it would re-fire this
   // effect on every render and infinite-loop with the setState. If
-  // module-flag visibility changes mid-session, the next render's
+  // app-flag visibility changes mid-session, the next render's
   // `available` is still recomputed correctly above — only the
   // initial seeding of `entries` is gated by user-pref deltas.
   useEffect(() => {

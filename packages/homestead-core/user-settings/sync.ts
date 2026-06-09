@@ -2,7 +2,7 @@
  * Push the per-user `user-preference` schema to aepbase.
  *
  * Called from `frontend/src/instrumentation.ts` on Next.js boot,
- * alongside the static resource sync and the module-flags syncer.
+ * alongside the static resource sync and the app-flags syncer.
  * Idempotent: on repeat runs it PATCHes the existing resource
  * definition when the schema has drifted, no-ops when stable.
  *
@@ -10,7 +10,7 @@
  * `BUILTIN_RESOURCE_DEFS` with a hand-written schema; that file no
  * longer declares it. The schema is now `STATIC_PROPERTIES` (dashboard
  * widget customization, kept where it was for now) merged with the
- * flattened per-user-setting fields contributed by every module that
+ * flattened per-user-setting fields contributed by every app that
  * declares `userSettings`.
  */
 
@@ -26,7 +26,7 @@ const DEFINITIONS_PATH = 'aep-resource-definitions';
 
 /**
  * Per-user fields that pre-date the `userSettings` declaration system
- * and aren't (yet) owned by a feature module. Kept verbatim so existing
+ * and aren't (yet) owned by a feature app. Kept verbatim so existing
  * data continues to round-trip and the `DashboardWidgetSettings` UI
  * keeps working without changes.
  *
@@ -44,7 +44,7 @@ const STATIC_PROPERTIES: Record<string, Record<string, unknown>> = {
   dashboard_widget_order: {
     type: 'string',
     description:
-      "JSON-encoded array of dashboard widget ids in the user's preferred display order. Widgets not listed fall back to their module-declared order.",
+      "JSON-encoded array of dashboard widget ids in the user's preferred display order. Widgets not listed fall back to their app-declared order.",
   },
   dashboard_hidden_widgets: {
     type: 'string',
@@ -99,7 +99,7 @@ export async function syncUserSettingsSchema(
     singular: RESOURCE_SINGULAR,
     plural: RESOURCE_PLURAL,
     description:
-      'Per-user app preferences. Schema is generated from declared user settings (HomeModule.userSettings) plus a small static carve-out for dashboard widget customization.',
+      'Per-user app preferences. Schema is generated from declared user settings (HomeApp.userSettings) plus a small static carve-out for dashboard widget customization.',
     user_settable_create: true,
     parents: ['user'],
     schema,

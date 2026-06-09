@@ -42,10 +42,10 @@ export default defineConfig({
           ],
         },
         {
-          text: 'Module Development',
+          text: 'App Development',
           items: [
             { text: 'Dashboard Widgets', link: '/guides/widgets' },
-            { text: 'Module Flags', link: '/guides/module-flags' },
+            { text: 'App Flags', link: '/guides/app-flags' },
             { text: 'Notifications', link: '/guides/notifications' },
             { text: 'Bulk Import', link: '/guides/bulk-import' },
           ],

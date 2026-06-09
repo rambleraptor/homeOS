@@ -35,7 +35,7 @@ async function main(argv: string[]): Promise<number> {
 
 async function startCmd(args: string[]): Promise<number> {
   const { flags } = parseFlags(args, new Set(['dev']));
-  // Lazy import: only `start` needs the (heavy) config + module graph.
+  // Lazy import: only `start` needs the (heavy) config + app graph.
   const { runStart } = await import('./supervisor.ts');
   await runStart('.', {
     dev: flags.dev === true,
@@ -54,7 +54,7 @@ function initCmd(args: string[]): number {
   console.log('Next steps:');
   console.log(`  cd ${root}`);
   console.log('  homestead start --dev\n');
-  console.log('Edit homestead.config.ts to pick which modules ship.');
+  console.log('Edit homestead.config.ts to pick which apps ship.');
   return 0;
 }
 
@@ -119,7 +119,7 @@ function printUsage(): void {
       'homestead — run a Homestead instance from a single binary.',
       '',
       'Usage:',
-      '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + modules/).',
+      '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + apps/).',
       '  homestead start [--dev]     Boot aepbase + sidecar + SPA using homestead.config.ts in CWD.',
       '  homestead doctor            Check whether the host can run `homestead start`.',
       '  homestead update            Pull the tracked config repo; restart the service if it changed.',

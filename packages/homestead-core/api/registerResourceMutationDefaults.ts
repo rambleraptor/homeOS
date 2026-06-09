@@ -10,8 +10,8 @@
  * after `PersistQueryClientProvider` rehydrates them.
  *
  * Convention: each resource's list lives at
- * `queryKeys.module(moduleId).resource(singular).list()`. Read hooks query
- * that key; the factory writes optimistic state there. No per-module
+ * `queryKeys.app(appId).resource(singular).list()`. Read hooks query
+ * that key; the factory writes optimistic state there. No per-app
  * `listQueryKey` override is necessary.
  */
 
@@ -38,13 +38,13 @@ export function newTempId(): string {
   return `${TEMP_ID_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
-// One reconciliation map per (moduleId, singular). Maps survive across
+// One reconciliation map per (appId, singular). Maps survive across
 // QueryClients in the same JS realm so a page reload that recreates the
 // client still finds prior temp→real mappings during queue replay.
 const tempIdMaps = new Map<string, Map<string, string>>();
 
-function tempIdMap(moduleId: string, singular: string): Map<string, string> {
-  const key = `${moduleId}:${singular}`;
+function tempIdMap(appId: string, singular: string): Map<string, string> {
+  const key = `${appId}:${singular}`;
   let map = tempIdMaps.get(key);
   if (!map) {
     map = new Map();
@@ -89,14 +89,14 @@ export interface CascadeDelete {
 }
 
 /**
- * A `CascadeDelete`, or a thunk that lazily imports one. Module configs
+ * A `CascadeDelete`, or a thunk that lazily imports one. App configs
  * declare the lazy form (`() => import('./offline').then(m => m.fooCascade)`)
  * so the config file stays free of eager query-client imports.
  */
 export type CascadeDeleteSpec = CascadeDelete | (() => Promise<CascadeDelete>);
 
 export interface ResourceMutationOpts {
-  moduleId: string;
+  appId: string;
   /** Resource singular, used in mutation keys (`create-${singular}`). */
   singular: string;
   /** aepbase collection plural (the URL segment). */
@@ -108,7 +108,7 @@ export interface ResourceMutationOpts {
    * network call) and reversed in `onError`. Use for cross-resource
    * effects, e.g. "unset a foreign key on related records when their
    * parent is deleted". Accepts either a `CascadeDelete` directly or a
-   * thunk that lazily imports one (the form module configs use).
+   * thunk that lazily imports one (the form app configs use).
    */
   cascadeDelete?: CascadeDeleteSpec;
 }
@@ -118,13 +118,13 @@ export interface ResourceMutationOpts {
 // ---------------------------------------------------------------------------
 
 export function resourceMutationKeys(
-  moduleId: string,
+  appId: string,
   singular: string,
 ): ResourceMutationKeys {
   return {
-    create: ['module', moduleId, `create-${singular}`] as const,
-    update: ['module', moduleId, `update-${singular}`] as const,
-    delete: ['module', moduleId, `delete-${singular}`] as const,
+    create: ['app', appId, `create-${singular}`] as const,
+    update: ['app', appId, `update-${singular}`] as const,
+    delete: ['app', appId, `delete-${singular}`] as const,
   };
 }
 
@@ -149,9 +149,9 @@ export function registerResourceMutationDefaults<
   C extends CreateVarsBase = CreateVarsBase & Record<string, unknown>,
   U = Record<string, unknown>,
 >(qc: QueryClient, opts: ResourceMutationOpts): ResourceMutationKeys {
-  const { moduleId, singular, plural, parentPath, cascadeDelete } = opts;
+  const { appId, singular, plural, parentPath, cascadeDelete } = opts;
 
-  // Resolve the cascade once and cache it in closure. Module configs pass a
+  // Resolve the cascade once and cache it in closure. App configs pass a
   // lazy thunk (to keep the config free of eager query-client imports);
   // tests and direct callers may pass the object. Resolution is kicked off
   // here at registration — which runs at app boot, long before any delete —
@@ -168,12 +168,12 @@ export function registerResourceMutationDefaults<
       cascadeImpl = impl;
     });
   }
-  const listKey = queryKeys.module(moduleId).resource(singular).list();
-  // Invalidate the whole module on settle — covers list reads, detail
+  const listKey = queryKeys.app(appId).resource(singular).list();
+  // Invalidate the whole app on settle — covers list reads, detail
   // reads, and any sibling resources that share computed state.
-  const invalidateKey = queryKeys.module(moduleId).all();
-  const idMap = tempIdMap(moduleId, singular);
-  const keys = resourceMutationKeys(moduleId, singular);
+  const invalidateKey = queryKeys.app(appId).all();
+  const idMap = tempIdMap(appId, singular);
+  const keys = resourceMutationKeys(appId, singular);
 
   const resolveId = (id: string): string => idMap.get(id) ?? id;
 

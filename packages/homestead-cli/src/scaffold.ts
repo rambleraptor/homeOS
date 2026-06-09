@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 /**
- * Scaffold a starter Homestead project: homestead.config.ts plus a modules/
+ * Scaffold a starter Homestead project: homestead.config.ts plus an apps/
  * directory. Deliberately minimal — no package.json, no node_modules. Refuses
  * to write into a non-empty directory.
  */
@@ -18,7 +18,7 @@ export function scaffold(dir: string): string {
 
   const files: Array<[string, string]> = [
     [join(root, 'homestead.config.ts'), CONFIG_TS],
-    [join(root, 'modules', 'README.md'), MODULES_README],
+    [join(root, 'apps', 'README.md'), APPS_README],
     [join(root, '.gitignore'), GITIGNORE],
   ];
   for (const [path, body] of files) {
@@ -32,28 +32,28 @@ const CONFIG_TS = `/**
  * Homestead instance configuration.
  *
  * This is the ONE file you edit to choose what your homestead serves.
- * Comment out a module to remove it; import a new one to add it.
+ * Comment out an app to remove it; import a new one to add it.
  *
- * To add a custom module, drop a .ts file under ./modules/ exporting a
- * HomeModule, then add the import + array entry below.
+ * To add a custom app, drop a .ts file under ./apps/ exporting a
+ * HomeApp, then add the import + array entry below.
  */
 
 import {
-  dashboardModule,
-  giftCardsModule,
-  groceriesModule,
-  recipesModule,
-  todosModule,
-} from '@rambleraptor/homestead-modules';
-import type { HomesteadConfig } from '@rambleraptor/homestead-core/modules/config';
+  dashboardApp,
+  giftCardsApp,
+  groceriesApp,
+  recipesApp,
+  todosApp,
+} from '@rambleraptor/homestead-apps';
+import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
 
 const config: HomesteadConfig = {
-  modules: [
-    dashboardModule,
-    todosModule,
-    giftCardsModule,
-    groceriesModule,
-    recipesModule,
+  apps: [
+    dashboardApp,
+    todosApp,
+    giftCardsApp,
+    groceriesApp,
+    recipesApp,
   ],
 
   // Optional: make this directory a git checkout and \`homestead update\` will
@@ -65,7 +65,7 @@ const config: HomesteadConfig = {
 export default config;
 `;
 
-const MODULES_README = `# Custom Modules
+const APPS_README = `# Custom Apps
 
 Drop .ts files in this directory and import them from
 \`../homestead.config.ts\` to add custom features to your Homestead instance.
