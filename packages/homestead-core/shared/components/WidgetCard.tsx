@@ -14,7 +14,7 @@ import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
  * Base layout for dashboard widgets. Mirrors the Information Card design
  * (rounded-2xl, surface-white, bordered header) but with widget-specific
  * affordances:
- *   1. The title is a link to the owning module's home route (`href`).
+ *   1. The title is a link to the owning app's home route (`href`).
  *   2. An optional config gear sits next to the collapse toggle and links
  *      to the widget's configuration page (`configHref`).
  *   3. A collapse toggle in the header hides the body so only the title row
@@ -28,9 +28,9 @@ import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 export interface WidgetCardProps {
   /** Lucide icon rendered in the header chip. */
   icon?: LucideIcon;
-  /** Widget title; rendered inside the link to the module home. */
+  /** Widget title; rendered inside the link to the app home. */
   title: ReactNode;
-  /** Module home route the title links to. */
+  /** App home route the title links to. */
   href: string;
   /**
    * Optional path to the widget's configuration page. When set, a grey

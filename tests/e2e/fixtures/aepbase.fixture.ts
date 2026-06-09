@@ -130,7 +130,7 @@ export const test = base.extend<AepbaseFixtures>({
 
   /**
    * A Playwright page logged in as the bootstrap superuser. Use this for
-   * specs that need to exercise superuser-only UI (e.g. the Users module).
+   * specs that need to exercise superuser-only UI (e.g. the Users app).
    */
   authenticatedAdminPage: async ({ page, adminCreds }, use) => {
     await page.goto('/login');

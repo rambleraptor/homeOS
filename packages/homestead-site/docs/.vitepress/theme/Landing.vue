@@ -75,7 +75,7 @@ const { frontmatter } = useData();
         <article class="card">
           <h3>Ship an app in an afternoon</h3>
           <p>
-            Each feature is a self-contained module — routes, data, settings,
+            Each feature is a self-contained app — routes, data, settings,
             and workers in one folder. Scaffold it, add one line of config, done.
           </p>
           <div class="mock">
@@ -83,14 +83,14 @@ const { frontmatter } = useData();
   components/
   hooks/
   resources.ts
-  <span class="tok-file">module.config.ts</span></code></pre>
+  <span class="tok-file">app.config.ts</span></code></pre>
           </div>
         </article>
 
         <article class="card">
           <h3>Skills your agents can call</h3>
           <p>
-            Each module's actions are exposed as typed operations — real skills
+            Each app's actions are exposed as typed operations — real skills
             an agent invokes directly, not screens it has to scrape.
           </p>
           <div class="mock">

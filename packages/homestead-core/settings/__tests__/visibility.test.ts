@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  MODULE_VISIBILITY_OPTIONS,
+  APP_VISIBILITY_OPTIONS,
   formatTagList,
   parseTagList,
 } from '../visibility';
 
-describe('MODULE_VISIBILITY_OPTIONS', () => {
+describe('APP_VISIBILITY_OPTIONS', () => {
   it("includes the 'tagged' option", () => {
-    expect(MODULE_VISIBILITY_OPTIONS).toContain('tagged');
+    expect(APP_VISIBILITY_OPTIONS).toContain('tagged');
   });
 });
 

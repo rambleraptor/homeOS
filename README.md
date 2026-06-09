@@ -10,7 +10,7 @@ the [aepbase](https://www.github.com/rambleraptor/aepbase) backend, the Bun
 sidecar, schema sync, and a same-origin web server on one public port.
 
 Homestead is warm personal infrastructure with a little agent-native app OS
-underneath: modules give you useful app surfaces, while the AEP-compliant
+underneath: apps give you useful app surfaces, while the AEP-compliant
 backend gives humans and agents a structured API for the same data.
 
 ## Why Homestead
@@ -19,15 +19,15 @@ backend gives humans and agents a structured API for the same data.
   proxy together instead of assembling a small constellation of services.
 - **Built for home servers** — keep a long-lived personal app platform on a
   mini PC, private VPS, or machine reachable over Tailscale.
-- **Agent-accessible by design** — every module can expose AEP resources, so
+- **Agent-accessible by design** — every app can expose AEP resources, so
   agents can inspect schemas, call APIs, and help build or operate features
   without scraping UI state.
 - **Modular personal software** — start with useful apps, then add the
   specific workflows that commercial SaaS will never prioritize.
 
-## Included modules
+## Included apps
 
-Homestead ships with a growing set of opt-in modules:
+Homestead ships with a growing set of opt-in apps:
 
 - Todos and projects
 - Groceries with notifications and image processing
@@ -38,9 +38,9 @@ Homestead ships with a growing set of opt-in modules:
 - HSA receipt upload
 - Games and small social scorekeepers
 
-Each feature is an opt-in **module**. You pick which ones ship by editing a
+Each feature is an opt-in **app**. You pick which ones ship by editing a
 single file, `homestead.config.ts`. Want a different mix, or your own
-custom module? See the **[docs](packages/homestead-site/docs/guides/index.md)**.
+custom app? See the **[docs](packages/homestead-site/docs/guides/index.md)**.
 
 ## Quick start
 
@@ -81,7 +81,7 @@ change the password after you log in. That's the whole stack — no separate
 terminals, env vars, or schema step.
 
 A Homestead project is a directory with `homestead.config.ts`. That file
-chooses the modules that ship and becomes the natural place to add your own
+chooses the apps that ship and becomes the natural place to add your own
 personal app surfaces.
 
 ## The `homestead` CLI
@@ -116,7 +116,7 @@ to loopback and are reached through the web server's same-origin proxy.
 
 ### `homestead init`
 
-Scaffold a fresh project — a starter `homestead.config.ts` and a `modules/`
+Scaffold a fresh project — a starter `homestead.config.ts` and a `apps/`
 directory for your own features — in a new directory.
 
 ```bash
@@ -147,7 +147,7 @@ coordinates three pieces behind one web server:
   [AEP](https://www.aep.dev)-compliant REST API backed by SQLite. Holds all
   your data and binds to loopback.
 - **sidecar** (Bun) — server-side APIs (notifications, OCR, scheduled
-  actions) and the schema sync that registers each module's collections on
+  actions) and the schema sync that registers each app's collections on
   boot.
 - **web server** — the only outward-facing port. Serves the React SPA and
   proxies aepbase at same-origin `/api/aep` and the sidecar's routes.
@@ -156,29 +156,29 @@ Because the API is AEP-compliant, the frontend is optional: you can reach
 your data through the AEP ecosystem (a Terraform provider, CLI, or the
 [resource explorer UI](https://ui.aep.dev)).
 
-That API surface is also what makes Homestead practical for agents. Modules
+That API surface is also what makes Homestead practical for agents. Apps
 declare real resources instead of hiding state inside components, so an agent
 can discover the shape of the system, write against the same backend the UI
-uses, and help create new modules without guessing how the app works.
+uses, and help create new apps without guessing how the app works.
 
 ### Modular design
 
-Every feature is a **module** with its own:
+Every feature is a **app** with its own:
 - Components (`components/`)
 - Hooks (`hooks/`)
 - Types (`types.ts`)
-- Configuration (`module.config.ts`) — declares the module's routes (with
-  their React components), nav placement, dashboard widgets, and module
+- Configuration (`app.config.ts`) — declares the app's routes (with
+  their React components), nav placement, dashboard widgets, and app
   flags
 
-**Adding a module:**
-1. Create `packages/homestead-modules/<your-module>/` with a
-   `module.config.ts` that declares `routes` (each with a `component`)
+**Adding an app:**
+1. Create `packages/homestead-apps/<your-app>/` with a
+   `app.config.ts` that declares `routes` (each with a `component`)
 2. Add the import + array entry to `homestead.config.ts`
-3. Done — no per-route page files, no registry edits. The module appears in
+3. Done — no per-route page files, no registry edits. The app appears in
    the navigation automatically and the router serves its routes.
 
-The `create-module` skill scaffolds a new module end-to-end (resource
+The `create-app` skill scaffolds a new app end-to-end (resource
 definitions, hooks, components, config wiring, and e2e fixtures).
 
 ## Production deployment

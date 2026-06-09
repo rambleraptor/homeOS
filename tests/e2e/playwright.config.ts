@@ -11,13 +11,13 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  // The repo root, so we can pick up colocated module specs in
-  // `packages/homestead-modules/<module>/e2e/` as well as the
+  // The repo root, so we can pick up colocated app specs in
+  // `packages/homestead-apps/<app>/e2e/` as well as the
   // core specs that still live under `tests/e2e/tests/`.
   testDir: '../..',
   testMatch: [
     'tests/e2e/tests/**/*.spec.ts',
-    'packages/homestead-modules/**/e2e/**/*.spec.ts',
+    'packages/homestead-apps/**/e2e/**/*.spec.ts',
   ],
 
   // Serial because the tests share one aepbase instance and the

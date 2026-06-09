@@ -1,7 +1,7 @@
 /**
  * Sidebar Navigation Component
  *
- * Dynamically generates navigation from module registry
+ * Dynamically generates navigation from app registry
  * based on user permissions and role.
  */
 
@@ -9,9 +9,9 @@ import { Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, Home, LogOut, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
-import { getNavigationModules } from '@rambleraptor/homestead-core/modules/registry';
-import { ModuleIcon } from '@rambleraptor/homestead-core/modules/lazy';
-import { useModuleEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsModuleEnabled';
+import { getNavigationApps } from '@rambleraptor/homestead-core/apps/registry';
+import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
+import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -73,27 +73,27 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     });
   };
 
-  // Every module is gated by its built-in `enabled` flag
+  // Every app is gated by its built-in `enabled` flag
   // (superusers / all / none) via the shared predicate.
-  const isEnabled = useModuleEnabledPredicate();
-  const modules = user
-    ? getNavigationModules().filter((m) => isEnabled(m.id))
+  const isEnabled = useAppEnabledPredicate();
+  const apps = user
+    ? getNavigationApps().filter((m) => isEnabled(m.id))
     : [];
 
-  // Group modules by section
-  const modulesBySection = modules.reduce((acc, module) => {
-    const section = module.section || '';
+  // Group apps by section
+  const appsBySection = apps.reduce((acc, app) => {
+    const section = app.section || '';
     if (!acc[section]) {
       acc[section] = [];
     }
-    acc[section].push(module);
+    acc[section].push(app);
     return acc;
-  }, {} as Record<string, typeof modules>);
+  }, {} as Record<string, typeof apps>);
 
   // Settings always renders last; other sections follow the defined order,
   // with any unlisted sections slotting in before Settings.
   const sectionOrder = ['Money', 'Food', 'Relationships', 'Games'];
-  const sections = Object.keys(modulesBySection).sort((a, b) => {
+  const sections = Object.keys(appsBySection).sort((a, b) => {
     if (a === 'Settings') return 1;
     if (b === 'Settings') return -1;
     const aIndex = sectionOrder.indexOf(a);
@@ -156,9 +156,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
           {/* Navigation Links */}
           <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4">
-            {modules.length === 0 ? (
+            {apps.length === 0 ? (
               <div className="text-sm text-gray-500 text-center py-4">
-                No modules available
+                No apps available
               </div>
             ) : (
               sections.map((section) => {
@@ -185,15 +185,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                       </button>
                     )}
 
-                    {/* Section Modules */}
+                    {/* Section Apps */}
                     {!collapsed && (
                       <div id={contentId} className="space-y-1">
-                        {modulesBySection[section].map((module) => {
-                          const active = isActive(module.basePath);
+                        {appsBySection[section].map((app) => {
+                          const active = isActive(app.basePath);
                           return (
                             <Link
-                              key={module.id}
-                              to={module.basePath}
+                              key={app.id}
+                              to={app.basePath}
                               onClick={onClose}
                               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                                 active
@@ -201,11 +201,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                                   : 'text-brand-slate hover:bg-bg-pearl'
                               }`}
                             >
-                              <ModuleIcon
-                                icon={module.icon}
+                              <AppIcon
+                                icon={app.icon}
                                 className="w-5 h-5 flex-shrink-0"
                               />
-                              <span className="font-medium">{module.name}</span>
+                              <span className="font-medium">{app.name}</span>
                             </Link>
                           );
                         })}

@@ -125,9 +125,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 }
 
 /**
- * Module-level error boundary with a simpler fallback
+ * App-level error boundary with a simpler fallback
  */
-export function ModuleErrorFallback() {
+export function AppErrorFallback() {
   return (
     <Card className="p-6 text-center">
       <div className="inline-flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mb-4">

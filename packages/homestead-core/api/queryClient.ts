@@ -77,41 +77,41 @@ export const queryKeys = {
     detail: (role: string) => ['roles', 'detail', role] as const,
   },
 
-  // Module Permissions
-  modulePermissions: {
-    all: () => ['module_permissions'] as const,
-    byUser: (userId: string) => ['module_permissions', 'user', userId] as const,
-    byModule: (moduleId: string) => ['module_permissions', 'module', moduleId] as const,
+  // App Permissions
+  appPermissions: {
+    all: () => ['app_permissions'] as const,
+    byUser: (userId: string) => ['app_permissions', 'user', userId] as const,
+    byApp: (appId: string) => ['app_permissions', 'app', appId] as const,
   },
 
-  // Module-specific keys (can be extended by modules)
-  module: (moduleId: string) => ({
-    all: () => ['module', moduleId] as const,
-    list: (filters?: Record<string, unknown>) => ['module', moduleId, 'list', filters] as const,
-    detail: (id: string) => ['module', moduleId, 'detail', id] as const,
+  // App-specific keys (can be extended by apps)
+  app: (appId: string) => ({
+    all: () => ['app', appId] as const,
+    list: (filters?: Record<string, unknown>) => ['app', appId, 'list', filters] as const,
+    detail: (id: string) => ['app', appId, 'detail', id] as const,
     /**
-     * Per-resource list/detail under a module — one cache slot per
-     * `(moduleId, singular)`. The offline mutation factory uses this
-     * shape by default so a module can declare multiple resources
+     * Per-resource list/detail under an app — one cache slot per
+     * `(appId, singular)`. The offline mutation factory uses this
+     * shape by default so an app can declare multiple resources
      * (e.g. groceries owns both `grocery` and `store`) without them
      * sharing a cache slot. Read hooks (`useGroceries`, `useStores`,
      * `useCreditCards`) use these keys too so they read from the
      * same place the factory writes.
      */
     resource: (singular: string) => ({
-      all: () => ['module', moduleId, singular] as const,
-      list: () => ['module', moduleId, singular, 'list'] as const,
-      detail: (id: string) => ['module', moduleId, singular, 'detail', id] as const,
+      all: () => ['app', appId, singular] as const,
+      list: () => ['app', appId, singular, 'list'] as const,
+      detail: (id: string) => ['app', appId, singular, 'detail', id] as const,
     }),
   }),
 } as const;
 
 /**
- * Helper to invalidate all module-related queries
+ * Helper to invalidate all app-related queries
  */
-export function invalidateModuleQueries(moduleId: string) {
+export function invalidateAppQueries(appId: string) {
   return queryClient.invalidateQueries({
-    queryKey: queryKeys.module(moduleId).all(),
+    queryKey: queryKeys.app(appId).all(),
   });
 }
 
@@ -128,12 +128,12 @@ export function invalidateUserQueries() {
 /**
  * Helper to prefetch data (useful for optimistic navigation)
  */
-export async function prefetchModuleData(
-  moduleId: string,
+export async function prefetchAppData(
+  appId: string,
   queryFn: () => Promise<unknown>
 ) {
   await queryClient.prefetchQuery({
-    queryKey: queryKeys.module(moduleId).all(),
+    queryKey: queryKeys.app(appId).all(),
     queryFn,
   });
 }

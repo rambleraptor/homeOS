@@ -4,12 +4,12 @@ import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 /**
  * PageHeader
  *
- * Standard page title for any top-level module screen. Encodes the Homestead
+ * Standard page title for any top-level app screen. Encodes the Homestead
  * design system typography rules:
  *   - Page Title: text-3xl font-display font-bold text-brand-navy tracking-tight
  *   - Subtitle:   text-base font-body text-text-muted mt-1
  *
- * Use this at the top of every module home / detail page so future pages
+ * Use this at the top of every app home / detail page so future pages
  * get the correct typography by default. Optional `actions` slot is rendered
  * at the right and wraps beneath the title on narrow viewports.
  *

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DashboardWidget } from '@rambleraptor/homestead-core/modules/types';
+import type { DashboardWidget } from '@rambleraptor/homestead-core/apps/types';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 
 const Stub = () => null;
@@ -11,7 +11,7 @@ const widgets: DashboardWidget[] = [
 ];
 
 describe('resolveDashboardWidgets', () => {
-  it('falls back to module-declared order when no preference exists', () => {
+  it('falls back to app-declared order when no preference exists', () => {
     expect(resolveDashboardWidgets(widgets, undefined, undefined).map((w) => w.id))
       .toEqual(['a', 'b', 'c']);
   });

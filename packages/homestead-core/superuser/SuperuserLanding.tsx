@@ -1,6 +1,6 @@
-import { NestedModuleLanding } from '@rambleraptor/homestead-core/shared/components/NestedModuleLanding';
-import { superuserModule } from './module.config';
+import { NestedAppLanding } from '@rambleraptor/homestead-core/shared/components/NestedAppLanding';
+import { superuserApp } from './app.config';
 
 export function SuperuserLanding() {
-  return <NestedModuleLanding module={superuserModule} />;
+  return <NestedAppLanding app={superuserApp} />;
 }

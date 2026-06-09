@@ -35,7 +35,7 @@ export class DashboardPage {
     await this.page.waitForURL(/\/login/, { timeout: 15000 });
   }
 
-  async navigateToModule(moduleName: string | RegExp) {
-    await this.page.getByRole('navigation').getByRole('link', { name: moduleName }).click();
+  async navigateToApp(appName: string | RegExp) {
+    await this.page.getByRole('navigation').getByRole('link', { name: appName }).click();
   }
 }

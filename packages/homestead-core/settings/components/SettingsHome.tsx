@@ -14,8 +14,8 @@ import {
 } from '@rambleraptor/homestead-core/utils/notifications';
 import { ChangePasswordForm } from './ChangePasswordForm';
 import { DashboardWidgetSettings } from './DashboardWidgetSettings';
-import { ModuleUserSettingsCard } from '@rambleraptor/homestead-core/user-settings/components/ModuleUserSettingsCard';
-import { getAllSettingsWidgets } from '@rambleraptor/homestead-core/modules/registry';
+import { AppUserSettingsCard } from '@rambleraptor/homestead-core/user-settings/components/AppUserSettingsCard';
+import { getAllSettingsWidgets } from '@rambleraptor/homestead-core/apps/registry';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -29,7 +29,7 @@ export function SettingsHome() {
 
   const isBrowserSupported = isNotificationSupported();
   const isEnabled = subscription?.enabled || false;
-  const moduleSettings = getAllSettingsWidgets();
+  const appSettings = getAllSettingsWidgets();
 
   const handleEnableNotifications = async () => {
     try {
@@ -199,17 +199,17 @@ export function SettingsHome() {
 
       <DashboardWidgetSettings />
 
-      {moduleSettings.length > 0 && (
+      {appSettings.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Module Settings
+            App Settings
           </h2>
           <div
             className="space-y-4"
-            data-testid="module-user-settings-list"
+            data-testid="app-user-settings-list"
           >
-            {moduleSettings.map(({ moduleId, module }) => (
-              <ModuleUserSettingsCard key={moduleId} module={module} />
+            {appSettings.map(({ appId, app }) => (
+              <AppUserSettingsCard key={appId} app={app} />
             ))}
           </div>
         </div>

@@ -1,26 +1,26 @@
 /**
- * Settings Module Exports
+ * Settings App Exports
  *
- * Central export point for the settings module
+ * Central export point for the settings app
  */
 
-export { settingsModule } from './module.config';
+export { settingsApp } from './app.config';
 export type {
   NotificationSubscription,
   NotificationSettings,
 } from './types';
 
-// Public hook for reading/writing module-scoped flags.
-export { useModuleFlag } from './hooks/useModuleFlag';
-export type { UseModuleFlagResult } from './hooks/useModuleFlag';
+// Public hook for reading/writing app-scoped flags.
+export { useAppFlag } from './hooks/useAppFlag';
+export type { UseAppFlagResult } from './hooks/useAppFlag';
 
-// Public hook for gating a module by its built-in `enabled` flag.
+// Public hook for gating an app by its built-in `enabled` flag.
 export {
-  useIsModuleEnabled,
-  useModuleEnabledPredicate,
-} from './hooks/useIsModuleEnabled';
+  useIsAppEnabled,
+  useAppEnabledPredicate,
+} from './hooks/useIsAppEnabled';
 export {
-  MODULE_VISIBILITY_OPTIONS,
-  DEFAULT_MODULE_VISIBILITY,
+  APP_VISIBILITY_OPTIONS,
+  DEFAULT_APP_VISIBILITY,
 } from './visibility';
-export type { ModuleVisibility } from './visibility';
+export type { AppVisibility } from './visibility';

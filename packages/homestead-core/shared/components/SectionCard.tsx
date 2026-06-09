@@ -11,7 +11,7 @@ import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
  * "View all" link). Children render in the body.
  *
  * Prefer this component over hand-rolling card headers so every card
- * across modules has identical structure, spacing, and typography.
+ * across apps has identical structure, spacing, and typography.
  *
  * @example
  *   <SectionCard

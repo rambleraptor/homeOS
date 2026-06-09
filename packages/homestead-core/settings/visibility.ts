@@ -1,27 +1,27 @@
 /**
- * Shared visibility enum for module-level gating.
+ * Shared visibility enum for app-level gating.
  *
- * Every module automatically exposes an `enabled` flag backed by this
- * enum (see `getAllModuleFlagDefs` in `@rambleraptor/homestead-core/modules/registry`). The
- * `useIsModuleEnabled` hook turns a stored value here into a yes/no
+ * Every app automatically exposes an `enabled` flag backed by this
+ * enum (see `getAllAppFlagDefs` in `@rambleraptor/homestead-core/apps/registry`). The
+ * `useIsAppEnabled` hook turns a stored value here into a yes/no
  * decision for the current viewer.
  *
  * The `'tagged'` option pairs with the auto-injected `enabled_tags`
- * flag: when an admin sets a module's visibility to `'tagged'`, only
+ * flag: when an admin sets an app's visibility to `'tagged'`, only
  * users whose `tags` field intersects `enabled_tags` (any-of) can use
- * the module.
+ * the app.
  */
 
-export const MODULE_VISIBILITY_OPTIONS = [
+export const APP_VISIBILITY_OPTIONS = [
   'superusers',
   'all',
   'none',
   'tagged',
 ] as const;
 
-export type ModuleVisibility = (typeof MODULE_VISIBILITY_OPTIONS)[number];
+export type AppVisibility = (typeof APP_VISIBILITY_OPTIONS)[number];
 
-export const DEFAULT_MODULE_VISIBILITY: ModuleVisibility = 'all';
+export const DEFAULT_APP_VISIBILITY: AppVisibility = 'all';
 
 /**
  * Key of the auto-injected sibling flag holding the comma-separated

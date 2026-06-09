@@ -3,7 +3,7 @@
  *
  * Sorts object keys alphabetically before stringifying so two values
  * compare equal regardless of property order. Used by the resource
- * and module-flag syncers to decide whether a PATCH is needed.
+ * and app-flag syncers to decide whether a PATCH is needed.
  */
 
 export function jsonEqual(a: unknown, b: unknown): boolean {

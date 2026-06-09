@@ -5,7 +5,7 @@
 // doing so would drag the app's (DOM/JSX) source into the CLI's tsc program.
 //
 // Source-of-truth for the OAuth shape: HomesteadConfig.auth.oauth in
-// packages/homestead-core/modules/config.ts (TS side) and the AEPBASE_OAUTH
+// packages/homestead-core/apps/config.ts (TS side) and the AEPBASE_OAUTH
 // struct in aepbase/oauth.go (the actual wire contract).
 
 export interface CliOAuthConfig {
@@ -22,7 +22,7 @@ export interface CliGitConfig {
 }
 
 export interface CliConfig {
-  modules: unknown[];
+  apps: unknown[];
   auth?: { oauth?: CliOAuthConfig };
   git?: CliGitConfig;
 }

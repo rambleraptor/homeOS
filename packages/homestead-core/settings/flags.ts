@@ -1,14 +1,14 @@
 /**
- * Module-flag schema helpers.
+ * App-flag schema helpers.
  *
- * Translates the `{ moduleId: { key: ModuleFlagDef } }` declarations
- * collected by `getAllModuleFlagDefs` into two forms:
+ * Translates the `{ appId: { key: AppFlagDef } }` declarations
+ * collected by `getAllAppFlagDefs` into two forms:
  *
  *   1. A flat aepbase record shape — one snake_case field per flag,
- *      namespaced `${moduleId_snake}__${key}` — used when reading or
+ *      namespaced `${appId_snake}__${key}` — used when reading or
  *      writing values via the aepbase client.
  *   2. A JSON-schema `properties` object, used by the instrumentation
- *      hook that registers the `module-flags` resource definition with
+ *      hook that registers the `app-flags` resource definition with
  *      aepbase at server startup.
  *
  * aepbase rules we have to work around (see CLAUDE.md § aepbase schema):
@@ -18,98 +18,98 @@
  *     the `description`.
  */
 
-import type { ModuleFlagDef, ModuleFlagValue } from '@rambleraptor/homestead-core/modules/types';
+import type { AppFlagDef, AppFlagValue } from '@rambleraptor/homestead-core/apps/types';
 
 /**
- * Separator between the module id and the flag key in a flattened
- * field name. Double-underscore keeps module-vs-flag boundaries
+ * Separator between the app id and the flag key in a flattened
+ * field name. Double-underscore keeps app-vs-flag boundaries
  * unambiguous even when keys themselves contain underscores.
  */
-export const MODULE_FLAG_SEPARATOR = '__';
+export const APP_FLAG_SEPARATOR = '__';
 
 /**
- * Build the aepbase field name for a `(moduleId, key)` pair.
+ * Build the aepbase field name for a `(appId, key)` pair.
  *
  *   fieldName('gift-cards', 'show_archived') → 'gift_cards__show_archived'
  */
-export function fieldName(moduleId: string, key: string): string {
-  return `${moduleId.replace(/-/g, '_')}${MODULE_FLAG_SEPARATOR}${key}`;
+export function fieldName(appId: string, key: string): string {
+  return `${appId.replace(/-/g, '_')}${APP_FLAG_SEPARATOR}${key}`;
 }
 
 /**
- * Inverse of `fieldName`. Parses a flat key back into its module id
+ * Inverse of `fieldName`. Parses a flat key back into its app id
  * (restored to kebab-case) and flag key. Returns `null` if the key
  * does not carry our separator.
  */
 export function parseFieldName(
   flat: string,
-): { moduleId: string; key: string } | null {
-  const idx = flat.indexOf(MODULE_FLAG_SEPARATOR);
+): { appId: string; key: string } | null {
+  const idx = flat.indexOf(APP_FLAG_SEPARATOR);
   if (idx <= 0) return null;
-  const moduleIdSnake = flat.slice(0, idx);
-  const key = flat.slice(idx + MODULE_FLAG_SEPARATOR.length);
+  const appIdSnake = flat.slice(0, idx);
+  const key = flat.slice(idx + APP_FLAG_SEPARATOR.length);
   if (!key) return null;
-  return { moduleId: moduleIdSnake.replace(/_/g, '-'), key };
+  return { appId: appIdSnake.replace(/_/g, '-'), key };
 }
 
-export type ModuleFlagDefs = Record<string, Record<string, ModuleFlagDef>>;
-export type ModuleFlagValues = Record<string, Record<string, ModuleFlagValue>>;
+export type AppFlagDefs = Record<string, Record<string, AppFlagDef>>;
+export type AppFlagValues = Record<string, Record<string, AppFlagValue>>;
 
 /**
- * Merge declared defaults into a `ModuleFlagValues` tree so every
+ * Merge declared defaults into a `AppFlagValues` tree so every
  * declared flag is guaranteed to have a defined value at the call
  * site.
  */
 export function withDefaults(
-  defs: ModuleFlagDefs,
-  values: ModuleFlagValues,
-): ModuleFlagValues {
-  const out: ModuleFlagValues = {};
-  for (const [moduleId, moduleDefs] of Object.entries(defs)) {
-    const moduleValues: Record<string, ModuleFlagValue> = {
-      ...(values[moduleId] ?? {}),
+  defs: AppFlagDefs,
+  values: AppFlagValues,
+): AppFlagValues {
+  const out: AppFlagValues = {};
+  for (const [appId, appDefs] of Object.entries(defs)) {
+    const appValues: Record<string, AppFlagValue> = {
+      ...(values[appId] ?? {}),
     };
-    for (const [key, def] of Object.entries(moduleDefs)) {
-      if (moduleValues[key] === undefined && def.default !== undefined) {
-        moduleValues[key] = def.default;
+    for (const [key, def] of Object.entries(appDefs)) {
+      if (appValues[key] === undefined && def.default !== undefined) {
+        appValues[key] = def.default;
       }
     }
-    out[moduleId] = moduleValues;
+    out[appId] = appValues;
   }
   return out;
 }
 
 /**
  * Unflatten an aepbase record (flat field bag) into the nested
- * `{ moduleId: { key: value } }` shape. Unknown fields — including
+ * `{ appId: { key: value } }` shape. Unknown fields — including
  * aepbase-managed ones like `id`, `path`, `create_time` — are ignored.
  */
 export function unflatten(
   record: Record<string, unknown> | null | undefined,
-  defs: ModuleFlagDefs,
-): ModuleFlagValues {
-  const nested: ModuleFlagValues = {};
+  defs: AppFlagDefs,
+): AppFlagValues {
+  const nested: AppFlagValues = {};
   if (!record) return withDefaults(defs, nested);
 
   for (const [flatKey, rawValue] of Object.entries(record)) {
     const parsed = parseFieldName(flatKey);
     if (!parsed) continue;
-    const { moduleId, key } = parsed;
-    const def = defs[moduleId]?.[key];
+    const { appId, key } = parsed;
+    const def = defs[appId]?.[key];
     if (!def) continue;
 
     const coerced = coerceValue(def, rawValue);
     if (coerced === undefined) continue;
-    (nested[moduleId] ??= {})[key] = coerced;
+    (nested[appId] ??= {})[key] = coerced;
   }
 
   return withDefaults(defs, nested);
 }
 
 function coerceValue(
-  def: ModuleFlagDef,
+  def: AppFlagDef,
   raw: unknown,
-): ModuleFlagValue | undefined {
+): AppFlagValue | undefined {
   if (raw === null || raw === undefined) return undefined;
   switch (def.type) {
     case 'string':
@@ -142,9 +142,9 @@ function coerceValue(
  *
  * Order matters: `default` precedes `options` so the parser can peel
  * them off from the right. See `parseDescription` in
- * `modules/superuser/hooks/useModuleFlagsDefinition.ts`.
+ * `apps/superuser/hooks/useAppFlagsDefinition.ts`.
  */
-function propertyFor(def: ModuleFlagDef): Record<string, unknown> {
+function propertyFor(def: AppFlagDef): Record<string, unknown> {
   const base = def.description ?? def.label;
   const parts: string[] = [];
   if (def.default !== undefined) {
@@ -165,19 +165,19 @@ function decorate(base: string, parts: string[]): string {
 }
 
 /**
- * Build the JSON schema for the `module-flags` resource: one flattened
+ * Build the JSON schema for the `app-flags` resource: one flattened
  * property per declared flag, sorted alphabetically so diffs are
  * stable across runs of the syncer.
  */
-export function buildResourceSchema(defs: ModuleFlagDefs): {
+export function buildResourceSchema(defs: AppFlagDefs): {
   type: 'object';
   properties: Record<string, Record<string, unknown>>;
 } {
   const properties: Record<string, Record<string, unknown>> = {};
-  const entries: Array<[string, ModuleFlagDef]> = [];
-  for (const [moduleId, moduleDefs] of Object.entries(defs)) {
-    for (const [key, def] of Object.entries(moduleDefs)) {
-      entries.push([fieldName(moduleId, key), def]);
+  const entries: Array<[string, AppFlagDef]> = [];
+  for (const [appId, appDefs] of Object.entries(defs)) {
+    for (const [key, def] of Object.entries(appDefs)) {
+      entries.push([fieldName(appId, key), def]);
     }
   }
   entries.sort(([a], [b]) => a.localeCompare(b));

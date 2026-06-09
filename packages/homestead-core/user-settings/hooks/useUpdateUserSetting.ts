@@ -3,7 +3,7 @@
  * `user-preference` record.
  *
  * Internal plumbing — components should use `useUserSetting`. The
- * mutation flattens `(moduleId, key)` into the aepbase field name,
+ * mutation flattens `(appId, key)` into the aepbase field name,
  * then either PATCHes the existing record or POSTs a new one if none
  * exists yet (`useUpdateMapProvider` previously did the same dance).
  *
@@ -11,7 +11,7 @@
  * in aepbase yet (e.g. the Next.js server booted without
  * `AEPBASE_ADMIN_EMAIL` / `AEPBASE_ADMIN_PASSWORD`), the first request
  * 404s. We recover by re-running the schema sync with the caller's
- * token and retrying — same pattern as `useUpdateModuleFlag`.
+ * token and retrying — same pattern as `useUpdateAppFlag`.
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -21,8 +21,8 @@ import {
   USER_PREFERENCES,
 } from '@rambleraptor/homestead-core/resources/builtins';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
-import { getAllUserSettingDefs } from '@rambleraptor/homestead-core/modules/registry';
-import type { UserSettingValue } from '@rambleraptor/homestead-core/modules/types';
+import { getAllUserSettingDefs } from '@rambleraptor/homestead-core/apps/registry';
+import type { UserSettingValue } from '@rambleraptor/homestead-core/apps/types';
 import { fieldName } from '../settings';
 import { syncUserSettingsSchema } from '../sync';
 import {
@@ -31,7 +31,7 @@ import {
 } from './useUserSettings';
 
 export interface UpdateUserSettingArgs {
-  moduleId: string;
+  appId: string;
   key: string;
   value: UserSettingValue;
 }
@@ -64,11 +64,11 @@ export function useUpdateUserSetting() {
   const { refreshUser } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ moduleId, key, value }: UpdateUserSettingArgs) => {
+    mutationFn: async ({ appId, key, value }: UpdateUserSettingArgs) => {
       const userId = aepbase.getCurrentUser()?.id;
       if (!userId) throw new Error('User not authenticated');
 
-      const flat = fieldName(moduleId, key);
+      const flat = fieldName(appId, key);
       const payload = { [flat]: value };
 
       try {

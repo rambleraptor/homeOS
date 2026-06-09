@@ -8,7 +8,7 @@ import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
  * Per design system: `rounded-full px-3 py-1 text-xs font-medium` with soft,
  * low-saturation backgrounds. Variants cover the semantic cases called out
  * in the spec (birthday = soft blue, anniversary = soft amber) plus a few
- * general-purpose tones useful for status chips across modules.
+ * general-purpose tones useful for status chips across apps.
  *
  * Use a `Badge` any time you need a small chip describing a row's category
  * or status, rather than hand-rolling rounded spans with ad-hoc colors.

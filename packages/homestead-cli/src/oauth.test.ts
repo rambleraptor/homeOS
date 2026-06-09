@@ -2,11 +2,11 @@ import { test, expect } from 'bun:test';
 import { serializeOAuth } from './oauth.ts';
 
 test('returns undefined when oauth is absent or has no providers', () => {
-  expect(serializeOAuth({ modules: [] })).toBeUndefined();
-  expect(serializeOAuth({ modules: [], auth: {} })).toBeUndefined();
+  expect(serializeOAuth({ apps: [] })).toBeUndefined();
+  expect(serializeOAuth({ apps: [], auth: {} })).toBeUndefined();
   expect(
     serializeOAuth({
-      modules: [],
+      apps: [],
       auth: { oauth: { redirectBaseUrl: 'a', successRedirect: 'b', providers: [] } },
     }),
   ).toBeUndefined();
@@ -14,7 +14,7 @@ test('returns undefined when oauth is absent or has no providers', () => {
 
 test('serializes the oauth block verbatim when providers are present', () => {
   const env = serializeOAuth({
-    modules: [],
+    apps: [],
     auth: {
       oauth: {
         redirectBaseUrl: 'http://x/api/aep',

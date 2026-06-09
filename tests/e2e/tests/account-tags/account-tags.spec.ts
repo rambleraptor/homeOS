@@ -7,9 +7,9 @@
  *     adds a tag chip, saves, and the tag round-trips through the
  *     parented `account-tag` resource.
  *
- *  2. Tag-based module gating — a module's `enabled` flag is flipped
+ *  2. Tag-based app gating — an app's `enabled` flag is flipped
  *     to `'tagged'` and `enabled_tags` is set to a single tag. A user
- *     carrying that tag sees the module in the sidebar; an untagged
+ *     carrying that tag sees the app in the sidebar; an untagged
  *     user does not.
  */
 
@@ -22,8 +22,8 @@ import {
   deleteUsersExcept,
   createAccountTag,
   listAccountTags,
-  setModuleFlag,
-  resetModuleFlags,
+  setAppFlag,
+  resetAppFlags,
 } from '../../utils/aepbase-helpers';
 
 const uniqueEmail = (tag: string) =>
@@ -129,25 +129,25 @@ test.describe('Account tags: CRUD via the Users UI', () => {
   });
 });
 
-test.describe("Account tags: 'tagged' module visibility", () => {
-  // We gate the `todos` module — it's a default-`all` module so the
+test.describe("Account tags: 'tagged' app visibility", () => {
+  // We gate the `todos` app — it's a default-`all` app so the
   // baseline test that an untagged user sees it isn't necessary. We
   // flip it to 'tagged' for these specs.
-  const GATED_MODULE = 'todos';
-  const GATED_MODULE_NAV = /^Todos$/;
+  const GATED_APP = 'todos';
+  const GATED_APP_NAV = /^Todos$/;
   const ALLOWED_TAG = 'beta';
 
   test.beforeEach(async ({ adminToken, adminCreds, testUser }) => {
-    await resetModuleFlags(adminToken);
+    await resetAppFlags(adminToken);
     await deleteUsersExcept(adminToken, [adminCreds.id, testUser.id]);
   });
 
   test.afterEach(async ({ adminToken, adminCreds, testUser }) => {
-    await resetModuleFlags(adminToken);
+    await resetAppFlags(adminToken);
     await deleteUsersExcept(adminToken, [adminCreds.id, testUser.id]);
   });
 
-  test('a user with a matching tag sees the gated module in the sidebar', async ({
+  test('a user with a matching tag sees the gated app in the sidebar', async ({
     page,
     adminToken,
   }) => {
@@ -162,18 +162,18 @@ test.describe("Account tags: 'tagged' module visibility", () => {
     });
     await createAccountTag(adminToken, user.id, ALLOWED_TAG);
 
-    // Gate the module.
-    await setModuleFlag(adminToken, GATED_MODULE, 'enabled', 'tagged');
-    await setModuleFlag(adminToken, GATED_MODULE, 'enabled_tags', ALLOWED_TAG);
+    // Gate the app.
+    await setAppFlag(adminToken, GATED_APP, 'enabled', 'tagged');
+    await setAppFlag(adminToken, GATED_APP, 'enabled_tags', ALLOWED_TAG);
 
     await loginAs(page, email, password);
-    // Sidebar should expose the gated module.
+    // Sidebar should expose the gated app.
     await expect(
-      page.getByRole('navigation').getByRole('link', { name: GATED_MODULE_NAV }),
+      page.getByRole('navigation').getByRole('link', { name: GATED_APP_NAV }),
     ).toBeVisible();
   });
 
-  test('a user without the tag does NOT see the gated module', async ({
+  test('a user without the tag does NOT see the gated app', async ({
     page,
     adminToken,
   }) => {
@@ -186,12 +186,12 @@ test.describe("Account tags: 'tagged' module visibility", () => {
       type: 'regular',
     });
 
-    await setModuleFlag(adminToken, GATED_MODULE, 'enabled', 'tagged');
-    await setModuleFlag(adminToken, GATED_MODULE, 'enabled_tags', ALLOWED_TAG);
+    await setAppFlag(adminToken, GATED_APP, 'enabled', 'tagged');
+    await setAppFlag(adminToken, GATED_APP, 'enabled_tags', ALLOWED_TAG);
 
     await loginAs(page, email, password);
     await expect(
-      page.getByRole('navigation').getByRole('link', { name: GATED_MODULE_NAV }),
+      page.getByRole('navigation').getByRole('link', { name: GATED_APP_NAV }),
     ).toHaveCount(0);
   });
 
@@ -200,13 +200,13 @@ test.describe("Account tags: 'tagged' module visibility", () => {
     adminToken,
     adminCreds,
   }) => {
-    // Gate the module to a tag the bootstrap admin does not have.
-    await setModuleFlag(adminToken, GATED_MODULE, 'enabled', 'tagged');
-    await setModuleFlag(adminToken, GATED_MODULE, 'enabled_tags', ALLOWED_TAG);
+    // Gate the app to a tag the bootstrap admin does not have.
+    await setAppFlag(adminToken, GATED_APP, 'enabled', 'tagged');
+    await setAppFlag(adminToken, GATED_APP, 'enabled_tags', ALLOWED_TAG);
 
     await loginAs(page, adminCreds.email, adminCreds.password);
     await expect(
-      page.getByRole('navigation').getByRole('link', { name: GATED_MODULE_NAV }),
+      page.getByRole('navigation').getByRole('link', { name: GATED_APP_NAV }),
     ).toHaveCount(0);
   });
 });

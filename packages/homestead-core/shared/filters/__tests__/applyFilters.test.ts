@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyFilters, deriveEnumOptions, getByPath } from '../applyFilters';
-import type { ModuleFilterDecl } from '../types';
+import type { AppFilterDecl } from '../types';
 
 interface Person {
   name: string;
@@ -18,7 +18,7 @@ const PEOPLE: Person[] = [
 ];
 
 describe('applyFilters — text', () => {
-  const decls: ModuleFilterDecl[] = [
+  const decls: AppFilterDecl[] = [
     { key: 'name', label: 'Name', type: 'text' },
   ];
 
@@ -35,7 +35,7 @@ describe('applyFilters — text', () => {
   });
 
   it('matches any element when the field is an array', () => {
-    const tagDecls: ModuleFilterDecl[] = [
+    const tagDecls: AppFilterDecl[] = [
       { key: 'tags', label: 'Tags', type: 'text' },
     ];
     expect(applyFilters(PEOPLE, tagDecls, { tags: 'fam' })).toEqual([
@@ -56,7 +56,7 @@ describe('applyFilters — text', () => {
   });
 
   it('resolves a dot-path via `field`', () => {
-    const dotDecls: ModuleFilterDecl[] = [
+    const dotDecls: AppFilterDecl[] = [
       { key: 'nickname', field: 'profile.displayName', label: 'Nick', type: 'text' },
     ];
     expect(applyFilters(PEOPLE, dotDecls, { nickname: 'wonder' })).toEqual([
@@ -71,14 +71,14 @@ describe('applyFilters — enum', () => {
       status: string;
     }
     const rows: Row[] = [{ status: 'active' }, { status: 'archived' }];
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'status', label: 'Status', type: 'enum' },
     ];
     expect(applyFilters(rows, decls, { status: 'active' })).toEqual([rows[0]]);
   });
 
   it('includes() on an array field', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'tags', label: 'Tags', type: 'enum' },
     ];
     expect(applyFilters(PEOPLE, decls, { tags: 'family' })).toEqual([
@@ -88,7 +88,7 @@ describe('applyFilters — enum', () => {
   });
 
   it('multi-select OR-combines on array fields', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'tags', label: 'Tags', type: 'enum', multi: true },
     ];
     expect(applyFilters(PEOPLE, decls, { tags: ['family', 'friend'] })).toEqual([
@@ -99,14 +99,14 @@ describe('applyFilters — enum', () => {
   });
 
   it('multi-select with empty array is a no-op', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'tags', label: 'Tags', type: 'enum', multi: true },
     ];
     expect(applyFilters(PEOPLE, decls, { tags: [] })).toEqual(PEOPLE);
   });
 
   it('empty string single value is a no-op', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'tags', label: 'Tags', type: 'enum' },
     ];
     expect(applyFilters(PEOPLE, decls, { tags: '' })).toEqual(PEOPLE);
@@ -114,7 +114,7 @@ describe('applyFilters — enum', () => {
 });
 
 describe('applyFilters — boolean', () => {
-  const decls: ModuleFilterDecl[] = [
+  const decls: AppFilterDecl[] = [
     { key: 'archived', label: 'Archived', type: 'boolean' },
   ];
 
@@ -136,7 +136,7 @@ describe('applyFilters — boolean', () => {
 });
 
 describe('applyFilters — dateRange', () => {
-  const decls: ModuleFilterDecl[] = [
+  const decls: AppFilterDecl[] = [
     { key: 'birthday', label: 'Birthday', type: 'dateRange' },
   ];
 
@@ -167,7 +167,7 @@ describe('applyFilters — dateRange', () => {
 
 describe('applyFilters — combinations', () => {
   it('AND-combines clauses across decls', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'name', label: 'Name', type: 'text' },
       { key: 'tags', label: 'Tags', type: 'enum' },
     ];
@@ -177,14 +177,14 @@ describe('applyFilters — combinations', () => {
   });
 
   it('unknown keys in values are ignored', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'name', label: 'Name', type: 'text' },
     ];
     expect(applyFilters(PEOPLE, decls, { bogus: 'x' })).toEqual(PEOPLE);
   });
 
   it('undefined and null values are treated as unset', () => {
-    const decls: ModuleFilterDecl[] = [
+    const decls: AppFilterDecl[] = [
       { key: 'name', label: 'Name', type: 'text' },
     ];
     expect(
@@ -198,12 +198,12 @@ describe('applyFilters — combinations', () => {
 
 describe('deriveEnumOptions', () => {
   it('flattens array-of-string fields uniquely and sorts', () => {
-    const decl: ModuleFilterDecl = { key: 'tags', label: 'Tags', type: 'enum' };
+    const decl: AppFilterDecl = { key: 'tags', label: 'Tags', type: 'enum' };
     expect(deriveEnumOptions(PEOPLE, decl)).toEqual(['family', 'friend']);
   });
 
   it('returns scalar string values for scalar fields', () => {
-    const decl: ModuleFilterDecl = { key: 'name', label: 'Name', type: 'enum' };
+    const decl: AppFilterDecl = { key: 'name', label: 'Name', type: 'enum' };
     const names = deriveEnumOptions(PEOPLE, decl);
     expect(names).toContain('John Doe');
     expect(names).toContain('Alice');
@@ -211,7 +211,7 @@ describe('deriveEnumOptions', () => {
   });
 
   it('respects the `field` override', () => {
-    const decl: ModuleFilterDecl = {
+    const decl: AppFilterDecl = {
       key: 'nickname',
       field: 'profile.displayName',
       label: 'Nick',

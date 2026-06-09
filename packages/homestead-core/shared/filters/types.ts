@@ -1,25 +1,25 @@
 /**
- * Generic module-level filter declarations.
+ * Generic app-level filter declarations.
  *
- * A module exports an array of these on `HomeModule.filters` describing
+ * A app exports an array of these on `HomeApp.filters` describing
  * which record fields are filterable and how. The shared `<FilterBar>`
  * renders the right input for each `type`, and `applyFilters` evaluates
- * the values client-side against the module's loaded list.
+ * the values client-side against the app's loaded list.
  *
  * Decls intentionally describe *fields to match on*, not permitted values
  * — enum options are derived from the loaded data at render time so the
  * config doesn't drift from reality.
  */
 
-export type ModuleFilterType = 'text' | 'enum' | 'boolean' | 'dateRange';
+export type AppFilterType = 'text' | 'enum' | 'boolean' | 'dateRange';
 
-export interface ModuleFilterDecl {
+export interface AppFilterDecl {
   /** Stable key used for filter state. */
   key: string;
   /** Human-readable label rendered above the input. */
   label: string;
   /** Input kind; drives both the UI control and match semantics. */
-  type: ModuleFilterType;
+  type: AppFilterType;
   /**
    * Dot-path into the record the value is matched against. Defaults to
    * `key`. Example: `field: 'profile.displayName'`.

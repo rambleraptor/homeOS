@@ -32,7 +32,7 @@ export function useDeleteNotificationSubscription() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.module('settings').list({ type: 'notification-subscription' }),
+        queryKey: queryKeys.app('settings').list({ type: 'notification-subscription' }),
       });
     },
   });

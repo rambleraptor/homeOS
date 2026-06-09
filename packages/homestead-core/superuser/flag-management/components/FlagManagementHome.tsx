@@ -9,36 +9,36 @@ import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageH
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
+import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import {
   BUILTIN_ENABLED_FLAG_KEY,
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
-  getAllModuleFlagDefs,
-  getModuleById,
-} from '@rambleraptor/homestead-core/modules/registry';
+  getAllAppFlagDefs,
+  getAppById,
+} from '@rambleraptor/homestead-core/apps/registry';
 import {
   formatTagList,
   parseTagList,
 } from '@rambleraptor/homestead-core/settings/visibility';
-import { useModuleFlags } from '@rambleraptor/homestead-core/settings/hooks/useModuleFlags';
-import { useUpdateModuleFlag } from '@rambleraptor/homestead-core/settings/hooks/useUpdateModuleFlag';
+import { useAppFlags } from '@rambleraptor/homestead-core/settings/hooks/useAppFlags';
+import { useUpdateAppFlag } from '@rambleraptor/homestead-core/settings/hooks/useUpdateAppFlag';
 import { unflatten } from '@rambleraptor/homestead-core/settings/flags';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import {
-  MODULE_FLAGS_DEFINITION_QUERY_KEY,
-  useModuleFlagsDefinition,
-} from '../hooks/useModuleFlagsDefinition';
-import type { ModuleFlagDef, ModuleFlagValue } from '@rambleraptor/homestead-core/modules/types';
+  APP_FLAGS_DEFINITION_QUERY_KEY,
+  useAppFlagsDefinition,
+} from '../hooks/useAppFlagsDefinition';
+import type { AppFlagDef, AppFlagValue } from '@rambleraptor/homestead-core/apps/types';
 
 export function FlagManagementHome() {
-  const { defs, isLoading: defsLoading, isMissing } = useModuleFlagsDefinition();
-  const { record, isLoading: valuesLoading } = useModuleFlags();
+  const { defs, isLoading: defsLoading, isMissing } = useAppFlagsDefinition();
+  const { record, isLoading: valuesLoading } = useAppFlags();
   const values = unflatten(record, defs);
-  const update = useUpdateModuleFlag();
+  const update = useUpdateAppFlag();
   const toast = useToast();
   const queryClient = useQueryClient();
 
-  // If aepbase has no `module-flag` resource definition yet (e.g. the
+  // If aepbase has no `app-flag` resource definition yet (e.g. the
   // Next.js instrumentation hook skipped the sync because the admin env
   // vars weren't set), register it on page load using the superuser's
   // own token. This page is superuser-gated so the token has the
@@ -48,17 +48,17 @@ export function FlagManagementHome() {
     let cancelled = false;
     (async () => {
       try {
-        await syncModuleFlagsSchema({
+        await syncAppFlagsSchema({
           aepbaseUrl: '/api/aep',
           token: aepbase.authStore.token,
-          defs: getAllModuleFlagDefs(),
+          defs: getAllAppFlagDefs(),
         });
         if (cancelled) return;
         await queryClient.invalidateQueries({
-          queryKey: MODULE_FLAGS_DEFINITION_QUERY_KEY,
+          queryKey: APP_FLAGS_DEFINITION_QUERY_KEY,
         });
       } catch (error) {
-        logger.error('Failed to register module-flags schema', error);
+        logger.error('Failed to register app-flags schema', error);
       }
     })();
     return () => {
@@ -67,26 +67,26 @@ export function FlagManagementHome() {
   }, [isMissing, queryClient]);
 
   const handleChange = async (
-    moduleId: string,
+    appId: string,
     key: string,
-    value: ModuleFlagValue,
+    value: AppFlagValue,
   ) => {
     try {
-      await update.mutateAsync({ moduleId, key, value });
+      await update.mutateAsync({ appId, key, value });
     } catch (error) {
-      logger.error('Failed to update module flag', error);
+      logger.error('Failed to update app flag', error);
       toast.error('Failed to save flag. Please try again.');
     }
   };
 
   const isLoading = defsLoading || valuesLoading;
-  const moduleIds = Object.keys(defs);
+  const appIds = Object.keys(defs);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Flag Management"
-        subtitle="View and edit every module flag registered in aepbase."
+        subtitle="View and edit every app flag registered in aepbase."
       />
 
       {isLoading ? (
@@ -96,46 +96,46 @@ export function FlagManagementHome() {
             <span className="text-sm text-gray-600">Loading flags…</span>
           </div>
         </Card>
-      ) : moduleIds.length === 0 ? (
+      ) : appIds.length === 0 ? (
         <Card>
           <p className="text-center text-gray-600 py-8">
-            No module flags are registered in aepbase yet.
+            No app flags are registered in aepbase yet.
           </p>
         </Card>
       ) : (
         <div className="space-y-4" data-testid="flag-management-list">
-          {moduleIds.map((moduleId) => {
-            const moduleDefs = defs[moduleId];
-            const mod = getModuleById(moduleId);
-            const moduleName = mod?.name ?? moduleId;
+          {appIds.map((appId) => {
+            const appDefs = defs[appId];
+            const mod = getAppById(appId);
+            const appName = mod?.name ?? appId;
             return (
-              <Card key={moduleId}>
+              <Card key={appId}>
                 <div className="flex items-start gap-4">
                   <SlidersHorizontal className="w-6 h-6 text-blue-500 mt-1" />
                   <div className="flex-1 space-y-4">
                     <h3
                       className="font-semibold text-gray-900"
-                      data-testid={`flag-module-${moduleId}`}
+                      data-testid={`flag-app-${appId}`}
                     >
-                      {moduleName}
+                      {appName}
                     </h3>
-                    {Object.entries(moduleDefs).map(([key, def]) => {
+                    {Object.entries(appDefs).map(([key, def]) => {
                       // The auto-injected `enabled_tags` flag only
                       // matters when visibility is 'tagged'. Hide it
                       // otherwise so the form stays tight.
                       if (key === BUILTIN_ENABLED_TAGS_FLAG_KEY) {
                         const visibility =
-                          values[moduleId]?.[BUILTIN_ENABLED_FLAG_KEY];
+                          values[appId]?.[BUILTIN_ENABLED_FLAG_KEY];
                         if (visibility !== 'tagged') return null;
                         return (
                           <TagsFlagField
                             key={key}
-                            moduleId={moduleId}
-                            value={values[moduleId]?.[key]}
+                            appId={appId}
+                            value={values[appId]?.[key]}
                             label={def.label}
                             description={def.description}
                             onChange={(next) =>
-                              handleChange(moduleId, key, next)
+                              handleChange(appId, key, next)
                             }
                             isSaving={update.isPending}
                           />
@@ -144,12 +144,12 @@ export function FlagManagementHome() {
                       return (
                         <FlagField
                           key={key}
-                          moduleId={moduleId}
+                          appId={appId}
                           flagKey={key}
                           def={def}
-                          value={values[moduleId]?.[key]}
+                          value={values[appId]?.[key]}
                           onChange={(next) =>
-                            handleChange(moduleId, key, next)
+                            handleChange(appId, key, next)
                           }
                           isSaving={update.isPending}
                         />
@@ -167,24 +167,24 @@ export function FlagManagementHome() {
 }
 
 interface FlagFieldProps {
-  moduleId: string;
+  appId: string;
   flagKey: string;
-  def: ModuleFlagDef;
-  value: ModuleFlagValue | undefined;
-  onChange: (value: ModuleFlagValue) => void;
+  def: AppFlagDef;
+  value: AppFlagValue | undefined;
+  onChange: (value: AppFlagValue) => void;
   isSaving: boolean;
 }
 
 function FlagField({
-  moduleId,
+  appId,
   flagKey,
   def,
   value,
   onChange,
   isSaving,
 }: FlagFieldProps) {
-  const fieldId = `flag-${moduleId}-${flagKey}`;
-  const testid = `flag-${moduleId}-${flagKey}`;
+  const fieldId = `flag-${appId}-${flagKey}`;
+  const testid = `flag-${appId}-${flagKey}`;
 
   switch (def.type) {
     case 'string':
@@ -273,16 +273,16 @@ function FlagField({
 }
 
 interface TagsFlagFieldProps {
-  moduleId: string;
-  value: ModuleFlagValue | undefined;
+  appId: string;
+  value: AppFlagValue | undefined;
   label: string;
   description: string;
-  onChange: (value: ModuleFlagValue) => void;
+  onChange: (value: AppFlagValue) => void;
   isSaving: boolean;
 }
 
 function TagsFlagField({
-  moduleId,
+  appId,
   value,
   label,
   description,
@@ -293,12 +293,12 @@ function TagsFlagField({
   return (
     <div>
       <TagInput
-        id={`flag-${moduleId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
+        id={`flag-${appId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
         label={label}
         value={tags}
         onChange={(next) => onChange(formatTagList(next))}
         disabled={isSaving}
-        testId={`flag-${moduleId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
+        testId={`flag-${appId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
       />
       <p className="mt-1 text-xs text-gray-500">{description}</p>
     </div>

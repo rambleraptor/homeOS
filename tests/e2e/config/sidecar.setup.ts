@@ -1,7 +1,7 @@
 /**
  * Spawn the Bun sidecar for e2e. The sidecar owns the notifications /
- * module-worker API routes AND applies the aepbase schema
- * on boot (resource definitions, module flags, user settings) — replacing
+ * app-worker API routes AND applies the aepbase schema
+ * on boot (resource definitions, app flags, user settings) — replacing
  * the old Next instrumentation hook. We wait for both its health endpoint
  * and a sentinel resource definition so tests don't race the schema apply.
  */

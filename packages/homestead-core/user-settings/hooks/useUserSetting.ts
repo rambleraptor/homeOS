@@ -1,5 +1,5 @@
 /**
- * Public hook for reading + writing a single per-user module setting.
+ * Public hook for reading + writing a single per-user app setting.
  *
  *   const { value, setValue } =
  *     useUserSetting<'google' | 'apple'>('people', 'map_provider');
@@ -11,7 +11,7 @@
  */
 
 import { useCallback } from 'react';
-import type { UserSettingValue } from '@rambleraptor/homestead-core/modules/types';
+import type { UserSettingValue } from '@rambleraptor/homestead-core/apps/types';
 import { useUserSettings } from './useUserSettings';
 import { useUpdateUserSetting } from './useUpdateUserSetting';
 
@@ -24,19 +24,19 @@ export interface UseUserSettingResult<T extends UserSettingValue> {
 }
 
 export function useUserSetting<T extends UserSettingValue = UserSettingValue>(
-  moduleId: string,
+  appId: string,
   key: string,
 ): UseUserSettingResult<T> {
   const { values, isLoading, error } = useUserSettings();
   const mutation = useUpdateUserSetting();
 
-  const value = values[moduleId]?.[key] as T | undefined;
+  const value = values[appId]?.[key] as T | undefined;
 
   const setValue = useCallback(
     async (next: T) => {
-      await mutation.mutateAsync({ moduleId, key, value: next });
+      await mutation.mutateAsync({ appId, key, value: next });
     },
-    [mutation, moduleId, key],
+    [mutation, appId, key],
   );
 
   return {

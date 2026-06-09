@@ -2,11 +2,11 @@
 // so the binary doesn't embed a second compiled bun runtime for the sidecar.
 //
 // Implemented in JS (with a hand-written .d.ts) so the CLI's `tsc` doesn't
-// follow this import into the sidecar's module graph (Hono + every module
+// follow this import into the sidecar's app graph (Hono + every app
 // worker + the DOM/JSX app types). `bun build --compile` still bundles it.
 //
 // The caller MUST set AEPBASE_URL + AEPBASE_ADMIN_EMAIL/PASSWORD in the
-// environment BEFORE importing this module: the sidecar's server-side aepbase
+// environment BEFORE importing this app: the sidecar's server-side aepbase
 // client reads AEPBASE_URL at import time.
 import { app } from '@rambleraptor/homestead-sidecar/src/app.ts';
 import { syncSchema } from '@rambleraptor/homestead-sidecar/src/schema-sync.ts';

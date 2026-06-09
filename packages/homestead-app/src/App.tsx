@@ -4,7 +4,7 @@ import { Providers } from './providers';
 import { AppShell } from '@rambleraptor/homestead-core/layout/AppShell';
 import { Login } from '@rambleraptor/homestead-core/router/Login';
 import { AuthCallback } from '@rambleraptor/homestead-core/router/AuthCallback';
-import { ModuleRoute } from './modules/ModuleRoute';
+import { AppRoute } from './apps/AppRoute';
 
 /**
  * Authenticated layout. Renders the app chrome (sidebar/header + auth
@@ -53,7 +53,7 @@ export function App() {
         />
         <Route element={<ShellLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<ModuleRoute />} />
+          <Route path="*" element={<AppRoute />} />
         </Route>
       </Routes>
     </Providers>

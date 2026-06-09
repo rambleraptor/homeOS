@@ -1,8 +1,8 @@
 /**
- * Apply module-declared schema to aepbase on sidecar boot.
+ * Apply app-declared schema to aepbase on sidecar boot.
  *
  * Ports the old Next `instrumentation.ts#register`: log in as the admin,
- * then push resource definitions, the aggregated module-flags schema, and
+ * then push resource definitions, the aggregated app-flags schema, and
  * the user-settings schema. Idempotent — creates what's missing, patches
  * drift, no-ops when in sync.
  *
@@ -10,18 +10,18 @@
  * the sync is skipped with a warning (the app still serves — declared
  * defaults show until a collection write 404s on an unregistered def).
  *
- * Relies on the module registry already being initialized (see
- * `./module-registry`, imported for its side effect by `server.ts`).
+ * Relies on the app registry already being initialized (see
+ * `./app-registry`, imported for its side effect by `server.ts`).
  */
 
 import {
   getAllResourceDefs,
-  getAllModuleFlagDefs,
+  getAllAppFlagDefs,
   getAllUserSettingDefs,
-} from '@rambleraptor/homestead-core/modules/registry';
+} from '@rambleraptor/homestead-core/apps/registry';
 import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/sync';
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
-import { syncModuleFlagsSchema } from '@rambleraptor/homestead-core/module-flags/sync';
+import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import { syncUserSettingsSchema } from '@rambleraptor/homestead-core/user-settings/sync';
 
 export async function syncSchema(): Promise<void> {
@@ -46,7 +46,7 @@ export async function syncSchema(): Promise<void> {
   }
 
   await syncResources(aepbaseUrl, token);
-  await syncModuleFlags(aepbaseUrl, token);
+  await syncAppFlags(aepbaseUrl, token);
   await syncUserSettings(aepbaseUrl, token);
 }
 
@@ -64,18 +64,18 @@ async function syncResources(aepbaseUrl: string, token: string): Promise<void> {
   }
 }
 
-async function syncModuleFlags(
+async function syncAppFlags(
   aepbaseUrl: string,
   token: string,
 ): Promise<void> {
   try {
-    const defs = getAllModuleFlagDefs();
-    const result = await syncModuleFlagsSchema({ aepbaseUrl, token, defs });
+    const defs = getAllAppFlagDefs();
+    const result = await syncAppFlagsSchema({ aepbaseUrl, token, defs });
     if (result.action === 'noop') {
-      console.info('[module-flags] schema already in sync');
+      console.info('[app-flags] schema already in sync');
     }
   } catch (error) {
-    console.error('[module-flags] schema sync failed', error);
+    console.error('[app-flags] schema sync failed', error);
   }
 }
 

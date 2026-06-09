@@ -1,6 +1,6 @@
 /**
  * Fetch the signed-in user's `user-preference` record and unflatten it
- * into a `{ moduleId: { key: value } }` tree, with declared defaults
+ * into a `{ appId: { key: value } }` tree, with declared defaults
  * merged in so every known setting has a value.
  *
  * Internal plumbing — components should reach for `useUserSetting`.
@@ -13,7 +13,7 @@ import {
   USER_PREFERENCES,
 } from '@rambleraptor/homestead-core/resources/builtins';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { getAllUserSettingDefs } from '@rambleraptor/homestead-core/modules/registry';
+import { getAllUserSettingDefs } from '@rambleraptor/homestead-core/apps/registry';
 import { unflatten, type UserSettingValues } from '../settings';
 
 export interface UserSettingsRecord {

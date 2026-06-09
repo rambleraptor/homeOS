@@ -9,8 +9,8 @@ export interface AepbaseOptions {
   dataDir: string;
   /** Serialized AEPBASE_OAUTH value (from config.aepbaseOAuthEnv), if any. */
   oauthEnv?: string;
-  /** Serialized AEPBASE_MODULE_ACCESS value (collection→module map), if any. */
-  moduleAccessEnv?: string;
+  /** Serialized AEPBASE_APP_ACCESS value (collection→app map), if any. */
+  appAccessEnv?: string;
   /** Readiness timeout. */
   timeoutMs?: number;
 }
@@ -38,7 +38,7 @@ export async function startAepbase(
     cmd: [bin, '-port', String(opts.port), '-data-dir', opts.dataDir],
     env: {
       AEPBASE_OAUTH: opts.oauthEnv,
-      AEPBASE_MODULE_ACCESS: opts.moduleAccessEnv,
+      AEPBASE_APP_ACCESS: opts.appAccessEnv,
     },
     tag: '[aepbase]',
   });

@@ -1,10 +1,10 @@
 /**
- * Generic offline mutation factory — tested independently of any module.
+ * Generic offline mutation factory — tested independently of any app.
  *
  * Mirrors the proven groceries scenarios (optimistic add, error rollback,
  * tempId reconciliation between create and a follow-up update/delete) but
  * against a synthetic "thingy" resource so failures point at the factory,
- * not at module-specific code.
+ * not at app-specific code.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -25,7 +25,7 @@ interface Thingy {
 }
 
 const KEYS = resourceMutationKeys('test-mod', 'thingy');
-const LIST_KEY = queryKeys.module('test-mod').resource('thingy').list();
+const LIST_KEY = queryKeys.app('test-mod').resource('thingy').list();
 
 function makeClient(): QueryClient {
   const client = new QueryClient({
@@ -35,7 +35,7 @@ function makeClient(): QueryClient {
     },
   });
   registerResourceMutationDefaults<Thingy, { name: string; tempId: string }>(client, {
-    moduleId: 'test-mod',
+    appId: 'test-mod',
     singular: 'thingy',
     plural: 'thingies',
   });
@@ -144,9 +144,9 @@ describe('cascadeDelete', () => {
         mutations: { retry: false },
       },
     });
-    const otherKey = ['module', 'test-mod', 'detail', 'others'] as const;
+    const otherKey = ['app', 'test-mod', 'detail', 'others'] as const;
     registerResourceMutationDefaults<Thingy, { name: string; tempId: string }>(client, {
-      moduleId: 'test-mod',
+      appId: 'test-mod',
       singular: 'thingy',
       plural: 'thingies',
       cascadeDelete: {

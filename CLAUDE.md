@@ -5,7 +5,7 @@ working on the Homestead repo. The backend is **aepbase** (an AEP-compliant
 dynamic REST server). The frontend is a **Vite + React SPA**
 (`react-router-dom`) that talks to aepbase through a same-origin `/api/aep`
 proxy. A small **Bun + Hono sidecar** owns the few API routes the SPA can't
-serve itself (test notifications, module workers) and runs
+serve itself (test notifications, app workers) and runs
 the schema sync. In production a single Bun-compiled binary — the `homestead`
 launcher (`packages/homestead-cli`) — spawns aepbase as a child process and
 serves the sidecar in-process, behind the embedded SPA. The SPA, the sidecar's
@@ -97,7 +97,7 @@ separately when you've changed anything data-adjacent.
 ### Recommended process
 
 1. Create a feature branch
-2. Make your changes; follow the existing module architecture
+2. Make your changes; follow the existing app architecture
 3. Run the full gate: `make ci && make test && make test-e2e`
 4. Commit with a clear message and push
 
@@ -146,13 +146,13 @@ methods) or `console.log` statements.
 Seed via aepbase REST (`tests/e2e/utils/aepbase-helpers.ts`), not through
 the UI. API seed is 10-100× faster.
 
-#### 6. Adding a new module
+#### 6. Adding a new app
 
 1. Add `data-testid` attrs on key buttons/forms
-2. Create a Page Object at `tests/e2e/pages/<Module>Page.ts`
-3. Add aepbase helpers (`create<Module>`, `deleteAll<Modules>`)
-4. Create specs at `tests/e2e/tests/<module>/<module>-crud.spec.ts`
-5. Run: `cd tests/e2e && npm run test -- tests/<module>/`
+2. Create a Page Object at `tests/e2e/pages/<App>Page.ts`
+3. Add aepbase helpers (`create<App>`, `deleteAll<Apps>`)
+4. Create specs at `tests/e2e/tests/<app>/<app>-crud.spec.ts`
+5. Run: `cd tests/e2e && npm run test -- tests/<app>/`
 
 ## Code Quality Standards
 
@@ -169,39 +169,39 @@ the UI. API seed is 10-100× faster.
 
 ### Modular architecture
 
-Feature modules ship in the `@rambleraptor/homestead-modules` workspace
-package at `packages/homestead-modules/<feature>/`. The registry, the
-`HomeModule`/`ModuleFlagDef` types, and the always-installed core modules
+Feature apps ship in the `@rambleraptor/homestead-apps` workspace
+package at `packages/homestead-apps/<feature>/`. The registry, the
+`HomeApp`/`AppFlagDef` types, and the always-installed core apps
 (`settings`, `superuser`, `users`) live in the
 `@rambleraptor/homestead-core` package (`packages/homestead-core/`) because
-they are part of the core experience. `packages/homestead-app/src/modules/registry.ts` is
+they are part of the core experience. `packages/homestead-app/src/apps/registry.ts` is
 just a boot shim that installs the registry singleton with the operator's
-modules from `homestead.config.ts` plus those core modules.
+apps from `homestead.config.ts` plus those core apps.
 
-Every feature is a self-contained module:
+Every feature is a self-contained app:
 
 ```
-packages/homestead-modules/<feature>/
+packages/homestead-apps/<feature>/
 ├── components/         # UI components
 ├── hooks/              # Custom hooks (data access lives here)
 ├── types.ts            # TypeScript types
-├── module.config.ts    # Module metadata (imports HomeModule from @rambleraptor/homestead-core/modules/types)
+├── app.config.ts    # App metadata (imports HomeApp from @rambleraptor/homestead-core/apps/types)
 └── index.ts            # Public exports
 ```
 
 Consumers import via the package, e.g.
-`import { GiftCardHome } from '@rambleraptor/homestead-modules/gift-cards/components/GiftCardHome'`.
+`import { GiftCardHome } from '@rambleraptor/homestead-apps/gift-cards/components/GiftCardHome'`.
 The package resolves `@rambleraptor/homestead-core/...` through the npm
 workspace and a TypeScript path alias defined in
-`packages/homestead-modules/tsconfig.json`; Vite resolves the workspace
+`packages/homestead-apps/tsconfig.json`; Vite resolves the workspace
 packages natively (no Next.js `transpilePackages`).
 
-The list of modules served by an instance lives in
+The list of apps served by an instance lives in
 `homestead.config.ts` (at the repo root) — that is the only file an operator edits
-to add or remove a module. Routes are declared inline on each
-`ModuleRoute` (the `component` field). The SPA's react-router setup
+to add or remove an app. Routes are declared inline on each
+`AppRoute` (the `component` field). The SPA's react-router setup
 (`packages/homestead-app/src/App.tsx`) sends every unmatched path to the catch-all
-renderer in `packages/homestead-app/src/modules/ModuleRoute.tsx`, which resolves the
+renderer in `packages/homestead-app/src/apps/AppRoute.tsx`, which resolves the
 route's lazy component — there are no per-route page files. See
 [`packages/homestead-site/docs/guides/quick-start.md`](packages/homestead-site/docs/guides/quick-start.md)
 for the operator-facing walkthrough.
@@ -221,45 +221,45 @@ root with `npm install`.
 ### Frontend SPA (`packages/homestead-app/`)
 
 The Vite + React SPA is a thin shell — most app code lives in the
-`homestead-core` and `homestead-modules` packages.
+`homestead-core` and `homestead-apps` packages.
 
 - `src/main.tsx` — SPA entry; mounts `<App>` under `BrowserRouter` and
-  installs the module registry singleton (`src/modules/registry.ts`)
+  installs the app registry singleton (`src/apps/registry.ts`)
 - `src/App.tsx` — react-router routes; authenticated pages render inside
-  the `AppShell`, with a catch-all that dispatches to `ModuleRoute`
-- `src/modules/ModuleRoute.tsx` — catch-all renderer that resolves a
-  path to its module's lazy component
+  the `AppShell`, with a catch-all that dispatches to `AppRoute`
+- `src/apps/AppRoute.tsx` — catch-all renderer that resolves a
+  path to its app's lazy component
 - `vite.config.ts` — dev server + `/api/*` proxy config
 
 ### Core package (`packages/homestead-core/`)
 
 The `@rambleraptor/homestead-core` workspace package. Holds everything the
-SPA and modules share:
+SPA and apps share:
 
 - `api/aepbase.ts` — thin REST client wrapper for aepbase (client-side)
 - `server/aepbase.ts` — server-side aepbase helper used by the sidecar
   routes (the client-side wrapper uses localStorage, so the sidecar uses
   this instead)
 - `auth/` — AuthContext, types, route guards
-- `modules/` — registry, the `HomeModule`/`ModuleFlagDef` contract types
-- `settings/`, `superuser/`, `users/` — the always-installed core modules
-- `layout/`, `shared/`, `resources/`, `module-flags/`, `user-settings/` —
+- `apps/` — registry, the `HomeApp`/`AppFlagDef` contract types
+- `settings/`, `superuser/`, `users/` — the always-installed core apps
+- `layout/`, `shared/`, `resources/`, `app-flags/`, `user-settings/` —
   shared chrome, components, and schema/sync plumbing
 
-### Feature modules package (`packages/homestead-modules/`)
+### Feature apps package (`packages/homestead-apps/`)
 
-The user-facing feature modules (`credit-cards`, `dashboard`, `events`,
+The user-facing feature apps (`credit-cards`, `dashboard`, `events`,
 `games`, `gift-cards`, `groceries`, `hsa`, `notifications`, `people`,
-`recipes`, `todos`) live here as the `@rambleraptor/homestead-modules`
-workspace package. Modules import `@rambleraptor/homestead-core/...`
+`recipes`, `todos`) live here as the `@rambleraptor/homestead-apps`
+workspace package. Apps import `@rambleraptor/homestead-core/...`
 through the workspace + a TypeScript path alias defined in
-`packages/homestead-modules/tsconfig.json`.
+`packages/homestead-apps/tsconfig.json`.
 
 ### Sidecar (`packages/homestead-sidecar/`)
 
 A small Bun + Hono server (`src/server.ts`) that owns the API routes the
 SPA can't serve itself: `POST /api/notifications/send-test` and
-`ALL /api/modules/:moduleId/*` (module workers). It also runs the
+`ALL /api/apps/:appId/*` (app workers). It also runs the
 boot-time schema sync (`src/schema-sync.ts`).
 
 ### Launcher (`packages/homestead-cli/`)
@@ -301,11 +301,11 @@ on a cadence. No separate scripts or source checkout required.
 
 ## aepbase schema (TypeScript)
 
-Each feature module owns the schema for the aepbase collections it
-manages. Definitions live alongside the module in a `resources.ts` file
-and are wired into the module's config via `resources: [...]` on the
-exported `HomeModule`. Resource definitions that don't belong to a
-feature module (`user-preference`, `action`, `run`) live in
+Each feature app owns the schema for the aepbase collections it
+manages. Definitions live alongside the app in a `resources.ts` file
+and are wired into the app's config via `resources: [...]` on the
+exported `HomeApp`. Resource definitions that don't belong to a
+feature app (`user-preference`, `action`, `run`) live in
 `packages/homestead-core/resources/builtins.ts`.
 
 At sidecar boot, `packages/homestead-sidecar/src/schema-sync.ts`
@@ -326,7 +326,7 @@ The same runner is used by the e2e bootstrap
 
 ### Adding a new resource
 
-1. Add a new entry in the relevant module's `resources.ts` (or in
+1. Add a new entry in the relevant app's `resources.ts` (or in
    `packages/homestead-core/resources/builtins.ts` if it's
    platform-level).
 2. Restart the sidecar with admin creds set; the new definition is
@@ -354,7 +354,7 @@ The same runner is used by the e2e bootstrap
    `'x-aepbase-file-field': true`. aepbase writes files under
    `aepbase/data/files/...` and exposes a `:download` custom method.
 7. **`singular` is globally unique.** The registry throws on
-   duplicate declarations across modules.
+   duplicate declarations across apps.
 
 ### Parent / child relationships
 
@@ -380,20 +380,20 @@ first.
 - Realtime subscriptions (polling only)
 - Thumbnail generation for file fields
 
-### Module flags
+### App flags
 
-The `module-flags` resource is generated dynamically from declared
-module flags rather than defined statically. Each module can declare
-typed flags in its `module.config.ts` (`flags: { ... }`). At sidecar
+The `app-flags` resource is generated dynamically from declared
+app flags rather than defined statically. Each app can declare
+typed flags in its `app.config.ts` (`flags: { ... }`). At sidecar
 boot, the schema sync aggregates every declared flag (via
-`getAllModuleFlagDefs` in
-`@rambleraptor/homestead-core/modules/registry`), builds a JSON-schema
+`getAllAppFlagDefs` in
+`@rambleraptor/homestead-core/apps/registry`), builds a JSON-schema
 payload, and POST/PATCHes it against aepbase's
-`/aep-resource-definitions` endpoint. One record of `module-flags` is
+`/aep-resource-definitions` endpoint. One record of `app-flags` is
 the household-wide singleton; fields are flattened as
-`${moduleId_snake}__${key}` on the wire.
+`${appId_snake}__${key}` on the wire.
 
-Consumers: `useModuleFlag(moduleId, key)` from
+Consumers: `useAppFlag(appId, key)` from
 `@rambleraptor/homestead-core/settings` is the one public hook for
 reading/writing a single flag from any component.
 
@@ -404,7 +404,7 @@ reading/writing a single flag from any component.
 1. **Always run the full gate** (`make ci && make test`) before marking
    work complete.
 2. **Follow the modular architecture** — don't create monolithic
-   components. Module hooks own their data access.
+   components. App hooks own their data access.
 3. **Respect existing patterns** — review similar code before implementing.
 4. **Use the aepbase wrapper** (`@rambleraptor/homestead-core/api/aepbase`)
    for client-side data access, and

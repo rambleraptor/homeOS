@@ -1,9 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ModuleFiltersProvider, useFilteredItems } from '../FiltersContext';
+import { AppFiltersProvider, useFilteredItems } from '../FiltersContext';
 import { FilterBar } from '../FilterBar';
-import type { ModuleFilterDecl } from '../types';
+import type { AppFilterDecl } from '../types';
 
 interface Recipe {
   id: string;
@@ -31,19 +31,19 @@ function ListOutput() {
 }
 
 function renderBar(
-  decls: ModuleFilterDecl[],
+  decls: AppFilterDecl[],
   initialValues?: Record<string, unknown>,
 ) {
   return render(
-    <ModuleFiltersProvider
-      moduleId="recipes"
+    <AppFiltersProvider
+      appId="recipes"
       decls={decls}
       items={RECIPES}
       initialValues={initialValues}
     >
       <FilterBar />
       <ListOutput />
-    </ModuleFiltersProvider>,
+    </AppFiltersProvider>,
   );
 }
 
@@ -101,13 +101,13 @@ describe('FilterBar', () => {
 
   it('renders "None yet" when a multi enum has no derived options', () => {
     render(
-      <ModuleFiltersProvider
-        moduleId="recipes"
+      <AppFiltersProvider
+        appId="recipes"
         decls={[{ key: 'tags', label: 'Tags', type: 'enum', multi: true }]}
         items={[] as Recipe[]}
       >
         <FilterBar />
-      </ModuleFiltersProvider>,
+      </AppFiltersProvider>,
     );
     expect(screen.getByText(/none yet/i)).toBeInTheDocument();
   });
@@ -126,14 +126,14 @@ describe('FilterBar', () => {
       return <div data-testid="count">{items.length}</div>;
     }
     render(
-      <ModuleFiltersProvider
-        moduleId="x"
+      <AppFiltersProvider
+        appId="x"
         decls={[{ key: 'archived', label: 'Archived', type: 'boolean' }]}
         items={rows}
       >
         <FilterBar />
         <Consumer />
-      </ModuleFiltersProvider>,
+      </AppFiltersProvider>,
     );
     // Use a spy-free interaction: click the checkbox and check count changes
     // via the filteredItems output. shadcn's Checkbox may not be a native

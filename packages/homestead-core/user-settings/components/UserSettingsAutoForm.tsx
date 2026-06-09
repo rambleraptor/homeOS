@@ -1,6 +1,6 @@
 /**
- * Auto-generated form for a module's `userSettings` declarations. The
- * Settings page uses this whenever a module declares `userSettings`
+ * Auto-generated form for an app's `userSettings` declarations. The
+ * Settings page uses this whenever an app declares `userSettings`
  * but doesn't supply a custom `settingsWidget`.
  *
  * Mirrors the `<FlagField>` switch in
@@ -12,17 +12,17 @@ import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-core/modules/types';
+import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-core/apps/types';
 import { useUserSettings } from '../hooks/useUserSettings';
 import { useUpdateUserSetting } from '../hooks/useUpdateUserSetting';
 
 interface UserSettingsAutoFormProps {
-  moduleId: string;
+  appId: string;
   defs: Record<string, UserSettingDef>;
 }
 
 export function UserSettingsAutoForm({
-  moduleId,
+  appId,
   defs,
 }: UserSettingsAutoFormProps) {
   const { values } = useUserSettings();
@@ -31,7 +31,7 @@ export function UserSettingsAutoForm({
 
   const handleChange = async (key: string, value: UserSettingValue) => {
     try {
-      await update.mutateAsync({ moduleId, key, value });
+      await update.mutateAsync({ appId, key, value });
     } catch (error) {
       logger.error('Failed to update user setting', error);
       toast.error('Failed to save setting. Please try again.');
@@ -43,10 +43,10 @@ export function UserSettingsAutoForm({
       {Object.entries(defs).map(([key, def]) => (
         <UserSettingField
           key={key}
-          moduleId={moduleId}
+          appId={appId}
           settingKey={key}
           def={def}
-          value={values[moduleId]?.[key]}
+          value={values[appId]?.[key]}
           onChange={(next) => handleChange(key, next)}
           isSaving={update.isPending}
         />
@@ -56,7 +56,7 @@ export function UserSettingsAutoForm({
 }
 
 interface UserSettingFieldProps {
-  moduleId: string;
+  appId: string;
   settingKey: string;
   def: UserSettingDef;
   value: UserSettingValue | undefined;
@@ -65,15 +65,15 @@ interface UserSettingFieldProps {
 }
 
 function UserSettingField({
-  moduleId,
+  appId,
   settingKey,
   def,
   value,
   onChange,
   isSaving,
 }: UserSettingFieldProps) {
-  const fieldId = `user-setting-${moduleId}-${settingKey}`;
-  const testid = `user-setting-${moduleId}-${settingKey}`;
+  const fieldId = `user-setting-${appId}-${settingKey}`;
+  const testid = `user-setting-${appId}-${settingKey}`;
 
   switch (def.type) {
     case 'string':

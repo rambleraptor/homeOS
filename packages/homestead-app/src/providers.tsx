@@ -4,19 +4,19 @@ import { AuthProvider } from '@rambleraptor/homestead-core/auth/AuthContext';
 import { queryClient } from '@rambleraptor/homestead-core/api/queryClient';
 import { persistOptions } from '@rambleraptor/homestead-core/api/persistQueryClient';
 import { registerResourceMutationDefaults } from '@rambleraptor/homestead-core/api/registerResourceMutationDefaults';
-import { getAllResourceDefsWithModule } from '@/modules/registry';
+import { getAllResourceDefsWithApp } from '@/apps/registry';
 import { ToastProvider } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 
 // Mutation defaults must be installed on the QueryClient *before* any
 // `useMutation` references their key — including replays from the persisted
 // queue when `PersistQueryClientProvider` rehydrates. Walking every declared
-// resource at module scope guarantees that ordering and gives every module
+// resource at module scope guarantees that ordering and gives every app
 // offline create/update/delete for free.
-for (const { module, def } of getAllResourceDefsWithModule()) {
-  const override = module.offlineOverrides?.[def.singular];
+for (const { app, def } of getAllResourceDefsWithApp()) {
+  const override = app.offlineOverrides?.[def.singular];
   if (override === false) continue;
   registerResourceMutationDefaults(queryClient, {
-    moduleId: module.id,
+    appId: app.id,
     singular: def.singular,
     plural: def.plural,
     ...(override ?? {}),

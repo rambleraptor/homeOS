@@ -204,7 +204,7 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
   console.log(`Update checks run every ${params.intervalSeconds}s via ${opts.serviceName}-update.timer.`);
   console.log(`  systemctl list-timers ${opts.serviceName}-update.timer`);
   // Surface the upstream the update unit will track, so the operator can sanity-check it.
-  // Lazy import keeps the operator's config + module graph out of unit tests.
+  // Lazy import keeps the operator's config + app graph out of unit tests.
   const { gitConfig } = await import('./config.ts');
   const { remote, branch } = gitConfig();
   console.log(`  tracking ${remote}/${branch} (set via the \`git\` block in homestead.config.ts)`);

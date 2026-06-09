@@ -8,7 +8,7 @@
  * There is no `register` — aepbase has no self-serve signup endpoint; users
  * are provisioned by a superuser via `POST /users`. `refreshUser` re-fetches
  * the aepbase user record AND the user's `preferences` child so the settings
- * module can write `map_provider` and have it visible everywhere via
+ * app can write `map_provider` and have it visible everywhere via
  * `useAuth().user`.
  */
 
@@ -41,7 +41,7 @@ interface UserPreferenceRecord {
   id: string;
   /** Legacy field, replaced by `people__map_provider`. */
   map_provider?: MapProvider;
-  /** Per-user setting declared by the People module. */
+  /** Per-user setting declared by the People app. */
   people__map_provider?: MapProvider;
   dashboard_widget_order?: string;
   dashboard_hidden_widgets?: string;

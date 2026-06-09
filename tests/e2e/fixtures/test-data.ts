@@ -1,9 +1,9 @@
 /**
  * Cross-cutting test data for e2e tests.
  *
- * Module-specific fixtures (testGiftCards, testPeople, testRecipes, …)
- * live next to each feature module under
- * `packages/homestead-modules/<module>/e2e/helpers.ts`.
+ * App-specific fixtures (testGiftCards, testPeople, testRecipes, …)
+ * live next to each feature app under
+ * `packages/homestead-apps/<app>/e2e/helpers.ts`.
  */
 
 export const testUsers = {

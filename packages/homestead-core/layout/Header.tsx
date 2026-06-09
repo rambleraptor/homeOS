@@ -6,7 +6,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { Menu, Bell } from 'lucide-react';
-import { useNotificationStats } from '@rambleraptor/homestead-modules/notifications/hooks/useNotificationStats';
+import { useNotificationStats } from '@rambleraptor/homestead-apps/notifications/hooks/useNotificationStats';
 
 interface HeaderProps {
   onMenuClick: () => void;

@@ -1,15 +1,15 @@
 # Dashboard Widgets
 
-A widget is a small React component your module contributes to the home
-dashboard (`/dashboard`) — a compact, read-only summary of your module's data
+A widget is a small React component your app contributes to the home
+dashboard (`/dashboard`) — a compact, read-only summary of your app's data
 (items left to buy, upcoming events, perks due soon) with a link that drills
-into the full module. Add one when your module has an at-a-glance number or
+into the full app. Add one when your app has an at-a-glance number or
 list worth surfacing on the home screen.
 
 ## Table of Contents
 
 - [Mental Model](#mental-model)
-- [Add a Widget to Your Module](#add-a-widget-to-your-module)
+- [Add a Widget to Your App](#add-a-widget-to-your-app)
 - [WidgetCard](#widgetcard)
 - [Conventions and Gotchas](#conventions-and-gotchas)
 - [Existing Widgets](#existing-widgets)
@@ -18,31 +18,31 @@ list worth surfacing on the home screen.
 
 ## Mental Model
 
-Widgets are self-contained components your module declares in its
-`module.config.ts`. The dashboard discovers them from every installed module's
+Widgets are self-contained components your app declares in its
+`app.config.ts`. The dashboard discovers them from every installed app's
 config, sorts them by `order` (lower first), and renders each one in a vertical
-stack — filtered to the modules the viewer can access and reordered per the
+stack — filtered to the apps the viewer can access and reordered per the
 viewer's saved preferences. Your widget fetches its own data and receives **no
 props**. You don't touch any dashboard or registry code; declaring the widget
 is enough for it to appear.
 
 ---
 
-## Add a Widget to Your Module
+## Add a Widget to Your App
 
-Two steps: write the component, then register it in `module.config.ts`. Say you
+Two steps: write the component, then register it in `app.config.ts`. Say you
 want a `recipes` widget showing meals cooked this week.
 
 ### 1. Write the widget component
 
-Put it under your module's `components/` folder, one file per widget named
+Put it under your app's `components/` folder, one file per widget named
 `<Name>Widget.tsx`:
 
 ```
-packages/homestead-modules/recipes/components/RecipesCookedThisWeekWidget.tsx
+packages/homestead-apps/recipes/components/RecipesCookedThisWeekWidget.tsx
 ```
 
-A widget takes no props, fetches its own data via a module-scoped hook, wraps
+A widget takes no props, fetches its own data via an app-scoped hook, wraps
 its content in `<WidgetCard>` for consistent chrome, and handles the loading
 and empty states explicitly:
 
@@ -84,23 +84,23 @@ export function RecipesCookedThisWeekWidget() {
 ```
 
 Note the imports: shared chrome comes from the
-`@rambleraptor/homestead-core/...` alias, while the module's own hook is a
+`@rambleraptor/homestead-core/...` alias, while the app's own hook is a
 relative `../hooks/...` import. If the data hook you need doesn't exist, add it
-under `packages/homestead-modules/<feature>/hooks/` first; reuse an existing
+under `packages/homestead-apps/<feature>/hooks/` first; reuse an existing
 hook when one already covers your data. There is no `'use client'` directive —
 this is a Vite + React SPA, not Next.js.
 
-### 2. Register the widget in `module.config.ts`
+### 2. Register the widget in `app.config.ts`
 
-Append it to the module's `widgets` array. The `component` is a **lazy thunk**
+Append it to the app's `widgets` array. The `component` is a **lazy thunk**
 (`() => import(...).then((m) => m.X)`), matching how routes and icons are
-declared. Pick a **globally unique** id (prefix with the module id), give it a
+declared. Pick a **globally unique** id (prefix with the app id), give it a
 human-readable `label` (shown in the dashboard customization UI), and choose an
-`order` that positions it relative to widgets from other modules:
+`order` that positions it relative to widgets from other apps:
 
 ```ts
-// packages/homestead-modules/recipes/module.config.ts
-export const recipesModule: HomeModule = {
+// packages/homestead-apps/recipes/app.config.ts
+export const recipesApp: HomeApp = {
   // ...existing fields...
   widgets: [
     {
@@ -116,10 +116,10 @@ export const recipesModule: HomeModule = {
 };
 ```
 
-For reference, here is the groceries module's declaration:
+For reference, here is the groceries app's declaration:
 
 ```ts
-// packages/homestead-modules/groceries/module.config.ts
+// packages/homestead-apps/groceries/app.config.ts
 widgets: [
   {
     id: 'groceries-remaining',
@@ -159,7 +159,7 @@ toggle). The props you'll use:
 export interface WidgetCardProps {
   icon?: LucideIcon;          // header chip icon
   title: ReactNode;           // shown inside the link
-  href: string;               // module home route
+  href: string;               // app home route
   configHref?: string;        // optional config page; renders a gear
   configLabel?: string;       // a11y label for the gear; defaults to "Configure widget"
   children?: ReactNode;       // body, hidden when collapsed
@@ -173,7 +173,7 @@ export interface WidgetCardProps {
 Notes:
 
 - The title is wrapped in a react-router `<Link to={href}>` (from
-  `react-router-dom`, **not** `next/link`). Point `href` at your module's home
+  `react-router-dom`, **not** `next/link`). Point `href` at your app's home
   route so users can drill in by clicking the title.
 - When `configHref` is set, a settings gear renders in the header linking to
   the widget's configuration page (also a react-router `<Link>`). It exposes
@@ -190,15 +190,15 @@ Notes:
 **Naming**
 
 - Component file: `<Name>Widget.tsx` under
-  `packages/homestead-modules/<feature>/components/`.
-- Widget id: `<module-id>-<slug>` (e.g. `groceries-remaining`,
+  `packages/homestead-apps/<feature>/components/`.
+- Widget id: `<app-id>-<slug>` (e.g. `groceries-remaining`,
   `events-upcoming`). Ids must be unique across the whole app.
 - Test id: same as the widget id with a `-widget` suffix, or just
-  `<module>-widget` when the module only has one.
+  `<app>-widget` when the app only has one.
 
 **Order values**
 
-`order` controls global widget ordering, not per-module. Choose values with
+`order` controls global widget ordering, not per-app. Choose values with
 gaps (10, 20, 30, …) so future widgets can slot in without renumbering. The
 default is `100`; widgets without an explicit order land at the bottom in
 declaration order. The viewer can override this ordering (and hide widgets)
@@ -207,11 +207,11 @@ guarantee.
 
 **Data fetching**
 
-- Use a React Query hook from your module's `hooks/` directory. The widget
-  benefits from the same cache as the rest of the module — the dashboard won't
+- Use a React Query hook from your app's `hooks/` directory. The widget
+  benefits from the same cache as the rest of the app — the dashboard won't
   refetch data the user already loaded elsewhere. Prefer queries the rest of
   the app already runs; cheap fetches matter since widgets load on the
-  dashboard regardless of which module the user opens next.
+  dashboard regardless of which app the user opens next.
 - Always render an `isLoading` branch and an empty branch. Avoid showing `0`
   with no context; phrase the empty state in plain English.
 
@@ -227,13 +227,13 @@ guarantee.
 **Don'ts**
 
 - Don't accept props on a widget component. The contract is zero-prop
-  components. If a widget needs configuration, wire it through module flags
-  (`HomeModule.flags`) and read the value with `useModuleFlag(...)` from
+  components. If a widget needs configuration, wire it through app flags
+  (`HomeApp.flags`) and read the value with `useAppFlag(...)` from
   `@rambleraptor/homestead-core/settings`.
-- Don't import another module's components into your widget. Modules stay
+- Don't import another app's components into your widget. Apps stay
   self-contained.
 - Don't write data from a widget. Widgets are read-only summaries; provide a
-  CTA that links into the module for mutations.
+  CTA that links into the app for mutations.
 - Don't import eagerly — keep the lazy `component: () => import(...)` form so
   your widget code stays code-split out of the main bundle.
 - Don't add `'use client'` or import from `next/*` — this is a Vite SPA.
@@ -243,9 +243,9 @@ guarantee.
 ## Existing Widgets
 
 The widgets already in the repo are good references when you write your own
-(e.g. `packages/homestead-modules/groceries/components/GroceriesWidget.tsx`).
+(e.g. `packages/homestead-apps/groceries/components/GroceriesWidget.tsx`).
 Find the current list with:
 
 ```bash
-grep -rn "widgets:" packages/homestead-modules/*/module.config.ts
+grep -rn "widgets:" packages/homestead-apps/*/app.config.ts
 ```

@@ -16,14 +16,14 @@ export default defineConfig({
       'src/**/*.{test,spec}.{js,jsx,ts,tsx}',
       '../*/**/*.{test,spec}.{js,jsx,ts,tsx}',
     ],
-    // Playwright e2e specs colocated next to their modules live under
-    // `packages/homestead-modules/<module>/e2e/`. Vitest must not run them.
+    // Playwright e2e specs colocated next to their apps live under
+    // `packages/homestead-apps/<app>/e2e/`. Vitest must not run them.
     // The homestead-cli package is Bun-tested (`bun test`), not vitest — its
     // specs import `bun:test`, which vitest can't transform.
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
-      '../homestead-modules/**/e2e/**',
+      '../homestead-apps/**/e2e/**',
       '../homestead-cli/**',
     ],
     coverage: {

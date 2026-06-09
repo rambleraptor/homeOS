@@ -14,7 +14,7 @@
  *
  * The first time we touch each element we stash its original value in a
  * `data-hs-default` attribute, so `resetHomeScreenIcon` can faithfully
- * restore the global Homestead defaults — no module-level mutable state, which
+ * restore the global Homestead defaults — no app-level mutable state, which
  * keeps the behavior self-contained and easy to test.
  */
 

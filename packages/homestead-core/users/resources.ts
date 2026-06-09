@@ -6,9 +6,9 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
  * one record per (user, tag) pair, parented under the user.
  *
  * Access is admin/superuser-only by convention (the only UI that
- * writes here lives in the superuser-gated Users module). User-parent
+ * writes here lives in the superuser-gated Users app). User-parent
  * scoping means a regular user can still list their own tags, which
- * is needed for the client-side module-visibility gate.
+ * is needed for the client-side app-visibility gate.
  */
 export const ACCOUNT_TAGS = 'account-tags' as const;
 
@@ -17,7 +17,7 @@ export const usersResources: ResourceDefinition[] = [
     singular: 'account-tag',
     plural: ACCOUNT_TAGS,
     description:
-      'A tag assigned to a user account by a superuser. Pair with a module\'s `enabled_tags` flag to gate access by tag.',
+      'A tag assigned to a user account by a superuser. Pair with an app\'s `enabled_tags` flag to gate access by tag.',
     user_settable_create: true,
     parents: ['user'],
     schema: {

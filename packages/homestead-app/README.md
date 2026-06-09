@@ -61,23 +61,23 @@ src/
 │   ├── api/          # aepbase client
 │   ├── layout/       # Layout components
 │   └── router/       # Routing configuration
-├── modules/          # Feature modules
-│   ├── registry.ts   # Module registry
-│   ├── dashboard/    # Dashboard module
-│   ├── gift-cards/   # Gift cards module
-│   └── ...           # Other modules
+├── apps/          # Feature apps
+│   ├── registry.ts   # App registry
+│   ├── dashboard/    # Dashboard app
+│   ├── gift-cards/   # Gift cards app
+│   └── ...           # Other apps
 ├── shared/           # Shared components and utilities
 └── test/             # Test setup and utilities
 ```
 
-## Adding a New Module
+## Adding a New App
 
-1. Create module folder in `src/modules/`
-2. Define `module.config.ts` with metadata
+1. Create app folder in `src/apps/`
+2. Define `app.config.ts` with metadata
 3. Create routes and components
-4. Register in `src/modules/registry.ts`
+4. Register in `src/apps/registry.ts`
 
-Run the `create-module` skill to scaffold a new module end-to-end
+Run the `create-app` skill to scaffold a new app end-to-end
 (resource definitions, hooks, components, config wiring, e2e fixtures).
 
 ## Testing

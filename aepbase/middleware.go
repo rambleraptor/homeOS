@@ -14,7 +14,7 @@ import (
 	"github.com/rambleraptor/aepbase/pkg/user"
 )
 
-// Module visibility values. These mirror MODULE_VISIBILITY_OPTIONS in
+// App visibility values. These mirror APP_VISIBILITY_OPTIONS in
 // packages/homestead-core/settings/visibility.ts — keep the two in sync.
 const (
 	visibilityNone       = "none"
@@ -24,7 +24,7 @@ const (
 	defaultVisibility    = visibilityAll
 )
 
-// defaultAccessCacheTTLMs bounds how stale a cached module_flags row / user tag
+// defaultAccessCacheTTLMs bounds how stale a cached app_flags row / user tag
 // set may be by default. Flags and tags change rarely (admin actions), so a few
 // seconds keeps the per-request DB cost near zero while staying responsive.
 // Override with AEPBASE_ACCESS_CACHE_TTL_MS (0 = read fresh every request, used
@@ -42,18 +42,18 @@ func accessCacheTTLFromEnv() time.Duration {
 	return defaultAccessCacheTTLMs * time.Millisecond
 }
 
-// moduleAccessMiddleware enforces, on every authenticated request to a gated
+// appAccessMiddleware enforces, on every authenticated request to a gated
 // feature collection, the same rule the frontend applies in resolveVisibility
-// (packages/homestead-core/settings/hooks/useIsModuleEnabled.ts):
+// (packages/homestead-core/settings/hooks/useIsAppEnabled.ts):
 //
 //	none        → deny everyone (even superusers)
 //	all         → any signed-in user
 //	superusers  → only type=="superuser"
-//	tagged      → the caller's account tags intersect the module's enabled_tags
+//	tagged      → the caller's account tags intersect the app's enabled_tags
 //
 // It is registered via state.Use AFTER EnableUsers, so the built-in auth
 // middleware has already resolved the caller into the request context.
-func moduleAccessMiddleware(db *sql.DB, cfg *moduleAccessConfig) aepbase.Middleware {
+func appAccessMiddleware(db *sql.DB, cfg *appAccessConfig) aepbase.Middleware {
 	store := &accessStore{db: db, tags: map[string]tagEntry{}, ttl: accessCacheTTLFromEnv()}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,9 +65,9 @@ func moduleAccessMiddleware(db *sql.DB, cfg *moduleAccessConfig) aepbase.Middlew
 			}
 
 			plural := firstPathSegment(r.URL.Path)
-			moduleID, gated := cfg.CollectionToModule[plural]
+			appID, gated := cfg.CollectionToApp[plural]
 			if !gated {
-				// Core/built-in collections (users, account-tags, module-flags,
+				// Core/built-in collections (users, account-tags, app-flags,
 				// meta, operations, …) are never gated.
 				next.ServeHTTP(w, r)
 				return
@@ -80,9 +80,9 @@ func moduleAccessMiddleware(db *sql.DB, cfg *moduleAccessConfig) aepbase.Middlew
 				return
 			}
 
-			vis, enabledTags := store.visibility(moduleID, cfg.ModuleDefaults[moduleID])
+			vis, enabledTags := store.visibility(appID, cfg.AppDefaults[appID])
 			if !decide(vis, u.Type == user.TypeSuperuser, store.userTags(u.ID), enabledTags) {
-				writeAccessError(w, http.StatusForbidden, "you do not have access to this module")
+				writeAccessError(w, http.StatusForbidden, "you do not have access to this app")
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -129,7 +129,7 @@ func parseTagSet(raw string) map[string]bool {
 
 // firstPathSegment returns the first path segment (the top-level collection
 // plural). A child path like /gift-cards/{id}/transactions returns
-// "gift-cards", which owns the same module as its children.
+// "gift-cards", which owns the same app as its children.
 func firstPathSegment(p string) string {
 	p = strings.TrimPrefix(p, "/")
 	if i := strings.IndexByte(p, '/'); i >= 0 {
@@ -146,22 +146,22 @@ func writeAccessError(w http.ResponseWriter, code int, msg string) {
 	})
 }
 
-// moduleFieldName builds the flattened module_flags column name for a
-// (moduleId, key) pair. Mirrors fieldName in settings/flags.ts:
+// appFieldName builds the flattened app_flags column name for a
+// (appId, key) pair. Mirrors fieldName in settings/flags.ts:
 // "gift-cards" + "enabled" → "gift_cards__enabled".
-func moduleFieldName(moduleID, key string) string {
-	return strings.ReplaceAll(moduleID, "-", "_") + "__" + key
+func appFieldName(appID, key string) string {
+	return strings.ReplaceAll(appID, "-", "_") + "__" + key
 }
 
 // accessStore reads the dynamic half of the decision — the household-wide
-// module_flags row and per-user account_tags — from aepbase's own SQLite,
+// app_flags row and per-user account_tags — from aepbase's own SQLite,
 // caching both behind a short TTL to avoid a per-request query fan-out.
 type accessStore struct {
 	db  *sql.DB
 	ttl time.Duration
 
 	mu      sync.Mutex
-	flags   map[string]string // column name → value, from the single module_flags row
+	flags   map[string]string // column name → value, from the single app_flags row
 	flagsAt time.Time
 	tags    map[string]tagEntry // user id → tags + fetch time
 }
@@ -171,14 +171,14 @@ type tagEntry struct {
 	at   time.Time
 }
 
-// visibility resolves a module's effective visibility + enabled_tags from the
-// cached module_flags row, falling back to the module default (then "all")
+// visibility resolves an app's effective visibility + enabled_tags from the
+// cached app_flags row, falling back to the app default (then "all")
 // when no value is stored.
-func (s *accessStore) visibility(moduleID, moduleDefault string) (vis, enabledTags string) {
+func (s *accessStore) visibility(appID, appDefault string) (vis, enabledTags string) {
 	flags := s.loadFlags()
-	vis = flags[moduleFieldName(moduleID, "enabled")]
+	vis = flags[appFieldName(appID, "enabled")]
 	if vis == "" {
-		vis = moduleDefault
+		vis = appDefault
 	}
 	switch vis {
 	case visibilityNone, visibilityAll, visibilitySuperusers, visibilityTagged:
@@ -186,12 +186,12 @@ func (s *accessStore) visibility(moduleID, moduleDefault string) (vis, enabledTa
 	default:
 		vis = defaultVisibility
 	}
-	return vis, flags[moduleFieldName(moduleID, "enabled_tags")]
+	return vis, flags[appFieldName(appID, "enabled_tags")]
 }
 
-// loadFlags returns the single module_flags row as a column→value map, cached
+// loadFlags returns the single app_flags row as a column→value map, cached
 // for accessCacheTTL. A missing table/row (fresh DB before the first schema
-// sync) yields an empty map, so callers fall back to module defaults.
+// sync) yields an empty map, so callers fall back to app defaults.
 func (s *accessStore) loadFlags() map[string]string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -217,11 +217,11 @@ func (s *accessStore) userTags(userID string) []string {
 	return tags
 }
 
-// queryFlagsRow reads the lone module_flags row into a column→value map. The
+// queryFlagsRow reads the lone app_flags row into a column→value map. The
 // table name is the plural with dashes turned to underscores (db.SanitizeTableName).
 func queryFlagsRow(db *sql.DB) map[string]string {
 	out := map[string]string{}
-	rows, err := db.Query(`SELECT * FROM module_flags LIMIT 1`)
+	rows, err := db.Query(`SELECT * FROM app_flags LIMIT 1`)
 	if err != nil {
 		return out // table not created yet → defaults
 	}

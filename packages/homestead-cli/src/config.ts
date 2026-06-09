@@ -1,7 +1,7 @@
 import type { CliConfig } from './config-types.ts';
 import { serializeOAuth } from './oauth.ts';
 // Via a JS indirection (load-config.js + .d.ts) so `tsc` sees the config as an
-// opaque CliConfig instead of following it into the whole module graph;
+// opaque CliConfig instead of following it into the whole app graph;
 // `bun build --compile` still bundles the real config. `auth.oauth` secrets are
 // read from process.env at runtime, not baked in.
 import rootConfig from './load-config.js';

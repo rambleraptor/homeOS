@@ -21,7 +21,7 @@ export interface SidecarHandle {
 }
 
 /**
- * Launch the sidecar (notifications / module workers + boot-time
+ * Launch the sidecar (notifications / app workers + boot-time
  * schema sync). In dev it runs as a `bun --watch` child for hot reload; in
  * prod it runs in-process to avoid embedding a second bun runtime.
  */

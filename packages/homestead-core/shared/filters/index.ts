@@ -1,9 +1,9 @@
-export type { ModuleFilterDecl, ModuleFilterType, DateRangeValue } from './types';
+export type { AppFilterDecl, AppFilterType, DateRangeValue } from './types';
 export { applyFilters, deriveEnumOptions, getByPath } from './applyFilters';
 export {
-  ModuleFiltersProvider,
-  useModuleFilterDecls,
-  useModuleFilterValues,
+  AppFiltersProvider,
+  useAppFilterDecls,
+  useAppFilterValues,
   useFilteredItems,
   useEnumOptions,
 } from './FiltersContext';

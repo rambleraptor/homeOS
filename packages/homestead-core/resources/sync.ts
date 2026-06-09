@@ -1,5 +1,5 @@
 /**
- * Push module-declared resource definitions to aepbase.
+ * Push app-declared resource definitions to aepbase.
  *
  * Called once at Next.js boot from `frontend/src/instrumentation.ts`,
  * and from the e2e bootstrap before any test runs. Idempotent: each
@@ -28,7 +28,7 @@ export interface SyncResourcesOptions {
   aepbaseUrl: string;
   /** Admin bearer token. */
   token: string;
-  /** Aggregated definitions from modules + built-ins. */
+  /** Aggregated definitions from apps + built-ins. */
   defs: ResourceDefinition[];
   /** Optional logger; defaults to console. */
   logger?: Pick<Console, 'info' | 'warn' | 'error'>;
@@ -101,7 +101,7 @@ function assertNoDuplicateSingulars(defs: ResourceDefinition[]): void {
   for (const def of defs) {
     if (seen.has(def.singular)) {
       throw new Error(
-        `[resources] duplicate singular "${def.singular}" — two modules declared the same resource definition`,
+        `[resources] duplicate singular "${def.singular}" — two apps declared the same resource definition`,
       );
     }
     seen.add(def.singular);
@@ -110,7 +110,7 @@ function assertNoDuplicateSingulars(defs: ResourceDefinition[]): void {
 
 /**
  * Stable topo sort by `parents`. Preserves the input order when
- * dependencies allow it (so the per-module declaration order is
+ * dependencies allow it (so the per-app declaration order is
  * preserved as a tie-breaker). Throws on cycles or unknown parents.
  */
 function topoSort(defs: ResourceDefinition[]): ResourceDefinition[] {

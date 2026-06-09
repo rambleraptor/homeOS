@@ -14,9 +14,9 @@
  */
 
 import { Hono } from 'hono';
-// Side effect: initialize the module registry before any request lands.
-import './module-registry';
-import { getAllResourceCustomMethods } from '@rambleraptor/homestead-core/modules/registry';
+// Side effect: initialize the app registry before any request lands.
+import './app-registry';
+import { getAllResourceCustomMethods } from '@rambleraptor/homestead-core/apps/registry';
 import { notificationsRoute } from './routes/notifications';
 import { aepRoute } from './routes/aep';
 

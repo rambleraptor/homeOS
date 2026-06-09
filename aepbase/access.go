@@ -7,39 +7,39 @@ import (
 	"strings"
 )
 
-// moduleAccessConfig is the JSON object carried in AEPBASE_MODULE_ACCESS, which
-// the launcher serializes from the TypeScript module registry (see
-// packages/homestead-cli/src/module-access.js). It is the static half of the
-// access decision: which module owns a gated collection, and each module's
+// appAccessConfig is the JSON object carried in AEPBASE_APP_ACCESS, which
+// the launcher serializes from the TypeScript app registry (see
+// packages/homestead-cli/src/app-access.js). It is the static half of the
+// access decision: which app owns a gated collection, and each app's
 // default visibility. The dynamic half (current flag values, the caller's tags)
 // is read live from the database by the middleware.
-type moduleAccessConfig struct {
-	// CollectionToModule maps a collection plural (e.g. "gift-cards") to its
-	// owning module id (e.g. "gift-cards"). Only gated feature collections are
+type appAccessConfig struct {
+	// CollectionToApp maps a collection plural (e.g. "gift-cards") to its
+	// owning app id (e.g. "gift-cards"). Only gated feature collections are
 	// present; core/built-in collections are intentionally absent.
-	CollectionToModule map[string]string `json:"collectionToModule"`
-	// ModuleDefaults maps a module id to its default visibility, used when no
+	CollectionToApp map[string]string `json:"collectionToApp"`
+	// AppDefaults maps an app id to its default visibility, used when no
 	// flag value is stored yet ("superusers"/"all"/"none"/"tagged").
-	ModuleDefaults map[string]string `json:"moduleDefaults"`
+	AppDefaults map[string]string `json:"appDefaults"`
 }
 
-// moduleAccessFromEnv reads AEPBASE_MODULE_ACCESS and returns the parsed config.
-// Returns nil when the var is unset/empty/null — module enforcement is then off
+// appAccessFromEnv reads AEPBASE_APP_ACCESS and returns the parsed config.
+// Returns nil when the var is unset/empty/null — app enforcement is then off
 // (e.g. standalone aepbase via run.sh), matching pre-enforcement behavior.
-func moduleAccessFromEnv() (*moduleAccessConfig, error) {
-	raw := strings.TrimSpace(os.Getenv("AEPBASE_MODULE_ACCESS"))
+func appAccessFromEnv() (*appAccessConfig, error) {
+	raw := strings.TrimSpace(os.Getenv("AEPBASE_APP_ACCESS"))
 	if raw == "" || raw == "null" {
 		return nil, nil
 	}
-	var cfg moduleAccessConfig
+	var cfg appAccessConfig
 	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-		return nil, fmt.Errorf("parsing AEPBASE_MODULE_ACCESS: %w", err)
+		return nil, fmt.Errorf("parsing AEPBASE_APP_ACCESS: %w", err)
 	}
-	if cfg.CollectionToModule == nil {
-		cfg.CollectionToModule = map[string]string{}
+	if cfg.CollectionToApp == nil {
+		cfg.CollectionToApp = map[string]string{}
 	}
-	if cfg.ModuleDefaults == nil {
-		cfg.ModuleDefaults = map[string]string{}
+	if cfg.AppDefaults == nil {
+		cfg.AppDefaults = map[string]string{}
 	}
 	return &cfg, nil
 }

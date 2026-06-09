@@ -7,16 +7,16 @@
 import '@testing-library/jest-dom';
 import { afterEach, vi, beforeAll, afterAll } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import { initializeModuleRegistry } from '@rambleraptor/homestead-core/modules/registry';
+import { initializeAppRegistry } from '@rambleraptor/homestead-core/apps/registry';
 
-// Bootstrap the module registry with an empty operator list. The
-// always-installed core modules (settings/users/superuser) are enough
-// for hooks like `useModuleFlags` to function during unit tests; tests
+// Bootstrap the app registry with an empty operator list. The
+// always-installed core apps (settings/users/superuser) are enough
+// for hooks like `useAppFlags` to function during unit tests; tests
 // that need a richer registry can re-initialize themselves. Note: we do
 // NOT import the real `homestead.config.ts` here — that would eagerly
-// load every feature module's component tree before per-test `vi.mock`
+// load every feature app's component tree before per-test `vi.mock`
 // calls take effect, freezing the wrong module bindings.
-initializeModuleRegistry([]);
+initializeAppRegistry([]);
 
 // matchMedia stub for jsdom
 Object.defineProperty(window, 'matchMedia', {

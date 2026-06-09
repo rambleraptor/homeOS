@@ -1,18 +1,18 @@
-# Quick Start: Your First Module
+# Quick Start: Your First App
 
-Modules are Homestead's version of apps. This guide builds a minimal
+Apps are Homestead's version of apps. This guide builds a minimal
 "Hello World" app, adds it to your config, and starts it.
 
-Every module is one object that follows the `HomeModule` shape: an id, a name,
+Every app is one object that follows the `HomeApp` shape: an id, a name,
 an icon, a base path, and one or more routes. A route points at a React
 component.
 
 ## 1. Write the page component
 
-Create a folder for your module and add a component for its page.
+Create a folder for your app and add a component for its page.
 
 ```tsx
-// packages/homestead-modules/hello/HelloHome.tsx
+// packages/homestead-apps/hello/HelloHome.tsx
 export function HelloHome() {
   return (
     <div className="p-6">
@@ -23,16 +23,16 @@ export function HelloHome() {
 }
 ```
 
-## 2. Declare the module
+## 2. Declare the app
 
-Add a `module.config.ts` next to the component. The `icon` and route
+Add a `app.config.ts` next to the component. The `icon` and route
 `component` are lazy imports.
 
 ```ts
-// packages/homestead-modules/hello/module.config.ts
-import type { HomeModule } from '@rambleraptor/homestead-core/modules/types';
+// packages/homestead-apps/hello/app.config.ts
+import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
 
-export const helloModule: HomeModule = {
+export const helloApp: HomeApp = {
   id: 'hello',
   name: 'Hello',
   description: 'My first Homestead app.',
@@ -51,16 +51,16 @@ export const helloModule: HomeModule = {
 
 ## 3. Add it to your config
 
-Import the module in `homestead.config.ts` and add it to the `modules` array.
+Import the app in `homestead.config.ts` and add it to the `apps` array.
 
 ```ts
 // homestead.config.ts
-import { helloModule } from '@rambleraptor/homestead-modules/hello/module.config';
+import { helloApp } from '@rambleraptor/homestead-apps/hello/app.config';
 
 const config: HomesteadConfig = {
-  modules: [
-    // ...existing modules
-    helloModule,
+  apps: [
+    // ...existing apps
+    helloApp,
   ],
 };
 ```
@@ -71,7 +71,7 @@ const config: HomesteadConfig = {
 make start
 ```
 
-Open the app, sign in, and go to `/hello`. The module appears in the sidebar
+Open the app, sign in, and go to `/hello`. The app appears in the sidebar
 under its `section`.
 
 ## Next steps
@@ -79,6 +79,6 @@ under its `section`.
 An app can do much more than render a page:
 
 - **[Widgets](./widgets)** — add a summary card to the dashboard.
-- **[Module Flags](./module-flags)** — add typed, household-wide settings.
+- **[App Flags](./app-flags)** — add typed, household-wide settings.
 - **[Notifications](./notifications)** — send push notifications to users.
 - **[Bulk Import](./bulk-import)** — let users import rows from a CSV.
