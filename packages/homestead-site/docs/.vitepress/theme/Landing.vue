@@ -3,35 +3,6 @@ import DefaultTheme from 'vitepress/theme';
 import { useData } from 'vitepress';
 
 const { frontmatter } = useData();
-
-const steps = [
-  {
-    n: '01',
-    title: 'Install',
-    text: 'One command pulls a verified release binary for your machine. No source checkout, no language toolchain, no afternoon lost to setup.',
-  },
-  {
-    n: '02',
-    title: 'Run',
-    text: 'homestead start boots the web app, the REST backend, the schema sync, and a SQLite database together — one process, one port, on hardware you already own.',
-  },
-  {
-    n: '03',
-    title: 'Extend',
-    text: 'Add modules as your needs get specific. Each one carries its own routes, data, settings, and workers, so the system stays legible as it grows.',
-  },
-];
-
-const modules = [
-  'Todos',
-  'Groceries',
-  'Recipes',
-  'People',
-  'Events',
-  'Gift cards',
-  'Credit-card perks',
-  'HSA receipts',
-];
 </script>
 
 <template>
@@ -43,81 +14,137 @@ const modules = [
         <span>Homestead</span>
       </a>
       <nav aria-label="Primary">
-        <a href="#how">How it works</a>
-        <a href="#agents">For agents</a>
+        <a href="#features">Platform</a>
+        <a href="#deploy">Deploy</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
     </header>
 
     <section class="hero">
-      <p class="eyebrow">Personal software, self-hosted</p>
+      <p class="pill"><span class="dot"></span> Self-hosted &middot; one binary</p>
       <h1>Build and deploy apps for&nbsp;you, your family, and your&nbsp;agents.</h1>
       <p class="lede">
-        Homestead is a single binary that runs the small, personal apps you
-        actually want — and gives every one of them a clean, agent-readable
-        backend. No platform team required.
+        Homestead is the platform under your personal apps — authentication, a
+        database, an agent-readable API, and a one-command deploy, all in a
+        single binary you run on hardware you own.
       </p>
       <div class="cta">
-        <a class="button" href="#install">Install Homestead</a>
+        <a class="button" href="#deploy">Install Homestead</a>
         <a class="link" href="https://github.com/rambleraptor/homestead">Read the source &rarr;</a>
       </div>
     </section>
 
-    <section class="manifesto">
-      <p>
-        You have a small app idea. A grocery list the whole house can edit. A
-        record of who gets which gift. A vault for the receipts you'll need at
-        tax time. The kind of software that should take an afternoon.
-      </p>
-      <p>
-        But an afternoon turns into a stack: authentication, a database,
-        schemas, a deploy target, backups you swear you'll set up. The idea goes
-        cold long before it ships.
-      </p>
-      <p class="emph">
-        Homestead hands you the whole stack in one binary, so you can build the
-        thing and move on with your life.
-      </p>
-    </section>
+    <section class="features" id="features" aria-label="The platform">
+      <div class="features-intro">
+        <p class="section-label">What the platform handles</p>
+        <h2>The boring, necessary parts — already done.</h2>
+        <p class="sub">
+          Every small app needs the same foundation. Homestead ships it, so you
+          write the part that's actually yours and move on with your life.
+        </p>
+      </div>
 
-    <section class="how" id="how" aria-label="How Homestead works">
-      <p class="section-label">How it works</p>
-      <ol>
-        <li v-for="step in steps" :key="step.n">
-          <span class="num">{{ step.n }}</span>
-          <div>
-            <h2>{{ step.title }}</h2>
-            <p>{{ step.text }}</p>
+      <div class="cards">
+        <article class="card">
+          <h3>Authentication, built in</h3>
+          <p>
+            Users, sessions, and a superuser exist from the first boot. No auth
+            service to wire up, no passwords for you to store or get wrong.
+          </p>
+          <div class="mock">
+            <div class="auth-row">
+              <span class="avatar"></span>
+              <div class="auth-id">
+                <b>you@home</b>
+                <small>superuser</small>
+              </div>
+              <span class="badge-on">signed in</span>
+            </div>
+            <div class="auth-row dim">
+              <span class="avatar"></span>
+              <div class="auth-id">
+                <b>family</b>
+                <small>2 members</small>
+              </div>
+              <span class="badge">invited</span>
+            </div>
           </div>
-        </li>
-      </ol>
+        </article>
+
+        <article class="card">
+          <h3>Ship an app in an afternoon</h3>
+          <p>
+            Each feature is a self-contained module — routes, data, settings,
+            and workers in one folder. Scaffold it, add one line of config, done.
+          </p>
+          <div class="mock">
+            <pre><code><span class="tok-dir">groceries/</span>
+  components/
+  hooks/
+  resources.ts
+  <span class="tok-file">module.config.ts</span></code></pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Skills your agents can call</h3>
+          <p>
+            Each module's actions are exposed as typed operations — real skills
+            an agent invokes directly, not screens it has to scrape.
+          </p>
+          <div class="mock">
+            <div class="skill-row"><span class="tick">&#10003;</span> add_grocery_item</div>
+            <div class="skill-row"><span class="tick">&#10003;</span> log_recipe_cooked</div>
+            <div class="skill-row"><span class="tick">&#10003;</span> redeem_card_perk</div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>One backend, two audiences</h3>
+          <p>
+            Under every app is an AEP-compliant REST API with schemas agents
+            discover on boot. Anything a person can do, an agent can automate.
+          </p>
+          <div class="mock">
+            <pre><code><span class="tok-verb">GET</span>  /api/aep/recipes
+<span class="tok-verb">POST</span> /api/aep/gift-cards/:id/transactions</code></pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Your data stays home</h3>
+          <p>
+            Everything runs as one binary on hardware you own, backed by a local
+            SQLite file. Nothing lives on someone else's server.
+          </p>
+          <div class="mock">
+            <pre><code><span class="tok-lock">&#9679;</span> ~/.homestead/data/<span class="tok-file">homestead.db</span>
+  <span class="tok-dim">files/ &middot; credentials.json</span></code></pre>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>The database manages itself</h3>
+          <p>
+            Declare resources in TypeScript; the schema syncs on boot — creating,
+            patching, and ordering tables for you. No migrations to hand-write.
+          </p>
+          <div class="mock">
+            <pre><code>resources: [<span class="tok-file">giftCard</span>, <span class="tok-file">transaction</span>]
+<span class="tok-dim">&rarr; synced 2 definitions</span></code></pre>
+          </div>
+        </article>
+      </div>
     </section>
 
-    <section class="agents" id="agents">
-      <p class="section-label muted">For your agents</p>
-      <h2>
-        Every module exposes its data as resources — not screens to scrape.
-      </h2>
-      <p>
-        Under each Homestead app is an AEP-compliant REST API. Your family taps
-        through the interface; your agents read and write the same records
-        directly, with schemas they can discover on boot. One backend serves
-        both, which means anything a person can do, an agent can automate —
-        cleanly, and without a brittle pile of UI selectors in between.
+    <section class="deploy" id="deploy">
+      <p class="section-label muted">One-command deploy</p>
+      <h2>Install, init, start.</h2>
+      <p class="deploy-sub">
+        One command pulls a verified binary. Another boots the web app, the REST
+        backend, the schema sync, and the database together — one process, one
+        port, on a machine you already own.
       </p>
-    </section>
-
-    <section class="modules">
-      <p class="section-label">Start with useful modules</p>
-      <ul>
-        <li v-for="m in modules" :key="m">{{ m }}</li>
-        <li class="own">…and your own</li>
-      </ul>
-    </section>
-
-    <section class="install" id="install">
-      <p class="section-label muted">Install</p>
-      <h2>Build the small app before the mood passes.</h2>
       <div class="commands">
         <pre><code><span class="prompt">$</span> curl -fsSL https://homestead.sh/install | bash</code></pre>
         <pre><code><span class="prompt">$</span> homestead init my-home
@@ -134,8 +161,8 @@ const modules = [
       </div>
       <p>Build and deploy apps for you, your family, and your agents.</p>
       <nav aria-label="Footer">
-        <a href="#how">How it works</a>
-        <a href="#agents">For agents</a>
+        <a href="#features">Platform</a>
+        <a href="#deploy">Deploy</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
     </footer>
