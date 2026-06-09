@@ -1,18 +1,20 @@
-# Bulk Import Framework
+# Bulk Import
 
-The bulk import framework lives at `frontend/src/shared/bulk-import/` and
-provides a generic CSV-import flow that any module can plug into. A module
-declares **what** it imports (a CSV schema, per-field validators, and a
-"save one row" function); the framework supplies the **how** (file upload
-UI, parser, validation summary, preview, error reporting).
+Let users import rows from a CSV into your module. This guide shows how to
+add a working CSV importer to a Homestead feature module.
 
-The shape was originally extracted from the People module and is now used
-by Gift Cards, People, and Pictionary.
+You declare **what** to import — a CSV schema, per-field validators, and a
+"save one row" function. The framework supplies the **how** — the file
+upload UI, CSV parsing, a validation summary, a row preview, per-row error
+reporting, and the import loop with React Query invalidation. Validators run
+synchronously at parse time (so they can't hit the API); the framework then
+loops your valid rows and calls your save logic for each. Import everything
+from the workspace alias
+`@rambleraptor/homestead-core/shared/bulk-import`.
 
 ## Table of Contents
 
-- [How it works](#how-it-works)
-- [Adding bulk import to a module](#adding-bulk-import-to-a-module)
+- [Adding bulk import to your module](#adding-bulk-import-to-your-module)
   - [1. Create the bulk-import folder](#1-create-the-bulk-import-folder)
   - [2. Define the schema](#2-define-the-schema)
   - [3. Write per-field validators](#3-write-per-field-validators)
@@ -27,50 +29,20 @@ by Gift Cards, People, and Pictionary.
   - [Reshaping multi-column input](#reshaping-multi-column-input)
   - [Cross-field validation](#cross-field-validation)
   - [Resolving references by name](#resolving-references-by-name)
-- [Future: non-CSV formats](#future-non-csv-formats)
 
 ---
 
-## How it works
-
-Three pieces fit together per module:
-
-| Piece                | Type                                | Provided by  |
-|----------------------|-------------------------------------|--------------|
-| CSV schema           | `BulkImportSchema<T>`               | the module   |
-| Field validators     | `FieldValidator<U>`                 | the module   |
-| Per-row save         | `saveItem(row, helpers) => Promise` | the module   |
-| File upload + parse  | `BulkImportContainer`               | the framework|
-| Preview cards        | `DefaultItemPreview` or custom      | both         |
-| Loop / error tracking| `useBulkImport`                     | the framework|
-
-The flow:
-
-1. User picks a `.csv` file in `BulkImportContainer`.
-2. The framework calls `parseCSV(content, schema)`. For each data row, every
-   field validator runs; the row is **valid** only if every required field
-   is present and no validator returns an error.
-3. If `schema.transformParsed` is set, valid rows are reshaped via that
-   function (handy when several CSV columns collapse into one nested
-   field).
-4. The user sees a preview list (per-row card + summary stats), can
-   deselect rows, and clicks Import.
-5. `useBulkImport`:
-   - calls `prepare()` once (if provided) to load lookup data,
-   - iterates valid items, calls `saveItem(row, { ctx, createdBy })`,
-   - tracks per-row success/failure, invalidates the supplied React Query
-     key on success.
-
-## Adding bulk import to a module
+## Adding bulk import to your module
 
 The shortest path is to copy the gift-cards module's setup
-(`frontend/src/modules/gift-cards/bulk-import/`); for nested writes, copy
-Pictionary's (`frontend/src/modules/pictionary/bulk-import/`).
+(`packages/homestead-modules/gift-cards/bulk-import/`); for nested writes,
+copy Pictionary's
+(`packages/homestead-modules/games/pictionary/bulk-import/`).
 
 ### 1. Create the bulk-import folder
 
 ```
-src/modules/<feature>/bulk-import/
+packages/homestead-modules/<feature>/bulk-import/
 ├── schema.ts          # column definitions + transformParsed
 ├── validators.ts      # per-field validators
 ├── types.ts           # the imported row shape (`T`)
@@ -82,8 +54,8 @@ src/modules/<feature>/bulk-import/
 ### 2. Define the schema
 
 ```ts
-// src/modules/<feature>/bulk-import/schema.ts
-import type { BulkImportSchema } from '@/shared/bulk-import';
+// packages/homestead-modules/<feature>/bulk-import/schema.ts
+import type { BulkImportSchema } from '@rambleraptor/homestead-core/shared/bulk-import';
 import { validateName, validateAmount } from './validators';
 
 export interface MyImportData {
@@ -115,8 +87,8 @@ returns `{ value: U }` on success or `{ value, error }` on failure. The
 [Cross-field validation](#cross-field-validation)).
 
 ```ts
-// src/modules/<feature>/bulk-import/validators.ts
-import type { FieldValidator } from '@/shared/bulk-import';
+// packages/homestead-modules/<feature>/bulk-import/validators.ts
+import type { FieldValidator } from '@rambleraptor/homestead-core/shared/bulk-import';
 
 export const validateName: FieldValidator<string> = (value) => {
   const name = value.trim();
@@ -134,12 +106,17 @@ fetched async (e.g. "does this person exist?"), defer to the save step
 ### 4. Build the save hook
 
 For a simple one-row → one-resource module, just call `useBulkImport`
-directly with a `collection`:
+directly with a `collection`. The collection is the kebab-case plural URL
+segment — import it from the module's `resources.ts` rather than hard-coding
+a string:
 
 ```ts
 // in your bulk-import/index.tsx
+import { MY_THINGS } from '../resources';
+import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+
 const bulkImport = useBulkImport({
-  collection: AepCollections.MY_THING,
+  collection: MY_THINGS,
   queryKey: queryKeys.module('my-thing').list(),
 });
 ```
@@ -166,16 +143,15 @@ export const myImportSchema: BulkImportSchema<MyImportData> = {
 ### 6. Wire the entry component
 
 ```tsx
-// src/modules/<feature>/bulk-import/index.tsx
-'use client';
-import { BulkImportContainer, useBulkImport } from '@/shared/bulk-import';
-import { AepCollections } from '@/core/api/aepbase';
-import { queryKeys } from '@/core/api/queryClient';
+// packages/homestead-modules/<feature>/bulk-import/index.tsx
+import { BulkImportContainer, useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
+import { MY_THINGS } from '../resources';
+import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { myImportSchema } from './schema';
 
 export function MyModuleBulkImport() {
   const bulkImport = useBulkImport({
-    collection: AepCollections.MY_THING,
+    collection: MY_THINGS,
     queryKey: queryKeys.module('my-thing').list(),
   });
 
@@ -196,65 +172,105 @@ export function MyModuleBulkImport() {
 
 ### 7. Register the route
 
-Two places:
+The SPA has no per-route page files — routes are declared inline on each
+module. Add an `import` entry to the module's `routes` array in
+`module.config.ts`, pointing `component` at a lazy import of the entry
+component:
 
-1. In `module.config.ts`, add `{ path: 'import' }` to `routes`.
-2. Create the Next.js page at
-   `src/app/(app)/<feature>/import/page.tsx`:
-
-```tsx
-'use client';
-import { MyModuleBulkImport } from '@/modules/<feature>/bulk-import';
-
-export default function MyModuleImportPage() {
-  return <MyModuleBulkImport />;
-}
+```ts
+// packages/homestead-modules/<feature>/module.config.ts
+export const myModule: HomeModule = {
+  // ...
+  basePath: '/my-thing',
+  routes: [
+    {
+      path: '',
+      index: true,
+      component: () =>
+        import('./components/MyHome').then((m) => m.MyHome),
+    },
+    {
+      path: 'import',
+      component: () =>
+        import('./bulk-import').then((m) => m.MyModuleBulkImport),
+    },
+  ],
+  // ...
+};
 ```
+
+The SPA's catch-all renderer
+(`packages/homestead-app/src/modules/ModuleRoute.tsx`) resolves the route's
+lazy `component` for the matched path (here `/my-thing/import`), so there's
+nothing else to wire up.
 
 ### 8. Add a discoverable link
 
 In your module's home component, add an "Import" button alongside the
-primary "New X" action that pushes to `/<feature>/import`. See
-`PeopleHome.tsx` or `PictionaryHome.tsx` for the pattern.
+primary "New X" action that navigates to `/<feature>/import` via
+react-router's `useNavigate`. See `PeopleHome.tsx` for the pattern:
+
+```tsx
+import { useNavigate } from 'react-router-dom';
+// ...
+const navigate = useNavigate();
+// ...
+<Button variant="secondary" onClick={() => navigate('/people/import')}>
+  Import
+</Button>
+```
 
 ## Patterns
 
 ### Simple modules: one row → one resource
 
 Gift cards is the canonical example. It uses the built-in `collection`
-path with no custom hook:
+path with no custom hook, pulling the collection constant from the
+module's `resources.ts`:
 
 ```ts
+import { GIFT_CARDS } from '../resources';
+import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+
 useBulkImport({
-  collection: AepCollections.GIFT_CARDS,
-  queryKey: queryKeys.module('gift-cards').list(),
-  transformData: (data) => ({ ...data, front_image: null, back_image: null }),
+  collection: GIFT_CARDS,
+  queryKey: queryKeys.module('gift-cards').resource('gift-card').list(),
+  transformData: (data) => ({
+    ...(data as Record<string, unknown>),
+    front_image: null,
+    back_image: null,
+  }),
 });
 ```
 
 `transformData` runs once per row right before the create call, useful
-for adding fields the CSV doesn't carry.
+for adding fields the CSV doesn't carry (here the file fields the CSV
+import can't supply). The framework adds `created_by` automatically.
 
 ### Nested modules: one row → parent + children
 
 When a row creates a parent record plus child records (e.g. one
 Pictionary game with N teams), use the `saveItem` path. The framework
 still owns the loop, error tracking, and query invalidation; you just
-provide the per-row write:
+provide the per-row write. Collection constants come from the module's
+`resources.ts`:
 
 ```ts
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
+
 useBulkImport<MyImportData, void>({
-  queryKey: queryKeys.module('my-thing').all(),
+  queryKey: queryKeys.module('pictionary').all(),
   saveItem: async (row, { createdBy }) => {
-    const parent = await aepbase.create(AepCollections.PARENTS, {
+    const game = await aepbase.create(PICTIONARY_GAMES, {
       ...row, created_by: createdBy,
     });
     await Promise.all(
-      row.children.map((child) =>
+      row.teams.map((team) =>
         aepbase.create(
-          AepCollections.CHILDREN,
-          { ...child, created_by: createdBy },
-          { parent: [AepCollections.PARENTS, parent.id] },
+          PICTIONARY_TEAMS,
+          { ...team, created_by: createdBy },
+          { parent: [PICTIONARY_GAMES, game.id] },
         ),
       ),
     );
@@ -276,35 +292,50 @@ build the final shape:
 export const myImportSchema: BulkImportSchema<CleanShape> = {
   requiredFields: [/* team_1, team_2 with makeTeamValidator */],
   optionalFields: [/* team_3..team_6, winner */],
-  transformParsed: (raw) => ({
-    teams: TEAM_COLUMNS
-      .map((col) => raw[col])
-      .filter((cell): cell is ParsedTeam => cell != null),
-    winner: raw.winner,
-  }),
+  transformParsed: (raw) => {
+    const teams: Team[] = [];
+    TEAM_COLUMNS.forEach((col, index) => {
+      const cell = raw[col] as { playerNames: string[] } | null | undefined;
+      if (!cell) return;
+      teams.push({ position: index + 1, playerNames: cell.playerNames });
+    });
+    return { teams, winner: raw.winner as number | undefined };
+  },
   generateTemplate,
 };
 ```
 
 `transformParsed` only runs on rows that passed every per-field
-validator, so you can trust the input.
+validator, so you can trust the input. (Pictionary wraps its schema in a
+`makePictionaryImportSchema(peopleByName)` factory so the team validators
+can be wired with an async-loaded people lookup — see
+[Resolving references by name](#resolving-references-by-name).)
 
 ### Cross-field validation
 
 A field validator's second argument is the full raw row, so a validator
 for one column can read the unparsed text of another column. Pictionary
-uses this to verify the `winner` cell matches one of the filled
-`team_N` cells:
+uses this to verify the `winner` cell (a 1-based team position) points at
+a team_N column that actually has players:
 
 ```ts
-export const validateWinner: FieldValidator<string | undefined> = (value, row) => {
-  const winner = value.trim();
-  if (!winner) return { value: undefined };
-  const teamNames = collectTeamNames(row); // re-parse team_N from row
-  if (!teamNames.has(winner.toLowerCase())) {
-    return { value: winner, error: `winner "${winner}" is not a team in this row` };
+export const validateWinner: FieldValidator<number | undefined> = (value, row) => {
+  const raw = value.trim();
+  if (!raw) return { value: undefined };
+
+  const position = Number(raw);
+  if (!Number.isInteger(position) || position < 1 || position > TEAM_COLUMNS.length) {
+    return {
+      value: undefined,
+      error: `winner must be a team position between 1 and ${TEAM_COLUMNS.length}`,
+    };
   }
-  return { value: winner };
+
+  const cellRaw = row[TEAM_COLUMNS[position - 1]]?.trim();
+  if (!cellRaw) {
+    return { value: undefined, error: `winner position ${position} has no team in this row` };
+  }
+  return { value: position };
 };
 ```
 
@@ -313,13 +344,19 @@ export const validateWinner: FieldValidator<string | undefined> = (value, row) =
 Validators run synchronously at parse time, so they can't hit the API.
 For "does this person/store/etc. exist?" checks, defer to save time and
 use the `prepare` hook to load the lookup table once before the loop
-starts:
+starts. The result is passed to every `saveItem` call as `ctx`:
 
 ```ts
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { MY_THINGS } from '../resources';
+import { PEOPLE } from '../../people/resources';
+
+interface PersonRecord { id: string; name: string }
+
 useBulkImport<MyImportData, Map<string, string>>({
   queryKey: queryKeys.module('my-thing').list(),
   prepare: async () => {
-    const people = await aepbase.list<PersonRecord>(AepCollections.PEOPLE);
+    const people = await aepbase.list<PersonRecord>(PEOPLE);
     return new Map(people.map((p) => [p.name.toLowerCase(), p.id]));
   },
   saveItem: async (row, { ctx: peopleByName, createdBy }) => {
@@ -327,7 +364,7 @@ useBulkImport<MyImportData, Map<string, string>>({
     if (!ownerId) {
       throw new Error(`Unknown owner: "${row.owner}"`);
     }
-    await aepbase.create(AepCollections.MY_THING, {
+    await aepbase.create(MY_THINGS, {
       owner: `people/${ownerId}`,
       ...row, created_by: createdBy,
     });
@@ -336,19 +373,17 @@ useBulkImport<MyImportData, Map<string, string>>({
 ```
 
 A thrown error becomes a per-row import error so the user sees exactly
-which rows had unknown references.
+which rows had unknown references. Pictionary's
+`useBulkImportPictionary.ts` is the live example: its `prepare`
+(`loadPeopleMap`) loads a lowercased name → id map, and `saveItem`
+resolves each team's players into `people/{id}` paths, throwing if any
+name is unknown. The same map also drives preview-time validation via the
+`usePeopleNameMap` query (see `peopleMap.ts`), so unknown names surface in
+the preview before the import even runs.
 
-## Future: non-CSV formats
-
-The framework today is CSV-only — `BulkImportContainer` checks for a
-`.csv` extension and calls `parseCSV` directly. The schema/validator/
-saveItem split was deliberately kept format-agnostic so a future
-JSON/XLSX/etc. parser could plug in by:
-
-1. Adding a `parser` field on `BulkImportSchema` (default: CSV).
-2. Letting `BulkImportContainer` dispatch to the schema's parser based
-   on the uploaded file.
-
-This refactor is intentionally deferred until there's a real second
-format in scope; the current shape is enough to ship CSV imports for
-any module.
+> Not every module fits the generic hook. People's importer
+> (`packages/homestead-modules/people/hooks/useBulkImportPeople.ts`) is a
+> hand-written `useMutation` because it needs two passes — create everyone
+> first, then resolve partner-by-name references — and its `index.tsx`
+> simply imports that hook instead of `useBulkImport`. Reach for a custom
+> hook when the framework's single-pass loop isn't enough.

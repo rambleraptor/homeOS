@@ -1,14 +1,18 @@
-# Guides
+# Docs
 
-Reference documentation for building on and self-hosting Homestead.
+Documentation for installing Homestead and building your own apps on it.
 
-## Running Homestead
+## Getting Started
 
-- **[Self-hosting](./self-hosting)** — from a fresh clone to a running, configured instance on your own machine.
+- **[Installation](./installation)** — install the CLI and run your first instance.
+- **[Quick Start](./quick-start)** — build a "Hello World" app and add it to your instance.
 
-## Building modules
+## Module Development
 
-- **[Dashboard Widgets](./widgets)** — contribute small React components to the home dashboard.
-- **[Module Flags](./module-flags)** — typed, household-wide configuration any module can declare and read.
-- **[Notifications](./notifications)** — let your module send notifications to users.
-- **[Bulk Import](./bulk-import)** — add CSV/spreadsheet import to a module.
+Modules are Homestead's version of apps. These guides cover what an app can do
+beyond rendering a page.
+
+- **[Dashboard Widgets](./widgets)** — add a summary card to the home dashboard.
+- **[Module Flags](./module-flags)** — typed, household-wide settings an app can declare and read.
+- **[Notifications](./notifications)** — send push notifications to users.
+- **[Bulk Import](./bulk-import)** — add CSV import to an app.

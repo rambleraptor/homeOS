@@ -40,7 +40,7 @@ Homestead ships with a growing set of opt-in modules:
 
 Each feature is an opt-in **module**. You pick which ones ship by editing a
 single file, `homestead.config.ts`. Want a different mix, or your own
-custom module? See **[the self-hosting guide](packages/homestead-site/docs/guides/self-hosting.md)**.
+custom module? See the **[docs](packages/homestead-site/docs/guides/index.md)**.
 
 ## Quick start
 
@@ -194,8 +194,6 @@ sudo systemctl start homestead
 
 `homestead update` keeps the box in sync with your config repo — edit
 `homestead.config.ts` from anywhere, push, and the timer pulls + restarts.
-See the **[📖 Self-Hosting Guide](docs/SELF_HOSTING.md#6-production-deployment)**
-for the full walkthrough.
 
 ## Development
 

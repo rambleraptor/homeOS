@@ -16,6 +16,7 @@ const { frontmatter } = useData();
       <nav aria-label="Primary">
         <a href="#features">Platform</a>
         <a href="#deploy">Deploy</a>
+        <a href="/guides/">Docs</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
     </header>
@@ -29,8 +30,8 @@ const { frontmatter } = useData();
         single binary you run on hardware you own.
       </p>
       <div class="cta">
-        <a class="button" href="#deploy">Install Homestead</a>
-        <a class="link" href="https://github.com/rambleraptor/homestead">Read the source &rarr;</a>
+        <a class="button" href="/guides/installation">Install Homestead</a>
+        <a class="link" href="/guides/">Read the docs &rarr;</a>
       </div>
     </section>
 
@@ -163,6 +164,7 @@ const { frontmatter } = useData();
       <nav aria-label="Footer">
         <a href="#features">Platform</a>
         <a href="#deploy">Deploy</a>
+        <a href="/guides/">Docs</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
     </footer>
