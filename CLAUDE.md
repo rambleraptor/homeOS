@@ -203,7 +203,7 @@ to add or remove a module. Routes are declared inline on each
 (`packages/homestead-app/src/App.tsx`) sends every unmatched path to the catch-all
 renderer in `packages/homestead-app/src/modules/ModuleRoute.tsx`, which resolves the
 route's lazy component — there are no per-route page files. See
-[`packages/homestead-site/docs/guides/self-hosting.md`](packages/homestead-site/docs/guides/self-hosting.md)
+[`packages/homestead-site/docs/guides/quick-start.md`](packages/homestead-site/docs/guides/quick-start.md)
 for the operator-facing walkthrough.
 
 ### Style
@@ -297,8 +297,7 @@ service + an auto-update timer that runs `update` on `--update-interval`
 Systemd-based deployment is driven entirely by the launcher:
 `sudo homestead install-service` generates + enables the `homestead.service`
 unit plus a `homestead-update.timer`/`.service` that runs `homestead update`
-on a cadence. No separate scripts or source checkout required. See
-[`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md#6-production-deployment).
+on a cadence. No separate scripts or source checkout required.
 
 ## aepbase schema (TypeScript)
 

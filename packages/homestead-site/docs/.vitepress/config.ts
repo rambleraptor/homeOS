@@ -29,17 +29,20 @@ export default defineConfig({
     siteTitle: 'Homestead',
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Guides', link: '/guides/' },
+      { text: 'Docs', link: '/guides/' },
       { text: 'GitHub', link: 'https://github.com/rambleraptor/homestead' },
     ],
     sidebar: {
       '/guides/': [
         {
-          text: 'Running Homestead',
-          items: [{ text: 'Self-hosting', link: '/guides/self-hosting' }],
+          text: 'Getting Started',
+          items: [
+            { text: 'Installation', link: '/guides/installation' },
+            { text: 'Quick Start', link: '/guides/quick-start' },
+          ],
         },
         {
-          text: 'Building modules',
+          text: 'Module Development',
           items: [
             { text: 'Dashboard Widgets', link: '/guides/widgets' },
             { text: 'Module Flags', link: '/guides/module-flags' },
