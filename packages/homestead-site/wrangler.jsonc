@@ -1,0 +1,25 @@
+{
+  // Cloudflare Worker config for the Homestead marketing site.
+  // This is a static VitePress build served via Workers Static Assets —
+  // an assets-only Worker (no `main`, no server code, no bindings).
+  //
+  // Deploy model: Workers Builds (Git integration). The Worker is connected to
+  // the GitHub repo in the Cloudflare dashboard with these Build settings:
+  //   Root directory:  packages/homestead-site
+  //   Build command:   npm run build
+  //   Deploy command:  npx wrangler versions upload   (reads this file)
+  //
+  // `name` must match the Worker the build is attached to ("homestead").
+  // `assets.directory` is the VitePress output; wrangler uploads it as the
+  // Worker's static assets and serves them directly — no entry-point script
+  // is required for an assets-only Worker.
+  //
+  // Because the root directory is this package, Cloudflare installs only this
+  // package's deps (vitepress + typescript) — the rest of the monorepo is not
+  // pulled into the build.
+  "name": "homestead",
+  "compatibility_date": "2026-06-08",
+  "assets": {
+    "directory": "docs/.vitepress/dist"
+  }
+}
