@@ -14,6 +14,7 @@ const { frontmatter } = useData();
         <span>Homestead</span>
       </a>
       <nav aria-label="Primary">
+        <a href="#agents">Agents</a>
         <a href="#features">Platform</a>
         <a href="#deploy">Deploy</a>
         <a href="/guides/">Docs</a>
@@ -22,16 +23,51 @@ const { frontmatter } = useData();
     </header>
 
     <section class="hero">
-      <p class="pill"><span class="dot"></span> Self-hosted &middot; one binary</p>
+      <p class="pill"><span class="dot"></span> Self-hosted &middot; one binary &middot; MIT</p>
       <h1>Build and deploy apps for&nbsp;you, your family, and your&nbsp;agents.</h1>
       <p class="lede">
-        Homestead is the platform under your personal apps — authentication, a
-        database, an agent-readable API, and a one-command deploy, all in a
-        single binary you run on hardware you own.
+        Homestead is the platform under your personal apps — auth, a database,
+        and a one-command deploy in a single self-hosted binary. Your household
+        gets real apps for groceries, recipes, and todos; your agents get a
+        typed API they can discover and call.
       </p>
       <div class="cta">
         <a class="button" href="/guides/installation">Install Homestead</a>
         <a class="link" href="/guides/">Read the docs &rarr;</a>
+      </div>
+    </section>
+
+    <section class="agent" id="agents" aria-label="Agents in action">
+      <div class="agent-copy">
+        <p class="section-label">Agents in action</p>
+        <h2>Say it once. It lands in the family's apps.</h2>
+        <p class="sub">
+          Homestead publishes a typed schema for every app on boot. An agent
+          reads it, calls real operations — not screenshots, not scraping —
+          and the result shows up in the same apps your household already
+          uses.
+        </p>
+        <a class="link" href="/apps">See what agents can reach &rarr;</a>
+      </div>
+      <div class="chat" aria-label="Example agent conversation">
+        <p class="chat-msg from-user">
+          We cooked the lemon orzo tonight — and we're out of olive oil.
+        </p>
+        <div class="chat-msg from-agent">
+          <p>Done. I logged the recipe and added olive oil to the list.</p>
+          <div class="skill-row">
+            <span class="tick">&#10003;</span>
+            log_recipe_cooked &middot; Lemon orzo &rarr; Recipes
+          </div>
+          <div class="skill-row">
+            <span class="tick">&#10003;</span>
+            add_grocery_item &middot; Olive oil &rarr; Groceries
+          </div>
+        </div>
+        <div class="chat-result">
+          <span class="badge">Groceries &middot; 1 new item</span>
+          <span class="badge">Recipes &middot; cooked tonight</span>
+        </div>
       </div>
     </section>
 
@@ -119,7 +155,7 @@ const { frontmatter } = useData();
             SQLite file. Nothing lives on someone else's server.
           </p>
           <div class="mock">
-            <pre><code><span class="tok-lock">&#9679;</span> ~/.homestead/data/<span class="tok-file">homestead.db</span>
+            <pre><code><span class="tok-lock">&#9679;</span> my-home/data/<span class="tok-file">aepbase.db</span>
   <span class="tok-dim">files/ &middot; credentials.json</span></code></pre>
           </div>
         </article>
@@ -136,6 +172,117 @@ const { frontmatter } = useData();
           </div>
         </article>
       </div>
+
+      <p class="apps-line">
+        Homestead ships with 11 built-in apps — groceries, recipes, todos,
+        gift cards, and more.
+        <a class="link" href="/apps">See what's included &rarr;</a>
+      </p>
+    </section>
+
+    <section class="who" aria-label="Who Homestead is for">
+      <article>
+        <h3>For self-hosters</h3>
+        <p>
+          One binary on one port, systemd-ready.
+          <code>homestead install-service</code> sets up the service and an
+          auto-update timer; <code>homestead doctor</code> checks the box
+          first.
+        </p>
+        <a class="link" href="/guides/installation">Install &rarr;</a>
+      </article>
+      <article>
+        <h3>For your household</h3>
+        <p>
+          Real apps from first boot — groceries, recipes, events, todos —
+          with accounts and invites built in. No one else's cloud.
+        </p>
+        <a class="link" href="/apps">See the apps &rarr;</a>
+      </article>
+      <article>
+        <h3>For your agents</h3>
+        <p>
+          An AEP-compliant REST API with schemas discovered on boot. Anything
+          a person can do in the UI, an agent can do through the API.
+        </p>
+        <a class="link" href="#agents">How it works &rarr;</a>
+      </article>
+    </section>
+
+    <section class="faq" id="faq" aria-label="Frequently asked questions">
+      <div class="faq-inner">
+        <div class="faq-intro">
+          <p class="section-label">Questions, answered</p>
+          <h2>Before you point it at a server.</h2>
+        </div>
+
+        <details>
+          <summary>What hardware do I need?</summary>
+          <p>
+            Any macOS or Linux box, x64 or arm64. The installer pulls a
+            prebuilt, verified binary with everything embedded — no Node,
+            Bun, or Go at runtime. A mini PC or a small VPS is plenty, and
+            <code>homestead doctor</code> checks a machine before you commit
+            to it.
+          </p>
+        </details>
+
+        <details>
+          <summary>How do updates work?</summary>
+          <p>
+            Your instance is a git checkout of your own config.
+            <code>homestead update</code> pulls it and restarts;
+            <code>homestead install-service</code> adds a systemd timer that
+            does it automatically. If an update breaks the restart, Homestead
+            rolls back to the previous commit and brings everything back up.
+          </p>
+        </details>
+
+        <details>
+          <summary>How do I back up my data?</summary>
+          <p>
+            Everything lives in one directory: a single SQLite file
+            (<code>data/aepbase.db</code>) plus a <code>files/</code> folder
+            for uploads. Copy that directory with whatever backup tool you
+            already use, and your homestead is backed up.
+          </p>
+        </details>
+
+        <details>
+          <summary>Is it open source?</summary>
+          <p>
+            Yes — MIT licensed, with the full
+            <a class="link" href="https://github.com/rambleraptor/homestead"
+              >source on GitHub</a
+            >.
+          </p>
+        </details>
+
+        <details>
+          <summary>What leaves my machine?</summary>
+          <p>
+            Your data: nothing. The database binds to loopback and a single
+            port faces your network — many people keep even that on a private
+            network like Tailscale. The binary only reaches out for things
+            you ask for: release downloads, <code>homestead update</code>
+            pulling your own git remote, and — only if you turn them on —
+            Google sign-in and web-push delivery.
+          </p>
+        </details>
+
+        <details>
+          <summary>Can I write my own apps?</summary>
+          <p>
+            That's the point. <code>homestead init</code> gives you an
+            <code>apps/</code> folder; an app is a directory with an
+            <code>app.config.ts</code> declaring its routes, data, widgets,
+            and settings. One line in <code>homestead.config.ts</code> ships
+            it — the
+            <a class="link" href="/guides/quick-start">Quick Start</a> walks
+            through it.
+          </p>
+        </details>
+      </div>
     </section>
 
     <section class="deploy" id="deploy">
@@ -147,7 +294,7 @@ const { frontmatter } = useData();
         port, on a machine you already own.
       </p>
       <div class="commands">
-        <pre><code><span class="prompt">$</span> curl -fsSL https://homestead.sh/install | bash</code></pre>
+        <pre><code><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash</code></pre>
         <pre><code><span class="prompt">$</span> homestead init my-home
 <span class="prompt">$</span> cd my-home
 <span class="prompt">$</span> homestead start</code></pre>
@@ -164,7 +311,9 @@ const { frontmatter } = useData();
       <nav aria-label="Footer">
         <a href="#features">Platform</a>
         <a href="#deploy">Deploy</a>
+        <a href="/apps">Apps</a>
         <a href="/guides/">Docs</a>
+        <a href="#faq">FAQ</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
     </footer>
