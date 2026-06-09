@@ -1,0 +1,17 @@
+{
+  // Cloudflare Pages project config for the Homestead marketing site.
+  // This is a static VitePress build — no Pages Functions, no bindings.
+  //
+  // Deploy model: Git integration. Connect the GitHub repo in the Cloudflare
+  // dashboard once with these Build settings:
+  //   Root directory:          packages/homestead-site
+  //   Build command:           npm run build
+  //   Build output directory:  docs/.vitepress/dist   (read from this file)
+  //
+  // Because the root directory is this package, Cloudflare installs only this
+  // package's deps (vitepress + typescript) — the rest of the monorepo is not
+  // pulled into the build.
+  "name": "homestead-site",
+  "pages_build_output_dir": "docs/.vitepress/dist",
+  "compatibility_date": "2026-06-08"
+}
