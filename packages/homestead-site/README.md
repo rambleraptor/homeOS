@@ -11,35 +11,35 @@ npm run build    # static build → docs/.vitepress/dist
 npm run preview  # serve the built site locally
 ```
 
-## Hosting: Cloudflare Pages (Git integration)
+## Hosting: Cloudflare Workers Static Assets (Git integration)
 
-The site is published on Cloudflare Pages via **Git integration** — Cloudflare
-builds and deploys automatically on every push to `main`, with preview
-deployments for other branches/PRs. Build settings are committed in
-[`wrangler.jsonc`](./wrangler.jsonc); the only manual step is connecting the
-repo once.
+The site is published on Cloudflare as an **assets-only Worker** (Workers Static
+Assets) via **Workers Builds** Git integration — Cloudflare builds and deploys
+automatically on every push to `main`, with preview deployments for other
+branches/PRs. There is no server code: `wrangler.jsonc` points
+`assets.directory` at the VitePress build and Cloudflare serves it directly.
 
-### One-time setup
+> Why a Worker and not Pages? Cloudflare now recommends Workers Static Assets
+> over Pages for new static sites, and the `homestead` Worker is already wired
+> to the repo. Functionally it's the same static hosting.
 
-1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Pages** →
-   **Connect to Git**, and select the `rambleraptor/homestead` repo.
-2. Configure the build (a monorepo, so set the root directory to this package):
+### Build settings (in the dashboard)
 
-   | Setting                  | Value                       |
-   | ------------------------ | --------------------------- |
-   | Project name             | `homestead-site`            |
-   | Production branch        | `main`                      |
-   | Root directory           | `packages/homestead-site`   |
-   | Framework preset         | `VitePress`                 |
-   | Build command            | `npm run build`             |
-   | Build output directory   | `docs/.vitepress/dist`      |
+The `homestead` Worker → **Settings** → **Build** is configured as:
 
-   Because the root directory is this package, Cloudflare installs only this
-   package's deps (`vitepress` + `typescript`) — the rest of the monorepo is
-   not pulled into the build. The output directory is also read from
-   `wrangler.jsonc`, so it stays in sync if it ever changes.
-3. **Save and Deploy.** Subsequent pushes deploy automatically.
-4. (Optional) Add a custom domain under the project's **Custom domains** tab.
+| Setting          | Value                          |
+| ---------------- | ------------------------------ |
+| Production branch | `main`                        |
+| Root directory   | `packages/homestead-site`      |
+| Build command    | `npm run build`                |
+| Deploy command   | `npx wrangler versions upload` |
+
+Because the root directory is this package, Cloudflare installs only this
+package's deps (`vitepress` + `typescript`) — the rest of the monorepo is not
+pulled into the build. The deploy command reads [`wrangler.jsonc`](./wrangler.jsonc),
+so the Worker name and assets directory stay in sync from the repo.
+
+A custom domain can be added under the Worker's **Domains & Routes** tab.
 
 ### Manual / fallback deploy
 
@@ -47,6 +47,6 @@ For a one-off deploy outside Git integration (requires `wrangler login` or a
 `CLOUDFLARE_API_TOKEN`):
 
 ```bash
-npm run cf:deploy   # builds, then `wrangler pages deploy`
-npm run cf:preview  # serve the built output through the Pages runtime locally
+npm run cf:deploy   # builds, then `wrangler deploy`
+npm run cf:preview  # serve the built output through the Workers runtime locally
 ```

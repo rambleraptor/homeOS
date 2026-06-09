@@ -7,8 +7,8 @@
     "dev": "vitepress dev docs",
     "build": "vitepress build docs",
     "preview": "vitepress preview docs",
-    "cf:preview": "wrangler pages dev",
-    "cf:deploy": "npm run build && wrangler pages deploy"
+    "cf:preview": "wrangler dev",
+    "cf:deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "vitepress": "^1.6.4"
