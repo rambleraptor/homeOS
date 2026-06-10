@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress';
 
 const tagline = 'Build and deploy apps for you, your family, and your agents.';
+const siteUrl = 'https://myhomestead.dev';
 
 export default defineConfig({
   title: 'Homestead',
@@ -13,6 +14,10 @@ export default defineConfig({
     ['meta', { name: 'description', content: tagline }],
     ['meta', { property: 'og:title', content: 'Homestead' }],
     ['meta', { property: 'og:description', content: tagline }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:site_name', content: 'Homestead' }],
+    ['meta', { property: 'og:image', content: `${siteUrl}/homestead-icon.png` }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
     ['meta', { name: 'theme-color', content: '#1f3a2e' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
@@ -24,11 +29,22 @@ export default defineConfig({
       },
     ],
   ],
+  transformHead({ pageData }) {
+    const path = pageData.relativePath
+      .replace(/(^|\/)index\.md$/, '$1')
+      .replace(/\.md$/, '');
+    const canonical = `${siteUrl}/${path}`;
+    return [
+      ['link', { rel: 'canonical', href: canonical }],
+      ['meta', { property: 'og:url', content: canonical }],
+    ];
+  },
   themeConfig: {
     logo: '/homestead-icon.png',
     siteTitle: 'Homestead',
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Apps', link: '/apps' },
       { text: 'Docs', link: '/guides/' },
       { text: 'GitHub', link: 'https://github.com/rambleraptor/homestead' },
     ],
