@@ -1,12 +1,16 @@
 /**
  * Header Component
  *
- * Top navigation bar with menu toggle and breadcrumbs
+ * Top navigation bar with menu toggle and icon buttons for every app
+ * placed on the top bar (`HomeApp.placement: 'topbar'`).
  */
 
+import { Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Bell } from 'lucide-react';
-import { useNotificationStats } from '@rambleraptor/homestead-apps/notifications/hooks/useNotificationStats';
+import { Menu } from 'lucide-react';
+import { getTopBarApps } from '@rambleraptor/homestead-core/apps/registry';
+import { AppIcon, getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
+import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -14,11 +18,10 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
-  const { data: stats } = useNotificationStats();
 
-  const handleNotificationsClick = () => {
-    navigate('/notifications');
-  };
+  // Top-bar apps share the same `enabled` flag gating as the sidebar.
+  const isEnabled = useAppEnabledPredicate();
+  const topBarApps = getTopBarApps().filter((m) => isEnabled(m.id));
 
   return (
     <header className="bg-surface-white border-b border-gray-100 sticky top-0 z-30">
@@ -37,22 +40,29 @@ export function Header({ onMenuClick }: HeaderProps) {
           {/* Breadcrumbs or additional navigation can go here */}
         </div>
 
-        {/* Right side - Actions */}
+        {/* Right side - Top-bar apps */}
         <div className="flex items-center gap-2 ml-auto">
-          {/* Notifications */}
-          <button
-            onClick={handleNotificationsClick}
-            className="p-2 rounded-lg hover:bg-bg-pearl transition-colors relative"
-            aria-label="Notifications"
-          >
-            <Bell className="w-5 h-5 text-brand-navy" />
-            {/* Notification badge */}
-            {stats && stats.unread > 0 && (
-              <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-accent-terracotta text-white text-xs font-semibold rounded-full flex items-center justify-center px-1">
-                {stats.unread > 99 ? '99+' : stats.unread}
-              </span>
-            )}
-          </button>
+          {topBarApps.map((app) => {
+            const Badge = app.topBarBadge
+              ? getLazyComponent(app.topBarBadge)
+              : null;
+            return (
+              <button
+                key={app.id}
+                onClick={() => navigate(app.basePath)}
+                className="p-2 rounded-lg hover:bg-bg-pearl transition-colors relative"
+                aria-label={app.name}
+                data-testid={`topbar-app-${app.id}`}
+              >
+                <AppIcon icon={app.icon} className="w-5 h-5 text-brand-navy" />
+                {Badge && (
+                  <Suspense fallback={null}>
+                    <Badge />
+                  </Suspense>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
     </header>

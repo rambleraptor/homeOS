@@ -13,6 +13,8 @@ import { describe, it, expect } from 'vitest';
 import {
   getAllAppFlagDefs,
   getAppById,
+  getNavigationApps,
+  getTopBarApps,
   appRegistry,
   BUILTIN_ENABLED_FLAG_KEY,
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
@@ -93,6 +95,24 @@ describe('getAllAppFlagDefs', () => {
         expect(flag.default).toBe('superusers');
       }
     }
+  });
+});
+
+describe('top-bar placement', () => {
+  it('keeps topbar apps out of the sidebar navigation', () => {
+    const navIds = getNavigationApps().map((m) => m.id);
+    expect(navIds).not.toContain('notifications');
+    expect(navIds).not.toContain('chat');
+    expect(navIds).toContain('groceries');
+  });
+
+  it('returns topbar apps in navOrder', () => {
+    const topBarIds = getTopBarApps().map((m) => m.id);
+    expect(topBarIds).toEqual(['notifications', 'chat']);
+  });
+
+  it('registers chat as an always-installed core app', () => {
+    expect(getAppById('chat')?.basePath).toBe('/chat');
   });
 });
 

@@ -115,6 +115,7 @@ export default defineConfig(({ mode }) => ({
       },
       '/api/notifications': { target: SIDECAR_URL, changeOrigin: true },
       '/api/custom-methods': { target: SIDECAR_URL, changeOrigin: true },
+      '/api/chat': { target: SIDECAR_URL, changeOrigin: true },
     },
   },
   build: {
