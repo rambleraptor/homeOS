@@ -120,10 +120,22 @@ class AppRegistryImpl implements AppRegistry {
   }
 
   /**
-   * Get apps that should appear in navigation
+   * Get apps that should appear in the sidebar navigation
    */
   getNavigationApps(): HomeApp[] {
-    return this.apps.filter((m) => m.showInNav !== false);
+    return this.apps.filter(
+      (m) => m.showInNav !== false && m.placement !== 'topbar',
+    );
+  }
+
+  /**
+   * Get apps that should render as icon buttons in the top bar.
+   * Already sorted by navOrder (the constructor sorts the full list).
+   */
+  getTopBarApps(): HomeApp[] {
+    return this.apps.filter(
+      (m) => m.placement === 'topbar' && m.showInNav !== false,
+    );
   }
 
   /**
@@ -202,6 +214,7 @@ export const appRegistry: AppRegistry = {
   },
   getApp: (id) => getAppRegistry().getApp(id),
   getNavigationApps: () => getAppRegistry().getNavigationApps(),
+  getTopBarApps: () => getAppRegistry().getTopBarApps(),
 };
 
 /**
@@ -223,6 +236,13 @@ export function getAppById(id: string): HomeApp | undefined {
  */
 export function getNavigationApps(): HomeApp[] {
   return getAppRegistry().getNavigationApps();
+}
+
+/**
+ * Helper function to get apps placed on the top bar
+ */
+export function getTopBarApps(): HomeApp[] {
+  return getAppRegistry().getTopBarApps();
 }
 
 /**

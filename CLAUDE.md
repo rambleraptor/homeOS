@@ -5,7 +5,7 @@ working on the Homestead repo. The backend is **aepbase** (an AEP-compliant
 dynamic REST server). The frontend is a **Vite + React SPA**
 (`react-router-dom`) that talks to aepbase through a same-origin `/api/aep`
 proxy. A small **Bun + Hono sidecar** owns the few API routes the SPA can't
-serve itself (test notifications, app workers) and runs
+serve itself (test notifications, the Gemini-backed chat, app workers) and runs
 the schema sync. In production a single Bun-compiled binary — the `homestead`
 launcher (`packages/homestead-cli`) — spawns aepbase as a child process and
 serves the sidecar in-process, behind the embedded SPA. The SPA, the sidecar's
@@ -172,7 +172,7 @@ the UI. API seed is 10-100× faster.
 Feature apps ship in the `@rambleraptor/homestead-apps` workspace
 package at `packages/homestead-apps/<feature>/`. The registry, the
 `HomeApp`/`AppFlagDef` types, and the always-installed core apps
-(`settings`, `superuser`, `users`) live in the
+(`settings`, `superuser`, `users`, `chat`) live in the
 `@rambleraptor/homestead-core` package (`packages/homestead-core/`) because
 they are part of the core experience. `packages/homestead-app/src/apps/registry.ts` is
 just a boot shim that installs the registry singleton with the operator's
@@ -242,7 +242,9 @@ SPA and apps share:
   this instead)
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `HomeApp`/`AppFlagDef` contract types
-- `settings/`, `superuser/`, `users/` — the always-installed core apps
+- `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
+  apps (`chat` is the Gemini-backed assistant; its server half lives in
+  `server/chat/`)
 - `layout/`, `shared/`, `resources/`, `app-flags/`, `user-settings/` —
   shared chrome, components, and schema/sync plumbing
 
@@ -258,9 +260,10 @@ through the workspace + a TypeScript path alias defined in
 ### Sidecar (`packages/homestead-sidecar/`)
 
 A small Bun + Hono server (`src/server.ts`) that owns the API routes the
-SPA can't serve itself: `POST /api/notifications/send-test` and
-`ALL /api/apps/:appId/*` (app workers). It also runs the
-boot-time schema sync (`src/schema-sync.ts`).
+SPA can't serve itself: `POST /api/notifications/send-test`,
+`POST /api/chat` (the Gemini chat with per-resource CRUD tools; requires
+`GEMINI_API_KEY`), and `ALL /api/apps/:appId/*` (app workers). It also runs
+the boot-time schema sync (`src/schema-sync.ts`).
 
 ### Launcher (`packages/homestead-cli/`)
 

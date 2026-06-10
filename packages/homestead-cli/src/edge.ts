@@ -12,7 +12,7 @@ export interface EdgeOptions {
   spa: SpaAssets;
 }
 
-const SIDECAR_PREFIXES = ['/api/notifications', '/api/custom-methods'];
+const SIDECAR_PREFIXES = ['/api/notifications', '/api/custom-methods', '/api/chat'];
 
 /**
  * A custom-method call addresses a resource with a trailing `:verb`

@@ -22,7 +22,11 @@ export const notificationsApp: HomeApp = {
         import('./components/NotificationsHome').then((m) => m.NotificationsHome),
     },
   ],
-  showInNav: false,
+  placement: 'topbar',
+  topBarBadge: () =>
+    import('./components/NotificationsTopBarBadge').then(
+      (m) => m.NotificationsTopBarBadge,
+    ),
   navOrder: 4,
   enabled: true,
   resources: notificationsResources,

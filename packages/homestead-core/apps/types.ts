@@ -160,6 +160,25 @@ export interface HomeApp {
   showInNav?: boolean;
 
   /**
+   * Where the app's nav entry renders. 'sidebar' (the default) places it
+   * in the left navigation; 'topbar' renders an icon-only button in the
+   * Header instead. Topbar apps never appear in the sidebar;
+   * `showInNav: false` hides the app from both surfaces.
+   * @default 'sidebar'
+   */
+  placement?: 'topbar' | 'sidebar';
+
+  /**
+   * Optional badge rendered inside the app's top-bar button (only
+   * meaningful with `placement: 'topbar'`). Declared as a lazy component
+   * rather than a hook — hooks can't be called conditionally and core
+   * must not import app code. The component fetches its own data and
+   * renders the badge (or null); compose `layout/TopBarBadge` for the
+   * standard count pill.
+   */
+  topBarBadge?: LazyComponent;
+
+  /**
    * Navigation order (lower numbers appear first)
    * @default 100
    */
@@ -357,6 +376,7 @@ export interface AppRegistry {
   apps: HomeApp[];
   getApp: (id: string) => HomeApp | undefined;
   getNavigationApps: () => HomeApp[];
+  getTopBarApps: () => HomeApp[];
 }
 
 /**

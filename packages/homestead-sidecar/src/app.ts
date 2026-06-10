@@ -2,6 +2,7 @@
  * The sidecar's Hono app — the API routes the SPA can't serve itself
  * (they need a JS runtime):
  *   POST /api/notifications/send-test
+ *   POST /api/chat                  (Gemini chat with per-resource CRUD tools)
  *   ALL  /api/aep/...:verb          (AEP-136 resource custom methods)
  *
  * The `/api/aep` gateway owns the resource custom methods and proxies every
@@ -17,6 +18,7 @@ import { Hono } from 'hono';
 // Side effect: initialize the app registry before any request lands.
 import './app-registry';
 import { getAllResourceCustomMethods } from '@rambleraptor/homestead-core/apps/registry';
+import { chatRoute } from './routes/chat';
 import { notificationsRoute } from './routes/notifications';
 import { aepRoute } from './routes/aep';
 
@@ -43,4 +45,5 @@ app.get('/api/custom-methods', (c) => {
 });
 
 app.route('/api/notifications', notificationsRoute);
+app.route('/api/chat', chatRoute);
 app.route('/api/aep', aepRoute);

@@ -10,6 +10,7 @@
  * can't drift.
  */
 
+import { chatApp } from '../chat/app.config';
 import { settingsApp } from '../settings/app.config';
 import { superuserApp } from '../superuser/app.config';
 import { usersApp } from '../users/app.config';
@@ -25,6 +26,7 @@ export const ALWAYS_INSTALLED_APPS: HomeApp[] = [
   superuserApp,
   usersApp,
   settingsApp,
+  chatApp,
 ];
 
 /** Ids of the always-installed core apps. */
