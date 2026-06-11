@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ChatNotConfiguredError, sendChat } from '../api';
 import type { ChatMessage, ChatToolCall } from '../types';
 
@@ -12,7 +13,20 @@ export interface UiChatMessage extends ChatMessage {
   toolCalls?: ChatToolCall[];
 }
 
+/**
+ * True when a tool call mutated aepbase (create/update/delete). Reads
+ * (`read_*`) leave the cache untouched. Tool names follow
+ * `${op}_${snake_singular}` (see server/chat/tools.ts).
+ */
+function isMutation(call: ChatToolCall): boolean {
+  return (
+    call.ok &&
+    /^(create|update|delete)_/.test(call.tool)
+  );
+}
+
 export function useChat() {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<UiChatMessage[]>([]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +56,14 @@ export function useChat() {
             toolCalls: response.toolCalls,
           },
         ]);
+        // Chat mutates aepbase with the user's own token, so any data it
+        // changed must invalidate the feature apps' cached queries —
+        // otherwise the change only appears after a manual refresh. Every
+        // app's read hook keys under `['app', ...]` (see queryKeys.app),
+        // so one prefix invalidation refetches whatever is on screen.
+        if (response.toolCalls.some(isMutation)) {
+          void queryClient.invalidateQueries({ queryKey: ['app'] });
+        }
       } catch (err) {
         // Keep the transcript (including the unanswered user message) so
         // the user can see what failed and retry.
@@ -54,7 +76,7 @@ export function useChat() {
         setPending(false);
       }
     },
-    [messages, pending],
+    [messages, pending, queryClient],
   );
 
   return { messages, pending, error, notConfigured, send };
