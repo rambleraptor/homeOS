@@ -6,10 +6,10 @@
  * `useIsAppEnabled` for the runtime check.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { recipesResources } from './resources';
 
-export const recipesApp: HomeApp = {
+export const recipesApp: AppConfig = {
   id: 'recipes',
   name: 'Recipes',
   description: 'Manage household recipes with structured ingredients.',

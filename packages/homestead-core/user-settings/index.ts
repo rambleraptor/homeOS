@@ -1,7 +1,7 @@
 /**
  * Per-user app settings — the per-user analog of app flags.
  *
- * Each `HomeApp` may declare a `userSettings` map; declarations
+ * Each `AppConfig` may declare a `userSettings` map; declarations
  * flatten into the dynamically-generated `user-preference` resource
  * (one record per user under `/users/{id}/preferences/{id}`). Apps
  * may also supply a custom `settingsWidget`; otherwise the auto-form

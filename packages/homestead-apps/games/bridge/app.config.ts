@@ -6,9 +6,9 @@
  * built-in `enabled` flag so it can be turned off independently.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-export const bridgeApp: HomeApp = {
+export const bridgeApp: AppConfig = {
   id: 'bridge',
   name: 'Bridge',
   description: 'Record bids for each hand of Bridge',

@@ -20,11 +20,11 @@ import {
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
 } from '@/apps/registry';
 import { APP_VISIBILITY_OPTIONS } from '@rambleraptor/homestead-core/settings/visibility';
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-function collectAllIds(mods: HomeApp[]): string[] {
+function collectAllIds(mods: AppConfig[]): string[] {
   const out: string[] = [];
-  const visit = (m: HomeApp) => {
+  const visit = (m: AppConfig) => {
     out.push(m.id);
     for (const c of m.children ?? []) visit(c);
   };

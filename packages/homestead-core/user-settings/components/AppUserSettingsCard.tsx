@@ -10,11 +10,11 @@ import {
   AppIcon,
   getLazyComponent,
 } from '@rambleraptor/homestead-core/apps/lazy';
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { UserSettingsAutoForm } from './UserSettingsAutoForm';
 
 interface AppUserSettingsCardProps {
-  app: HomeApp;
+  app: AppConfig;
 }
 
 export function AppUserSettingsCard({ app }: AppUserSettingsCardProps) {

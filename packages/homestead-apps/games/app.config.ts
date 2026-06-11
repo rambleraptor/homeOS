@@ -2,19 +2,19 @@
  * Games — parent app that groups Mini Golf, Pictionary, and
  * Bridge under a single sidebar entry in the Relationships section.
  *
- * Sub-pages are declared via `children` (full `HomeApp`s living
+ * Sub-pages are declared via `children` (full `AppConfig`s living
  * in `./<game>/app.config.ts`); the registry handles route
  * aggregation and validation. Adding a new game is "create a child
  * app + add it to `children`" — no manual landing component
  * required.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { minigolfApp } from './minigolf/app.config';
 import { pictionaryApp } from './pictionary/app.config';
 import { bridgeApp } from './bridge/app.config';
 
-export const gamesApp: HomeApp = {
+export const gamesApp: AppConfig = {
   id: 'games',
   name: 'Games',
   description: 'Track games you play with the people in your life',

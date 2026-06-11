@@ -10,10 +10,7 @@
 
 import { SchemaType } from '@google/generative-ai';
 import type { FunctionDeclaration, Schema } from '@google/generative-ai';
-import type {
-  JsonSchemaProperty,
-  ResourceDefinition,
-} from '../../resources/types';
+import type { FieldDef, ResourceDefinition } from '../../resources/types';
 import { logger } from '../../utils/logger';
 
 export type CrudOp = 'create' | 'read' | 'update' | 'delete';
@@ -54,11 +51,11 @@ interface ConvertedProperty {
 }
 
 /**
- * Convert one aepbase JSON-schema property to a Gemini `Schema`.
- * Returns null for properties the model can't supply (file fields).
+ * Convert one declared field to a Gemini `Schema`.
+ * Returns null for fields the model can't supply (file fields).
  */
-function convertProperty(prop: JsonSchemaProperty): ConvertedProperty | null {
-  if (prop.type === 'binary' || prop['x-aepbase-file-field']) return null;
+function convertProperty(prop: FieldDef): ConvertedProperty | null {
+  if (prop.type === 'file') return null;
 
   const description = prop.description;
   switch (prop.type) {
@@ -67,8 +64,12 @@ function convertProperty(prop: JsonSchemaProperty): ConvertedProperty | null {
         schema: {
           type: SchemaType.STRING,
           ...(description ? { description } : {}),
-          // Gemini's string schema accepts only the date-time format.
-          ...(prop.format === 'date-time' ? { format: 'date-time' as const } : {}),
+          ...(prop.enum?.length
+            ? { format: 'enum' as const, enum: [...prop.enum] }
+            : // Gemini's string schema accepts only the date-time format.
+              prop.format === 'date-time'
+              ? { format: 'date-time' as const }
+              : {}),
         },
         jsonString: false,
       };
@@ -117,14 +118,15 @@ function convertProperty(prop: JsonSchemaProperty): ConvertedProperty | null {
         const converted = convertProperty(value);
         if (converted) properties[key] = converted.schema;
       }
+      const required = entries
+        .filter(([key, value]) => value.required && key in properties)
+        .map(([key]) => key);
       return {
         schema: {
           type: SchemaType.OBJECT,
           properties,
           ...(description ? { description } : {}),
-          ...(prop.required
-            ? { required: prop.required.filter((r) => r in properties) }
-            : {}),
+          ...(required.length ? { required } : {}),
         },
         jsonString: false,
       };
@@ -189,16 +191,16 @@ export function buildTools(defs: ResourceDefinition[]): BuiltTools {
     const fieldParams: Record<string, Schema> = {};
     const bodyFields = new Set<string>();
     const jsonStringFields = new Set<string>();
-    for (const [key, prop] of Object.entries(def.schema.properties)) {
+    for (const [key, prop] of Object.entries(def.fields)) {
       const converted = convertProperty(prop);
       if (!converted) continue;
       fieldParams[key] = converted.schema;
       bodyFields.add(key);
       if (converted.jsonString) jsonStringFields.add(key);
     }
-    const requiredFields = (def.schema.required ?? []).filter((r) =>
-      bodyFields.has(r),
-    );
+    const requiredFields = Object.entries(def.fields)
+      .filter(([key, prop]) => prop.required && bodyFields.has(key))
+      .map(([key]) => key);
 
     const nesting =
       parentChain.length > 0 ? ` Nested under: ${parentPlurals.join(' → ')}.` : '';

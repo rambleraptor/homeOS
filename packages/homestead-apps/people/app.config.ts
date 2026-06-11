@@ -6,10 +6,10 @@
  * Events app.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { peopleResources } from './resources';
 
-export const peopleApp: HomeApp = {
+export const peopleApp: AppConfig = {
   id: 'people',
   name: 'People',
   description: 'Manage contact information and important dates for people you know',

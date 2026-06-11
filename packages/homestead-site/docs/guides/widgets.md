@@ -100,7 +100,7 @@ human-readable `label` (shown in the dashboard customization UI), and choose an
 
 ```ts
 // packages/homestead-apps/recipes/app.config.ts
-export const recipesApp: HomeApp = {
+export const recipesApp: AppConfig = {
   // ...existing fields...
   widgets: [
     {
@@ -228,7 +228,7 @@ guarantee.
 
 - Don't accept props on a widget component. The contract is zero-prop
   components. If a widget needs configuration, wire it through app flags
-  (`HomeApp.flags`) and read the value with `useAppFlag(...)` from
+  (`AppConfig.flags`) and read the value with `useAppFlag(...)` from
   `@rambleraptor/homestead-core/settings`.
 - Don't import another app's components into your widget. Apps stay
   self-contained.

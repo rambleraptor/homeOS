@@ -25,13 +25,9 @@ vi.mock('../../aepbase', () => ({
 const todo: ResourceDefinition = {
   singular: 'todo',
   plural: 'todos',
-  schema: {
-    type: 'object',
-    properties: {
-      title: { type: 'string' },
-      done: { type: 'boolean' },
-    },
-    required: ['title'],
+  fields: {
+    title: { type: 'string', required: true },
+    done: { type: 'boolean' },
   },
 };
 
@@ -39,13 +35,9 @@ const notification: ResourceDefinition = {
   singular: 'notification',
   plural: 'notifications',
   parents: ['user'],
-  schema: {
-    type: 'object',
-    properties: {
-      title: { type: 'string' },
-      subscription_data: { type: 'object' },
-    },
-    required: ['title'],
+  fields: {
+    title: { type: 'string', required: true },
+    subscription_data: { type: 'object' },
   },
 };
 

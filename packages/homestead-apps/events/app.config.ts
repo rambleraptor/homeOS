@@ -5,10 +5,10 @@
  * Source of truth for the dashboard's upcoming-events widget.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { eventsResources } from './resources';
 
-export const eventsApp: HomeApp = {
+export const eventsApp: AppConfig = {
   id: 'events',
   name: 'Events',
   description: 'Track yearly-recurring household events',

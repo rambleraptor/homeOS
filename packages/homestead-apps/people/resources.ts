@@ -11,13 +11,9 @@ export const peopleResources: ResourceDefinition[] = [
     description:
       'A person tracked by the household (family, friend, contact).',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        created_by: { type: 'string' },
-      },
-      required: ['name'],
+    fields: {
+      name: { type: 'string', required: true },
+      created_by: { type: 'string' },
     },
   },
   {
@@ -26,15 +22,15 @@ export const peopleResources: ResourceDefinition[] = [
     description:
       "Data shared between two people (e.g. a couple's shared address).",
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        person_a: { type: 'string', description: 'people/{person_id}' },
-        person_b: { type: 'string', description: 'people/{person_id}' },
-        address_id: { type: 'string' },
-        created_by: { type: 'string' },
+    fields: {
+      person_a: {
+        type: 'string',
+        description: 'people/{person_id}',
+        required: true,
       },
-      required: ['person_a'],
+      person_b: { type: 'string', description: 'people/{person_id}' },
+      address_id: { type: 'string' },
+      created_by: { type: 'string' },
     },
   },
   {
@@ -43,21 +39,17 @@ export const peopleResources: ResourceDefinition[] = [
     description:
       'A physical address, optionally with WiFi credentials, optionally shared between people.',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        line1: { type: 'string' },
-        line2: { type: 'string' },
-        city: { type: 'string' },
-        state: { type: 'string' },
-        postal_code: { type: 'string' },
-        country: { type: 'string' },
-        wifi_network: { type: 'string' },
-        wifi_password: { type: 'string' },
-        shared_data_id: { type: 'string' },
-        created_by: { type: 'string' },
-      },
-      required: ['line1', 'created_by'],
+    fields: {
+      line1: { type: 'string', required: true },
+      line2: { type: 'string' },
+      city: { type: 'string' },
+      state: { type: 'string' },
+      postal_code: { type: 'string' },
+      country: { type: 'string' },
+      wifi_network: { type: 'string' },
+      wifi_password: { type: 'string' },
+      shared_data_id: { type: 'string' },
+      created_by: { type: 'string', required: true },
     },
   },
 ];

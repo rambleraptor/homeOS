@@ -7,9 +7,9 @@
  * parent's audience.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-export const flagManagementApp: HomeApp = {
+export const flagManagementApp: AppConfig = {
   id: 'flag-management',
   name: 'Flag Management',
   description: 'View and edit every app flag registered in aepbase.',

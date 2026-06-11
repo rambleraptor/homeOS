@@ -1,5 +1,5 @@
 /**
- * Client-side adapters for the lazy thunks declared on a `HomeApp`.
+ * Client-side adapters for the lazy thunks declared on a `AppConfig`.
  *
  * App configs declare `icon`, route/widget `component`, and
  * `settingsWidget` as `() => import(...)` thunks (see `LazyComponent` /

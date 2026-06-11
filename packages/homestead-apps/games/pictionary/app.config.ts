@@ -6,10 +6,10 @@
  * built-in `enabled` flag so it can be turned off independently.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { pictionaryResources } from './resources';
 
-export const pictionaryApp: HomeApp = {
+export const pictionaryApp: AppConfig = {
   id: 'pictionary',
   name: 'Pictionary',
   description: 'Track Pictionary games, teams, and winning words',

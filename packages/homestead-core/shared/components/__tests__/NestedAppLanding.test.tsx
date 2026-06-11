@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Gamepad2, Pencil, Flag, Club } from 'lucide-react';
 import { NestedAppLanding } from '../NestedAppLanding';
 import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
 vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled', () => ({
   useAppEnabledPredicate: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled', () => ({
 
 const route = { path: '', index: true, component: () => Promise.resolve(() => null) };
 
-const minigolf: HomeApp = {
+const minigolf: AppConfig = {
   id: 'minigolf',
   name: 'Mini Golf',
   description: 'Play and track mini golf games',
@@ -29,7 +29,7 @@ const minigolf: HomeApp = {
   routes: [route],
 };
 
-const pictionary: HomeApp = {
+const pictionary: AppConfig = {
   id: 'pictionary',
   name: 'Pictionary',
   description: 'Track Pictionary games, teams, and winning words',
@@ -38,7 +38,7 @@ const pictionary: HomeApp = {
   routes: [route],
 };
 
-const bridge: HomeApp = {
+const bridge: AppConfig = {
   id: 'bridge',
   name: 'Bridge',
   description: 'Record bids for each hand of Bridge',
@@ -47,7 +47,7 @@ const bridge: HomeApp = {
   routes: [route],
 };
 
-const games: HomeApp = {
+const games: AppConfig = {
   id: 'games',
   name: 'Games',
   description: 'Track games you play with the people in your life',

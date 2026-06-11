@@ -1,21 +1,21 @@
-import type { HomeApp, AppRoute } from '../types';
+import type { AppConfig, AppRoute } from '../types';
 
 export interface RouteEntry {
-  app: HomeApp;
+  app: AppConfig;
   route: AppRoute;
   /** Full URL path split into segments, e.g. ['gift-cards', 'import']. */
   segments: string[];
 }
 
 export interface RouteMatch {
-  app: HomeApp;
+  app: AppConfig;
   route: AppRoute;
   params: Record<string, string>;
 }
 
-export function buildRouteEntries(apps: HomeApp[]): RouteEntry[] {
+export function buildRouteEntries(apps: AppConfig[]): RouteEntry[] {
   const out: RouteEntry[] = [];
-  const visit = (mod: HomeApp): void => {
+  const visit = (mod: AppConfig): void => {
     for (const route of mod.routes) {
       out.push({
         app: mod,

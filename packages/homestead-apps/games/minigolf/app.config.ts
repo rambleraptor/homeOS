@@ -6,10 +6,10 @@
  * built-in `enabled` flag so it can be turned off independently.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { minigolfResources } from './resources';
 
-export const minigolfApp: HomeApp = {
+export const minigolfApp: AppConfig = {
   id: 'minigolf',
   name: 'Mini Golf',
   description: 'Play and track mini golf games',

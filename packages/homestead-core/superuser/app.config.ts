@@ -1,16 +1,16 @@
 /**
  * Superuser — parent app that groups superuser-only admin surfaces.
  *
- * Sub-pages are declared via `children` (full `HomeApp`s living
+ * Sub-pages are declared via `children` (full `AppConfig`s living
  * in `./<area>/app.config.ts`); the registry handles route
  * aggregation and validation. Each sub-page is gated independently in
  * the App Router.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { flagManagementApp } from './flag-management/app.config';
 
-export const superuserApp: HomeApp = {
+export const superuserApp: AppConfig = {
   id: 'superuser',
   name: 'Superuser',
   description: 'App flags and other superuser-only controls',

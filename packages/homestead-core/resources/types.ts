@@ -2,10 +2,70 @@
  * Shared types for aepbase resource definitions declared in TypeScript.
  *
  * Each app declares the schema for the aepbase collections it owns
- * via `HomeApp.resources`. The shape mirrors what aepbase's
- * `/aep-resource-definitions` endpoint accepts on POST/PATCH — see
- * `packages/homestead-core/resources/sync.ts` for the runner.
+ * via `AppConfig.resources`, using the authoring-friendly `FieldDef`
+ * shape. The schema-sync runner translates fields into the JSON-schema
+ * wire format aepbase's `/aep-resource-definitions` endpoint accepts —
+ * see `packages/homestead-core/resources/translate.ts` for the
+ * translation and `sync.ts` for the runner.
  */
+
+// ----------------------------------------------------------------------------
+// Authoring format — what apps write in `resources.ts`
+// ----------------------------------------------------------------------------
+
+/**
+ * Field types apps may declare. `file` marks an uploaded-file field; the
+ * translator turns it into aepbase's `binary` + `x-aepbase-file-field`
+ * wire encoding (`binary` itself is not declarable).
+ */
+export type FieldType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'object'
+  | 'array'
+  | 'file';
+
+/**
+ * A single field on a resource. Translated to a JSON-schema property
+ * (`JsonSchemaProperty`) by `translate.ts` before being sent to aepbase.
+ */
+export interface FieldDef {
+  type: FieldType;
+  /**
+   * Display name for a single value of this field (e.g. for generated
+   * UI labels). Authoring-side metadata only — stripped from the wire
+   * schema.
+   */
+  singular_name?: string;
+  /** Display name for multiple values. Stripped from the wire schema. */
+  plural_name?: string;
+  description?: string;
+  /** JSON-schema format hint, e.g. `date-time`. String fields only. */
+  format?: string;
+  /**
+   * Allowed values for a string field. aepbase strips JSON-schema
+   * `enum` on round-trip, so the translator encodes the values into the
+   * wire description (`one of: a, b`) instead; the chat tool builder
+   * passes them to Gemini as a real enum.
+   */
+  enum?: readonly string[];
+  /**
+   * Whether the field is required on create. The translator collects
+   * `required: true` fields into the JSON-schema `required` array.
+   * @default false
+   */
+  required?: boolean;
+  /** Element type for `array` fields. */
+  items?: FieldDef;
+  /** Nested fields for `object` fields. */
+  properties?: Record<string, FieldDef>;
+}
+
+// ----------------------------------------------------------------------------
+// Wire format — what aepbase's /aep-resource-definitions accepts
+// ----------------------------------------------------------------------------
 
 export type JsonSchemaPrimitive =
   | 'string'
@@ -25,7 +85,7 @@ export interface JsonSchemaProperty {
   required?: string[];
   /**
    * aepbase experimental marker for binary fields backed by uploaded
-   * files. Pair with `type: 'binary'`. See
+   * files. Produced by the translator from `type: 'file'` fields. See
    * `aepbase/main.go` (EnableFileFields).
    */
   'x-aepbase-file-field'?: boolean;
@@ -145,7 +205,12 @@ export interface ResourceDefinition {
    * built-in root (provided by aepbase's EnableUsers).
    */
   parents?: string[];
-  schema: ResourceSchema;
+  /**
+   * The resource's fields, keyed by snake_case field name. Translated
+   * to the JSON-schema wire format (`ResourceSchema`) by the schema
+   * sync — apps never write JSON schema directly.
+   */
+  fields: Record<string, FieldDef>;
   /**
    * AEP-136 custom methods that live on this resource, keyed by their
    * kebab-case verb (e.g. `process-image`). Server-only: stripped from the

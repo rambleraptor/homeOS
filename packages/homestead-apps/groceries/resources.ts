@@ -9,14 +9,10 @@ export const groceriesResources: ResourceDefinition[] = [
     plural: STORES,
     description: 'A grocery store (used to group grocery items).',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        sort_order: { type: 'number' },
-        created_by: { type: 'string' },
-      },
-      required: ['name'],
+    fields: {
+      name: { type: 'string', required: true },
+      sort_order: { type: 'number' },
+      created_by: { type: 'string' },
     },
   },
   {
@@ -24,17 +20,13 @@ export const groceriesResources: ResourceDefinition[] = [
     plural: GROCERIES,
     description: "A single item on the household's shared grocery list.",
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        checked: { type: 'boolean' },
-        category: { type: 'string' },
-        notes: { type: 'string' },
-        store: { type: 'string', description: 'stores/{store_id}' },
-        created_by: { type: 'string' },
-      },
-      required: ['name'],
+    fields: {
+      name: { type: 'string', required: true },
+      checked: { type: 'boolean' },
+      category: { type: 'string' },
+      notes: { type: 'string' },
+      store: { type: 'string', description: 'stores/{store_id}' },
+      created_by: { type: 'string' },
     },
     // AEP-136 custom methods on the grocery collection:
     //   POST /api/aep/groceries:process-image

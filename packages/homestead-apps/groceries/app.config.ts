@@ -4,10 +4,10 @@
  * App for managing household grocery list with AI-powered categorization
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { groceriesResources } from './resources';
 
-export const groceriesApp: HomeApp = {
+export const groceriesApp: AppConfig = {
   id: 'groceries',
   name: 'Groceries',
   description: 'Manage your grocery list with smart categorization',

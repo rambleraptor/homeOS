@@ -26,7 +26,7 @@ Flag Management UI at `/superuser/flag-management`.
 ```ts
 // 1. Declare the flag in your app's config.
 // packages/homestead-apps/groceries/app.config.ts
-export const groceriesApp: HomeApp = {
+export const groceriesApp: AppConfig = {
   id: 'groceries',
   // ...
   flags: {
@@ -62,7 +62,7 @@ automatically.
 
 ## Declaring a Flag
 
-Flag declarations live on your app's `HomeApp` config under `flags`.
+Flag declarations live on your app's `AppConfig` config under `flags`.
 Each entry follows `AppFlagDef`:
 
 ```ts
@@ -94,7 +94,7 @@ export type AppFlagDef =
 // packages/homestead-apps/<feature>/app.config.ts
 export const THEME_OPTIONS = ['light', 'dark'] as const;
 
-export const exampleApp: HomeApp = {
+export const exampleApp: AppConfig = {
   // ...
   flags: {
     theme: {
@@ -205,5 +205,5 @@ current user.
 
 4. **Don't redeclare `enabled` / `enabled_tags`.** They're auto-injected
    on every app and will override any declaration you add. Set
-   `defaultEnabled` on the `HomeApp` config instead if you want a
+   `defaultEnabled` on the `AppConfig` config instead if you want a
    non-`'all'` default.

@@ -5,10 +5,10 @@
  * Displays event reminders and system notifications.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { notificationsResources } from './resources';
 
-export const notificationsApp: HomeApp = {
+export const notificationsApp: AppConfig = {
   id: 'notifications',
   name: 'Notifications',
   description: 'View and manage your notifications',

@@ -17,6 +17,14 @@ const PARENT: ResourceDefinition = {
   singular: 'parent',
   plural: 'parents',
   user_settable_create: true,
+  fields: { name: { type: 'string' } },
+};
+
+/** What aepbase stores/returns for PARENT — the translated wire schema. */
+const PARENT_WIRE = {
+  singular: 'parent',
+  plural: 'parents',
+  user_settable_create: true,
   schema: {
     type: 'object',
     properties: { name: { type: 'string' } },
@@ -28,10 +36,7 @@ const CHILD: ResourceDefinition = {
   plural: 'children',
   user_settable_create: true,
   parents: ['parent'],
-  schema: {
-    type: 'object',
-    properties: { value: { type: 'string' } },
-  },
+  fields: { value: { type: 'string' } },
 };
 
 describe('syncResourceDefinitions', () => {
@@ -78,6 +83,10 @@ describe('syncResourceDefinitions', () => {
     const [parentUrl, parentInit] = fetchMock.mock.calls[1];
     expect(parentUrl).toBe(`${BASE}/aep-resource-definitions?id=parent`);
     expect(parentInit.method).toBe('POST');
+    // The body carries the translated JSON schema, never authored fields.
+    const parentBody = JSON.parse(parentInit.body);
+    expect(parentBody.schema).toEqual(PARENT_WIRE.schema);
+    expect(parentBody.fields).toBeUndefined();
     const [childUrl] = fetchMock.mock.calls[2];
     expect(childUrl).toBe(`${BASE}/aep-resource-definitions?id=child`);
   });
@@ -90,7 +99,7 @@ describe('syncResourceDefinitions', () => {
       ),
     );
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify(PARENT), { status: 200 }),
+      new Response(JSON.stringify(PARENT_WIRE), { status: 200 }),
     );
 
     const result = await syncResourceDefinitions({
@@ -116,7 +125,7 @@ describe('syncResourceDefinitions', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          ...PARENT,
+          ...PARENT_WIRE,
           schema: {
             type: 'object',
             properties: { name: { type: 'string' }, extra: { type: 'string' } },
@@ -148,7 +157,7 @@ describe('syncResourceDefinitions', () => {
       singular: 'pref',
       plural: 'prefs',
       parents: ['user'],
-      schema: { type: 'object', properties: {} },
+      fields: {},
     };
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ results: [] }), { status: 200 }),
@@ -181,7 +190,7 @@ describe('syncResourceDefinitions', () => {
       singular: 'orphan',
       plural: 'orphans',
       parents: ['ghost'],
-      schema: { type: 'object', properties: {} },
+      fields: {},
     };
     await expect(
       syncResourceDefinitions({
@@ -198,13 +207,13 @@ describe('syncResourceDefinitions', () => {
       singular: 'a',
       plural: 'as',
       parents: ['b'],
-      schema: { type: 'object', properties: {} },
+      fields: {},
     };
     const b: ResourceDefinition = {
       singular: 'b',
       plural: 'bs',
       parents: ['a'],
-      schema: { type: 'object', properties: {} },
+      fields: {},
     };
     await expect(
       syncResourceDefinitions({

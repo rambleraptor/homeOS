@@ -1,4 +1,4 @@
-import type { HomeApp } from './types';
+import type { AppConfig } from './types';
 
 /**
  * One OAuth provider in {@link OAuthConfig}. Field names mirror the JSON the
@@ -57,7 +57,7 @@ export interface HomesteadConfig {
    * Apps included in this instance. Order is preserved for any
    * use-cases that care; the registry sorts by `navOrder` for nav.
    */
-  apps: HomeApp[];
+  apps: AppConfig[];
 
   /**
    * Optional auth configuration. Consumed by the `homestead` launcher (not the

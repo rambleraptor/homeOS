@@ -3,7 +3,7 @@
 Apps are Homestead's version of apps. This guide builds a minimal
 "Hello World" app, adds it to your config, and starts it.
 
-Every app is one object that follows the `HomeApp` shape: an id, a name,
+Every app is one object that follows the `AppConfig` shape: an id, a name,
 an icon, a base path, and one or more routes. A route points at a React
 component.
 
@@ -30,9 +30,9 @@ Add a `app.config.ts` next to the component. The `icon` and route
 
 ```ts
 // packages/homestead-apps/hello/app.config.ts
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-export const helloApp: HomeApp = {
+export const helloApp: AppConfig = {
   id: 'hello',
   name: 'Hello',
   description: 'My first Homestead app.',

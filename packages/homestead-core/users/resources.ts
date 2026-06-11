@@ -20,15 +20,12 @@ export const usersResources: ResourceDefinition[] = [
       'A tag assigned to a user account by a superuser. Pair with an app\'s `enabled_tags` flag to gate access by tag.',
     user_settable_create: true,
     parents: ['user'],
-    schema: {
-      type: 'object',
-      properties: {
-        name: {
-          type: 'string',
-          description: 'The tag name. Trimmed, case-preserved.',
-        },
+    fields: {
+      name: {
+        type: 'string',
+        description: 'The tag name. Trimmed, case-preserved.',
+        required: true,
       },
-      required: ['name'],
     },
   },
 ];

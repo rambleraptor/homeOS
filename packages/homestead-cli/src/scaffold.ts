@@ -64,8 +64,8 @@ const CONFIG_TS = `/**
  * This is the ONE file you edit to choose what your homestead serves.
  * Comment out an app to remove it; import a new one to add it.
  *
- * To add a custom app, drop a .ts file under ./apps/ exporting a
- * HomeApp, then add the import + array entry below.
+ * To add a custom app, drop a .ts file under ./apps/ exporting an
+ * AppConfig, then add the import + array entry below.
  */
 
 import {

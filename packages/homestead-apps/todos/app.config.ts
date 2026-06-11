@@ -2,10 +2,10 @@
  * Todos App Configuration
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { todosResources } from './resources';
 
-export const todosApp: HomeApp = {
+export const todosApp: AppConfig = {
   id: 'todos',
   name: 'Todos',
   description: 'Daily todo list with progress tracking.',

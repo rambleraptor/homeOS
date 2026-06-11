@@ -12,7 +12,8 @@
  * parent, which aepbase enforces.
  */
 
-import type { ResourceDefinition } from './types';
+import type { ResourceDefinition, ResourceSchema } from './types';
+import { toWireSchema, validateResourceDefinition } from './translate';
 import { jsonEqual } from './equal';
 
 const DEFINITIONS_PATH = 'aep-resource-definitions';
@@ -55,6 +56,7 @@ export async function syncResourceDefinitions(
   const { aepbaseUrl, token, defs, logger = console } = options;
 
   assertNoDuplicateSingulars(defs);
+  for (const def of defs) validateResourceDefinition(def);
   const ordered = topoSort(defs);
   const existingIds = await listExistingIds(aepbaseUrl, token);
 
@@ -66,19 +68,20 @@ export async function syncResourceDefinitions(
 
   for (const def of ordered) {
     try {
+      const schema = toWireSchema(def.fields);
       if (!existingIds.has(def.singular)) {
-        await createDefinition(aepbaseUrl, token, def);
+        await createDefinition(aepbaseUrl, token, def, schema);
         result.created.push(def.singular);
         continue;
       }
 
       const existing = await fetchExisting(aepbaseUrl, token, def.singular);
-      if (existing && definitionsMatch(existing, def)) {
+      if (existing && definitionsMatch(existing, def, schema)) {
         result.unchanged.push(def.singular);
         continue;
       }
 
-      await patchDefinition(aepbaseUrl, token, def);
+      await patchDefinition(aepbaseUrl, token, def, schema);
       result.updated.push(def.singular);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -183,6 +186,7 @@ async function createDefinition(
   aepbaseUrl: string,
   token: string,
   def: ResourceDefinition,
+  schema: ResourceSchema,
 ): Promise<void> {
   const res = await fetch(
     `${aepbaseUrl}/${DEFINITIONS_PATH}?id=${def.singular}`,
@@ -194,8 +198,9 @@ async function createDefinition(
       },
       // Only the wire fields aepbase understands — never the server-only
       // `customMethods` (whose lazy `load` thunks JSON.stringify drops, but
-      // whose `target`/`method` metadata would otherwise leak through).
-      body: JSON.stringify(wireDefinition(def)),
+      // whose `target`/`method` metadata would otherwise leak through), and
+      // the translated JSON schema, never the authored `fields`.
+      body: JSON.stringify(wireDefinition(def, schema)),
     },
   );
   if (!res.ok) {
@@ -210,12 +215,13 @@ async function patchDefinition(
   aepbaseUrl: string,
   token: string,
   def: ResourceDefinition,
+  schema: ResourceSchema,
 ): Promise<void> {
   const body = {
     description: def.description,
     user_settable_create: def.user_settable_create,
     parents: def.parents,
-    schema: def.schema,
+    schema,
   };
   const res = await fetch(
     `${aepbaseUrl}/${DEFINITIONS_PATH}/${def.singular}`,
@@ -237,23 +243,27 @@ async function patchDefinition(
 }
 
 /** Project a definition down to the fields aepbase's endpoint accepts. */
-function wireDefinition(def: ResourceDefinition): Record<string, unknown> {
+function wireDefinition(
+  def: ResourceDefinition,
+  schema: ResourceSchema,
+): Record<string, unknown> {
   return {
     singular: def.singular,
     plural: def.plural,
     description: def.description,
     user_settable_create: def.user_settable_create,
     parents: def.parents,
-    schema: def.schema,
+    schema,
   };
 }
 
 function definitionsMatch(
   existing: AepResourceDefinitionResponse,
   desired: ResourceDefinition,
+  schema: ResourceSchema,
 ): boolean {
   return (
-    jsonEqual(existing.schema, desired.schema) &&
+    jsonEqual(existing.schema, schema) &&
     (existing.description ?? '') === (desired.description ?? '') &&
     (existing.user_settable_create ?? false) ===
       (desired.user_settable_create ?? false) &&

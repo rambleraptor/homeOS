@@ -11,19 +11,15 @@ const giftCard: ResourceDefinition = {
   singular: 'gift-card',
   plural: 'gift-cards',
   description: 'A stored-value gift card.',
-  schema: {
-    type: 'object',
-    properties: {
-      merchant: { type: 'string' },
-      amount: { type: 'number' },
-      archived: { type: 'boolean' },
-      front_image: {
-        type: 'binary',
-        'x-aepbase-file-field': true,
-        description: 'Front-of-card image',
-      },
+  fields: {
+    merchant: { type: 'string', required: true },
+    amount: { type: 'number', required: true },
+    archived: { type: 'boolean' },
+    front_image: {
+      type: 'file',
+      description: 'Front-of-card image',
+      required: true,
     },
-    required: ['merchant', 'amount', 'front_image'],
   },
 };
 
@@ -31,13 +27,13 @@ const transaction: ResourceDefinition = {
   singular: 'transaction',
   plural: 'transactions',
   parents: ['gift-card'],
-  schema: {
-    type: 'object',
-    properties: {
-      transaction_type: { type: 'string', description: 'one of: decrement, set' },
-      new_amount: { type: 'number' },
+  fields: {
+    transaction_type: {
+      type: 'string',
+      enum: ['decrement', 'set'],
+      required: true,
     },
-    required: ['transaction_type', 'new_amount'],
+    new_amount: { type: 'number', required: true },
   },
 };
 
@@ -45,15 +41,11 @@ const notification: ResourceDefinition = {
   singular: 'notification',
   plural: 'notifications',
   parents: ['user'],
-  schema: {
-    type: 'object',
-    properties: {
-      title: { type: 'string' },
-      subscription_data: { type: 'object' },
-      scheduled_for: { type: 'string', format: 'date-time' },
-      tags: { type: 'array', items: { type: 'string' } },
-    },
-    required: ['title'],
+  fields: {
+    title: { type: 'string', required: true },
+    subscription_data: { type: 'object' },
+    scheduled_for: { type: 'string', format: 'date-time' },
+    tags: { type: 'array', items: { type: 'string' } },
   },
 };
 
@@ -61,19 +53,19 @@ const notification: ResourceDefinition = {
 const creditCard: ResourceDefinition = {
   singular: 'credit-card',
   plural: 'credit-cards',
-  schema: { type: 'object', properties: { name: { type: 'string' } } },
+  fields: { name: { type: 'string' } },
 };
 const perk: ResourceDefinition = {
   singular: 'perk',
   plural: 'perks',
   parents: ['credit-card'],
-  schema: { type: 'object', properties: { name: { type: 'string' } } },
+  fields: { name: { type: 'string' } },
 };
 const redemption: ResourceDefinition = {
   singular: 'redemption',
   plural: 'redemptions',
   parents: ['perk'],
-  schema: { type: 'object', properties: { notes: { type: 'string' } } },
+  fields: { notes: { type: 'string' } },
 };
 
 const ALL = [giftCard, transaction, notification, creditCard, perk, redemption];
@@ -99,7 +91,7 @@ describe('buildTools', () => {
     }
   });
 
-  it('strips binary/file fields, including from required', () => {
+  it('strips file fields, including from required', () => {
     const { declarations } = buildTools([giftCard]);
     const create = declarations.find((d) => d.name === 'create_gift_card')!;
     expect(create.parameters!.properties).not.toHaveProperty('front_image');
@@ -180,11 +172,13 @@ describe('buildTools', () => {
     expect(del.parameters!.properties).not.toHaveProperty('merchant');
   });
 
-  it('copies enum-in-description conventions through', () => {
+  it('declares enum fields as real Gemini enums', () => {
     const { declarations } = buildTools(ALL);
     const create = declarations.find((d) => d.name === 'create_transaction')!;
-    expect(create.parameters!.properties.transaction_type.description).toBe(
-      'one of: decrement, set',
-    );
+    expect(create.parameters!.properties.transaction_type).toMatchObject({
+      type: SchemaType.STRING,
+      format: 'enum',
+      enum: ['decrement', 'set'],
+    });
   });
 });

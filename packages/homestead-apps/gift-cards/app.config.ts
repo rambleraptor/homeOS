@@ -4,10 +4,10 @@
  * App for managing household gift cards
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { giftCardsResources } from './resources';
 
-export const giftCardsApp: HomeApp = {
+export const giftCardsApp: AppConfig = {
   id: 'gift-cards',
   name: 'Gift Cards',
   description: 'Manage and track household gift cards',

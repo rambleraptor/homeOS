@@ -4,10 +4,10 @@ import { Card } from './Card';
 import { PageHeader } from './PageHeader';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
 interface Props {
-  app: HomeApp;
+  app: AppConfig;
 }
 
 /**

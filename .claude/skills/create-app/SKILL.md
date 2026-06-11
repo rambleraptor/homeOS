@@ -34,7 +34,7 @@ paths, URL segments, and DB records and are painful to rename later.
 ## Workflow
 
 Track each step below with TodoWrite. Work sequentially — later steps depend
-on earlier ones (e.g. hooks need `AepCollections` entries that reference the
+on earlier ones (e.g. hooks need the collection constants exported by the
 declared resources).
 
 ### 1. Declare the resource schema in TypeScript
@@ -53,17 +53,20 @@ export const featureResources: ResourceDefinition[] = [
     plural: 'things',
     description: 'A thing the household tracks.',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        created_by: { type: 'string', description: 'users/{user_id}' },
-      },
-      required: ['name'],
+    fields: {
+      name: { type: 'string', required: true },
+      status: { type: 'string', enum: ['pending', 'done'] },
+      created_by: { type: 'string', description: 'users/{user_id}' },
     },
   },
 ];
 ```
+
+Fields use the authoring-friendly `FieldDef` shape (per-field `required`
+booleans, `enum` for allowed string values, `type: 'file'` for uploads,
+optional `singular_name`/`plural_name` display names). The schema sync
+translates it to aepbase's JSON-schema wire format at boot — apps never
+write JSON schema directly.
 
 **Rules to follow — violating these is the #1 cause of schema sync failures:**
 
@@ -75,12 +78,13 @@ export const featureResources: ResourceDefinition[] = [
   `service_date`) to match existing PB-era data.
 - Do NOT add `created`/`updated` fields — aepbase manages `create_time` and
   `update_time` automatically.
-- Do NOT use JSON-schema `enum`, `minimum`, or `maximum` — they get stripped
-  on round-trip. Encode allowed values in `description` instead:
-  `description: 'one of: pending, success, error'`.
+- Use `enum: [...]` for allowed string values (the translator encodes them
+  into the wire description, since aepbase strips JSON-schema `enum`). Do
+  NOT use `minimum`/`maximum` — there is no FieldDef support for them.
 - Child resources need `parents: ['<parent-singular>']`. The runner topo-sorts
   by `parents` so children apply after their parent automatically.
-- File fields: `type: 'binary'` plus `'x-aepbase-file-field': true`.
+- File fields: `type: 'file'`. The translator emits aepbase's
+  `binary` + `x-aepbase-file-field` wire encoding — never write those.
 - `user_settable_create: true` on every resource users create.
 
 The schema applies on the next Next.js boot (the runner POSTs/PATCHes via
@@ -95,19 +99,21 @@ In `app.config.ts`, import and reference the array:
 ```ts
 import { featureResources } from './resources';
 
-export const featureApp: HomeApp = {
+export const featureApp: AppConfig = {
   // ...
   resources: featureResources,
 };
 ```
 
-### 3. Register the collection URL segment
+### 3. Export the collection URL segments
 
-Edit `packages/homestead-core/api/aepbase.ts` and add to `AepCollections`:
+Export each plural as a constant from the app's `resources.ts` and use
+it in the definition — hooks import these instead of hard-coding URL
+segments:
 
 ```ts
-MY_THING: 'my-things',               // plural, kebab-case URL segment
-MY_THING_CHILD: 'children',          // child resources: just the tail segment
+export const THINGS = 'things' as const;             // plural, kebab-case URL segment
+export const THING_CHILDREN = 'children' as const;   // child resources: just the tail segment
 ```
 
 Children encode their parent in URLs via the hook caller, not the constant.
@@ -125,7 +131,7 @@ packages/homestead-apps/<app-id>/
 ├── e2e/                      # Playwright POM + specs + seed helpers (see step 8)
 ├── types.ts                  # TypeScript interfaces
 ├── resources.ts              # ResourceDefinition[]
-├── app.config.ts          # HomeApp config object
+├── app.config.ts          # AppConfig config object
 └── index.ts                  # Public exports (config + types)
 ```
 
@@ -134,15 +140,15 @@ packages/homestead-apps/<app-id>/
 mutation payloads. See `packages/homestead-apps/games/minigolf/types.ts`
 for a clean example.
 
-**app.config.ts** — export a `HomeApp` object. Minimal example:
+**app.config.ts** — export a `AppConfig` object. Minimal example:
 
 ```ts
-import type { HomeApp } from '@/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { Flag } from 'lucide-react';
 import { FeatureHome } from './components/FeatureHome';
 import { featureResources } from './resources';
 
-export const featureApp: HomeApp = {
+export const featureApp: AppConfig = {
   id: 'feature',
   name: 'Feature',
   description: 'One-line description',
@@ -161,7 +167,8 @@ export const featureApp: HomeApp = {
 
 **hooks/** — one file per operation, all using `@tanstack/react-query`.
 Pattern after `packages/homestead-apps/games/minigolf/hooks/`:
-- `useThings.ts` — `useQuery` that calls `aepbase.list<T>(AepCollections.MY_THING)`.
+- `useThings.ts` — `useQuery` that calls `aepbase.list<T>(THINGS)` (the
+  constant exported from `../resources`).
   Sort client-side (aepbase has no sort param).
 - `useCreateThing.ts` / `useUpdateThing.ts` / `useDeleteThing.ts` — `useMutation`
   hooks that invalidate `queryKeys.app('<app-id>').all()` on success.
@@ -283,7 +290,8 @@ Before marking the task complete, verify:
 - [ ] `resources.ts` added to the app directory (and reviewed against
       the CLAUDE.md rules list).
 - [ ] `resources` referenced in `app.config.ts`.
-- [ ] `AepCollections` entry added in `packages/homestead-core/api/aepbase.ts`.
+- [ ] Plural collection constants exported from `resources.ts` and used
+      by the hooks.
 - [ ] App package directory created with `app.config.ts`,
       `types.ts`, `index.ts`, and at least one component + list hook.
 - [ ] Every `AppRoute` declares a `component` (and `dynamic: true`

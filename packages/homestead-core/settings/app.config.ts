@@ -5,9 +5,9 @@
  * Enables web push notifications and customization options.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-export const settingsApp: HomeApp = {
+export const settingsApp: AppConfig = {
   id: 'settings',
   name: 'Settings',
   description: 'Manage your preferences and notifications',
