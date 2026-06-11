@@ -1,11 +1,10 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { Database } from 'bun:sqlite';
-import { mintAdminToken } from '@rambleraptor/homestead-server/src/bootstrap.ts';
 import axios from 'axios';
 import { APIClient, Client, logger } from '@aep_dev/aep-lib-ts';
 import type { OpenAPI, Resource } from '@aep_dev/aep-lib-ts';
 import { loadProject } from './project.ts';
+import { findBun, resolveServerModule } from './runtime.ts';
 
 // aep-lib-ts logs OpenAPI parsing at INFO; silence it so command output is clean.
 logger.settings.minLevel = 7;
@@ -186,7 +185,14 @@ async function resolveAuth(
   return mintLocalAdminToken(opts);
 }
 
-/** Mint a superuser token straight from the project's database. */
+// Wire contract with homestead-server/src/tools/mint-admin-token.ts.
+const TOKEN_MARKER = '@@HOMESTEAD_TOKEN@@';
+
+/**
+ * Mint a superuser token from the project's database, via a bun child of the
+ * project's homestead-server (tools/mint-admin-token.ts) so the binary never
+ * bundles engine code.
+ */
 function mintLocalAdminToken(
   opts: ConnectOptions,
 ): { token: string; userId: string } {
@@ -198,15 +204,30 @@ function mintLocalAdminToken(
         'from a project whose server has booted at least once.',
     );
   }
-  const db = new Database(dbPath);
+  let tool: string;
   try {
-    const admin = mintAdminToken(db);
-    return { token: admin.token, userId: admin.userId };
+    tool = resolveServerModule(opts.projectDir ?? '.', 'tools', 'mint-admin-token.ts');
   } catch (err) {
     throw new ConnectError(err instanceof Error ? err.message : String(err));
-  } finally {
-    db.close();
   }
+  const proc = Bun.spawnSync({
+    cmd: [findBun(), 'run', tool, '--data-dir', dataDir],
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const line = new TextDecoder()
+    .decode(proc.stdout)
+    .split('\n')
+    .find((l) => l.startsWith(TOKEN_MARKER));
+  if (proc.exitCode !== 0 || !line) {
+    const err = new TextDecoder().decode(proc.stderr).trim();
+    throw new ConnectError(err.split('\n')[0] || `token mint failed (exit ${proc.exitCode})`);
+  }
+  const admin = JSON.parse(line.slice(TOKEN_MARKER.length)) as {
+    token: string;
+    userId: string;
+  };
+  return { token: admin.token, userId: admin.userId };
 }
 
 async function whoami(serverUrl: string, token: string): Promise<string> {

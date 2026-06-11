@@ -11,6 +11,7 @@ import { Header } from './Header';
 import { AuthGuard } from '../auth/AuthGuard';
 import { OfflineBanner } from '../shared/components/OfflineBanner';
 import { useHomeScreenIcon } from '../shared/pwa';
+import { useBuildReload } from '../shared/useBuildReload';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -21,6 +22,9 @@ export function AppShell({ children }: AppShellProps) {
 
   // Swap the home-screen (PWA) icon to the active app's, when it has one.
   useHomeScreenIcon();
+
+  // Reload the tab when the launcher swaps in a new SPA build (config change).
+  useBuildReload();
 
   const toggleSidebar = () => setSidebarOpen((prev) => !prev);
   const closeSidebar = () => setSidebarOpen(false);

@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import { Database } from 'bun:sqlite';
 import {
+  claimSetup,
   createSuperuser,
   ensureSuperuser,
   mintAdminToken,
+  needsSetup,
   resetSuperuserPassword,
   DEFAULT_SUPERUSER_EMAIL,
 } from '../src/bootstrap';
@@ -16,24 +18,51 @@ function freshDb(): Database {
 }
 
 describe('ensureSuperuser', () => {
-  test('creates the default superuser once on an empty db', async () => {
+  test('creates a pending superuser once on an empty db', async () => {
     const db = freshDb();
-    await ensureSuperuser(db);
+    expect(await ensureSuperuser(db)).toBe('pending');
     expect(countUsers(db)).toBe(1);
+    expect(needsSetup(db)).toBe(true);
     const found = getUserByEmail(db, DEFAULT_SUPERUSER_EMAIL);
     expect(found?.user.type).toBe('superuser');
 
-    // Second boot: no-op, no duplicate.
-    await ensureSuperuser(db);
+    // Second boot: no duplicate, still pending.
+    expect(await ensureSuperuser(db)).toBe('pending');
     expect(countUsers(db)).toBe(1);
   });
 
-  test('no-ops when users already exist (no fatal missing-file case anymore)', async () => {
+  test('treats pre-existing deployments (users, no meta) as claimed', async () => {
     const db = freshDb();
     await createSuperuser(db, 'owner@example.com', 'pw');
-    await ensureSuperuser(db);
+    expect(await ensureSuperuser(db)).toBe('claimed');
+    expect(needsSetup(db)).toBe(false);
     expect(countUsers(db)).toBe(1);
     expect(getUserByEmail(db, DEFAULT_SUPERUSER_EMAIL)).toBeNull();
+  });
+});
+
+describe('claimSetup', () => {
+  test('claims the instance: sets email + password, one-shot', async () => {
+    const db = freshDb();
+    await ensureSuperuser(db);
+    await claimSetup(db, 'me@home.dev', 'hunter2hunter2');
+
+    expect(needsSetup(db)).toBe(false);
+    const found = getUserByEmail(db, 'me@home.dev');
+    expect(found?.user.type).toBe('superuser');
+    expect(await Bun.password.verify('hunter2hunter2', found!.hash)).toBe(true);
+
+    await expect(claimSetup(db, 'evil@example.com', 'p4ssw0rdp4ssw0rd')).rejects.toThrow(
+      'already set up',
+    );
+  });
+
+  test('reset-password also claims (handing out creds ends setup)', async () => {
+    const db = freshDb();
+    await ensureSuperuser(db);
+    expect(needsSetup(db)).toBe(true);
+    await resetSuperuserPassword(db);
+    expect(needsSetup(db)).toBe(false);
   });
 });
 

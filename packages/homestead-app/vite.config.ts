@@ -55,9 +55,11 @@ const commitDate = git('log -1 --pretty=format:%cI');
 const commitMessage = git('log -1 --pretty=format:%s');
 
 const srcDir = fileURLToPath(new URL('./src', import.meta.url));
-const configPath = fileURLToPath(
-  new URL('../../homestead.config.ts', import.meta.url),
-);
+// The launcher's build pipeline points HOMESTEAD_CONFIG at the operator's
+// project config; the default covers the workspace layout.
+const configPath =
+  process.env.HOMESTEAD_CONFIG ??
+  fileURLToPath(new URL('../../homestead.config.ts', import.meta.url));
 
 export default defineConfig(({ mode }) => ({
   plugins: [stubCustomMethods(), react(), tailwindcss()],
@@ -78,6 +80,11 @@ export default defineConfig(({ mode }) => ({
     'process.env.NEXT_PUBLIC_COMMIT_DATE': JSON.stringify(commitDate),
     'process.env.NEXT_PUBLIC_COMMIT_MESSAGE': JSON.stringify(commitMessage),
     'process.env.NEXT_PUBLIC_BUILD_ID': JSON.stringify(commitHash),
+    // Set by the launcher's SPA build (spa-build.ts); open tabs compare it
+    // against /api/app-version and reload when the served build changes.
+    'process.env.HOMESTEAD_BUILD_ID': JSON.stringify(
+      process.env.HOMESTEAD_BUILD_ID ?? '',
+    ),
     'process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY': JSON.stringify(
       process.env.VAPID_PUBLIC_KEY ??
         process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ??
@@ -88,9 +95,9 @@ export default defineConfig(({ mode }) => ({
   // homestead-server (see packages/homestead-server/src/dev-vite.ts), which
   // serves /api/* and /oauth/* itself — no proxy needed.
   build: {
-    // Built SPA. `make homestead` embeds this directory into the single binary
-    // via scripts/gen-embedded.ts, so sourcemaps are off — they'd bloat the
-    // binary with .map files. Flip on locally if you need to debug a prod build.
+    // Built SPA. The launcher overrides --outDir into its build cache
+    // (spa-build.ts); `make build` uses this default. Sourcemaps stay off in
+    // prod builds — flip on locally if you need to debug one.
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: false,

@@ -21,9 +21,13 @@ export function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<OAuthProvider[]>([]);
+  // First visit to a fresh instance: no admin account exists yet, so render
+  // a create-your-account form instead of the sign-in form.
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -34,6 +38,14 @@ export function Login() {
       })
       .catch(() => {
         // No providers / OAuth disabled — leave the list empty.
+      });
+    fetch('/api/setup')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { needsSetup?: boolean } | null) => {
+        if (active && body?.needsSetup) setNeedsSetup(true);
+      })
+      .catch(() => {
+        // Endpoint unreachable — assume a normal sign-in.
       });
     return () => {
       active = false;
@@ -49,12 +61,34 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    if (needsSetup && password !== confirm) {
+      setError('Passwords do not match');
+      return;
+    }
+    setLoading(true);
     try {
+      if (needsSetup) {
+        const res = await fetch('/api/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(body?.error ?? 'Failed to create the admin account');
+        }
+        setNeedsSetup(false);
+      }
       await login({ email, password });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to login');
+      setError(
+        err instanceof Error
+          ? err.message
+          : needsSetup
+            ? 'Failed to create the admin account'
+            : 'Failed to login',
+      );
     } finally {
       setLoading(false);
     }
@@ -77,7 +111,9 @@ export function Login() {
             Welcome to Homestead
           </h1>
           <p className="text-base font-body text-text-muted mt-1">
-            Sign in to access your home dashboard
+            {needsSetup
+              ? 'Create the admin account for this new instance'
+              : 'Sign in to access your home dashboard'}
           </p>
         </div>
 
@@ -132,6 +168,33 @@ export function Login() {
               </div>
             </div>
 
+            {/* Confirm password (first-visit setup only) */}
+            {needsSetup && (
+              <div>
+                <label
+                  htmlFor="confirm-password"
+                  className="block text-sm font-body font-medium text-brand-navy mb-2"
+                >
+                  Confirm password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-text-muted" />
+                  </div>
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    required
+                    data-testid="setup-confirm-password"
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-surface-white font-body text-text-main placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-terracotta/40 focus:border-accent-terracotta"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Error Message */}
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -149,16 +212,18 @@ export function Login() {
               {loading || isLoading ? (
                 <span className="flex items-center gap-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Signing in...
+                  {needsSetup ? 'Creating account...' : 'Signing in...'}
                 </span>
+              ) : needsSetup ? (
+                'Create Admin Account'
               ) : (
                 'Sign In'
               )}
             </button>
           </form>
 
-          {/* OAuth / OIDC providers */}
-          {providers.length > 0 && (
+          {/* OAuth / OIDC providers (hidden during first-visit setup) */}
+          {!needsSetup && providers.length > 0 && (
             <div className="mt-6" data-testid="oauth-providers">
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">

@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { join } from 'node:path';
 import { loadProject } from './project.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
@@ -19,10 +21,10 @@ export async function runDoctor(opts: DoctorOptions): Promise<Check[]> {
   const checks: Check[] = [];
   checks.push(platformCheck());
   checks.push(toolCheck('bun', 'required to run homestead'));
-  checks.push(npmCheck());
   checks.push(await portCheck('frontend port', opts.frontendPort));
   checks.push(await portCheck('engine port', opts.aepbasePort));
   checks.push(projectCheck(opts.projectDir));
+  checks.push(depsCheck(opts.projectDir));
   return checks;
 }
 
@@ -81,15 +83,24 @@ function projectCheck(dir: string): Check {
   }
 }
 
-// npm is only needed to install workspace deps when running from source
-// (Vite itself runs under Bun, in-process).
-function npmCheck(): Check {
-  const path = Bun.which('npm');
-  return path
-    ? { name: 'npm', status: 'ok', detail: path }
-    : {
-        name: 'npm',
-        status: 'warn',
-        detail: 'not found on PATH — needed to `npm install` when running from source',
-      };
+// The server, SPA shell, and vite all resolve through the project's
+// node_modules — the launcher runs them as bun children, nothing is embedded.
+function depsCheck(dir: string): Check {
+  const serverEntry = join(
+    dir,
+    'node_modules',
+    '@rambleraptor',
+    'homestead-server',
+    'src',
+    'index.ts',
+  );
+  const viteBin = join(dir, 'node_modules', '.bin', 'vite');
+  if (existsSync(serverEntry) && existsSync(viteBin)) {
+    return { name: 'dependencies', status: 'ok', detail: 'node_modules has server + vite' };
+  }
+  return {
+    name: 'dependencies',
+    status: 'warn',
+    detail: 'homestead-server/vite missing from node_modules — `homestead start` will install them',
+  };
 }

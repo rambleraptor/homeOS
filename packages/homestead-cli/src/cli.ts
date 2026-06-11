@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { parseArgs, type ParseArgsConfig } from 'node:util';
 import { scaffold } from './scaffold.ts';
 import { runDoctor, hasFailures, type Check } from './doctor.ts';
 
@@ -22,7 +23,8 @@ async function main(argv: string[]): Promise<number> {
     case 'install-service':
       return installServiceCmd(rest);
     case 'resources': {
-      // Lazy import: only `resources` pulls in aep-lib-ts + axios.
+      // Lazy import: only `resources` pulls in aep-lib-ts + axios. It also
+      // owns its own flag parsing (--@data etc.), so argv passes through raw.
       const { resourcesCmd } = await import('./resources.ts');
       return resourcesCmd(rest);
     }
@@ -35,50 +37,110 @@ async function main(argv: string[]): Promise<number> {
   }
 }
 
+type CliOptions = NonNullable<ParseArgsConfig['options']>;
+
+/**
+ * parseArgs in strict mode, with errors turned into a printed message +
+ * `null` so commands can return exit code 1 instead of throwing.
+ */
+function parse(
+  args: string[],
+  options: CliOptions,
+  { positionals = false } = {},
+): { values: Record<string, string | boolean | undefined>; positionals: string[] } | null {
+  try {
+    const parsed = parseArgs({ args, options, strict: true, allowPositionals: positionals });
+    return {
+      values: parsed.values as Record<string, string | boolean | undefined>,
+      positionals: parsed.positionals,
+    };
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
 async function startCmd(args: string[]): Promise<number> {
-  const { flags } = parseFlags(args, new Set(['dev']));
-  // Lazy import: only `start` needs the (heavy) config + app graph.
-  const { runStart } = await import('./supervisor.ts');
-  await runStart('.', {
-    dev: flags.dev === true,
-    frontendPort: numFlag(flags.port, 3000),
-    aepbasePort: numFlag(flags['aepbase-port'], 8090),
-    dataDir: typeof flags['data-dir'] === 'string' ? flags['data-dir'] : undefined,
+  const parsed = parse(args, {
+    dev: { type: 'boolean', default: false },
+    port: { type: 'string' },
+    'aepbase-port': { type: 'string' },
+    'data-dir': { type: 'string' },
   });
-  return 0;
+  if (!parsed) return 1;
+  const { values } = parsed;
+  const { runStart } = await import('./supervisor.ts');
+  try {
+    return await runStart('.', {
+      dev: values.dev === true,
+      frontendPort: numFlag(values.port, 3000),
+      aepbasePort: numFlag(values['aepbase-port'], 8090),
+      dataDir: strFlag(values['data-dir']),
+    });
+  } catch (err) {
+    console.error(`[homestead] ${err instanceof Error ? err.message : err}`);
+    return 1;
+  }
 }
 
 async function adminCmd(args: string[]): Promise<number> {
-  const { flags, positionals } = parseFlags(args);
-  const [action] = positionals;
-  if (action !== 'reset-password') {
+  const parsed = parse(
+    args,
+    {
+      'data-dir': { type: 'string' },
+      email: { type: 'string' },
+    },
+    { positionals: true },
+  );
+  if (!parsed) return 1;
+  if (parsed.positionals[0] !== 'reset-password') {
     console.error('usage: homestead admin reset-password [--email=EMAIL] [--data-dir=PATH]');
     return 1;
   }
   const { resetPasswordCmd } = await import('./admin.ts');
   return resetPasswordCmd({
-    dataDir: typeof flags['data-dir'] === 'string' ? flags['data-dir'] : undefined,
-    email: typeof flags.email === 'string' ? flags.email : undefined,
+    dataDir: strFlag(parsed.values['data-dir']),
+    email: strFlag(parsed.values.email),
   });
 }
 
-function initCmd(args: string[]): number {
-  const { positionals } = parseFlags(args);
-  const root = scaffold(positionals[0] ?? '.');
-  console.log(`scaffolded Homestead project at ${root}\n`);
-  console.log('Next steps:');
+async function initCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, {}, { positionals: true });
+  if (!parsed) return 1;
+  const root = scaffold(parsed.positionals[0] ?? '.');
+  console.log(`scaffolded Homestead project at ${root}`);
+
+  // Install up front so `homestead start` is the only remaining step. A
+  // failure isn't fatal — start retries the install itself.
+  console.log('installing dependencies (bun install)...');
+  const { findBun } = await import('./runtime.ts');
+  const install = Bun.spawnSync({
+    cmd: [findBun(), 'install'],
+    cwd: root,
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+  if (install.exitCode !== 0) {
+    console.error('bun install failed — `homestead start` will retry it.');
+  }
+
+  console.log('\nNext steps:');
   console.log(`  cd ${root}`);
-  console.log('  homestead start --dev\n');
+  console.log('  homestead start\n');
   console.log('Edit homestead.config.ts to pick which apps ship.');
   return 0;
 }
 
 async function doctorCmd(args: string[]): Promise<number> {
-  const { flags } = parseFlags(args);
+  const parsed = parse(args, {
+    port: { type: 'string' },
+    'aepbase-port': { type: 'string' },
+  });
+  if (!parsed) return 1;
   const checks = await runDoctor({
     projectDir: '.',
-    frontendPort: numFlag(flags.port, 3000),
-    aepbasePort: numFlag(flags['aepbase-port'], 8090),
+    frontendPort: numFlag(parsed.values.port, 3000),
+    aepbasePort: numFlag(parsed.values['aepbase-port'], 8090),
   });
   for (const c of checks) console.log(formatCheck(c));
   console.log();
@@ -91,35 +153,48 @@ async function doctorCmd(args: string[]): Promise<number> {
 }
 
 async function updateCmd(args: string[]): Promise<number> {
-  const { flags } = parseFlags(args, new Set(['force', 'no-restart']));
+  const parsed = parse(args, {
+    'service-name': { type: 'string', default: 'homestead' },
+    force: { type: 'boolean', default: false },
+    'no-restart': { type: 'boolean', default: false },
+  });
+  if (!parsed) return 1;
   const { runUpdate } = await import('./update.ts');
   return runUpdate({
     projectDir: '.',
-    serviceName: strFlag(flags['service-name'], 'homestead'),
-    force: flags.force === true,
-    restart: flags['no-restart'] !== true,
+    serviceName: strFlag(parsed.values['service-name']) ?? 'homestead',
+    force: parsed.values.force === true,
+    restart: parsed.values['no-restart'] !== true,
   });
 }
 
 async function installServiceCmd(args: string[]): Promise<number> {
-  const { flags } = parseFlags(args);
+  const parsed = parse(args, {
+    'update-interval': { type: 'string', default: '5m' },
+    'service-name': { type: 'string', default: 'homestead' },
+    user: { type: 'string' },
+    port: { type: 'string' },
+    'data-dir': { type: 'string' },
+    'env-file': { type: 'string' },
+  });
+  if (!parsed) return 1;
   const { installServices, parseInterval } = await import('./service.ts');
   let intervalSeconds: number;
   try {
-    intervalSeconds = parseInterval(strFlag(flags['update-interval'], '5m'));
+    intervalSeconds = parseInterval(strFlag(parsed.values['update-interval']) ?? '5m');
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     return 1;
   }
   return installServices({
     projectDir: '.',
-    serviceName: strFlag(flags['service-name'], 'homestead'),
+    serviceName: strFlag(parsed.values['service-name']) ?? 'homestead',
     user:
-      strFlag(flags.user, process.env.SUDO_USER ?? process.env.USER ?? 'root'),
-    port: numFlag(flags.port, 3000),
-    dataDir: typeof flags['data-dir'] === 'string' ? flags['data-dir'] : undefined,
+      strFlag(parsed.values.user) ?? process.env.SUDO_USER ?? process.env.USER ?? 'root',
+    port: numFlag(parsed.values.port, 3000),
+    dataDir: strFlag(parsed.values['data-dir']),
     intervalSeconds,
-    envFile: typeof flags['env-file'] === 'string' ? flags['env-file'] : undefined,
+    envFile: strFlag(parsed.values['env-file']),
   });
 }
 
@@ -134,16 +209,16 @@ function printUsage(): void {
       'homestead — run a Homestead instance from a single binary.',
       '',
       'Usage:',
-      '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + apps/).',
+      '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + package.json + apps/).',
       '  homestead start [--dev]     Boot the server + SPA using homestead.config.ts in CWD.',
       '  homestead doctor            Check whether the host can run `homestead start`.',
-      '  homestead update            Pull the tracked config repo; restart the service if it changed.',
-      '  homestead install-service   Install the systemd service + auto-update timer (run with sudo).',
+      '  homestead update            Pull the config repo (its git upstream); restart the service if it changed.',
+      '  homestead install-service   (Optional) Install the systemd service + auto-update timer (run with sudo).',
       '  homestead resources [...]   CRUD/List resources + their custom methods (run bare to list them).',
       '  homestead admin reset-password  Rotate the superuser password (prints the new one).',
       '',
       'Flags for `start`:',
-      '  --dev                       Serve the SPA via Vite (HMR) instead of the embedded build.',
+      '  --dev                       Serve the SPA via Vite (HMR) instead of the cached production build.',
       '  --port=N                    User-facing port (default 3000).',
       '  --aepbase-port=N            engine API port, loopback (default 8090).',
       '  --data-dir=PATH             server data dir (default <project>/data).',
@@ -172,38 +247,6 @@ function printUsage(): void {
   );
 }
 
-interface ParsedFlags {
-  flags: Record<string, string | boolean>;
-  positionals: string[];
-}
-
-/** Minimal flag parser: --flag, --flag=value, --flag value. */
-function parseFlags(args: string[], booleans = new Set<string>()): ParsedFlags {
-  const flags: Record<string, string | boolean> = {};
-  const positionals: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (!a.startsWith('--')) {
-      positionals.push(a);
-      continue;
-    }
-    const eq = a.indexOf('=');
-    if (eq !== -1) {
-      flags[a.slice(2, eq)] = a.slice(eq + 1);
-      continue;
-    }
-    const name = a.slice(2);
-    const next = args[i + 1];
-    if (!booleans.has(name) && next !== undefined && !next.startsWith('--')) {
-      flags[name] = next;
-      i++;
-    } else {
-      flags[name] = true;
-    }
-  }
-  return { flags, positionals };
-}
-
 function numFlag(v: string | boolean | undefined, def: number): number {
   if (typeof v === 'string') {
     const n = Number(v);
@@ -212,8 +255,8 @@ function numFlag(v: string | boolean | undefined, def: number): number {
   return def;
 }
 
-function strFlag(v: string | boolean | undefined, def: string): string {
-  return typeof v === 'string' ? v : def;
+function strFlag(v: string | boolean | undefined): string | undefined {
+  return typeof v === 'string' ? v : undefined;
 }
 
 process.exit(await main(process.argv.slice(2)));

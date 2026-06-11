@@ -1,10 +1,13 @@
 /**
- * Superuser bootstrap. On first boot (empty _users) a superuser is created
- * with a random password printed to stdout ONCE — there is no
- * credentials.json anymore. Recovery goes through `homestead admin
- * reset-password`, which calls resetSuperuserPassword() against the db
- * directly. Schema sync and `homestead resources` mint short-lived tokens
- * via mintAdminToken() instead of logging in with stored credentials.
+ * Superuser bootstrap. On first boot (empty _users) a *pending* superuser is
+ * created with a random, never-revealed password, and the instance is marked
+ * unclaimed: the first visit to the SPA shows a "create your admin account"
+ * form backed by /api/setup, which sets the email + password and claims the
+ * instance. Recovery goes through `homestead admin reset-password`, which
+ * calls resetSuperuserPassword() against the db directly (and also claims).
+ * Schema sync and `homestead resources` mint short-lived tokens via
+ * mintAdminToken() — the pending superuser exists from first boot, so those
+ * work before the instance is claimed.
  */
 
 import type { Database } from 'bun:sqlite';
@@ -14,6 +17,56 @@ import { TYPE_SUPERUSER } from './engine/types';
 import { countUsers, deleteToken, hashPassword, insertToken, insertUser } from './engine/users';
 
 export const DEFAULT_SUPERUSER_EMAIL = 'admin@example.com';
+
+// Launcher/server housekeeping outside the engine's dynamic resources.
+const META_TABLE = `CREATE TABLE IF NOT EXISTS _homestead_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)`;
+const SETUP_CLAIMED_KEY = 'setup_claimed';
+
+function ensureMetaTable(db: Database): void {
+  db.run(META_TABLE);
+}
+
+function getMeta(db: Database, key: string): string | null {
+  ensureMetaTable(db);
+  const row = db.query('SELECT value FROM _homestead_meta WHERE key = ?').get(key) as
+    | { value: string }
+    | null;
+  return row?.value ?? null;
+}
+
+function setMeta(db: Database, key: string, value: string): void {
+  ensureMetaTable(db);
+  db.query(
+    'INSERT INTO _homestead_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+  ).run(key, value);
+}
+
+/** True while the instance is waiting for its first admin account. */
+export function needsSetup(db: Database): boolean {
+  return getMeta(db, SETUP_CLAIMED_KEY) === '0';
+}
+
+/**
+ * Claim the instance: set the pending superuser's email + password. One-shot —
+ * throws when the instance is already claimed (the /api/setup route also
+ * guards with a 409, this is the backstop).
+ */
+export async function claimSetup(
+  db: Database,
+  email: string,
+  password: string,
+): Promise<void> {
+  if (!needsSetup(db)) throw new Error('instance is already set up');
+  const found = firstSuperuser(db);
+  if (!found) throw new Error('no pending superuser — has the server booted?');
+  db.query(
+    'UPDATE _users SET email = ?, password_hash = ?, update_time = ? WHERE id = ?',
+  ).run(email, await hashPassword(password), nowRFC3339(), found.id);
+  setMeta(db, SETUP_CLAIMED_KEY, '1');
+}
 
 /** Insert a superuser with a known password (used by e2e and bootstrap). */
 export async function createSuperuser(
@@ -37,20 +90,19 @@ export async function createSuperuser(
 }
 
 /**
- * First-boot bootstrap: when no users exist, create the default superuser
- * and print its password to stdout (the only time it is shown). No-op when
- * users already exist.
+ * First-boot bootstrap: when no users exist, create a pending superuser with
+ * a random, never-revealed password and mark the instance unclaimed — the
+ * first SPA visit claims it via /api/setup. Pre-existing deployments (users
+ * present, no meta row) are treated as claimed.
  */
-export async function ensureSuperuser(db: Database): Promise<void> {
-  if (countUsers(db) > 0) return;
-  const password = generateToken().slice(0, 16);
-  await createSuperuser(db, DEFAULT_SUPERUSER_EMAIL, password);
-  console.log('=== DEFAULT SUPERUSER CREATED ===');
-  console.log(`  Email:    ${DEFAULT_SUPERUSER_EMAIL}`);
-  console.log(`  Password: ${password}`);
-  console.log('  This password is shown only once. To reset it later, run:');
-  console.log('    homestead admin reset-password');
-  console.log('=================================');
+export async function ensureSuperuser(db: Database): Promise<'pending' | 'claimed'> {
+  if (countUsers(db) > 0) {
+    if (getMeta(db, SETUP_CLAIMED_KEY) === null) setMeta(db, SETUP_CLAIMED_KEY, '1');
+    return needsSetup(db) ? 'pending' : 'claimed';
+  }
+  await createSuperuser(db, DEFAULT_SUPERUSER_EMAIL, generateToken().slice(0, 16));
+  setMeta(db, SETUP_CLAIMED_KEY, '0');
+  return 'pending';
 }
 
 function firstSuperuser(db: Database, email?: string): { id: string; email: string } | null {
@@ -82,6 +134,9 @@ export async function resetSuperuserPassword(
     nowRFC3339(),
     found.id,
   );
+  // Handing out working credentials claims the instance — the first-visit
+  // setup form must not reappear over a usable login.
+  setMeta(db, SETUP_CLAIMED_KEY, '1');
   return { email: found.email, password };
 }
 
