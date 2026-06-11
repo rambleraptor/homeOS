@@ -1,7 +1,7 @@
 /**
  * Standard count pill rendered inside a top-bar app button.
  *
- * Apps that declare `HomeApp.topBarBadge` typically compose this: their
+ * Apps that declare `AppConfig.topBarBadge` typically compose this: their
  * badge component fetches its own count (e.g. unread notifications) and
  * renders `<TopBarBadge count={n} />`. Renders nothing for zero counts.
  */

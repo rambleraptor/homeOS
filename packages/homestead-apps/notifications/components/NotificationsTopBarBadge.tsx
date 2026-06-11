@@ -1,6 +1,6 @@
 /**
  * Unread-count badge for the notifications app's top-bar button.
- * Lazily loaded by the Header via `HomeApp.topBarBadge`.
+ * Lazily loaded by the Header via `AppConfig.topBarBadge`.
  */
 
 import { TopBarBadge } from '@rambleraptor/homestead-core/layout/TopBarBadge';

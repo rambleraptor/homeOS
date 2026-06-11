@@ -9,28 +9,22 @@ export const giftCardsResources: ResourceDefinition[] = [
     plural: GIFT_CARDS,
     description: 'A stored-value gift card owned by the household.',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        merchant: { type: 'string' },
-        card_number: { type: 'string' },
-        pin: { type: 'string' },
-        amount: { type: 'number' },
-        notes: { type: 'string' },
-        archived: { type: 'boolean' },
-        front_image: {
-          type: 'binary',
-          'x-aepbase-file-field': true,
-          description: 'Front-of-card image (jpeg/png/webp/gif, <=5MB)',
-        },
-        back_image: {
-          type: 'binary',
-          'x-aepbase-file-field': true,
-          description: 'Back-of-card image (jpeg/png/webp/gif, <=5MB)',
-        },
-        created_by: { type: 'string', description: 'users/{user_id}' },
+    fields: {
+      merchant: { type: 'string', required: true },
+      card_number: { type: 'string', required: true },
+      pin: { type: 'string' },
+      amount: { type: 'number', required: true },
+      notes: { type: 'string' },
+      archived: { type: 'boolean' },
+      front_image: {
+        type: 'file',
+        description: 'Front-of-card image (jpeg/png/webp/gif, <=5MB)',
       },
-      required: ['merchant', 'card_number', 'amount'],
+      back_image: {
+        type: 'file',
+        description: 'Back-of-card image (jpeg/png/webp/gif, <=5MB)',
+      },
+      created_by: { type: 'string', description: 'users/{user_id}' },
     },
   },
   {
@@ -39,25 +33,17 @@ export const giftCardsResources: ResourceDefinition[] = [
     description: 'A balance change recorded against a gift card.',
     user_settable_create: true,
     parents: ['gift-card'],
-    schema: {
-      type: 'object',
-      properties: {
-        transaction_type: {
-          type: 'string',
-          description: 'one of: decrement, set',
-        },
-        previous_amount: { type: 'number' },
-        new_amount: { type: 'number' },
-        amount_changed: { type: 'number' },
-        notes: { type: 'string' },
-        created_by: { type: 'string' },
+    fields: {
+      transaction_type: {
+        type: 'string',
+        enum: ['decrement', 'set'],
+        required: true,
       },
-      required: [
-        'transaction_type',
-        'previous_amount',
-        'new_amount',
-        'amount_changed',
-      ],
+      previous_amount: { type: 'number', required: true },
+      new_amount: { type: 'number', required: true },
+      amount_changed: { type: 'number', required: true },
+      notes: { type: 'string' },
+      created_by: { type: 'string' },
     },
   },
 ];

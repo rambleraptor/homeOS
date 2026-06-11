@@ -4,10 +4,10 @@
  * App for tracking unreimbursed medical expenses
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { hsaResources } from './resources';
 
-export const hsaApp: HomeApp = {
+export const hsaApp: AppConfig = {
   id: 'hsa',
   name: 'HSA Receipts',
   description: 'Track unreimbursed medical expenses for tax-free HSA withdrawals',

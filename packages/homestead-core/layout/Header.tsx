@@ -2,7 +2,7 @@
  * Header Component
  *
  * Top navigation bar with menu toggle and icon buttons for every app
- * placed on the top bar (`HomeApp.placement: 'topbar'`).
+ * placed on the top bar (`AppConfig.placement: 'topbar'`).
  */
 
 import { Suspense } from 'react';

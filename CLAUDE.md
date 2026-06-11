@@ -175,7 +175,7 @@ the UI. API seed is 10-100× faster.
 
 Feature apps ship in the `@rambleraptor/homestead-apps` workspace
 package at `packages/homestead-apps/<feature>/`. The registry, the
-`HomeApp`/`AppFlagDef` types, and the always-installed core apps
+`AppConfig`/`AppFlagDef` types, and the always-installed core apps
 (`settings`, `superuser`, `users`, `chat`) live in the
 `@rambleraptor/homestead-core` package (`packages/homestead-core/`) because
 they are part of the core experience. `packages/homestead-app/src/apps/registry.ts` is
@@ -189,7 +189,7 @@ packages/homestead-apps/<feature>/
 ├── components/         # UI components
 ├── hooks/              # Custom hooks (data access lives here)
 ├── types.ts            # TypeScript types
-├── app.config.ts    # App metadata (imports HomeApp from @rambleraptor/homestead-core/apps/types)
+├── app.config.ts    # App metadata (imports AppConfig from @rambleraptor/homestead-core/apps/types)
 └── index.ts            # Public exports
 ```
 
@@ -245,7 +245,7 @@ SPA and apps share:
   routes (the client-side wrapper uses localStorage, so server code uses
   this instead; it talks to the loopback engine API)
 - `auth/` — AuthContext, types, route guards
-- `apps/` — registry, the `HomeApp`/`AppFlagDef` contract types
+- `apps/` — registry, the `AppConfig`/`AppFlagDef` contract types
 - `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
   apps (`chat` is the Gemini-backed assistant; its server half lives in
   `server/chat/`)
@@ -335,17 +335,33 @@ on a cadence. No separate scripts or source checkout required.
 Each feature app owns the schema for the aepbase collections it
 manages. Definitions live alongside the app in a `resources.ts` file
 and are wired into the app's config via `resources: [...]` on the
-exported `HomeApp`. Resource definitions that don't belong to a
+exported `AppConfig`. Resource definitions that don't belong to a
 feature app (`user-preference`, `action`, `run`) live in
 `packages/homestead-core/resources/builtins.ts`.
 
+Apps declare fields in the authoring-friendly `FieldDef` shape
+(`packages/homestead-core/resources/types.ts`) — a `fields` map with
+per-field `required` booleans, `enum` for allowed string values,
+`type: 'file'` for uploads, and optional `singular_name`/`plural_name`
+display names — never raw JSON schema:
+
+```ts
+fields: {
+  merchant: { type: 'string', required: true },
+  status: { type: 'string', enum: ['pending', 'done'] },
+  front_image: { type: 'file', description: 'jpeg/png, <=5MB' },
+}
+```
+
 At server boot, `packages/homestead-server/src/schema-sync.ts`
 aggregates every declared definition through `getAllResourceDefs()` plus
-`BUILTIN_RESOURCE_DEFS`, topologically sorts by `parents`, and applies
-the result via the engine's `/aep-resource-definitions` endpoint, using
-a short-lived admin token minted directly in the db (no env vars). The
-runner (`@rambleraptor/homestead-core/resources/sync.ts`) is
-idempotent: it creates missing definitions, patches drifted ones, and
+`BUILTIN_RESOURCE_DEFS`, validates names, topologically sorts by
+`parents`, translates each `fields` map to aepbase's JSON-schema wire
+format (`@rambleraptor/homestead-core/resources/translate.ts`), and
+applies the result via the engine's `/aep-resource-definitions`
+endpoint, using a short-lived admin token minted directly in the db (no
+env vars). The runner (`@rambleraptor/homestead-core/resources/sync.ts`)
+is idempotent: it creates missing definitions, patches drifted ones, and
 no-ops when everything is in sync.
 
 The e2e suite boots the same server, so e2e and runtime schema stay in
@@ -363,21 +379,23 @@ sync by construction.
 ### Rules (aepbase constraints, not TS-specific)
 
 1. **Singular/plural must be kebab-case.** `gift-card`, not `giftCard`.
-   aepbase rejects URL params with uppercase letters.
-2. **JSON-schema `enum`, `minimum`, `maximum` are stripped on round-trip.**
-   Encode allowed values in `description`:
-   ```ts
-   status: { type: 'string', description: 'one of: pending, success, error' }
-   ```
-3. **Schema field names stay snake_case** (e.g. `card_number`,
+   aepbase rejects URL params with uppercase letters. The sync runner
+   validates this (and field names) at boot and fails fast.
+2. **Allowed string values go in `enum: [...]`.** aepbase strips
+   JSON-schema `enum` on round-trip, so the translator encodes the
+   values into the wire `description` (`one of: pending, done`); the
+   chat tool builder passes them to Gemini as a real enum. There is no
+   `minimum`/`maximum` support.
+3. **Field names stay snake_case** (e.g. `card_number`,
    `created_by`, `service_date`).
 4. **Don't add autodate fields** (`created`, `updated`). aepbase
    manages `create_time` and `update_time` itself (note the underscore).
 5. **aepbase disallows `type` changes and `parents` changes** on an
    existing resource definition. Delete + recreate the definition
    (destructive!) if you need either.
-6. **File fields**: declare with `type: 'binary'` and
-   `'x-aepbase-file-field': true`. The engine writes files under
+6. **File fields**: declare with `type: 'file'`. The translator emits
+   aepbase's `binary` + `x-aepbase-file-field` wire encoding (never
+   write those yourself). The engine writes files under
    `data/files/...` and exposes a `:download` custom method.
 7. **`singular` is globally unique.** The registry throws on
    duplicate declarations across apps.

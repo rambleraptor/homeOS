@@ -13,10 +13,10 @@
  * `user`.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { usersResources } from './resources';
 
-export const usersApp: HomeApp = {
+export const usersApp: AppConfig = {
   id: 'users',
   name: 'Users',
   description: 'Create and manage user accounts.',

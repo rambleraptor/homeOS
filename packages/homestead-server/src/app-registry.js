@@ -1,7 +1,7 @@
 // App registry + operator config access for the server.
 //
 // Implemented in JS (with a hand-written app-registry.d.ts) so this package's
-// `tsc` doesn't follow the imports into the app graph — HomeApp types
+// `tsc` doesn't follow the imports into the app graph — AppConfig types
 // reference React component types, which are type-checked by the frontend
 // project under its DOM + JSX config, not ours. `bun build --compile` still
 // follows these imports and bundles the real registry + config.

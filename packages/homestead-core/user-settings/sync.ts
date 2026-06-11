@@ -99,7 +99,7 @@ export async function syncUserSettingsSchema(
     singular: RESOURCE_SINGULAR,
     plural: RESOURCE_PLURAL,
     description:
-      'Per-user app preferences. Schema is generated from declared user settings (HomeApp.userSettings) plus a small static carve-out for dashboard widget customization.',
+      'Per-user app preferences. Schema is generated from declared user settings (AppConfig.userSettings) plus a small static carve-out for dashboard widget customization.',
     user_settable_create: true,
     parents: ['user'],
     schema,

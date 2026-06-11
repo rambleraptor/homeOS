@@ -10,7 +10,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { initializeAppRegistry } from '@rambleraptor/homestead-core/apps/registry';
 import { Header } from '../Header';
 import { TopBarBadge } from '../TopBarBadge';
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
 const enabledIds = new Set(['bell', 'plain', 'side']);
 vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled', () => ({
@@ -21,7 +21,7 @@ function BellBadge() {
   return <TopBarBadge count={3} />;
 }
 
-const makeApp = (overrides: Partial<HomeApp>): HomeApp => ({
+const makeApp = (overrides: Partial<AppConfig>): AppConfig => ({
   id: 'app',
   name: 'App',
   description: 'test app',
@@ -31,7 +31,7 @@ const makeApp = (overrides: Partial<HomeApp>): HomeApp => ({
   ...overrides,
 });
 
-const apps: HomeApp[] = [
+const apps: AppConfig[] = [
   makeApp({
     id: 'bell',
     name: 'Bell',

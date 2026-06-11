@@ -179,7 +179,7 @@ component:
 
 ```ts
 // packages/homestead-apps/<feature>/app.config.ts
-export const myApp: HomeApp = {
+export const myApp: AppConfig = {
   // ...
   basePath: '/my-thing',
   routes: [

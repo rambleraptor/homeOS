@@ -6,14 +6,14 @@
  * {@link initializeAppRegistry} once with the full app list; every
  * helper here reads from the resulting singleton.
  *
- * This file deliberately imports zero `HomeApp` instances of its own:
+ * This file deliberately imports zero `AppConfig` instances of its own:
  * the always-installed core apps (settings/users/superuser) are
  * passed in by the consumer. That keeps `import` of this app a
  * zero-cost type-only operation, which matters for test mocking — eager
  * loading of app components would freeze hook bindings before a test
  * file's `vi.mock` calls could take effect.
  *
- * Nested apps: a parent app can declare `children: HomeApp[]`
+ * Nested apps: a parent app can declare `children: AppConfig[]`
  * to group related sub-features (e.g. `gamesApp` owns `minigolf`,
  * `pictionary`, `bridge`). Only the parent goes in the config list; the
  * registry walks `children` for route/widget aggregation, validation,
@@ -24,7 +24,7 @@
 
 import type {
   DashboardWidget,
-  HomeApp,
+  AppConfig,
   AppFlagDef,
   AppRegistry,
   UserSettingDef,
@@ -42,9 +42,9 @@ import {
 import { logger } from '../utils/logger';
 
 class AppRegistryImpl implements AppRegistry {
-  apps: HomeApp[];
+  apps: AppConfig[];
 
-  constructor(apps: HomeApp[]) {
+  constructor(apps: AppConfig[]) {
     // Filter out disabled apps and sort by navOrder
     this.apps = apps
       .filter((m) => m.enabled !== false)
@@ -62,7 +62,7 @@ class AppRegistryImpl implements AppRegistry {
     const ids = new Set<string>();
     const paths = new Set<string>();
 
-    const visit = (mod: HomeApp, parent: HomeApp | null): void => {
+    const visit = (mod: AppConfig, parent: AppConfig | null): void => {
       if (ids.has(mod.id)) {
         logger.warn(`Duplicate app ID detected: ${mod.id}`, { appId: mod.id });
       }
@@ -101,10 +101,10 @@ class AppRegistryImpl implements AppRegistry {
    * Get a specific app by ID. Walks `children` so nested apps
    * are reachable; their flags live in the same id namespace as their
    * parents, so flag consumers (and the Flag Management UI) need to
-   * resolve a child's `HomeApp` to render its name and metadata.
+   * resolve a child's `AppConfig` to render its name and metadata.
    */
-  getApp(id: string): HomeApp | undefined {
-    const visit = (mod: HomeApp): HomeApp | undefined => {
+  getApp(id: string): AppConfig | undefined {
+    const visit = (mod: AppConfig): AppConfig | undefined => {
       if (mod.id === id) return mod;
       for (const child of mod.children ?? []) {
         const hit = visit(child);
@@ -122,7 +122,7 @@ class AppRegistryImpl implements AppRegistry {
   /**
    * Get apps that should appear in the sidebar navigation
    */
-  getNavigationApps(): HomeApp[] {
+  getNavigationApps(): AppConfig[] {
     return this.apps.filter(
       (m) => m.showInNav !== false && m.placement !== 'topbar',
     );
@@ -132,7 +132,7 @@ class AppRegistryImpl implements AppRegistry {
    * Get apps that should render as icon buttons in the top bar.
    * Already sorted by navOrder (the constructor sorts the full list).
    */
-  getTopBarApps(): HomeApp[] {
+  getTopBarApps(): AppConfig[] {
     return this.apps.filter(
       (m) => m.placement === 'topbar' && m.showInNav !== false,
     );
@@ -141,8 +141,8 @@ class AppRegistryImpl implements AppRegistry {
   /**
    * Get all routes from all apps, including nested children.
    */
-  getAllRoutes(): HomeApp['routes'] {
-    const collect = (mod: HomeApp): HomeApp['routes'] => [
+  getAllRoutes(): AppConfig['routes'] {
+    const collect = (mod: AppConfig): AppConfig['routes'] => [
       ...mod.routes,
       ...(mod.children ?? []).flatMap(collect),
     ];
@@ -176,7 +176,7 @@ let _appRegistry: AppRegistryImpl | undefined;
  * Idempotent across hot-reloads in dev (overwrites the singleton).
  * Tests can call this to install a synthetic config.
  */
-export function initializeAppRegistry(apps: HomeApp[]): void {
+export function initializeAppRegistry(apps: AppConfig[]): void {
   _appRegistry = new AppRegistryImpl(apps);
 }
 
@@ -220,35 +220,35 @@ export const appRegistry: AppRegistry = {
 /**
  * Helper function to get all apps
  */
-export function getAllApps(): HomeApp[] {
+export function getAllApps(): AppConfig[] {
   return getAppRegistry().apps;
 }
 
 /**
  * Helper function to get app by ID
  */
-export function getAppById(id: string): HomeApp | undefined {
+export function getAppById(id: string): AppConfig | undefined {
   return getAppRegistry().getApp(id);
 }
 
 /**
  * Helper function to get apps for navigation
  */
-export function getNavigationApps(): HomeApp[] {
+export function getNavigationApps(): AppConfig[] {
   return getAppRegistry().getNavigationApps();
 }
 
 /**
  * Helper function to get apps placed on the top bar
  */
-export function getTopBarApps(): HomeApp[] {
+export function getTopBarApps(): AppConfig[] {
   return getAppRegistry().getTopBarApps();
 }
 
 /**
  * Helper function to get all routes
  */
-export function getAllRoutes(): HomeApp['routes'] {
+export function getAllRoutes(): AppConfig['routes'] {
   return getAppRegistry().getAllRoutes();
 }
 
@@ -276,7 +276,7 @@ export type RegisteredDashboardWidget = DashboardWidget & {
  * widgets for apps the current viewer can't access.
  */
 export function getAllDashboardWidgets(): RegisteredDashboardWidget[] {
-  const collect = (mod: HomeApp): RegisteredDashboardWidget[] => [
+  const collect = (mod: AppConfig): RegisteredDashboardWidget[] => [
     ...(mod.widgets ?? []).map((w) => ({ ...w, appId: mod.id })),
     ...(mod.children ?? []).flatMap(collect),
   ];
@@ -344,7 +344,7 @@ export function getAllAppFlagDefs(): Record<
   Record<string, AppFlagDef>
 > {
   const out: Record<string, Record<string, AppFlagDef>> = {};
-  const visit = (mod: HomeApp): void => {
+  const visit = (mod: AppConfig): void => {
     const declared = mod.flags ?? {};
     for (const reserved of RESERVED_FLAG_KEYS) {
       if (reserved in declared) {
@@ -385,7 +385,7 @@ export function getAllUserSettingDefs(): Record<
   Record<string, UserSettingDef>
 > {
   const out: Record<string, Record<string, UserSettingDef>> = {};
-  const visit = (mod: HomeApp): void => {
+  const visit = (mod: AppConfig): void => {
     const declared = mod.userSettings;
     if (declared && Object.keys(declared).length > 0) {
       out[mod.id] = { ...declared };
@@ -408,10 +408,10 @@ export function getAllUserSettingDefs(): Record<
  */
 export function getAllSettingsWidgets(): {
   appId: string;
-  app: HomeApp;
+  app: AppConfig;
 }[] {
-  const out: { appId: string; app: HomeApp }[] = [];
-  const visit = (mod: HomeApp): void => {
+  const out: { appId: string; app: AppConfig }[] = [];
+  const visit = (mod: AppConfig): void => {
     const hasSettings =
       !!mod.settingsWidget ||
       (mod.userSettings && Object.keys(mod.userSettings).length > 0);
@@ -437,7 +437,7 @@ export function getAllSettingsWidgets(): {
  */
 export function getAllResourceDefs(): ResourceDefinition[] {
   const out: ResourceDefinition[] = [];
-  const visit = (mod: HomeApp): void => {
+  const visit = (mod: AppConfig): void => {
     for (const def of mod.resources ?? []) {
       out.push(def);
     }
@@ -458,11 +458,11 @@ export function getAllResourceDefs(): ResourceDefinition[] {
  * the offline mutation factory's auto-registration loop.
  */
 export function getAllResourceDefsWithApp(): {
-  app: HomeApp;
+  app: AppConfig;
   def: ResourceDefinition;
 }[] {
-  const out: { app: HomeApp; def: ResourceDefinition }[] = [];
-  const visit = (mod: HomeApp): void => {
+  const out: { app: AppConfig; def: ResourceDefinition }[] = [];
+  const visit = (mod: AppConfig): void => {
     for (const def of mod.resources ?? []) {
       out.push({ app: mod, def });
     }

@@ -4,10 +4,10 @@
  * App for tracking credit card perks and rewards
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { creditCardsResources } from './resources';
 
-export const creditCardsApp: HomeApp = {
+export const creditCardsApp: AppConfig = {
   id: 'credit-cards',
   name: 'Credit Cards',
   description: 'Track credit card perks and maximize rewards',

@@ -2,7 +2,7 @@
  * App System Types
  *
  * This file defines the contract that every app must follow.
- * All apps registered in the system must implement the HomeApp interface.
+ * All apps registered in the system must implement the AppConfig interface.
  */
 
 import type { ComponentType } from 'react';
@@ -104,7 +104,7 @@ export interface AppRoute {
  * Core App Configuration
  * Every app must export a config object that implements this interface
  */
-export interface HomeApp {
+export interface AppConfig {
   /**
    * Unique identifier for the app (lowercase, no spaces)
    * Example: 'dashboard', 'chores', 'meal_planner'
@@ -296,7 +296,7 @@ export interface HomeApp {
    * Children still stay out of top-level navigation: the parent owns
    * the sidebar placement.
    */
-  children?: HomeApp[];
+  children?: AppConfig[];
 }
 
 /**
@@ -373,10 +373,10 @@ export type UserSettingDef = AppFlagDef;
  * Central registry of all available apps in the system
  */
 export interface AppRegistry {
-  apps: HomeApp[];
-  getApp: (id: string) => HomeApp | undefined;
-  getNavigationApps: () => HomeApp[];
-  getTopBarApps: () => HomeApp[];
+  apps: AppConfig[];
+  getApp: (id: string) => AppConfig | undefined;
+  getNavigationApps: () => AppConfig[];
+  getTopBarApps: () => AppConfig[];
 }
 
 /**

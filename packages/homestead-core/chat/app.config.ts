@@ -7,9 +7,9 @@
  * `POST /api/chat`; conversations are ephemeral (client state only).
  */
 
-import type { HomeApp } from '../apps/types';
+import type { AppConfig } from '../apps/types';
 
-export const chatApp: HomeApp = {
+export const chatApp: AppConfig = {
   id: 'chat',
   name: 'Chat',
   description: 'Ask the household assistant to look up or change your data',

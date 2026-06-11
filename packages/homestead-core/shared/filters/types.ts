@@ -1,7 +1,7 @@
 /**
  * Generic app-level filter declarations.
  *
- * A app exports an array of these on `HomeApp.filters` describing
+ * A app exports an array of these on `AppConfig.filters` describing
  * which record fields are filterable and how. The shared `<FilterBar>`
  * renders the right input for each `type`, and `applyFilters` evaluates
  * the values client-side against the app's loaded list.

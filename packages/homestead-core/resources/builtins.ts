@@ -34,17 +34,13 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
     description:
       'A user-defined automation backed by a server-side script.',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        description: { type: 'string' },
-        script_id: { type: 'string' },
-        parameters: { type: 'object' },
-        last_run_at: { type: 'string', format: 'date-time' },
-        created_by: { type: 'string' },
-      },
-      required: ['name', 'script_id'],
+    fields: {
+      name: { type: 'string', required: true },
+      description: { type: 'string' },
+      script_id: { type: 'string', required: true },
+      parameters: { type: 'object' },
+      last_run_at: { type: 'string', format: 'date-time' },
+      created_by: { type: 'string' },
     },
   },
   {
@@ -53,19 +49,15 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
     description: 'A single execution of an action.',
     user_settable_create: true,
     parents: ['action'],
-    schema: {
-      type: 'object',
-      properties: {
-        status: { type: 'string' },
-        started_at: { type: 'string', format: 'date-time' },
-        completed_at: { type: 'string', format: 'date-time' },
-        duration_ms: { type: 'number' },
-        error: { type: 'string' },
-        result: { type: 'object' },
-        input_request: { type: 'object' },
-        input_response: { type: 'object' },
-      },
-      required: ['status'],
+    fields: {
+      status: { type: 'string', required: true },
+      started_at: { type: 'string', format: 'date-time' },
+      completed_at: { type: 'string', format: 'date-time' },
+      duration_ms: { type: 'number' },
+      error: { type: 'string' },
+      result: { type: 'object' },
+      input_request: { type: 'object' },
+      input_response: { type: 'object' },
     },
   },
 ];

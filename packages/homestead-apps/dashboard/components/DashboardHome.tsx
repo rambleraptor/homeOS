@@ -2,7 +2,7 @@
  * Dashboard Home Component
  *
  * Renders a stack of widgets contributed by other apps. Apps
- * declare widgets via `HomeApp.widgets`; the dashboard discovers
+ * declare widgets via `AppConfig.widgets`; the dashboard discovers
  * them through `getAllDashboardWidgets()`, then defers to the user's
  * own dashboard preferences (saved via the settings UI) for the
  * order and visibility of each widget.

@@ -2,7 +2,7 @@
  * The always-installed core apps and the helper that merges them into
  * an operator's app list.
  *
- * Kept out of `registry.ts` on purpose: that file imports zero `HomeApp`
+ * Kept out of `registry.ts` on purpose: that file imports zero `AppConfig`
  * instances so a bare `import` stays type-only (see the note at the top of
  * registry.ts). This app is the one place that names the core apps, so
  * every consumer that boots the registry from a config (the SPA shim, the
@@ -14,7 +14,7 @@ import { chatApp } from '../chat/app.config';
 import { settingsApp } from '../settings/app.config';
 import { superuserApp } from '../superuser/app.config';
 import { usersApp } from '../users/app.config';
-import type { HomeApp } from './types';
+import type { AppConfig } from './types';
 
 /**
  * Apps every instance ships regardless of the operator's config. Their
@@ -22,7 +22,7 @@ import type { HomeApp } from './types';
  * backend app-access middleware (aepbase's own user-parenting protects
  * the user-scoped ones).
  */
-export const ALWAYS_INSTALLED_APPS: HomeApp[] = [
+export const ALWAYS_INSTALLED_APPS: AppConfig[] = [
   superuserApp,
   usersApp,
   settingsApp,
@@ -38,7 +38,7 @@ export const ALWAYS_INSTALLED_APP_IDS: string[] = ALWAYS_INSTALLED_APPS.map(
  * Append the always-installed core apps to an operator's app list,
  * skipping any the operator already declared (matched by id).
  */
-export function withAlwaysInstalled(operatorApps: HomeApp[]): HomeApp[] {
+export function withAlwaysInstalled(operatorApps: AppConfig[]): AppConfig[] {
   const seen = new Set(operatorApps.map((m) => m.id));
   const merged = [...operatorApps];
   for (const core of ALWAYS_INSTALLED_APPS) {

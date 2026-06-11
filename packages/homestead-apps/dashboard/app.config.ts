@@ -5,9 +5,9 @@
  * Displays welcome message, statistics, and getting started guide.
  */
 
-import type { HomeApp } from '@rambleraptor/homestead-core/apps/types';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-export const dashboardApp: HomeApp = {
+export const dashboardApp: AppConfig = {
   id: 'dashboard',
   name: 'Dashboard',
   description: 'Overview of your Homestead system',

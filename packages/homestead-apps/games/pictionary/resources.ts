@@ -9,28 +9,24 @@ export const pictionaryResources: ResourceDefinition[] = [
     plural: PICTIONARY_GAMES,
     description: 'A single Pictionary game session.',
     user_settable_create: true,
-    schema: {
-      type: 'object',
-      properties: {
-        played_at: {
-          type: 'string',
-          description: 'RFC3339 timestamp of the game',
-        },
-        location: { type: 'string' },
-        winning_word: {
-          type: 'string',
-          description: 'The clue/word the winning team guessed',
-        },
-        winning_word_image: {
-          type: 'binary',
-          'x-aepbase-file-field': true,
-          description:
-            'Picture of the winning word/drawing (jpeg/png/webp/gif, <=5MB)',
-        },
-        notes: { type: 'string' },
-        created_by: { type: 'string', description: 'users/{user_id}' },
+    fields: {
+      played_at: {
+        type: 'string',
+        description: 'RFC3339 timestamp of the game',
+        required: true,
       },
-      required: ['played_at'],
+      location: { type: 'string' },
+      winning_word: {
+        type: 'string',
+        description: 'The clue/word the winning team guessed',
+      },
+      winning_word_image: {
+        type: 'file',
+        description:
+          'Picture of the winning word/drawing (jpeg/png/webp/gif, <=5MB)',
+      },
+      notes: { type: 'string' },
+      created_by: { type: 'string', description: 'users/{user_id}' },
     },
   },
   {
@@ -39,23 +35,20 @@ export const pictionaryResources: ResourceDefinition[] = [
     description: 'A team within a Pictionary game.',
     user_settable_create: true,
     parents: ['pictionary-game'],
-    schema: {
-      type: 'object',
-      properties: {
-        players: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Player resource paths (people/{id})',
-        },
-        won: { type: 'boolean' },
-        rank: {
-          type: 'number',
-          description:
-            '1-based position within the game; teams have no name',
-        },
-        created_by: { type: 'string' },
+    fields: {
+      players: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Player resource paths (people/{id})',
+        required: true,
       },
-      required: ['players'],
+      won: { type: 'boolean' },
+      rank: {
+        type: 'number',
+        description:
+          '1-based position within the game; teams have no name',
+      },
+      created_by: { type: 'string' },
     },
   },
 ];
