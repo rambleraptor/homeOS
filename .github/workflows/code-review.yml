@@ -163,12 +163,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-          cache-dependency-path: aepbase/go.sum
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -177,8 +171,8 @@ jobs:
       - name: Install dependencies
         run: make install
 
-      # `make test` runs the frontend (vitest), CLI (bun test) and aepbase (go
-      # test) suites, so this job needs Node + Bun + Go.
+      # `make test` runs the frontend (vitest) and CLI/server (bun test)
+      # suites, so this job needs Node + Bun.
       - name: Run tests
         run: make test
 
@@ -232,16 +226,8 @@ jobs:
       - name: Install Playwright browsers
         run: cd tests/e2e && npx playwright install --with-deps chromium
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-
-      - name: Build aepbase
-        run: cd aepbase && ./install.sh
 
       - name: Run E2E tests
         run: cd tests/e2e && npm test
