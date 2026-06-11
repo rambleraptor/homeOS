@@ -23,6 +23,12 @@ test.describe('Offline banner', () => {
     await authenticatedPage.goto('/todos');
     await expect(page.getByTestId('offline-banner')).toBeHidden();
 
+    // Let lazy chunks (top-bar badges etc.) finish loading before cutting
+    // the network: a dynamic import that's still in flight when the network
+    // drops rejects and takes the whole app down — that's the cold-offline
+    // navigation case the header note already scopes out.
+    await page.waitForLoadState('networkidle');
+
     await context.setOffline(true);
     await expect(page.getByTestId('offline-banner')).toBeVisible();
     await expect(page.getByTestId('offline-banner')).toContainText(/offline/i);

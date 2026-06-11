@@ -12,7 +12,7 @@ export interface InstallServiceOptions {
   user: string;
   /** App port for `homestead start`. */
   port: number;
-  /** aepbase data dir; defaults to <project>/data. */
+  /** server data dir; defaults to <project>/data. */
   dataDir?: string;
   /** Update-check cadence, in seconds. */
   intervalSeconds: number;
@@ -54,7 +54,7 @@ interface RenderParams extends Required<Omit<InstallServiceOptions, 'envFile'>> 
 /** The long-running unit: `homestead start`. */
 export function renderMainService(p: RenderParams): string {
   return `[Unit]
-Description=Homestead (single-binary launcher: aepbase + sidecar + SPA)
+Description=Homestead (single-binary server + SPA)
 After=network.target
 Wants=network-online.target
 
@@ -65,7 +65,7 @@ WorkingDirectory=${p.projectDir}
 ExecStart=${p.invocation} start --port ${p.port} --data-dir ${p.dataDir}
 Restart=on-failure
 RestartSec=5s
-${p.envFile ? `EnvironmentFile=${p.envFile}\n` : ''}# homestead extracts its embedded aepbase binary here before exec; keep it
+${p.envFile ? `EnvironmentFile=${p.envFile}\n` : ''}# homestead cache dir (kept for updates and future use); keep it
 # writable under ProtectSystem=strict.
 Environment="HOMESTEAD_CACHE_DIR=${p.cacheDir}"
 
@@ -156,7 +156,7 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
   // systemd sets up the ProtectSystem=strict namespace from ReadWritePaths
   // *before* exec, and fails with 226/NAMESPACE if any listed path is missing.
   // homestead would create the cache dir at runtime (it extracts its embedded
-  // aepbase/sidecar binaries there), but that's too late — create both up front,
+  // files there), but that's too late — create both up front,
   // owned by the service user so the runtime extraction + db writes can proceed.
   ensureOwnedDir(cacheDir, opts.user);
   ensureOwnedDir(dataDir, opts.user);

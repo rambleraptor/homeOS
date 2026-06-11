@@ -1,11 +1,9 @@
 /**
  * Playwright Configuration for Homestead E2E Tests.
  *
- * aepbase, the Bun sidecar, and the Vite dev server are all managed in
- * `globalSetup` so we can sequence them: aepbase first, then the sidecar
- * (which applies the schema on boot), then the dev server. Vite is on
- * :5173 and aepbase on :8092 (kept off the developer's :8090); the sidecar
- * is on :4002 (off the dev :4000).
+ * A single homestead-server process is managed in `globalSetup`: the SPA on
+ * :5173 (Vite middleware) and the engine API on :8092 (kept off the
+ * developer's :8090). The schema is applied in-process on boot.
  */
 
 import { defineConfig, devices } from '@playwright/test';

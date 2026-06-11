@@ -6,7 +6,7 @@ real aepbase backend.
 ## Overview
 
 These tests verify the full integration of the Homestead application,
-exercising the Vite + React frontend, the Bun sidecar, and the aepbase
+exercising the Vite + React frontend and the homestead-server
 backend together in a real browser environment.
 
 ### What's Tested
@@ -335,7 +335,7 @@ test('password test', async () => { ... });
 
 aepbase failed to start. Check:
 - Port 8092 is not in use
-- The `aepbase/bin/aepbase` binary built successfully
+- `bun` is installed (homestead-server runs under Bun)
 - Schema sync logged no errors during bootstrap
 
 ### Tests Timeout

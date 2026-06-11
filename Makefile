@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check type-check-cli build test test-cli test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs aepbase homestead homestead-test release
+.PHONY: help install clean lint type-check type-check-cli type-check-server build test test-cli test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
 
 # Release target platforms (filename arch follows Bun's convention: x64/arm64).
 RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
@@ -8,6 +8,7 @@ RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 
 FRONTEND_DIR := packages/homestead-app
 CLI_DIR := packages/homestead-cli
+SERVER_DIR := packages/homestead-server
 GEN := scripts/gen-embedded.ts
 BUN := $(shell command -v bun || echo $$HOME/.bun/bin/bun)
 
@@ -25,7 +26,6 @@ clean: ## Remove build artifacts and dependencies
 	rm -rf $(FRONTEND_DIR)/dist
 	rm -rf $(FRONTEND_DIR)/node_modules
 	rm -rf $(CLI_DIR)/.build
-	rm -rf aepbase/bin
 	rm -rf bin
 	$(BUN) $(GEN) --restore 2>/dev/null || true
 
@@ -33,7 +33,7 @@ lint: ## Run ESLint
 	@echo "Running ESLint..."
 	cd $(FRONTEND_DIR) && npm run lint
 
-type-check: type-check-cli ## Run TypeScript type checking (frontend + CLI)
+type-check: type-check-cli type-check-server ## Run TypeScript type checking (frontend + CLI + server)
 	@echo "Running TypeScript type check..."
 	cd $(FRONTEND_DIR) && npm run type-check
 
@@ -41,19 +41,18 @@ type-check-cli: ## Type-check the homestead CLI package
 	@echo "Type-checking homestead CLI..."
 	npx tsc -p $(CLI_DIR)/tsconfig.json
 
+type-check-server: ## Type-check the homestead-server package
+	@echo "Type-checking homestead-server..."
+	npx tsc -p $(SERVER_DIR)/tsconfig.json
+
 build: ## Build the SPA (Vite -> frontend/dist)
 	@echo "Building SPA..."
 	@set -a; if [ -f "$(FRONTEND_DIR)/.env" ]; then . "$(FRONTEND_DIR)/.env"; fi; set +a; \
 	  cd $(FRONTEND_DIR) && npm run build
 
-aepbase: ## Build the aepbase host binary (Go)
-	@echo "Building aepbase host binary..."
-	cd aepbase && go build -o bin/aepbase .
-	@echo "→ aepbase/bin/aepbase"
-
-dev: ## Start the Vite dev server only (no backend)
-	@echo "Starting Vite dev server..."
-	cd $(FRONTEND_DIR) && npm run dev
+dev: ## Start the full dev stack (server + SPA with HMR, one process)
+	@echo "Starting homestead dev stack..."
+	$(BUN) packages/homestead-cli/src/cli.ts start --dev
 
 start: homestead ## Build and run the homestead launcher (prod, single binary)
 	@echo "Starting homestead..."
@@ -63,11 +62,11 @@ test: test-cli ## Run frontend tests with Vitest (+ CLI tests)
 	@echo "Running frontend tests..."
 	cd $(FRONTEND_DIR) && npm run test
 
-test-cli: ## Run the homestead CLI unit tests (Bun) + aepbase Go tests
+test-cli: ## Run the homestead CLI + server unit tests (Bun)
 	@echo "Running homestead CLI tests..."
 	$(BUN) test $(CLI_DIR)/
-	@echo "Running aepbase Go tests..."
-	cd aepbase && go test ./...
+	@echo "Running homestead-server tests..."
+	$(BUN) test $(SERVER_DIR)/
 
 test-e2e: ## Run end-to-end tests with Playwright
 	@echo "Running e2e tests..."
@@ -88,30 +87,25 @@ format: ## Format code with Prettier
 	@echo "Formatting code with Prettier..."
 	cd $(FRONTEND_DIR) && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
 
-homestead: build ## Build the single-binary `homestead` launcher (embeds SPA + sidecar + aepbase)
+homestead: build ## Build the single-binary `homestead` launcher (embeds SPA + server)
 	@echo "Building homestead launcher (host platform)..."
 	@mkdir -p bin
-	cd aepbase && go build -o bin/aepbase .
-	$(BUN) $(GEN) --aepbase aepbase/bin/aepbase --dist $(FRONTEND_DIR)/dist
-	$(BUN) build --compile $(CLI_DIR)/src/cli.ts --outfile bin/homestead; \
+	$(BUN) $(GEN) --dist $(FRONTEND_DIR)/dist
+	$(BUN) build --compile --external vite $(CLI_DIR)/src/cli.ts --outfile bin/homestead; \
 	  status=$$?; $(BUN) $(GEN) --restore; exit $$status
 	@echo "→ bin/homestead"
 
-homestead-test: type-check-cli test-cli ## Type-check + test the CLI and aepbase
+homestead-test: type-check-cli type-check-server test-cli ## Type-check + test the CLI and server
 
-release: build ## Cross-compile per-platform homestead binaries (each embeds SPA + sidecar + aepbase)
-	@mkdir -p bin aepbase/bin
+release: build ## Cross-compile per-platform homestead binaries (each embeds SPA + server)
+	@mkdir -p bin
+	@$(BUN) $(GEN) --dist $(FRONTEND_DIR)/dist
 	@for plat in $(RELEASE_PLATFORMS); do \
-	  os=$${plat%-*}; barch=$${plat#*-}; \
-	  goarch=$$( [ "$$barch" = "x64" ] && echo amd64 || echo $$barch ); \
-	  echo "→ $$os/$$goarch"; \
-	  (cd aepbase && GOOS=$$os GOARCH=$$goarch CGO_ENABLED=0 \
-	    go build -o bin/aepbase-$$plat .) || exit 1; \
-	  $(BUN) $(GEN) --aepbase aepbase/bin/aepbase-$$plat --dist $(FRONTEND_DIR)/dist || exit 1; \
-	  $(BUN) build --compile --target=bun-$$plat $(CLI_DIR)/src/cli.ts \
-	    --outfile bin/homestead-$$plat; status=$$?; \
-	  $(BUN) $(GEN) --restore; [ $$status -eq 0 ] || exit $$status; \
-	done
+	  echo "→ $$plat"; \
+	  $(BUN) build --compile --external vite --target=bun-$$plat $(CLI_DIR)/src/cli.ts \
+	    --outfile bin/homestead-$$plat || { $(BUN) $(GEN) --restore; exit 1; }; \
+	done; \
+	$(BUN) $(GEN) --restore
 	@echo "→ bin/homestead-<platform> ($(words $(RELEASE_PLATFORMS)) binaries)"
 
 all: install lint type-check build ## Run install, lint, type-check, and build

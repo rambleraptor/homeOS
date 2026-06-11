@@ -22,7 +22,7 @@ import type {
   User,
 } from './types';
 import { AuthContext } from './context';
-import { aepbase } from '../api/aepbase';
+import { aepbase, AepbaseError } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
@@ -242,8 +242,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       aepbase.authStore.save(aepbase.authStore.token, hydrated);
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth.user() });
     } catch (error) {
-      logger.error('Failed to refresh user', error);
-      logout();
+      // Only an explicit auth rejection ends the session. Network-level
+      // failures (most commonly a page navigation aborting the in-flight
+      // fetch with `TypeError: Failed to fetch`) are transient — logging
+      // out on them wipes a perfectly valid session.
+      if (error instanceof AepbaseError && (error.code === 401 || error.code === 403)) {
+        logger.error('Session rejected during refresh; signing out', error);
+        logout();
+        return;
+      }
+      logger.warn('Failed to refresh user (transient); keeping session', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }, [logout]);
 

@@ -1,0 +1,207 @@
+/**
+ * Row storage for dynamic resources — port of pkg/resource/store.go.
+ * Pagination contract: cursor = base64(last id), `ORDER BY id`, fetch
+ * skip + pageSize + 1 to detect the next page.
+ */
+
+import type { Database } from 'bun:sqlite';
+import type { Schema, StoredResource } from './types';
+import { STANDARD_FIELDS } from './types';
+import { sanitizeTableName } from './db';
+import { compileFilter } from './filter';
+
+type SqlValue = string | number | bigint | boolean | null | Uint8Array;
+
+function schemaPropertyNames(schema: Schema): string[] {
+  return Object.keys(schema.properties ?? {})
+    .filter((n) => !STANDARD_FIELDS.has(n))
+    .sort();
+}
+
+/**
+ * Prepare a field value for SQLite binding: object/array fields are
+ * JSON-stringified (coerceFieldValue reverses this on read).
+ */
+function bindFieldValue(val: unknown, schema: Schema, name: string): SqlValue {
+  if (val === null || val === undefined) return null;
+  const propType = schema.properties?.[name]?.type;
+  if (propType === 'object' || propType === 'array') {
+    if (typeof val === 'string') return val;
+    return JSON.stringify(val);
+  }
+  if (typeof val === 'boolean') return val ? 1 : 0;
+  return val as SqlValue;
+}
+
+/** Convert SQLite-stored values back to their schema types. */
+function coerceFieldValue(val: unknown, schema: Schema, name: string): unknown {
+  const propType = schema.properties?.[name]?.type;
+  switch (propType) {
+    case 'boolean':
+      if (typeof val === 'number' || typeof val === 'bigint') return Number(val) !== 0;
+      break;
+    case 'object':
+    case 'array':
+      if (typeof val === 'string' && val !== '') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      break;
+  }
+  return val;
+}
+
+function rowToStored(
+  row: Record<string, unknown>,
+  schema: Schema,
+): StoredResource {
+  const fields: Record<string, unknown> = {};
+  for (const name of schemaPropertyNames(schema)) {
+    fields[name] = coerceFieldValue(row[name], schema, name);
+  }
+  return {
+    id: String(row.id),
+    path: String(row.path),
+    create_time: String(row.create_time),
+    update_time: String(row.update_time),
+    fields,
+  };
+}
+
+export function insertResource(
+  db: Database,
+  plural: string,
+  r: StoredResource,
+  parentIds: Record<string, string>,
+  schema: Schema,
+): void {
+  const tableName = sanitizeTableName(plural);
+  const colNames = ['id', 'path', 'create_time', 'update_time'];
+  const values: SqlValue[] = [r.id, r.path, r.create_time, r.update_time];
+
+  for (const [parentParam, parentId] of Object.entries(parentIds)) {
+    colNames.push(sanitizeTableName(parentParam));
+    values.push(parentId);
+  }
+  for (const propName of schemaPropertyNames(schema)) {
+    colNames.push(propName);
+    values.push(bindFieldValue(r.fields[propName], schema, propName));
+  }
+
+  const placeholders = colNames.map(() => '?').join(', ');
+  db.query(
+    `INSERT INTO ${tableName} (${colNames.join(', ')}) VALUES (${placeholders})`,
+  ).run(...values);
+}
+
+export function getResource(
+  db: Database,
+  plural: string,
+  path: string,
+  schema: Schema,
+): StoredResource | null {
+  const tableName = sanitizeTableName(plural);
+  const selectCols = ['id', 'path', 'create_time', 'update_time', ...schemaPropertyNames(schema)];
+  const row = db
+    .query(`SELECT ${selectCols.join(', ')} FROM ${tableName} WHERE path = ?`)
+    .get(path) as Record<string, unknown> | null;
+  return row ? rowToStored(row, schema) : null;
+}
+
+export function listResources(
+  db: Database,
+  plural: string,
+  parentIds: Record<string, string>,
+  schema: Schema,
+  pageSize: number,
+  pageToken: string,
+  skip: number,
+  filter: string,
+): { results: StoredResource[]; nextPageToken: string } {
+  const tableName = sanitizeTableName(plural);
+  const selectCols = ['id', 'path', 'create_time', 'update_time', ...schemaPropertyNames(schema)];
+
+  const whereClauses: string[] = [];
+  const args: SqlValue[] = [];
+
+  for (const [parentParam, parentId] of Object.entries(parentIds)) {
+    whereClauses.push(`${sanitizeTableName(parentParam)} = ?`);
+    args.push(parentId);
+  }
+
+  if (pageToken !== '') {
+    let cursor = '';
+    try {
+      cursor = Buffer.from(pageToken, 'base64').toString('utf8');
+    } catch {
+      // invalid tokens are ignored, matching the Go server
+    }
+    if (cursor !== '') {
+      whereClauses.push('id > ?');
+      args.push(cursor);
+    }
+  }
+
+  if (filter !== '') {
+    // Throws Error("invalid filter: ...") which the handler maps to 400.
+    const compiled = compileFilter(filter, schema);
+    whereClauses.push(compiled.sql);
+    args.push(...compiled.params);
+  }
+
+  const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : '';
+  const fetchCount = skip + pageSize + 1;
+  const rows = db
+    .query(`SELECT ${selectCols.join(', ')} FROM ${tableName}${where} ORDER BY id LIMIT ?`)
+    .all(...args, fetchCount) as Record<string, unknown>[];
+
+  let results = rows.map((row) => rowToStored(row, schema));
+
+  if (skip > 0 && skip < results.length) {
+    results = results.slice(skip);
+  } else if (skip >= results.length && skip > 0) {
+    return { results: [], nextPageToken: '' };
+  }
+
+  let nextPageToken = '';
+  if (results.length > pageSize) {
+    const lastId = results[pageSize - 1]!.id;
+    nextPageToken = Buffer.from(lastId, 'utf8').toString('base64');
+    results = results.slice(0, pageSize);
+  }
+
+  return { results, nextPageToken };
+}
+
+export function updateResource(
+  db: Database,
+  plural: string,
+  path: string,
+  fields: Record<string, unknown>,
+  updateTime: string,
+  schema: Schema,
+): void {
+  const tableName = sanitizeTableName(plural);
+  const setClauses = ['update_time = ?'];
+  const args: SqlValue[] = [updateTime];
+
+  for (const propName of schemaPropertyNames(schema)) {
+    if (propName in fields) {
+      setClauses.push(`${propName} = ?`);
+      args.push(bindFieldValue(fields[propName], schema, propName));
+    }
+  }
+
+  args.push(path);
+  db.query(`UPDATE ${tableName} SET ${setClauses.join(', ')} WHERE path = ?`).run(...args);
+}
+
+export function deleteResource(db: Database, plural: string, path: string): boolean {
+  const result = db
+    .query(`DELETE FROM ${sanitizeTableName(plural)} WHERE path = ?`)
+    .run(path);
+  return result.changes > 0;
+}

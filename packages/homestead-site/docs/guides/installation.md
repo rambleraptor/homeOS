@@ -43,22 +43,21 @@ apps, plus a `apps/` folder for your own.
 ```
 [homestead] ready
 [homestead]   app       http://localhost:3000
-[homestead]   aepbase   http://127.0.0.1:8090
-[homestead]   superuser admin@example.com / 9f3c…
+[homestead]   engine    http://127.0.0.1:8090 (loopback)
+[homestead]   superuser printed on first boot; reset with `homestead admin reset-password`
 ```
 
-The superuser is created for you on first boot. Open the **app** URL and log in
-with the **superuser** email and password from the banner. Change the password
-after you log in.
-
-The credentials are also saved to `data/credentials.json` in your project.
+The superuser is created for you on first boot, and its password is printed
+**once** above the banner. Open the **app** URL and log in with it. If you
+lose the password, run `homestead admin reset-password` from the project
+directory to rotate it.
 
 Next: [add your own app](./quick-start).
 
 ## Build from source
 
 Build from a checkout if you're working on Homestead itself or want unreleased
-changes. This path needs **Node 20+**, **Bun**, and **Go 1.22+**.
+changes. This path needs **Node 20+** and **Bun**.
 
 ```bash
 git clone https://github.com/rambleraptor/homestead
@@ -69,14 +68,13 @@ make install       # install workspace dependencies
 Build the single binary and run it:
 
 ```bash
-make homestead     # → bin/homestead (SPA + sidecar + aepbase embedded)
+make homestead     # → bin/homestead (SPA + server embedded)
 ./bin/homestead start
 ```
 
 To develop with hot reload instead of a compiled binary:
 
 ```bash
-make aepbase                                        # build the Go backend once
 bun packages/homestead-cli/src/cli.ts start --dev
 ```
 

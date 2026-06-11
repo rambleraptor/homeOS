@@ -1,5 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { Database } from 'bun:sqlite';
+import { mintAdminToken } from '@rambleraptor/homestead-server/src/bootstrap.ts';
 import axios from 'axios';
 import { APIClient, Client, logger } from '@aep_dev/aep-lib-ts';
 import type { OpenAPI, Resource } from '@aep_dev/aep-lib-ts';
@@ -12,25 +14,21 @@ logger.settings.minLevel = 7;
 export interface ConnectOptions {
   /** Project directory holding homestead.config.ts + data/. Defaults to CWD. */
   projectDir?: string;
-  /** Full aepbase base URL. Wins over `aepbasePort`. */
+  /** Full engine API base URL. Wins over `aepbasePort`. */
   serverUrl?: string;
-  /** aepbase loopback port (default 8090) when `serverUrl` is not given. */
+  /** Engine loopback port (default 8090) when `serverUrl` is not given. */
   aepbasePort?: number;
-  /** Full sidecar base URL (serves custom methods). Wins over `sidecarPort`. */
-  sidecarUrl?: string;
-  /** Sidecar loopback port (default 4000) when `sidecarUrl` is not given. */
-  sidecarPort?: number;
-  /** Explicit data dir holding credentials.json; overrides the project's. */
+  /** Explicit data dir holding the sqlite db; overrides the project's. */
   dataDir?: string;
-  /** Pre-obtained bearer token; skips login. */
+  /** Pre-obtained bearer token; skips the local admin-token mint. */
   token?: string;
-  /** Superuser email; overrides credentials.json. */
+  /** Superuser email (with `password`); skips the local admin-token mint. */
   email?: string;
-  /** Superuser password; overrides credentials.json. */
+  /** Superuser password (with `email`). */
   password?: string;
 }
 
-/** An AEP-136 custom method advertised by the sidecar's `/api/custom-methods`. */
+/** An AEP-136 custom method advertised by `/api/custom-methods`. */
 export interface CustomMethodInfo {
   /** Plural of the resource the method lives on, e.g. `groceries`. */
   plural: string;
@@ -38,7 +36,7 @@ export interface CustomMethodInfo {
   verb: string;
   /** `collection` (`/<plural>:<verb>`) or `item` (`/<plural>/<id>:<verb>`). */
   target: 'collection' | 'item';
-  /** HTTP method the sidecar expects (default POST). */
+  /** HTTP method the gateway expects (default POST). */
   method: string;
 }
 
@@ -47,7 +45,7 @@ export interface ResourceContext {
   apiClient: APIClient;
   client: Client;
   serverUrl: string;
-  /** Sidecar base URL — where custom methods are invoked. */
+  /** Gateway base URL — where custom methods are invoked (same server). */
   sidecarUrl: string;
   /** Bearer token of the authenticated caller. */
   token: string;
@@ -55,7 +53,7 @@ export interface ResourceContext {
   userId: string;
   /** Resource model keyed by singular, e.g. `gift-card`. */
   resources: Record<string, Resource>;
-  /** Custom methods registered on the sidecar, across all resources. */
+  /** Custom methods registered on the gateway, across all resources. */
   customMethods: CustomMethodInfo[];
 }
 
@@ -73,7 +71,7 @@ export class ConnectError extends Error {}
  */
 export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
   const serverUrl = resolveServerUrl(opts);
-  const sidecarUrl = resolveSidecarUrl(opts);
+  const sidecarUrl = serverUrl; // custom methods are served by the same process
   await probe(serverUrl);
 
   const { token, userId } = await resolveAuth(serverUrl, opts);
@@ -109,9 +107,9 @@ export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
 }
 
 /**
- * Fetch the custom methods registered on the sidecar. Best-effort: the
- * `resources` command still works (CRUD only) when the sidecar is down or
- * predates this endpoint, so we degrade to an empty list rather than fail.
+ * Fetch the registered custom methods. Best-effort: the `resources` command
+ * still works (CRUD only) when the endpoint is missing, so we degrade to an
+ * empty list rather than fail.
  */
 async function fetchCustomMethods(
   sidecarUrl: string,
@@ -156,12 +154,6 @@ function resolveServerUrl(opts: ConnectOptions): string {
   return `http://127.0.0.1:${port}`;
 }
 
-function resolveSidecarUrl(opts: ConnectOptions): string {
-  if (opts.sidecarUrl) return opts.sidecarUrl.replace(/\/$/, '');
-  const port = opts.sidecarPort ?? 4000;
-  return `http://127.0.0.1:${port}`;
-}
-
 /** One-shot reachability check so we fail fast with a clear message. */
 async function probe(serverUrl: string): Promise<void> {
   try {
@@ -177,7 +169,9 @@ async function probe(serverUrl: string): Promise<void> {
 /**
  * Resolve the caller's bearer token + user id. The id is needed for the
  * custom-method gateway's `X-User-Id` header. With `--token` we read it back
- * via aepbase's `/users/me`; otherwise the `:login` response carries it.
+ * via `/users/me`; with `--email/--password` we log in; otherwise we mint an
+ * admin token directly in the project's sqlite db (no stored credentials —
+ * data/credentials.json is gone).
  */
 async function resolveAuth(
   serverUrl: string,
@@ -186,8 +180,33 @@ async function resolveAuth(
   if (opts.token) {
     return { token: opts.token, userId: await whoami(serverUrl, opts.token) };
   }
-  const creds = resolveCredentials(opts);
-  return login(serverUrl, creds.email, creds.password);
+  if (opts.email && opts.password) {
+    return login(serverUrl, opts.email, opts.password);
+  }
+  return mintLocalAdminToken(opts);
+}
+
+/** Mint a superuser token straight from the project's database. */
+function mintLocalAdminToken(
+  opts: ConnectOptions,
+): { token: string; userId: string } {
+  const dataDir = opts.dataDir ?? loadProject(opts.projectDir ?? '.').dataDir;
+  const dbPath = join(dataDir, 'aepbase.db');
+  if (!existsSync(dbPath)) {
+    throw new ConnectError(
+      `no database at ${dbPath} — pass --email/--password (or --token), or run ` +
+        'from a project whose server has booted at least once.',
+    );
+  }
+  const db = new Database(dbPath);
+  try {
+    const admin = mintAdminToken(db);
+    return { token: admin.token, userId: admin.userId };
+  } catch (err) {
+    throw new ConnectError(err instanceof Error ? err.message : String(err));
+  } finally {
+    db.close();
+  }
 }
 
 async function whoami(serverUrl: string, token: string): Promise<string> {
@@ -200,33 +219,6 @@ async function whoami(serverUrl: string, token: string): Promise<string> {
   const user = (await res.json()) as { id?: string };
   if (!user.id) throw new ConnectError('aepbase /users/me response missing id');
   return user.id;
-}
-
-interface Credentials {
-  email: string;
-  password: string;
-}
-
-function resolveCredentials(opts: ConnectOptions): Credentials {
-  if (opts.email && opts.password) {
-    return { email: opts.email, password: opts.password };
-  }
-  const dataDir = opts.dataDir ?? loadProject(opts.projectDir ?? '.').dataDir;
-  const path = join(dataDir, 'credentials.json');
-  let raw: string;
-  try {
-    raw = readFileSync(path, 'utf8');
-  } catch {
-    throw new ConnectError(
-      `no credentials: pass --email/--password (or --token), or run from a ` +
-        `project whose ${path} exists.`,
-    );
-  }
-  const parsed = JSON.parse(raw) as Partial<Credentials>;
-  if (!parsed.email || !parsed.password) {
-    throw new ConnectError(`${path} is missing email or password`);
-  }
-  return { email: parsed.email, password: parsed.password };
 }
 
 /** POST /users/:login → { token, user }. Captures the user id too. */

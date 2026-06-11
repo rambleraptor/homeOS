@@ -71,7 +71,7 @@ Drop .ts files in this directory and import them from
 \`../homestead.config.ts\` to add custom features to your Homestead instance.
 `;
 
-const GITIGNORE = `# Local aepbase data (sqlite db + uploaded files + superuser credentials)
+const GITIGNORE = `# Local server data (sqlite db + uploaded files)
 data/
 
 # Launcher cache

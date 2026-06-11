@@ -29,8 +29,6 @@ import {
 const GLOBAL_FLAGS = [
   'server-url',
   'aepbase-port',
-  'sidecar-url',
-  'sidecar-port',
   'token',
   'email',
   'password',
@@ -101,7 +99,7 @@ export async function resourcesCmd(args: string[]): Promise<number> {
 }
 
 /**
- * Invoke an AEP-136 custom method on `resource` via the sidecar gateway:
+ * Invoke an AEP-136 custom method on `resource` via the /api/aep gateway:
  * `POST /api/aep/<plural>[/<id>]:<verb>`. The body comes from `--@data`.
  */
 async function runCustomMethod(
@@ -241,8 +239,6 @@ function connectOptions(flags: RawFlags): ConnectOptions {
   return {
     serverUrl: str(flags['server-url']),
     aepbasePort: num(flags['aepbase-port']),
-    sidecarUrl: str(flags['sidecar-url']),
-    sidecarPort: num(flags['sidecar-port']),
     dataDir: str(flags['data-dir']),
     token: str(flags.token),
     email: str(flags.email),
