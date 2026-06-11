@@ -33,25 +33,23 @@ export interface AuthResult {
 /**
  * Authenticate a request from the frontend.
  *
- * The client sends two things: an `Authorization: Bearer <token>` header
- * and an `X-User-Id: <user id>` header (the id of the token-holder, which
- * the client already has from the `:login` response).
- *
- * We verify both are consistent by issuing `GET /users/{id}` against
- * aepbase with the token — aepbase returns 200 only when the caller is
- * that user (or a superuser), so a mismatch yields 403/401 and we reject
- * the request. aepbase has no dedicated whoami endpoint today; if one is
- * added upstream we can drop the header dependency.
+ * The client sends an `Authorization: Bearer <token>` header. We resolve
+ * the token-holder server-side via the engine's `GET /users/me` whoami,
+ * which returns 200 only for a valid token. This deliberately does *not*
+ * trust the client-supplied `X-User-Id` header: that header is empty
+ * whenever the browser holds a valid token but its in-memory auth model
+ * isn't populated (e.g. localStorage has the token but the user object is
+ * missing/stale), which previously yielded a spurious 401 even though the
+ * same token works for direct engine CRUD.
  */
 export async function authenticate(request: Request): Promise<AuthResult | null> {
   const authHeader = request.headers.get('authorization');
-  const userId = request.headers.get('x-user-id');
-  if (!authHeader || !userId) return null;
+  if (!authHeader) return null;
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) return null;
 
   try {
-    const res = await aepbaseFetch(`/users/${userId}`, { token });
+    const res = await aepbaseFetch('/users/me', { token });
     if (!res.ok) return null;
     const user = (await res.json()) as AuthedUser;
     return { token, user };
