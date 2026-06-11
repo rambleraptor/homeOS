@@ -1,12 +1,14 @@
 /**
  * Standalone entry — `bun run src/index.ts [--dev] [--port N]
- * [--internal-port N] [--data-dir PATH]`. The launcher CLI calls
- * `startServer()` directly instead; this entry exists for dev (`bun --watch`)
- * and e2e.
+ * [--internal-port N] [--data-dir PATH] [--spa-dist DIR] [--build-id ID]`.
+ * This is how the server always runs: the launcher CLI spawns it as a `bun`
+ * child (passing --spa-dist at the launcher-built SPA in prod), and dev/e2e
+ * run it directly.
  */
 
 import { resolve } from 'node:path';
 import { startServer } from './server';
+import { diskSpaAssets } from './static';
 import {
   DEFAULT_INTERNAL_PORT,
   DEFAULT_PUBLIC_PORT,
@@ -36,5 +38,9 @@ const opts: ServerOptions = {
     flagValue(argv, '--data-dir') ?? process.env.AEPBASE_DATA_DIR ?? 'data',
   ),
 };
+
+const spaDist = flagValue(argv, '--spa-dist');
+if (spaDist) opts.spa = diskSpaAssets(resolve(spaDist));
+opts.buildId = flagValue(argv, '--build-id');
 
 await startServer(opts);

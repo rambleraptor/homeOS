@@ -5,9 +5,9 @@
  * middleware on :5173, and the engine API ("aepbase") on the loopback
  * :8092 listener. The schema sync runs in-process on boot.
  *
- * The bootstrap superuser's password is printed to stdout exactly once on
- * first boot (there is no credentials.json anymore); we capture it from the
- * child's output, log in, and persist the admin creds for the fixtures.
+ * A fresh instance boots unclaimed; we claim it via POST /api/setup with
+ * known admin credentials (the same first-visit setup flow the SPA uses),
+ * log in, and persist the creds for the fixtures.
  */
 
 import { spawn, ChildProcess } from 'child_process';
@@ -133,16 +133,13 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
     exitedEarly,
   ]);
 
-  // 2. First boot prints the superuser password once; capture it and log in.
-  const password = await Promise.race([
-    waitForValue(
-      () => /Password:\s+([0-9a-f]+)/.exec(stdout)?.[1] ?? null,
-      READY_TIMEOUT_MS,
-      'bootstrap superuser password',
-    ),
+  // 2. Claim the fresh instance with known admin credentials (the same
+  //    first-visit setup flow the SPA uses), then log in.
+  await Promise.race([
+    waitFor(claimInstance, READY_TIMEOUT_MS, 'instance claim'),
     exitedEarly,
   ]);
-  const creds = await loginAdmin(password);
+  const creds = await loginAdmin(ADMIN_PASSWORD);
   await writeFile(credsFile, JSON.stringify(creds, null, 2));
 
   // 3. The in-process schema sync runs asynchronously on boot; wait for a
@@ -173,8 +170,25 @@ export function stopAepbase(): Promise<void> {
   });
 }
 
+const ADMIN_EMAIL = 'admin@example.com';
+const ADMIN_PASSWORD = 'e2e-admin-password';
+
+/** POST /api/setup — claim the unclaimed instance. 409 means already claimed. */
+async function claimInstance(): Promise<boolean> {
+  try {
+    const res = await fetch(`${getAepbaseUrl()}/api/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),
+    });
+    return res.ok || res.status === 409;
+  } catch {
+    return false;
+  }
+}
+
 async function loginAdmin(password: string): Promise<AepbaseAdminCreds> {
-  const body = JSON.stringify({ email: 'admin@example.com', password });
+  const body = JSON.stringify({ email: ADMIN_EMAIL, password });
   const res = await fetch(`${getAepbaseUrl()}/users/:login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -188,7 +202,7 @@ async function loginAdmin(password: string): Promise<AepbaseAdminCreds> {
     user: { id: string };
   };
   return {
-    email: 'admin@example.com',
+    email: ADMIN_EMAIL,
     password,
     id: parsed.user.id,
     token: parsed.token,
@@ -243,20 +257,4 @@ async function waitFor(
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
   throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms`);
-}
-
-async function waitForValue(
-  extract: () => string | null,
-  timeoutMs: number,
-  label: string,
-): Promise<string> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = extract();
-    if (value) return value;
-    if (Date.now() >= deadline) {
-      throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms`);
-    }
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-  }
 }

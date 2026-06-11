@@ -1,10 +1,11 @@
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 /**
- * Scaffold a starter Homestead project: homestead.config.ts plus an apps/
- * directory. Deliberately minimal — no package.json, no node_modules. Refuses
- * to write into a non-empty directory.
+ * Scaffold a starter Homestead project: homestead.config.ts, a package.json
+ * declaring the homestead packages (the launcher resolves the server, the SPA
+ * shell, and vite through the project's node_modules), and an apps/ directory.
+ * Refuses to write into a non-empty directory.
  */
 export function scaffold(dir: string): string {
   const root = resolve(dir);
@@ -18,6 +19,7 @@ export function scaffold(dir: string): string {
 
   const files: Array<[string, string]> = [
     [join(root, 'homestead.config.ts'), CONFIG_TS],
+    [join(root, 'package.json'), packageJson(root)],
     [join(root, 'apps', 'README.md'), APPS_README],
     [join(root, '.gitignore'), GITIGNORE],
   ];
@@ -26,6 +28,34 @@ export function scaffold(dir: string): string {
     writeFileSync(path, body);
   }
   return root;
+}
+
+/**
+ * Version range for the scaffolded homestead packages. `*` until the packages
+ * are published with real versions — tighten to a caret range then.
+ */
+const HOMESTEAD_VERSION_RANGE = '*';
+
+function packageJson(root: string): string {
+  // npm package-name rules: lowercase, no spaces; fall back when the
+  // directory name has nothing usable.
+  const name =
+    basename(root)
+      .toLowerCase()
+      .replace(/[^a-z0-9-_.]+/g, '-')
+      .replace(/^[-_.]+|[-_.]+$/g, '') || 'my-homestead';
+  const pkg = {
+    name,
+    private: true,
+    type: 'module',
+    dependencies: {
+      '@rambleraptor/homestead-app': HOMESTEAD_VERSION_RANGE,
+      '@rambleraptor/homestead-apps': HOMESTEAD_VERSION_RANGE,
+      '@rambleraptor/homestead-core': HOMESTEAD_VERSION_RANGE,
+      '@rambleraptor/homestead-server': HOMESTEAD_VERSION_RANGE,
+    },
+  };
+  return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
 const CONFIG_TS = `/**
@@ -55,12 +85,11 @@ const config: HomesteadConfig = {
     groceriesApp,
     recipesApp,
   ],
-
-  // Optional: make this directory a git checkout and \`homestead update\` will
-  // fast-forward it to the upstream below and restart the service — handy for
-  // editing config from a phone. Defaults shown; remove to use them.
-  // git: { remote: 'origin', branch: 'main' },
 };
+
+// Tip: make this directory a git checkout and \`homestead update\` will
+// fast-forward it to its upstream (origin/main, or whatever \`git branch -u\`
+// says) and restart the service — handy for editing config from a phone.
 
 export default config;
 `;
@@ -73,6 +102,9 @@ Drop .ts files in this directory and import them from
 
 const GITIGNORE = `# Local server data (sqlite db + uploaded files)
 data/
+
+# Dependencies
+node_modules/
 
 # Launcher cache
 .homestead/

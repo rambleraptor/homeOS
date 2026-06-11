@@ -61,17 +61,22 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     engine.setAccessCheck(makeAccessCheck(engine.db, accessMap, accessCacheTtlMs(opts)));
   }
 
-  await ensureSuperuser(engine.db);
+  const setupState = await ensureSuperuser(engine.db);
 
   // --- public app ---
   const { customMethodsResponse } = await import('./routes/custom-methods');
   const { makeAepGateway } = await import('./routes/aep-gateway');
   const { chatRoute } = await import('./routes/chat');
   const { notificationsRoute } = await import('./routes/notifications');
+  const { makeSetupRoute } = await import('./routes/setup');
 
   const publicApp = new Hono();
   publicApp.get('/health', (c) => c.json({ ok: true }));
+  // Open tabs poll this and reload when the served SPA build changes (the
+  // launcher rebuilds + restarts the server on homestead.config.ts edits).
+  publicApp.get('/api/app-version', (c) => c.json({ buildId: opts.buildId ?? '' }));
   publicApp.get('/api/custom-methods', () => customMethodsResponse());
+  publicApp.route('/api/setup', makeSetupRoute(engine.db));
   publicApp.route('/api/notifications', notificationsRoute);
   publicApp.route('/api/chat', chatRoute);
   publicApp.route('/api/aep', makeAepGateway(engine, internalBase));
@@ -121,6 +126,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   console.log(
     `[homestead-server] public :${opts.publicPort}${opts.dev ? ' (dev: vite middleware)' : ''}, internal 127.0.0.1:${opts.internalPort}`,
   );
+  if (setupState === 'pending') {
+    console.log(
+      `[homestead-server] no admin account yet — open http://localhost:${opts.publicPort} to create one`,
+    );
+  }
 
   return {
     publicPort: opts.publicPort,

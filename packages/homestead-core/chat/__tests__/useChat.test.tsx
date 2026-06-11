@@ -5,7 +5,23 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import React from 'react';
 import { useChat } from '../hooks/useChat';
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
+
+const renderUseChat = () => renderHook(() => useChat(), { wrapper: createWrapper() });
 
 const fetchMock = vi.fn();
 
@@ -33,7 +49,7 @@ describe('useChat', () => {
       }),
     );
 
-    const { result } = renderHook(() => useChat());
+    const { result } = renderUseChat();
     await act(() => result.current.send('Add milk'));
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -64,7 +80,7 @@ describe('useChat', () => {
   it('strips display-only toolCalls from the outgoing transcript', async () => {
     fetchMock.mockResolvedValue(okResponse({ reply: 'ok', toolCalls: [] }));
 
-    const { result } = renderHook(() => useChat());
+    const { result } = renderUseChat();
     await act(() => result.current.send('first'));
     await act(() => result.current.send('second'));
 
@@ -79,7 +95,7 @@ describe('useChat', () => {
   it('flags notConfigured on 503 and keeps the transcript', async () => {
     fetchMock.mockResolvedValueOnce(new Response('{}', { status: 503 }));
 
-    const { result } = renderHook(() => useChat());
+    const { result } = renderUseChat();
     await act(() => result.current.send('hello'));
 
     expect(result.current.notConfigured).toBe(true);
@@ -91,7 +107,7 @@ describe('useChat', () => {
       new Response(JSON.stringify({ message: 'Gemini exploded' }), { status: 502 }),
     );
 
-    const { result } = renderHook(() => useChat());
+    const { result } = renderUseChat();
     await act(() => result.current.send('hello'));
 
     expect(result.current.error).toBe('Gemini exploded');
@@ -100,7 +116,7 @@ describe('useChat', () => {
   });
 
   it('ignores blank input', async () => {
-    const { result } = renderHook(() => useChat());
+    const { result } = renderUseChat();
     await act(() => result.current.send('   '));
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.messages).toEqual([]);

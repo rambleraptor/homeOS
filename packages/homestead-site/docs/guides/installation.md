@@ -1,7 +1,10 @@
 # Installation
 
-Homestead is a single binary. Install it, then run two commands to get a live
-instance. No Node, Bun, or Go needed at runtime.
+Homestead is one small binary plus your project directory. The binary is the
+launcher; your apps, config, and the web UI live in the project, so editing
+`homestead.config.ts` updates the running site without reinstalling anything.
+[Bun](https://bun.sh) is required at runtime (it runs the server and builds
+the web UI from your project).
 
 Homestead runs on macOS and Linux (arm64 and x86-64).
 
@@ -35,8 +38,10 @@ cd my-home
 homestead start
 ```
 
-`homestead init` creates a project: a `homestead.config.ts` that picks your
-apps, plus a `apps/` folder for your own.
+`homestead init` creates a project — a `homestead.config.ts` that picks your
+apps, a `package.json` declaring the homestead packages, and an `apps/`
+folder for your own — then installs the dependencies (`bun install`; `start`
+re-runs it automatically if it's ever missing).
 
 `homestead start` boots the whole stack on one port and prints a banner:
 
@@ -44,13 +49,13 @@ apps, plus a `apps/` folder for your own.
 [homestead] ready
 [homestead]   app       http://localhost:3000
 [homestead]   engine    http://127.0.0.1:8090 (loopback)
-[homestead]   superuser printed on first boot; reset with `homestead admin reset-password`
+[homestead]   login     first visit asks you to create the admin account
 ```
 
-The superuser is created for you on first boot, and its password is printed
-**once** above the banner. Open the **app** URL and log in with it. If you
-lose the password, run `homestead admin reset-password` from the project
-directory to rotate it.
+Open the **app** URL — the first visit asks you to create the admin
+account (email + password), and you're in. If you ever lose the password,
+run `homestead admin reset-password` from the project directory to rotate
+it.
 
 Next: [add your own app](./quick-start).
 
@@ -65,10 +70,10 @@ cd homestead
 make install       # install workspace dependencies
 ```
 
-Build the single binary and run it:
+Build the launcher binary and run it:
 
 ```bash
-make homestead     # → bin/homestead (SPA + server embedded)
+make homestead     # → bin/homestead (thin launcher; SPA builds at boot)
 ./bin/homestead start
 ```
 

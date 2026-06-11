@@ -1,7 +1,7 @@
 /**
  * Server configuration. Everything the server needs is passed here directly —
- * there is no env-var serialization between processes (the launcher calls
- * `startServer()` in-process; the standalone entry derives options from argv).
+ * there is no env-var serialization between processes (the standalone entry
+ * derives options from argv; the launcher spawns it as a `bun` child).
  * Operator config (apps, auth.oauth) is read straight from
  * homestead.config.ts via src/app-registry.js.
  */
@@ -23,6 +23,13 @@ export interface ServerOptions {
   dataDir: string;
   /** Static SPA assets for prod (defaults to packages/homestead-app/dist). */
   spa?: SpaAssets;
+  /**
+   * Identifier of the SPA build being served, exposed at /api/app-version.
+   * The launcher passes the build hash; open tabs poll the endpoint and
+   * reload when it changes. Empty/absent (dev, bare source runs) disables
+   * the client-side reload check.
+   */
+  buildId?: string;
   /** App-access cache TTL; defaults to AEPBASE_ACCESS_CACHE_TTL_MS or 5000. */
   accessCacheTtlMs?: number;
 }

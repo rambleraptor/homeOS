@@ -9,7 +9,6 @@ RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 FRONTEND_DIR := packages/homestead-app
 CLI_DIR := packages/homestead-cli
 SERVER_DIR := packages/homestead-server
-GEN := scripts/gen-embedded.ts
 BUN := $(shell command -v bun || echo $$HOME/.bun/bin/bun)
 
 help: ## Show this help message
@@ -27,7 +26,6 @@ clean: ## Remove build artifacts and dependencies
 	rm -rf $(FRONTEND_DIR)/node_modules
 	rm -rf $(CLI_DIR)/.build
 	rm -rf bin
-	$(BUN) $(GEN) --restore 2>/dev/null || true
 
 lint: ## Run ESLint
 	@echo "Running ESLint..."
@@ -87,25 +85,21 @@ format: ## Format code with Prettier
 	@echo "Formatting code with Prettier..."
 	cd $(FRONTEND_DIR) && npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css,md}"
 
-homestead: build ## Build the single-binary `homestead` launcher (embeds SPA + server)
+homestead: ## Build the `homestead` launcher binary (thin: SPA + server run from the project)
 	@echo "Building homestead launcher (host platform)..."
 	@mkdir -p bin
-	$(BUN) $(GEN) --dist $(FRONTEND_DIR)/dist
-	$(BUN) build --compile --external vite $(CLI_DIR)/src/cli.ts --outfile bin/homestead; \
-	  status=$$?; $(BUN) $(GEN) --restore; exit $$status
+	$(BUN) build --compile $(CLI_DIR)/src/cli.ts --outfile bin/homestead
 	@echo "→ bin/homestead"
 
 homestead-test: type-check-cli type-check-server test-cli ## Type-check + test the CLI and server
 
-release: build ## Cross-compile per-platform homestead binaries (each embeds SPA + server)
+release: ## Cross-compile per-platform homestead launcher binaries
 	@mkdir -p bin
-	@$(BUN) $(GEN) --dist $(FRONTEND_DIR)/dist
 	@for plat in $(RELEASE_PLATFORMS); do \
 	  echo "→ $$plat"; \
-	  $(BUN) build --compile --external vite --target=bun-$$plat $(CLI_DIR)/src/cli.ts \
-	    --outfile bin/homestead-$$plat || { $(BUN) $(GEN) --restore; exit 1; }; \
-	done; \
-	$(BUN) $(GEN) --restore
+	  $(BUN) build --compile --target=bun-$$plat $(CLI_DIR)/src/cli.ts \
+	    --outfile bin/homestead-$$plat || exit 1; \
+	done
 	@echo "→ bin/homestead-<platform> ($(words $(RELEASE_PLATFORMS)) binaries)"
 
 all: install lint type-check build ## Run install, lint, type-check, and build

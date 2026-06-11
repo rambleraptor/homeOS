@@ -54,7 +54,7 @@ interface RenderParams extends Required<Omit<InstallServiceOptions, 'envFile'>> 
 /** The long-running unit: `homestead start`. */
 export function renderMainService(p: RenderParams): string {
   return `[Unit]
-Description=Homestead (single-binary server + SPA)
+Description=Homestead (launcher: server + SPA built from the project)
 After=network.target
 Wants=network-online.target
 
@@ -155,9 +155,9 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
 
   // systemd sets up the ProtectSystem=strict namespace from ReadWritePaths
   // *before* exec, and fails with 226/NAMESPACE if any listed path is missing.
-  // homestead would create the cache dir at runtime (it extracts its embedded
-  // files there), but that's too late — create both up front,
-  // owned by the service user so the runtime extraction + db writes can proceed.
+  // homestead would create the cache dir at runtime (SPA builds land there),
+  // but that's too late — create both up front, owned by the service user so
+  // the SPA build + db writes can proceed.
   ensureOwnedDir(cacheDir, opts.user);
   ensureOwnedDir(dataDir, opts.user);
 
@@ -201,13 +201,16 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
   console.log(`  sudo systemctl status ${opts.serviceName}     # check it`);
   console.log(`  sudo journalctl -u ${opts.serviceName} -f     # follow logs`);
   console.log('');
+  console.log(
+    `Then open http://localhost:${opts.port} — the first visit asks you to create the admin account.`,
+  );
+  console.log('');
   console.log(`Update checks run every ${params.intervalSeconds}s via ${opts.serviceName}-update.timer.`);
   console.log(`  systemctl list-timers ${opts.serviceName}-update.timer`);
   // Surface the upstream the update unit will track, so the operator can sanity-check it.
-  // Lazy import keeps the operator's config + app graph out of unit tests.
-  const { gitConfig } = await import('./config.ts');
-  const { remote, branch } = gitConfig();
-  console.log(`  tracking ${remote}/${branch} (set via the \`git\` block in homestead.config.ts)`);
+  const { trackedUpstream } = await import('./update.ts');
+  const { remote, branch } = trackedUpstream(project.root);
+  console.log(`  tracking ${remote}/${branch} (the checkout's upstream; change with \`git branch -u\`)`);
   return 0;
 }
 

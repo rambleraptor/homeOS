@@ -1,9 +1,9 @@
-import { mkdirSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, watch, type FSWatcher } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { loadProject } from './project.ts';
-import { findBun, spaAssets } from './embed.ts';
-import { repoRoot } from './paths.ts';
+import { findBun, resolveServerModule } from './runtime.ts';
 import { Child } from './proc.ts';
+import { ensureSpaBuild, pruneSpaBuilds, type SpaBuild } from './spa-build.ts';
 
 export interface StartOptions {
   dev: boolean;
@@ -14,107 +14,198 @@ export interface StartOptions {
   dataDir?: string;
 }
 
+/** Files in the project root that trigger a rebuild + server restart. */
+const WATCHED_FILES = new Set([
+  'homestead.config.ts',
+  'package.json',
+  'package-lock.json',
+  'bun.lock',
+]);
+
 /**
- * Bring the server up and block until a signal (or the dev child exiting).
+ * Bring the server up and block until a signal (or the server exiting).
  *
- * Prod: homestead-server runs in-process (one process total; systemd
- * `Restart=` covers crash recovery). Dev: it runs as a `bun --watch` child
- * so server-code edits hot-reload, mirroring the old dev sidecar.
+ * The server always runs as a `bun` child resolved from the project's
+ * node_modules — the compiled launcher can't import the operator's config
+ * (no node_modules resolution at runtime in compiled binaries), so the
+ * project's own runtime evaluates it.
+ *
+ * Dev: `bun --watch` child with Vite middleware (HMR) — server and SPA both
+ * hot-reload. Prod: the launcher builds the SPA (content-hash cached), serves
+ * it via the child, and watches homestead.config.ts / package-lock.json to
+ * rebuild + restart on change. Open tabs poll /api/app-version and reload.
  */
 export async function runStart(
   projectDir: string,
   opts: StartOptions,
-): Promise<void> {
+): Promise<number> {
   const project = loadProject(projectDir);
   const dataDir = opts.dataDir ? resolve(opts.dataDir) : project.dataDir;
   mkdirSync(dataDir, { recursive: true });
+  const bun = findBun();
+  const entry = await resolveEntryInstallingDeps(project.root, bun);
 
-  if (opts.dev) {
-    await runDev(dataDir, opts);
-    return;
+  let build: SpaBuild | null = null;
+  if (!opts.dev) {
+    build = await ensureSpaBuild(project.root);
+    pruneSpaBuilds([build.buildId]);
   }
 
-  const { startServer } = await import('./server-inproc.js');
-  const server = await startServer({
-    dev: false,
-    publicPort: opts.frontendPort,
-    internalPort: opts.aepbasePort,
-    dataDir,
-    spa: spaAssets(),
-  });
+  let child: Child;
+  let restarting = false;
+  let shuttingDown = false;
+  let exitCode = 0;
+  let finishResolve!: () => void;
+  const finished = new Promise<void>((r) => (finishResolve = r));
 
-  banner(opts);
-  await waitForSignal();
-  await server.stop();
-}
+  const finish = (code: number, msg: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    exitCode = code;
+    log(msg);
+    finishResolve();
+  };
 
-async function runDev(dataDir: string, opts: StartOptions): Promise<void> {
-  const entry = join(repoRoot, 'packages', 'homestead-server', 'src', 'index.ts');
-  if (!existsSync(entry)) {
-    throw new Error(
-      `homestead-server source not found at ${entry} (run --dev from the repo root)`,
-    );
+  const spawnServer = (): Child => {
+    const cmd = opts.dev
+      ? [bun, '--watch', 'run', ...serverArgs(entry, dataDir, opts), '--dev']
+      : [
+          bun,
+          'run',
+          ...serverArgs(entry, dataDir, opts),
+          '--spa-dist',
+          build!.dist,
+          '--build-id',
+          build!.buildId,
+        ];
+    const c = new Child({ cmd, cwd: project.root, tag: '[server]' });
+    void c.wait().then((code) => {
+      // Deliberate restarts swap `child` before the old process exits; only
+      // an unexpected death of the current child brings the launcher down.
+      // In prod that exit is non-zero so systemd restarts the unit; in dev a
+      // dead watch-child just ends the session cleanly.
+      if (!shuttingDown && !restarting && c === child) {
+        finish(
+          opts.dev ? 0 : code === 0 ? 1 : code,
+          `server exited${opts.dev ? '' : ' unexpectedly'} (${code})`,
+        );
+      }
+    });
+    return c;
+  };
+  child = spawnServer();
+
+  // Prod only: rebuild + restart when the operator edits the config (or an
+  // update pulls a new lockfile). A failed build keeps the current server
+  // running. Dev needs none of this — the config is in Vite's module graph.
+  let reloadBusy = false;
+  let reloadPending = false;
+  const reload = async (): Promise<void> => {
+    if (shuttingDown) return;
+    if (reloadBusy) {
+      reloadPending = true;
+      return;
+    }
+    reloadBusy = true;
+    try {
+      log('project config changed — rebuilding SPA');
+      let next: SpaBuild;
+      try {
+        next = await ensureSpaBuild(project.root);
+      } catch (err) {
+        log(
+          `SPA rebuild failed — keeping the current build: ${err instanceof Error ? err.message : err}`,
+        );
+        return;
+      }
+      if (next.buildId === build!.buildId) {
+        log('no effective change — keeping the current build');
+        return;
+      }
+      restarting = true;
+      await child.stop();
+      build = next;
+      child = spawnServer();
+      restarting = false;
+      pruneSpaBuilds([build.buildId]);
+      log(`restarted on SPA build ${build.buildId}`);
+    } finally {
+      reloadBusy = false;
+      if (reloadPending && !shuttingDown) {
+        reloadPending = false;
+        void reload();
+      }
+    }
+  };
+
+  // Watch the directory, not the file: editors replace files atomically,
+  // which silently detaches a direct file watch.
+  let watcher: FSWatcher | null = null;
+  let debounce: ReturnType<typeof setTimeout> | null = null;
+  if (!opts.dev) {
+    watcher = watch(project.root, (_event, filename) => {
+      if (!filename || !WATCHED_FILES.has(filename)) return;
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => void reload(), 500);
+    });
   }
-  log(`starting homestead-server (watch) on :${opts.frontendPort}`);
-  const child = new Child({
-    cmd: [
-      findBun(),
-      '--watch',
-      'run',
-      entry,
-      '--dev',
-      '--port',
-      String(opts.frontendPort),
-      '--internal-port',
-      String(opts.aepbasePort),
-      '--data-dir',
-      dataDir,
-    ],
-    cwd: repoRoot,
-    tag: '[server]',
-  });
+
+  process.once('SIGINT', () => finish(0, 'received SIGINT, shutting down'));
+  process.once('SIGTERM', () => finish(0, 'received SIGTERM, shutting down'));
 
   if (await waitForPort(opts.frontendPort, 60_000)) {
-    banner(opts);
+    log('ready');
+    log(`  app       http://localhost:${opts.frontendPort}`);
+    log(`  engine    http://127.0.0.1:${opts.aepbasePort} (loopback)`);
+    log('  login     first visit asks you to create the admin account');
+    log('            (recover later with `homestead admin reset-password`)');
   } else {
     log(`server never became reachable on :${opts.frontendPort}`);
   }
 
-  await new Promise<void>((resolveOnce) => {
-    let done = false;
-    const finish = (msg: string) => {
-      if (done) return;
-      done = true;
-      log(msg);
-      resolveOnce();
-    };
-    process.once('SIGINT', () => finish('received SIGINT, shutting down'));
-    process.once('SIGTERM', () => finish('received SIGTERM, shutting down'));
-    void child.wait().then((c) => finish(`server exited (${c})`));
-  });
-
+  await finished;
+  watcher?.close();
+  if (debounce) clearTimeout(debounce);
   await child.stop();
+  return exitCode;
 }
 
-function banner(opts: StartOptions): void {
-  log('ready');
-  log(`  app       http://localhost:${opts.frontendPort}`);
-  log(`  engine    http://127.0.0.1:${opts.aepbasePort} (loopback)`);
-  log('  superuser printed on first boot; reset with `homestead admin reset-password`');
+/**
+ * Resolve the server entry, installing the project's dependencies first when
+ * node_modules is missing (fresh `homestead init` projects) — `start` should
+ * just work without a separate install step.
+ */
+async function resolveEntryInstallingDeps(
+  projectRoot: string,
+  bun: string,
+): Promise<string> {
+  try {
+    return resolveServerModule(projectRoot, 'index.ts');
+  } catch (err) {
+    if (!existsSync(join(projectRoot, 'package.json'))) throw err;
+    log('dependencies not installed — running bun install');
+    const install = new Child({
+      cmd: [bun, 'install'],
+      cwd: projectRoot,
+      tag: '[install]',
+    });
+    if ((await install.wait()) !== 0) {
+      throw new Error('bun install failed — fix the errors above and retry');
+    }
+    return resolveServerModule(projectRoot, 'index.ts');
+  }
 }
 
-function waitForSignal(): Promise<void> {
-  return new Promise<void>((resolveOnce) => {
-    let done = false;
-    const finish = (msg: string) => {
-      if (done) return;
-      done = true;
-      log(msg);
-      resolveOnce();
-    };
-    process.once('SIGINT', () => finish('received SIGINT, shutting down'));
-    process.once('SIGTERM', () => finish('received SIGTERM, shutting down'));
-  });
+function serverArgs(entry: string, dataDir: string, opts: StartOptions): string[] {
+  return [
+    entry,
+    '--port',
+    String(opts.frontendPort),
+    '--internal-port',
+    String(opts.aepbasePort),
+    '--data-dir',
+    dataDir,
+  ];
 }
 
 async function waitForPort(port: number, timeoutMs: number): Promise<boolean> {

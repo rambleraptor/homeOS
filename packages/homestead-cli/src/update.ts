@@ -1,4 +1,5 @@
 import { loadProject } from './project.ts';
+import { findBun } from './runtime.ts';
 
 export interface UpdateOptions {
   /** Project directory (the git checkout). Defaults to CWD via runUpdate. */
@@ -37,6 +38,41 @@ export function needsUpdate(localHead: string, remoteHead: string): boolean {
   return localHead !== remoteHead;
 }
 
+/** The upstream `homestead update` tracks. */
+export interface TrackedUpstream {
+  remote: string;
+  branch: string;
+}
+
+/**
+ * Resolve the upstream to track: the checkout's own configured upstream
+ * (`branch.<name>.remote` / `.merge`), falling back to origin/main. Change it
+ * with plain git (`git branch -u <remote>/<branch>`) — there is no homestead
+ * config for this.
+ */
+export function trackedUpstream(root: string): TrackedUpstream {
+  // symbolic-ref (not rev-parse --abbrev-ref) so unborn branches resolve too;
+  // it errors on a detached HEAD, which falls through to the default.
+  const head = run(['git', 'symbolic-ref', '--short', 'HEAD'], root);
+  if (head.code === 0 && head.out) {
+    const remote = run(['git', 'config', `branch.${head.out}.remote`], root);
+    const merge = run(['git', 'config', `branch.${head.out}.merge`], root);
+    if (remote.code === 0 && remote.out && merge.code === 0 && merge.out) {
+      return {
+        remote: remote.out,
+        branch: merge.out.replace(/^refs\/heads\//, ''),
+      };
+    }
+  }
+  return { remote: 'origin', branch: 'main' };
+}
+
+/** True when systemctl exists and the unit is installed (reading needs no sudo). */
+function serviceInstalled(name: string, cwd: string): boolean {
+  if (!Bun.which('systemctl')) return false;
+  return run(['systemctl', 'cat', `${name}.service`], cwd).code === 0;
+}
+
 /** `systemctl` argv, prefixed with sudo unless we're already root. */
 function systemctl(args: string[]): string[] {
   const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -69,10 +105,7 @@ export async function runUpdate(opts: UpdateOptions): Promise<number> {
     return 1;
   }
 
-  // Lazy so importing this app (e.g. in tests) doesn't pull in the operator's
-  // config + app graph; only `runUpdate` needs it.
-  const { gitConfig } = await import('./config.ts');
-  const { remote, branch } = gitConfig();
+  const { remote, branch } = trackedUpstream(root);
   const ref = `${remote}/${branch}`;
 
   const localHead = run(['git', 'rev-parse', 'HEAD'], root).out;
@@ -99,12 +132,50 @@ export async function runUpdate(opts: UpdateOptions): Promise<number> {
       log(`reset failed: ${reset.err || reset.out || `exit ${reset.code}`}`);
       return 1;
     }
+    // New app packages arrive via package.json / a lockfile; sync
+    // node_modules before the restart so the relaunched server (and its SPA
+    // rebuild) can resolve them.
+    const depsDiff = run(
+      [
+        'git',
+        'diff',
+        '--name-only',
+        localHead,
+        remoteHead,
+        '--',
+        'package.json',
+        'package-lock.json',
+        'bun.lock',
+      ],
+      root,
+    );
+    if (depsDiff.out !== '') {
+      log('dependencies changed — running bun install');
+      const install = run([findBun(), 'install'], root);
+      if (install.code !== 0) {
+        log(`install failed: ${install.err || install.out || `exit ${install.code}`}`);
+        log(`rolling back to ${localHead.slice(0, 12)}`);
+        run(['git', 'reset', '--hard', localHead], root);
+        return 1;
+      }
+    }
   } else {
     log('forced restart (no new commits)');
   }
 
   if (!opts.restart) {
     log('checkout synced (restart skipped)');
+    return 0;
+  }
+
+  // systemd is optional — `homestead update` works for plain `homestead
+  // start` setups too, where the running launcher's file watcher applies the
+  // pulled config/dependency changes itself.
+  if (!serviceInstalled(opts.serviceName, root)) {
+    log(
+      `no systemd unit for ${opts.serviceName} — skipping restart ` +
+        '(a running `homestead start` applies config and dependency changes itself)',
+    );
     return 0;
   }
 
