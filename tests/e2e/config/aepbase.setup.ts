@@ -1,22 +1,28 @@
 /**
- * aepbase Test Instance Setup
+ * homestead-server test instance setup.
  *
- * Manages an isolated aepbase instance for e2e tests. Builds the binary
- * via aepbase/install.sh (idempotent), starts it on a dedicated port with
- * a fresh data directory, reads the bootstrap superuser credentials from
- * the data dir's credentials.json, and exposes them to the rest of the suite.
+ * One Bun process serves everything the e2e suite needs: the SPA via Vite
+ * middleware on :5173, and the engine API ("aepbase") on the loopback
+ * :8092 listener. The schema sync runs in-process on boot.
+ *
+ * The bootstrap superuser's password is printed to stdout exactly once on
+ * first boot (there is no credentials.json anymore); we capture it from the
+ * child's output, log in, and persist the admin creds for the fixtures.
  */
 
-import { spawn, ChildProcess, execSync, execFileSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
-import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { mkdir, rm, writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
 import { get as httpGet } from 'http';
 
-const TEST_PORT = 8092;
+const ENGINE_PORT = 8092;
+const APP_PORT = 5173;
+const READY_TIMEOUT_MS = 120000;
+const POLL_INTERVAL_MS = 500;
 
-let aepbaseProcess: ChildProcess | null = null;
+let serverProcess: ChildProcess | null = null;
 
 export interface AepbaseAdminCreds {
   email: string;
@@ -29,8 +35,13 @@ export function getProjectRoot(): string {
   return join(process.cwd(), '../..');
 }
 
+/** The engine API base URL (the old standalone-aepbase port). */
 export function getAepbaseUrl(): string {
-  return `http://127.0.0.1:${TEST_PORT}`;
+  return `http://127.0.0.1:${ENGINE_PORT}`;
+}
+
+export function getAppUrl(): string {
+  return `http://localhost:${APP_PORT}`;
 }
 
 function getTestDirs() {
@@ -38,18 +49,8 @@ function getTestDirs() {
   return {
     e2eDir,
     dataDir: join(e2eDir, 'aep_test_data'),
-    aepbaseDir: join(getProjectRoot(), 'aepbase'),
-    binary: join(getProjectRoot(), 'aepbase/bin/aepbase'),
     credsFile: join(e2eDir, 'aep_test_data', 'admin-creds.json'),
   };
-}
-
-/** Build the aepbase binary if it doesn't exist yet. Idempotent. */
-function ensureBinaryBuilt(): void {
-  const { binary, aepbaseDir } = getTestDirs();
-  if (existsSync(binary)) return;
-  console.log('🔨 Building aepbase binary (one-time)...');
-  execSync('./install.sh', { cwd: aepbaseDir, stdio: 'inherit' });
 }
 
 /** Resolve bun: prefer the default install location, fall back to PATH. */
@@ -59,32 +60,12 @@ function bunBin(): string {
 }
 
 /**
- * Serialize the app-access map (collection→app + default visibility) the
- * same way the launcher does, so the e2e aepbase enforces app access exactly
- * like production. Computed in a bun subprocess (it handles the app/app
- * graph). Returns '' on failure, which leaves enforcement off.
- */
-function computeAppAccessEnv(): string {
-  const script = join(getProjectRoot(), 'tests/e2e/config/compute-app-access.ts');
-  try {
-    return execFileSync(bunBin(), ['run', script], {
-      cwd: getProjectRoot(),
-    })
-      .toString()
-      .trim();
-  } catch (err) {
-    console.warn('⚠️  Failed to compute app-access map; e2e enforcement off:', err);
-    return '';
-  }
-}
-
-/**
- * Start aepbase on TEST_PORT with a fresh data directory. Once it's listening,
- * read the bootstrap superuser password from the data dir's credentials.json
- * (aepbase writes it before it starts serving) and resolve with admin creds.
+ * Start homestead-server with a fresh data directory and resolve with the
+ * bootstrap superuser's credentials once the engine, the schema sync, and
+ * the SPA are all ready.
  */
 export async function startAepbase(): Promise<AepbaseAdminCreds> {
-  const { dataDir, binary, credsFile } = getTestDirs();
+  const { dataDir, credsFile } = getTestDirs();
 
   // Fresh data directory
   if (existsSync(dataDir)) {
@@ -92,97 +73,103 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
   }
   await mkdir(dataDir, { recursive: true });
 
-  ensureBinaryBuilt();
+  const entry = join(
+    getProjectRoot(),
+    'packages',
+    'homestead-server',
+    'src',
+    'index.ts',
+  );
 
-  // Enforce app access like production. Keep a short (not zero) access-cache
-  // TTL: aepbase's sqlite allows a single open connection, so caching the
-  // app_flags row lets a page-load burst share one read instead of each
-  // gated request hammering the connection. 1s is brief enough that
-  // flag-flipping specs (which poll) see changes quickly.
-  const appAccessEnv = computeAppAccessEnv();
-
-  return new Promise((resolve, reject) => {
-    aepbaseProcess = spawn(binary, [
-      '-port', String(TEST_PORT),
-      '-data-dir', dataDir,
-      '-db', 'aepbase.db',
-      '-cors-allowed-origins', '*',
-    ], {
+  let stdout = '';
+  serverProcess = spawn(
+    bunBin(),
+    [
+      'run',
+      entry,
+      '--dev',
+      '--port',
+      String(APP_PORT),
+      '--internal-port',
+      String(ENGINE_PORT),
+      '--data-dir',
+      dataDir,
+    ],
+    {
+      cwd: getProjectRoot(),
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        // Escape hatch for debugging: set E2E_DISABLE_APP_ACCESS=1 to run
-        // the suite with backend enforcement off.
-        AEPBASE_APP_ACCESS: process.env.E2E_DISABLE_APP_ACCESS
-          ? ''
-          : appAccessEnv,
+        // Short (not zero) access-cache TTL: brief enough that flag-flipping
+        // specs (which poll) see changes quickly, long enough that a
+        // page-load burst shares one app_flags read.
         AEPBASE_ACCESS_CACHE_TTL_MS: '1000',
+        // E2E_DISABLE_APP_ACCESS passes through to the server (escape hatch
+        // for debugging with backend enforcement off).
       },
-    });
+    },
+  );
 
-    let stdout = '';
-    let ready = false;
-
-    const onReady = async () => {
-      if (ready) return;
-      ready = true;
-      try {
-        // aepbase writes the bootstrap superuser to data/credentials.json
-        // before it begins serving, so it's present by the time we see the
-        // "listening on" log line.
-        const raw = await readFile(join(dataDir, 'credentials.json'), 'utf8');
-        const { password } = JSON.parse(raw) as { email: string; password: string };
-        const creds = await loginAdmin(password);
-        await writeFile(credsFile, JSON.stringify(creds, null, 2));
-        resolve(creds);
-      } catch (err) {
-        reject(err);
-      }
-    };
-
-    const handleOutput = (text: string) => {
-      if (!ready && /listening on/i.test(text)) void onReady();
-    };
-
-    aepbaseProcess.stdout?.on('data', (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      process.stdout.write(`[aepbase] ${text}`);
-      handleOutput(text);
-    });
-
-    aepbaseProcess.stderr?.on('data', (chunk) => {
-      const text = chunk.toString();
-      stdout += text;
-      process.stderr.write(`[aepbase ERR] ${text}`);
-      handleOutput(text);
-    });
-
-    aepbaseProcess.on('error', (err) => reject(err));
-    aepbaseProcess.on('close', (code) => {
-      if (!ready) {
-        reject(new Error(`aepbase exited early with code ${code}\nOutput:\n${stdout}`));
-      }
-    });
-
-    setTimeout(() => {
-      if (!ready) {
-        aepbaseProcess?.kill();
-        reject(new Error('aepbase did not start within 15s'));
-      }
-    }, 15000);
+  serverProcess.stdout?.on('data', (chunk) => {
+    const text = chunk.toString();
+    stdout += text;
+    process.stdout.write(`[server] ${text}`);
   });
+  serverProcess.stderr?.on('data', (chunk) => {
+    const text = chunk.toString();
+    stdout += text;
+    process.stderr.write(`[server ERR] ${text}`);
+  });
+
+  const exitedEarly = new Promise<never>((_, reject) => {
+    serverProcess?.once('close', (code) => {
+      reject(new Error(`server exited early with code ${code}\nOutput:\n${stdout}`));
+    });
+  });
+
+  // 1. Engine API up.
+  await Promise.race([
+    waitFor(checkHealth, READY_TIMEOUT_MS, 'engine API'),
+    exitedEarly,
+  ]);
+
+  // 2. First boot prints the superuser password once; capture it and log in.
+  const password = await Promise.race([
+    waitForValue(
+      () => /Password:\s+([0-9a-f]+)/.exec(stdout)?.[1] ?? null,
+      READY_TIMEOUT_MS,
+      'bootstrap superuser password',
+    ),
+    exitedEarly,
+  ]);
+  const creds = await loginAdmin(password);
+  await writeFile(credsFile, JSON.stringify(creds, null, 2));
+
+  // 3. The in-process schema sync runs asynchronously on boot; wait for a
+  //    sentinel resource definition so tests don't race it.
+  await Promise.race([
+    waitFor(() => sentinelResourceExists(creds.token), READY_TIMEOUT_MS, 'schema sync'),
+    exitedEarly,
+  ]);
+
+  // 4. SPA reachable.
+  await Promise.race([
+    waitFor(() => ping(getAppUrl()), READY_TIMEOUT_MS, 'SPA'),
+    exitedEarly,
+  ]);
+
+  return creds;
 }
 
 export function stopAepbase(): Promise<void> {
   return new Promise((resolve) => {
-    if (!aepbaseProcess) {
+    if (!serverProcess) {
       resolve();
       return;
     }
-    aepbaseProcess.once('close', () => resolve());
-    aepbaseProcess.kill();
-    setTimeout(() => resolve(), 2000);
+    serverProcess.once('close', () => resolve());
+    serverProcess.kill();
+    setTimeout(() => resolve(), 5000);
   });
 }
 
@@ -220,4 +207,56 @@ export async function checkHealth(): Promise<boolean> {
       resolve(res.statusCode === 200);
     }).on('error', () => resolve(false));
   });
+}
+
+async function sentinelResourceExists(adminToken: string): Promise<boolean> {
+  // `gift-card` is declared by gift-cards/resources.ts and applied by the
+  // in-process schema sync. Its presence proves the sync ran.
+  const res = await fetch(`${getAepbaseUrl()}/aep-resource-definitions/gift-card`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  }).catch(() => null);
+  return res?.ok === true;
+}
+
+function ping(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = httpGet(url, (res) => {
+      resolve(res.statusCode !== undefined && res.statusCode < 500);
+      res.resume();
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(2000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+async function waitFor(
+  predicate: () => Promise<boolean>,
+  timeoutMs: number,
+  label: string,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await predicate()) return;
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
+  throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms`);
+}
+
+async function waitForValue(
+  extract: () => string | null,
+  timeoutMs: number,
+  label: string,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = extract();
+    if (value) return value;
+    if (Date.now() >= deadline) {
+      throw new Error(`Timed out waiting for ${label} after ${timeoutMs}ms`);
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+  }
 }

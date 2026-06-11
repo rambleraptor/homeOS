@@ -5,9 +5,9 @@ can shape for your own life, run on your own server, and expose through a
 backend that agents can actually understand.
 
 The product is intentionally CLI-first. Install the `homestead` binary, put it
-on a home server, and `homestead start` boots the whole stack: the React app,
-the [aepbase](https://www.github.com/rambleraptor/aepbase) backend, the Bun
-sidecar, schema sync, and a same-origin web server on one public port.
+on a home server, and `homestead start` boots the whole stack in one Bun
+process: the React app, the AEP-compliant TypeScript backend, schema sync,
+and a same-origin web server on one public port.
 
 Homestead is warm personal infrastructure with a little agent-native app OS
 underneath: apps give you useful app surfaces, while the AEP-compliant
@@ -15,8 +15,8 @@ backend gives humans and agents a structured API for the same data.
 
 ## Why Homestead
 
-- **One binary for a real stack** — ship the SPA, backend, sidecar, and web
-  proxy together instead of assembling a small constellation of services.
+- **One binary for a real stack** — ship the SPA, backend, and web server
+  in one process instead of assembling a small constellation of services.
 - **Built for home servers** — keep a long-lived personal app platform on a
   mini PC, private VPS, or machine reachable over Tailscale.
 - **Agent-accessible by design** — every app can expose AEP resources, so
@@ -55,7 +55,7 @@ it against the release checksums, and installs it to `~/.local/bin/homestead`
 by default. Set `HOMESTEAD_INSTALL_DIR=/usr/local/bin` or
 `HOMESTEAD_VERSION=v0.1.0` if you need a different destination or version.
 
-Prebuilt binaries embed the SPA, sidecar code, and aepbase binary. They do not
+Prebuilt binaries embed the SPA and the server. They do not
 need Node, Bun, or Go at runtime.
 
 ### Create and run a personal app workspace
@@ -71,14 +71,13 @@ homestead start
 ```
 [homestead] ready
 [homestead]   app       http://localhost:3000
-[homestead]   aepbase   http://127.0.0.1:8090
-[homestead]   superuser admin@example.com / 9f3c…
+[homestead]   engine    http://127.0.0.1:8090 (loopback)
+[homestead]   superuser printed on first boot; reset with `homestead admin reset-password`
 ```
 
-Open the **app** URL and log in with the **superuser** credentials from the
-banner. On first run aepbase generates them and saves them to the data dir;
-change the password after you log in. That's the whole stack — no separate
-terminals, env vars, or schema step.
+Open the **app** URL and log in with the superuser password printed once on
+first boot (rotate it any time with `homestead admin reset-password`).
+That's the whole stack — no separate terminals, env vars, or schema step.
 
 A Homestead project is a directory with `homestead.config.ts`. That file
 chooses the apps that ship and becomes the natural place to add your own
@@ -92,7 +91,7 @@ stack, and check whether a machine is ready to host Homestead. Run
 
 ### `homestead start`
 
-Boots aepbase + the Bun sidecar + the web server using the
+Boots the server (engine API + app routes + SPA) using the
 `homestead.config.ts` in the current directory.
 
 ```bash
@@ -106,13 +105,11 @@ homestead start --data-dir=/var/lib/homestead   # where sqlite + files live
 |-------------------|--------------------|----------------------------------------------------|
 | `--dev`           | off                | Serve the SPA via Vite (HMR) instead of the build  |
 | `--port=N`        | `3000`             | User-facing port                                   |
-| `--aepbase-port=N`| `8090`             | aepbase port (loopback only)                       |
-| `--sidecar-port=N`| `4000`             | Sidecar port (loopback only)                       |
-| `--vite-port=N`   | `5173`             | Vite dev server port (`--dev` only)                |
-| `--data-dir=PATH` | `<project>/data`   | aepbase's sqlite db + uploaded files               |
+| `--aepbase-port=N`| `8090`             | Engine API port (loopback only)                    |
+| `--data-dir=PATH` | `<project>/data`   | The server's sqlite db + uploaded files            |
 
-Only `--port` is exposed to the outside world; aepbase and the sidecar bind
-to loopback and are reached through the web server's same-origin proxy.
+Only `--port` is exposed to the outside world; the engine API binds to
+loopback and is reached through the same-origin `/api/aep` routes.
 
 ### `homestead init`
 
@@ -140,17 +137,16 @@ homestead doctor --port=8080 --aepbase-port=9000
 
 ## Architecture
 
-A running Homestead is personal infrastructure in one supervised process. It
-coordinates three pieces behind one web server:
+A running Homestead is personal infrastructure in one Bun process serving
+two listeners:
 
-- **aepbase** (child process) — a Go backend that serves an
+- **engine** — a TypeScript backend serving an
   [AEP](https://www.aep.dev)-compliant REST API backed by SQLite. Holds all
-  your data and binds to loopback.
-- **sidecar** (Bun) — server-side APIs (notifications, OCR, scheduled
-  actions) and the schema sync that registers each app's collections on
-  boot.
-- **web server** — the only outward-facing port. Serves the React SPA and
-  proxies aepbase at same-origin `/api/aep` and the sidecar's routes.
+  your data and binds to loopback (:8090).
+- **public web server** — the only outward-facing port. Serves the React
+  SPA, the engine at same-origin `/api/aep`, and the server-side APIs
+  (notifications, chat, app custom methods). The schema sync registers each
+  app's collections on boot.
 
 Because the API is AEP-compliant, the frontend is optional: you can reach
 your data through the AEP ecosystem (a Terraform provider, CLI, or the
@@ -199,9 +195,8 @@ sudo systemctl start homestead
 
 Working on Homestead itself requires the source toolchain:
 
-- **Go 1.25+** — compiles the launcher (aepbase is embedded as a library)
 - **Node.js 20+ and npm** — builds the SPA
-- **Bun** — compiles the sidecar ([install](https://bun.sh))
+- **Bun** — runs and compiles the server + CLI ([install](https://bun.sh))
 
 ```bash
 git clone https://github.com/rambleraptor/homestead.git

@@ -26,6 +26,8 @@ async function main(argv: string[]): Promise<number> {
       const { resourcesCmd } = await import('./resources.ts');
       return resourcesCmd(rest);
     }
+    case 'admin':
+      return adminCmd(rest);
     default:
       printUsage();
       console.error(`\nunknown subcommand ${JSON.stringify(sub)}`);
@@ -41,10 +43,23 @@ async function startCmd(args: string[]): Promise<number> {
     dev: flags.dev === true,
     frontendPort: numFlag(flags.port, 3000),
     aepbasePort: numFlag(flags['aepbase-port'], 8090),
-    sidecarPort: numFlag(flags['sidecar-port'], 4000),
     dataDir: typeof flags['data-dir'] === 'string' ? flags['data-dir'] : undefined,
   });
   return 0;
+}
+
+async function adminCmd(args: string[]): Promise<number> {
+  const { flags, positionals } = parseFlags(args);
+  const [action] = positionals;
+  if (action !== 'reset-password') {
+    console.error('usage: homestead admin reset-password [--email=EMAIL] [--data-dir=PATH]');
+    return 1;
+  }
+  const { resetPasswordCmd } = await import('./admin.ts');
+  return resetPasswordCmd({
+    dataDir: typeof flags['data-dir'] === 'string' ? flags['data-dir'] : undefined,
+    email: typeof flags.email === 'string' ? flags.email : undefined,
+  });
 }
 
 function initCmd(args: string[]): number {
@@ -120,18 +135,18 @@ function printUsage(): void {
       '',
       'Usage:',
       '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + apps/).',
-      '  homestead start [--dev]     Boot aepbase + sidecar + SPA using homestead.config.ts in CWD.',
+      '  homestead start [--dev]     Boot the server + SPA using homestead.config.ts in CWD.',
       '  homestead doctor            Check whether the host can run `homestead start`.',
       '  homestead update            Pull the tracked config repo; restart the service if it changed.',
       '  homestead install-service   Install the systemd service + auto-update timer (run with sudo).',
-      '  homestead resources [...]   CRUD/List aepbase resources + their custom methods (run bare to list them).',
+      '  homestead resources [...]   CRUD/List resources + their custom methods (run bare to list them).',
+      '  homestead admin reset-password  Rotate the superuser password (prints the new one).',
       '',
       'Flags for `start`:',
       '  --dev                       Serve the SPA via Vite (HMR) instead of the embedded build.',
       '  --port=N                    User-facing port (default 3000).',
-      '  --aepbase-port=N            aepbase port, loopback (default 8090).',
-      '  --sidecar-port=N            sidecar port, loopback (default 4000).',
-      '  --data-dir=PATH             aepbase data dir (default <project>/data).',
+      '  --aepbase-port=N            engine API port, loopback (default 8090).',
+      '  --data-dir=PATH             server data dir (default <project>/data).',
       '',
       'Flags for `update`:',
       '  --service-name=NAME         systemd service to restart (default homestead).',
@@ -143,18 +158,16 @@ function printUsage(): void {
       '  --service-name=NAME         Base unit name (default homestead).',
       '  --user=NAME                 User the units run as (default $SUDO_USER).',
       '  --port=N                    App port baked into the service (default 3000).',
-      '  --data-dir=PATH             aepbase data dir (default <project>/data).',
+      '  --data-dir=PATH             server data dir (default <project>/data).',
       '  --env-file=PATH             EnvironmentFile for the units (default <project>/.env if present).',
       '',
       'Flags for `resources`:',
-      '  --server-url=URL            aepbase base URL (default http://127.0.0.1:<aepbase-port>).',
-      '  --aepbase-port=N            aepbase port when --server-url is unset (default 8090).',
-      '  --sidecar-url=URL           Sidecar base URL for custom methods (default http://127.0.0.1:<sidecar-port>).',
-      '  --sidecar-port=N            Sidecar port when --sidecar-url is unset (default 4000).',
+      '  --server-url=URL            Engine API base URL (default http://127.0.0.1:<aepbase-port>).',
+      '  --aepbase-port=N            Engine API port when --server-url is unset (default 8090).',
       '  --@data=PATH                JSON file supplying a custom method/create body.',
-      '  --token=TOKEN               Bearer token; skips login.',
-      '  --email=EMAIL --password=PW Superuser creds (else read from <data-dir>/credentials.json).',
-      '  --data-dir=PATH             Data dir holding credentials.json (default <project>/data).',
+      '  --token=TOKEN               Bearer token; skips the local admin-token mint.',
+      '  --email=EMAIL --password=PW Superuser creds; skips the local admin-token mint.',
+      '  --data-dir=PATH             Data dir holding the sqlite db (default <project>/data).',
     ].join('\n'),
   );
 }

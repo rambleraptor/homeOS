@@ -15,7 +15,7 @@ as a starting point):
 # Public key — exposed to the browser so the service worker can subscribe.
 VAPID_PUBLIC_KEY=<public-key>
 
-# Server-side keys — used by the sidecar to sign pushes. Keep them secret.
+# Server-side keys — used by homestead-server to sign pushes. Keep them secret.
 VAPID_PRIVATE_KEY=<private-key>
 VAPID_EMAIL=mailto:you@example.com
 ```
@@ -37,7 +37,7 @@ subscriptions or inbox rows yourself.
 The server-side helper lives in
 [`packages/homestead-core/server/notifications.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-core/server/notifications.ts)
 and is runtime-agnostic — it takes a standard web `Request`/auth and returns a
-web `Response`, so it works under the sidecar's Hono routes and app custom
+web `Response`, so it works under the server's Hono routes and app custom
 methods alike. It exposes two entry points:
 
 ```ts
@@ -73,7 +73,7 @@ Two choices matter most:
 
 App-owned endpoints are **resource custom methods**, not standalone routes.
 Declare a `customMethods` entry on the app's resource definition and
-implement a handler; the sidecar's `/api/aep` gateway dispatches
+implement a handler; the server's `/api/aep` gateway dispatches
 `POST /api/aep/<plural>:<verb>` to it, after authenticating the caller. The
 handler receives that already-authenticated caller, so it calls
 `sendNotificationForAuth(auth, …)` directly.
@@ -114,12 +114,12 @@ Trigger it from the client with `aepbase.customMethod('<plural>', '<verb>')`
 (see
 [`packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts)).
 
-### From a sidecar route (Hono)
+### From a server route (Hono)
 
-If you own a core sidecar endpoint instead, it authenticates the incoming
+If you own a core server endpoint instead, it authenticates the incoming
 request itself, so it calls `sendUserNotification(request, …)` with Hono's raw
 `Request` (`c.req.raw`). The built-in test endpoint is the canonical example
-([`packages/homestead-sidecar/src/routes/notifications.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-sidecar/src/routes/notifications.ts)):
+([`packages/homestead-server/src/routes/notifications.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-server/src/routes/notifications.ts)):
 
 ```ts
 import { Hono } from 'hono';
@@ -167,7 +167,7 @@ app-scoped feed, query the notifications and filter client-side by
    `CustomMethodHandler` calling `sendNotificationForAuth(auth, { … })`.
 2. Declare it on the relevant resource in your app's `resources.ts` via the
    `customMethods` map (`{ '<verb>': { target: 'collection', load: () =>
-   import('./methods/<verb>') } }`). The schema sync registers it; the sidecar
+   import('./methods/<verb>') } }`). The schema sync registers it; the server
    gateway then serves `POST /api/aep/<plural>:<verb>`.
 3. Trigger it from the client with
    `aepbase.customMethod('<plural>', '<verb>')` (see
@@ -181,7 +181,7 @@ app-scoped feed, query the notifications and filter client-side by
 
 - **Unit:** mock `aepbase` (already done globally in
   `packages/homestead-app/src/test/setup.ts`) and assert your hook invokes
-  `aepbase.customMethod(...)` (or your sidecar route invokes
+  `aepbase.customMethod(...)` (or your server route invokes
   `sendNotificationForAuth`) with the right payload.
 - **Manual smoke test:** with the dev stack running, `POST` to
   `/api/notifications/send-test` from the browser DevTools console (the

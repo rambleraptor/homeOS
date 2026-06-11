@@ -8,12 +8,12 @@ const METHOD_STUB_ID = '\0homestead-custom-method-stub';
 
 /**
  * Resource custom-method handlers (ResourceDefinition.customMethods[].load)
- * are server-only — they run in the Bun sidecar, never the browser — but
+ * are server-only — they run in homestead-server, never the browser — but
  * `resources.ts` is reachable from the client registry, so their
  * `() => import('./methods/x')` thunks would otherwise be code-split into
  * dead client chunks (pulling in web-push and friends). Stub those imports in
- * the production build so they never ship. The sidecar is a separate Bun
- * build and is unaffected.
+ * the production build so they never ship. The server bundle is built
+ * separately and is unaffected.
  */
 function stubCustomMethods(): Plugin {
   const METHOD_RE = /homestead-apps[/\\].*[/\\]methods[/\\][^/\\]+$/;
@@ -59,14 +59,6 @@ const configPath = fileURLToPath(
   new URL('../../homestead.config.ts', import.meta.url),
 );
 
-const AEPBASE_URL = process.env.AEPBASE_URL || 'http://127.0.0.1:8090';
-const SIDECAR_URL = process.env.SIDECAR_URL || 'http://127.0.0.1:4000';
-// When the Go edge fronts Vite on a different port, HMR's websocket must
-// connect back through the edge, not Vite's own port.
-const HMR_CLIENT_PORT = process.env.VITE_HMR_CLIENT_PORT
-  ? Number(process.env.VITE_HMR_CLIENT_PORT)
-  : undefined;
-
 export default defineConfig(({ mode }) => ({
   plugins: [stubCustomMethods(), react(), tailwindcss()],
   resolve: {
@@ -92,32 +84,9 @@ export default defineConfig(({ mode }) => ({
         '',
     ),
   },
-  server: {
-    port: 5173,
-    strictPort: true,
-    hmr: HMR_CLIENT_PORT ? { clientPort: HMR_CLIENT_PORT } : undefined,
-    proxy: {
-      // AEP-136 custom methods (resource:verb) live on the sidecar gateway,
-      // which dispatches app handlers and proxies aepbase's own
-      // `:login`/`:download` through. Must precede the generic `/api/aep`
-      // rule so colon-verb paths route to the sidecar, not straight to
-      // aepbase. `[^?]*` stops the verb match at any query string.
-      '^/api/aep/[^?]*:[a-z][a-z-]*': {
-        target: SIDECAR_URL,
-        changeOrigin: true,
-      },
-      // aepbase: strip the `/api/aep` prefix and forward (matches the old
-      // Next rewrite).
-      '/api/aep': {
-        target: AEPBASE_URL,
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api\/aep/, ''),
-      },
-      '/api/notifications': { target: SIDECAR_URL, changeOrigin: true },
-      '/api/custom-methods': { target: SIDECAR_URL, changeOrigin: true },
-      '/api/chat': { target: SIDECAR_URL, changeOrigin: true },
-    },
-  },
+  // No dev `server` block: in dev, Vite runs in middleware mode inside
+  // homestead-server (see packages/homestead-server/src/dev-vite.ts), which
+  // serves /api/* and /oauth/* itself — no proxy needed.
   build: {
     // Built SPA. `make homestead` embeds this directory into the single binary
     // via scripts/gen-embedded.ts, so sourcemaps are off — they'd bloat the

@@ -7,8 +7,5 @@
 //
 // Do not edit by hand.
 
-/** Path to the embedded native aepbase binary (in Bun's virtual FS), or null. */
-export const aepbasePath: string | null = null;
-
 /** Map of SPA-relative path → embedded file path, or null when not embedded. */
 export const spaFiles: Readonly<Record<string, string>> | null = null;

@@ -1,16 +1,20 @@
 # Claude AI Assistant Guidelines for Homestead
 
 This document gives both Claude and human contributors the ground rules for
-working on the Homestead repo. The backend is **aepbase** (an AEP-compliant
-dynamic REST server). The frontend is a **Vite + React SPA**
-(`react-router-dom`) that talks to aepbase through a same-origin `/api/aep`
-proxy. A small **Bun + Hono sidecar** owns the few API routes the SPA can't
-serve itself (test notifications, the Gemini-backed chat, app workers) and runs
-the schema sync. In production a single Bun-compiled binary — the `homestead`
-launcher (`packages/homestead-cli`) — spawns aepbase as a child process and
-serves the sidecar in-process, behind the embedded SPA. The SPA, the sidecar's
-code, and the aepbase binary are all baked into the launcher binary. aepbase
-itself is a small Go binary (`aepbase/`) configured entirely via flags + env.
+working on the Homestead repo. The backend is **homestead-server**
+(`packages/homestead-server`) — one Bun process containing the **engine** (a
+TypeScript rewrite of aepbase: an AEP-compliant dynamic REST server over
+SQLite, with users/auth, OAuth, file fields, and app-access gating baked in)
+plus the API routes the SPA can't serve itself (test notifications, the
+Gemini-backed chat, the AEP-136 custom-method gateway) and the boot-time
+schema sync. The frontend is a **Vite + React SPA** (`react-router-dom`) that
+talks to the engine through same-origin `/api/aep` routes; in dev, Vite runs
+in middleware mode *inside* the server process (single port, HMR included).
+In production a single Bun-compiled binary — the `homestead` launcher
+(`packages/homestead-cli`) — runs the server in-process behind the embedded
+SPA. The engine listens on two ports: the public one (SPA + /api/*) and a
+loopback-only "engine API" port (:8090, bare aepbase-style paths) used by
+server-side helpers, e2e, and `homestead resources`.
 
 ## Table of Contents
 
@@ -57,33 +61,29 @@ make test-e2e              # Playwright end-to-end tests
 
 ### Full local stack
 
-The `homestead` launcher orchestrates the whole stack. In dev mode it spawns
-aepbase (the Go binary), the Bun sidecar, and the Vite dev server. From source
-you can run it directly with Bun (no compile needed); building the aepbase
-binary once is the only prerequisite:
+Everything runs in one Bun process. From source, no compile step is needed:
 
 ```bash
-make aepbase               # build aepbase/bin/aepbase (Go)
 bun packages/homestead-cli/src/cli.ts start --dev
+# or run the server directly:
+bun packages/homestead-server/src/index.ts --dev
 ```
 
 To build and run the production single binary instead:
 
 ```bash
-make homestead             # → bin/homestead (SPA + sidecar + aepbase embedded)
+make homestead             # → bin/homestead (SPA + server embedded)
 ./bin/homestead start
 ```
 
-On aepbase's first start, the superuser's email + password are printed to
-stdout. Save them; you'll need them to log in to the app and to set
-`AEPBASE_ADMIN_EMAIL` / `AEPBASE_ADMIN_PASSWORD` in the sidecar's
-environment so its boot-time schema sync runs.
+On first start the superuser's email + password are printed to stdout
+**once** (there is no credentials file). To rotate it later, run
+`homestead admin reset-password`. The schema sync runs in-process on boot —
+no admin env vars needed.
 
-For pure frontend iteration against an already-running backend + sidecar,
-`make dev` starts just the Vite dev server (port 5173); it proxies
-`/api/aep` to aepbase and the other `/api/*` routes to the sidecar (see
-`packages/homestead-app/vite.config.ts`). aepbase can also be run standalone via
-`aepbase/install.sh` + `aepbase/run.sh` (serves on :8090).
+In dev mode Vite runs in middleware mode inside the server (see
+`packages/homestead-server/src/dev-vite.ts`), so the SPA, HMR, and all
+`/api/*` routes share one port. There is no separate Vite proxy config.
 
 ### Pre-push checklist
 
@@ -236,10 +236,10 @@ The Vite + React SPA is a thin shell — most app code lives in the
 The `@rambleraptor/homestead-core` workspace package. Holds everything the
 SPA and apps share:
 
-- `api/aepbase.ts` — thin REST client wrapper for aepbase (client-side)
-- `server/aepbase.ts` — server-side aepbase helper used by the sidecar
-  routes (the client-side wrapper uses localStorage, so the sidecar uses
-  this instead)
+- `api/aepbase.ts` — thin REST client wrapper for the engine (client-side)
+- `server/aepbase.ts` — server-side engine helper used by homestead-server's
+  routes (the client-side wrapper uses localStorage, so server code uses
+  this instead; it talks to the loopback engine API)
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `HomeApp`/`AppFlagDef` contract types
 - `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
@@ -257,43 +257,51 @@ workspace package. Apps import `@rambleraptor/homestead-core/...`
 through the workspace + a TypeScript path alias defined in
 `packages/homestead-apps/tsconfig.json`.
 
-### Sidecar (`packages/homestead-sidecar/`)
+### Server (`packages/homestead-server/`)
 
-A small Bun + Hono server (`src/server.ts`) that owns the API routes the
-SPA can't serve itself: `POST /api/notifications/send-test`,
-`POST /api/chat` (the Gemini chat with per-resource CRUD tools; requires
-`GEMINI_API_KEY`), and `ALL /api/apps/:appId/*` (app workers). It also runs
-the boot-time schema sync (`src/schema-sync.ts`).
+The whole backend in one Bun process:
+
+- `src/engine/` — the AEP engine (TypeScript port of aepbase): dynamic
+  resources over SQLite (`db.ts`, `registry.ts`, `router.ts`, `crud.ts`,
+  `store.ts`), `/aep-resource-definitions` (`meta.ts`), users + bearer auth
+  (`users.ts`), OAuth (`oauth.ts`), file fields (`files.ts`), app-access
+  gating (`access.ts`), a minimal list-filter parser (`filter.ts`), and the
+  OpenAPI generator (`openapi.ts`). Features are baked in — there is no
+  middleware/plugin layer.
+- `src/routes/` — the API routes the SPA can't serve itself:
+  `POST /api/notifications/send-test`, `POST /api/chat` (Gemini chat;
+  requires `GEMINI_API_KEY`), `GET /api/custom-methods`, and the
+  `/api/aep` gateway (`aep-gateway.ts`) that dispatches AEP-136 custom
+  methods and passes everything else to the engine in-process.
+- `src/server.ts` — `startServer()`: two listeners (public + loopback
+  engine API on :8090), superuser bootstrap (`src/bootstrap.ts` — password
+  printed once, no credentials file; exports `createSuperuser` /
+  `resetSuperuserPassword` / `mintAdminToken`), and the boot-time schema
+  sync (`src/schema-sync.ts`, which mints a short-lived admin token in its
+  own db — no admin env vars).
+- `src/dev-vite.ts` — dev mode: Vite middleware + HMR inside the same
+  process, one port.
+- `src/app-registry.js` — JS indirection that initializes the app registry
+  from the repo-root `homestead.config.ts` (incl. `auth.oauth` and the
+  app-access map) without dragging the React app graph into `tsc`.
+- `test/` — `bun test` suite, including Go-parity behavioral tests and an
+  OpenAPI snapshot/round-trip check against
+  `test/fixtures/openapi-go-snapshot.json`.
 
 ### Launcher (`packages/homestead-cli/`)
 
-A Bun TypeScript CLI. `homestead start` spawns aepbase as a child process,
-serves the sidecar's Hono app in-process (in `--dev` the sidecar is a
-`bun --watch` child instead, for hot reload, alongside the Vite dev server),
-serves the SPA, and reverse-proxies `/api/*` to the sidecar / aepbase. It reads
-`homestead.config.ts` natively — including `auth.oauth`, which it serializes
-into the aepbase child's `AEPBASE_OAUTH` env var. `make homestead` compiles it
-with `bun build --compile` into a single `bin/homestead` that embeds the SPA,
-the sidecar code (bundled JS), and the aepbase binary (extracted to
-`~/.homestead/cache` — or `HOMESTEAD_CACHE_DIR` — on first boot). Commands:
-`start [--dev]`, `init`, `doctor`, `update`, `install-service`. `update` pulls
-the project's git checkout (the `git` block in `homestead.config.ts`, default
+A Bun TypeScript CLI. `homestead start` runs homestead-server in-process
+(prod) or as a `bun --watch` child (`--dev`, for server hot reload). `make
+homestead` compiles it with `bun build --compile` into a single
+`bin/homestead` that embeds the SPA and the bundled server (no native
+binaries to extract). Commands: `start [--dev]`, `init`, `doctor`, `update`,
+`install-service`, `resources`, `admin reset-password`. `update` pulls the
+project's git checkout (the `git` block in `homestead.config.ts`, default
 `origin/main`) and restarts the service when it's behind — the "edit config
 from your phone" flow. `install-service` (run with sudo) installs the systemd
 service + an auto-update timer that runs `update` on `--update-interval`
-(default 5m). See
-`src/embedded.generated.ts` (a build-time stub; the real form is generated by
-`scripts/gen-embedded.ts`).
-
-### Backend (`aepbase/`)
-
-- `main.go` — a standalone, fully env/flag-configured aepbase host. It opts
-  into `EnableUsers` + `EnableFileFields`, enables OAuth from `AEPBASE_OAUTH`
-  (see `oauth.go`), bootstraps the superuser and persists its credentials to
-  `data/credentials.json` (see `bootstrap.go`), restores resource definitions,
-  and shuts down gracefully on SIGTERM. The launcher spawns it as a child.
-- `install.sh` / `run.sh` — build + run the binary standalone on :8090.
-- `data/` — sqlite db + uploaded files + `credentials.json` (gitignored)
+(default 5m). See `src/embedded.generated.ts` (a build-time stub; the real
+form is generated by `scripts/gen-embedded.ts`).
 
 ### Deployment
 
@@ -311,29 +319,24 @@ exported `HomeApp`. Resource definitions that don't belong to a
 feature app (`user-preference`, `action`, `run`) live in
 `packages/homestead-core/resources/builtins.ts`.
 
-At sidecar boot, `packages/homestead-sidecar/src/schema-sync.ts`
+At server boot, `packages/homestead-server/src/schema-sync.ts`
 aggregates every declared definition through `getAllResourceDefs()` plus
 `BUILTIN_RESOURCE_DEFS`, topologically sorts by `parents`, and applies
-the result via aepbase's `/aep-resource-definitions` endpoint. The
+the result via the engine's `/aep-resource-definitions` endpoint, using
+a short-lived admin token minted directly in the db (no env vars). The
 runner (`@rambleraptor/homestead-core/resources/sync.ts`) is
 idempotent: it creates missing definitions, patches drifted ones, and
 no-ops when everything is in sync.
 
-Set `AEPBASE_ADMIN_EMAIL` and `AEPBASE_ADMIN_PASSWORD` in the sidecar's
-environment to enable the sync. Without them the app still serves
-pages but aepbase will return 404 for unregistered collections — bring
-up the sidecar with credentials at least once after a schema change.
-
-The same runner is used by the e2e bootstrap
-(`tests/e2e/config/apply-schema.ts`) so e2e and runtime stay in sync.
+The e2e suite boots the same server, so e2e and runtime schema stay in
+sync by construction.
 
 ### Adding a new resource
 
 1. Add a new entry in the relevant app's `resources.ts` (or in
    `packages/homestead-core/resources/builtins.ts` if it's
    platform-level).
-2. Restart the sidecar with admin creds set; the new definition is
-   created on boot.
+2. Restart the server; the new definition is created on boot.
 3. If the change is to an existing definition, the runner emits a
    PATCH automatically.
 
@@ -354,8 +357,8 @@ The same runner is used by the e2e bootstrap
    existing resource definition. Delete + recreate the definition
    (destructive!) if you need either.
 6. **File fields**: declare with `type: 'binary'` and
-   `'x-aepbase-file-field': true`. aepbase writes files under
-   `aepbase/data/files/...` and exposes a `:download` custom method.
+   `'x-aepbase-file-field': true`. The engine writes files under
+   `data/files/...` and exposes a `:download` custom method.
 7. **`singular` is globally unique.** The registry throws on
    duplicate declarations across apps.
 
@@ -387,7 +390,7 @@ first.
 
 The `app-flags` resource is generated dynamically from declared
 app flags rather than defined statically. Each app can declare
-typed flags in its `app.config.ts` (`flags: { ... }`). At sidecar
+typed flags in its `app.config.ts` (`flags: { ... }`). At server
 boot, the schema sync aggregates every declared flag (via
 `getAllAppFlagDefs` in
 `@rambleraptor/homestead-core/apps/registry`), builds a JSON-schema
@@ -411,7 +414,7 @@ reading/writing a single flag from any component.
 3. **Respect existing patterns** — review similar code before implementing.
 4. **Use the aepbase wrapper** (`@rambleraptor/homestead-core/api/aepbase`)
    for client-side data access, and
-   `@rambleraptor/homestead-core/server/aepbase` for the sidecar routes.
+   `@rambleraptor/homestead-core/server/aepbase` for server-side routes.
 5. **Ask before touching schema** — `resources.ts` changes affect real data.
 6. **Security first** — validate inputs, sanitize outputs, follow OWASP.
 

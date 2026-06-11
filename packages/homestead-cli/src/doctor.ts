@@ -1,6 +1,4 @@
 import { createServer } from 'node:net';
-import { accessSync, constants, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { loadProject } from './project.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
@@ -21,12 +19,10 @@ export async function runDoctor(opts: DoctorOptions): Promise<Check[]> {
   const checks: Check[] = [];
   checks.push(platformCheck());
   checks.push(toolCheck('bun', 'required to run homestead'));
-  checks.push(toolCheck('node', 'required for --dev (Vite)'));
-  checks.push(toolCheck('npm', 'required for --dev (Vite)'));
+  checks.push(npmCheck());
   checks.push(await portCheck('frontend port', opts.frontendPort));
-  checks.push(await portCheck('aepbase port', opts.aepbasePort));
+  checks.push(await portCheck('engine port', opts.aepbasePort));
   checks.push(projectCheck(opts.projectDir));
-  checks.push(aepbaseBinaryCheck());
   return checks;
 }
 
@@ -85,35 +81,15 @@ function projectCheck(dir: string): Check {
   }
 }
 
-function aepbaseBinaryCheck(): Check {
-  if (process.env.HOMESTEAD_AEPBASE_BIN) {
-    return {
-      name: 'aepbase binary',
-      status: 'ok',
-      detail: `HOMESTEAD_AEPBASE_BIN=${process.env.HOMESTEAD_AEPBASE_BIN}`,
-    };
-  }
-  // Compiled binaries embed aepbase; from source it's the repo build.
-  if (Bun.embeddedFiles.length > 0) {
-    return { name: 'aepbase binary', status: 'ok', detail: 'embedded' };
-  }
-  const repoRoot = join(import.meta.dir, '..', '..', '..');
-  const devPath = join(repoRoot, 'aepbase', 'bin', 'aepbase');
-  if (existsSync(devPath) && isExecutable(devPath)) {
-    return { name: 'aepbase binary', status: 'ok', detail: devPath };
-  }
-  return {
-    name: 'aepbase binary',
-    status: 'fail',
-    detail: `not built — run \`make aepbase\` (${devPath})`,
-  };
-}
-
-function isExecutable(p: string): boolean {
-  try {
-    accessSync(p, constants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
+// npm is only needed to install workspace deps when running from source
+// (Vite itself runs under Bun, in-process).
+function npmCheck(): Check {
+  const path = Bun.which('npm');
+  return path
+    ? { name: 'npm', status: 'ok', detail: path }
+    : {
+        name: 'npm',
+        status: 'warn',
+        detail: 'not found on PATH — needed to `npm install` when running from source',
+      };
 }

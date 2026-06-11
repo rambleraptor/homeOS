@@ -1,0 +1,581 @@
+/**
+ * Dynamic resource CRUD — port of pkg/resource/handler.go, with the Go
+ * server's behavioral quirks preserved (create → 200, delete → 204, merge
+ * semantics, singleton implicit creation, download-URL echo).
+ *
+ * One deliberate improvement over Go: multipart bodies may carry non-file
+ * fields as plain string parts (coerced to their schema types), which is
+ * what the SPA client actually sends. The Go server only read a
+ * `resource`/`body` JSON part and silently dropped scalar parts — breaking
+ * any create-with-image. Both layouts are accepted here.
+ */
+
+import { errorResponse, HttpError, isUniqueConstraintError, jsonResponse } from './errors';
+import {
+  deleteAllFileFields,
+  FILE_FIELD_SENTINEL,
+  fileFieldExists,
+  filePath,
+  writeFileField,
+} from './files';
+import { generateId, nowRFC3339 } from './ids';
+import type { RegisteredResource, Registry } from './registry';
+import {
+  deleteResource,
+  getResource,
+  insertResource,
+  listResources,
+  updateResource,
+} from './store';
+import type { Schema, StoredResource, User } from './types';
+import { STANDARD_FIELDS, TYPE_SUPERUSER } from './types';
+import {
+  stripReadOnlyFields,
+  validateEnums,
+  validateRequiredWithFiles,
+  validateTypes,
+} from './validate';
+
+/** A resolved dynamic-resource route. */
+export interface RouteMatch {
+  resource: RegisteredResource;
+  /** All ancestor ids keyed by param name (e.g. {user_id: "u1"}). */
+  parentIds: Record<string, string>;
+  /** Addressed resource id ("" for collection/singleton requests). */
+  id: string;
+  /** Custom-method verb after ":" ("" when none). */
+  verb: string;
+  kind: 'collection' | 'resource' | 'singleton';
+}
+
+/**
+ * User scoping: children of the built-in user resource are only visible to
+ * their owner (superusers see everything). Throws 403 on violation.
+ */
+export function checkUserScope(match: RouteMatch, caller: User | null): void {
+  if (!caller) return; // no auth context (unit tests); auth middleware enforces presence
+  if (caller.type === TYPE_SUPERUSER) return;
+  const userId = match.parentIds.user_id;
+  if (userId && userId !== caller.id) {
+    throw new HttpError(403, 'you do not have access to this resource');
+  }
+}
+
+/** Direct-parent FK columns only (grandparent ids live in the path). */
+function directParentIds(
+  reg: Registry,
+  r: RegisteredResource,
+  allParentIds: Record<string, string>,
+): Record<string, string> {
+  void reg;
+  const direct: Record<string, string> = {};
+  for (const parentSingular of r.parents) {
+    const param = `${parentSingular.replaceAll('-', '_')}_id`;
+    if (param in allParentIds) direct[param] = allParentIds[param]!;
+  }
+  return direct;
+}
+
+/** AEP path like "publishers/pub1/books/book1" from pattern + ids. */
+function buildResourcePath(
+  r: RegisteredResource,
+  parentIds: Record<string, string>,
+  id: string,
+): string {
+  const parts: string[] = [];
+  const elems = r.patternElems;
+  for (let i = 0; i + 2 < elems.length; i += 2) {
+    const collection = elems[i]!;
+    const param = elems[i + 1]!.slice(1, -1);
+    parts.push(collection, parentIds[param] ?? '');
+  }
+  parts.push(elems[elems.length - 2]!, id);
+  return parts.join('/');
+}
+
+function buildSingletonPath(
+  reg: Registry,
+  r: RegisteredResource,
+  parentIds: Record<string, string>,
+): string {
+  const parts: string[] = [];
+  if (r.parents.length > 0) {
+    const parent = reg.get(r.parents[0]!);
+    if (parent) {
+      const elems = parent.patternElems;
+      for (let i = 0; i < elems.length; i += 2) {
+        const param = elems[i + 1]!.slice(1, -1);
+        parts.push(elems[i]!, parentIds[param] ?? '');
+      }
+    }
+  }
+  parts.push(r.singular);
+  return parts.join('/');
+}
+
+/** Singleton row id: the direct parent's id (one singleton per parent). */
+function singletonId(r: RegisteredResource, parentIds: Record<string, string>): string {
+  if (r.parents.length > 0) {
+    const param = `${r.parents[0]!.replaceAll('-', '_')}_id`;
+    if (parentIds[param]) return parentIds[param]!;
+  }
+  return r.singular;
+}
+
+function fileFieldDownloadUrl(serverUrl: string, resourcePath: string, field: string): string {
+  return `${serverUrl.replace(/\/+$/, '')}/${resourcePath}:download?field=${field}`;
+}
+
+/**
+ * Response map for a stored resource: standard fields + schema fields that
+ * are present, with file fields rewritten to download URLs (omitted when
+ * there is no on-disk content).
+ */
+function storedToMap(
+  reg: Registry,
+  r: RegisteredResource,
+  s: StoredResource,
+): Record<string, unknown> {
+  const m: Record<string, unknown> = {
+    id: s.id,
+    path: s.path,
+    create_time: s.create_time,
+    update_time: s.update_time,
+  };
+  for (const propName of Object.keys(r.schema.properties ?? {})) {
+    if (propName in s.fields) m[propName] = s.fields[propName];
+  }
+  for (const name of r.fileFields) {
+    if (!fileFieldExists(reg.filesDir, s.path, name)) {
+      delete m[name];
+      continue;
+    }
+    m[name] = fileFieldDownloadUrl(reg.serverUrl, s.path, name);
+  }
+  return m;
+}
+
+/** Singletons have no "id" field in responses. */
+function singletonToMap(r: RegisteredResource, s: StoredResource): Record<string, unknown> {
+  const m: Record<string, unknown> = {
+    path: s.path,
+    create_time: s.create_time,
+    update_time: s.update_time,
+  };
+  for (const propName of Object.keys(r.schema.properties ?? {})) {
+    if (propName in s.fields) m[propName] = s.fields[propName];
+  }
+  return m;
+}
+
+/** Coerce a multipart string part to its schema-declared type. */
+function coerceFormValue(value: string, schema: Schema, name: string): unknown {
+  switch (schema.properties?.[name]?.type) {
+    case 'integer':
+    case 'number': {
+      const n = Number(value);
+      return Number.isNaN(n) ? value : n;
+    }
+    case 'boolean':
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return value;
+    case 'object':
+    case 'array':
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    default:
+      return value;
+  }
+}
+
+interface ParsedBody {
+  fields: Record<string, unknown>;
+  uploaded: Set<string>;
+}
+
+/**
+ * Parse a JSON or multipart/form-data body. Multipart accepts a
+ * `resource`/`body` JSON part and/or individual scalar parts; file parts
+ * matching declared file fields are streamed to disk.
+ */
+async function readCreateOrApplyBody(
+  req: Request,
+  r: RegisteredResource,
+  reg: Registry,
+  resourcePath: string,
+): Promise<ParsedBody> {
+  const mediaType = (req.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+
+  if (mediaType !== 'multipart/form-data') {
+    const body = await req.text();
+    let fields: Record<string, unknown> = {};
+    if (body.length > 0) {
+      try {
+        fields = JSON.parse(body);
+      } catch {
+        throw new HttpError(400, 'invalid JSON');
+      }
+      if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) {
+        throw new HttpError(400, 'invalid JSON');
+      }
+    }
+    return { fields, uploaded: new Set() };
+  }
+
+  if (r.fileFields.size === 0) {
+    throw new HttpError(400, 'resource does not accept multipart uploads');
+  }
+
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch (err) {
+    throw new HttpError(400, `invalid multipart body: ${err instanceof Error ? err.message : err}`);
+  }
+
+  const fields: Record<string, unknown> = {};
+  const uploaded = new Set<string>();
+  for (const [name, value] of form.entries()) {
+    if (typeof value === 'string') {
+      if (name === 'resource' || name === 'body') {
+        if (value.length === 0) continue;
+        try {
+          Object.assign(fields, JSON.parse(value));
+        } catch (err) {
+          throw new HttpError(
+            400,
+            `invalid JSON in "${name}" part: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+        continue;
+      }
+      // Scalar part: coerce to the schema type (SPA clients send these).
+      fields[name] = coerceFormValue(value, r.schema, name);
+      continue;
+    }
+    // File part matching a declared file field — write to disk.
+    if (r.fileFields.has(name)) {
+      try {
+        await writeFileField(reg.filesDir, resourcePath, name, value);
+      } catch (err) {
+        throw new HttpError(
+          400,
+          `storing file field "${name}": ${err instanceof Error ? err.message : err}`,
+        );
+      }
+      uploaded.add(name);
+    }
+    // Unknown file parts are skipped to avoid accidental writes.
+  }
+  return { fields, uploaded };
+}
+
+/**
+ * Shared payload preparation for create/update/apply: strips standard +
+ * readOnly fields, records uploads as sentinels, rejects JSON values for
+ * file fields, validates types and enums. Mutates and returns `fields`.
+ */
+function preparePayload(
+  r: RegisteredResource,
+  fields: Record<string, unknown>,
+  uploaded: Set<string>,
+): Record<string, unknown> {
+  for (const std of STANDARD_FIELDS) delete fields[std];
+  stripReadOnlyFields(r.schema, fields);
+
+  for (const name of uploaded) {
+    fields[name] = FILE_FIELD_SENTINEL;
+  }
+  for (const name of r.fileFields) {
+    if (uploaded.has(name)) continue;
+    if (name in fields && fields[name] !== null && fields[name] !== undefined) {
+      throw new HttpError(
+        400,
+        `file field "${name}" must be uploaded as a multipart file part, not a JSON value`,
+      );
+    }
+    delete fields[name];
+  }
+
+  const typeErr = validateTypes(r.schema, fields, r.fileFields);
+  if (typeErr) throw new HttpError(400, typeErr);
+  const enumErr = validateEnums(r.enums, fields);
+  if (enumErr) throw new HttpError(400, enumErr);
+  return fields;
+}
+
+// --- handlers ---
+
+export async function handleCreate(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+): Promise<Response> {
+  const r = match.resource;
+  const url = new URL(req.url);
+  const id = url.searchParams.get('id') || generateId();
+  const path = buildResourcePath(r, match.parentIds, id);
+
+  const { fields, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
+  preparePayload(r, fields, uploaded);
+
+  const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
+  if (requiredErr) throw new HttpError(400, requiredErr);
+
+  const now = nowRFC3339();
+  const stored: StoredResource = {
+    id,
+    path,
+    create_time: now,
+    update_time: now,
+    fields,
+  };
+
+  try {
+    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+  } catch (err) {
+    if (isUniqueConstraintError(err)) {
+      return errorResponse(409, `resource "${path}" already exists`);
+    }
+    return errorResponse(500, `failed to create resource: ${err instanceof Error ? err.message : err}`);
+  }
+
+  return jsonResponse(storedToMap(reg, r, stored));
+}
+
+export function handleGet(reg: Registry, match: RouteMatch): Response {
+  const r = match.resource;
+  const path = buildResourcePath(r, match.parentIds, match.id);
+  const stored = getResource(reg.db, r.plural, path, r.schema);
+  if (!stored) return errorResponse(404, `resource "${path}" not found`);
+  return jsonResponse(storedToMap(reg, r, stored));
+}
+
+export function handleList(reg: Registry, match: RouteMatch, req: Request): Response {
+  const r = match.resource;
+  const url = new URL(req.url);
+
+  let pageSize = 50;
+  const ps = url.searchParams.get('max_page_size');
+  if (ps) {
+    const n = parseInt(ps, 10);
+    if (!Number.isNaN(n) && n > 0) pageSize = Math.min(n, 1000);
+  }
+  const pageToken = url.searchParams.get('page_token') ?? '';
+
+  let skip = 0;
+  const s = url.searchParams.get('skip');
+  if (s) {
+    const n = parseInt(s, 10);
+    if (!Number.isNaN(n) && n > 0) skip = n;
+  }
+  const filter = url.searchParams.get('filter') ?? '';
+
+  let results: StoredResource[];
+  let nextPageToken: string;
+  try {
+    ({ results, nextPageToken } = listResources(
+      reg.db,
+      r.plural,
+      directParentIds(reg, r, match.parentIds),
+      r.schema,
+      pageSize,
+      pageToken,
+      skip,
+      filter,
+    ));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('invalid filter')) return errorResponse(400, msg);
+    return errorResponse(500, `database error: ${msg}`);
+  }
+
+  const resp: Record<string, unknown> = {
+    results: results.map((sr) => storedToMap(reg, r, sr)),
+  };
+  if (nextPageToken !== '') resp.next_page_token = nextPageToken;
+  return jsonResponse(resp);
+}
+
+export async function handleUpdate(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+): Promise<Response> {
+  const r = match.resource;
+  const path = buildResourcePath(r, match.parentIds, match.id);
+
+  const existing = getResource(reg.db, r.plural, path, r.schema);
+  if (!existing) return errorResponse(404, `resource "${path}" not found`);
+
+  const { fields: patch, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
+  preparePayload(r, patch, uploaded);
+
+  // Merge patch onto existing fields.
+  Object.assign(existing.fields, patch);
+  const now = nowRFC3339();
+  existing.update_time = now;
+
+  updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
+  return jsonResponse(storedToMap(reg, r, existing));
+}
+
+export async function handleApply(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+): Promise<Response> {
+  const r = match.resource;
+  const path = buildResourcePath(r, match.parentIds, match.id);
+
+  const { fields, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
+  preparePayload(r, fields, uploaded);
+
+  const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
+  if (requiredErr) throw new HttpError(400, requiredErr);
+
+  const now = nowRFC3339();
+  const existing = getResource(reg.db, r.plural, path, r.schema);
+
+  if (existing) {
+    existing.fields = fields;
+    existing.update_time = now;
+    updateResource(reg.db, r.plural, path, fields, now, r.schema);
+    return jsonResponse(storedToMap(reg, r, existing));
+  }
+
+  const stored: StoredResource = {
+    id: match.id,
+    path,
+    create_time: now,
+    update_time: now,
+    fields,
+  };
+  insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+  return jsonResponse(storedToMap(reg, r, stored));
+}
+
+export function handleDelete(reg: Registry, match: RouteMatch): Response {
+  const r = match.resource;
+  const path = buildResourcePath(r, match.parentIds, match.id);
+  const deleted = deleteResource(reg.db, r.plural, path);
+  if (!deleted) return errorResponse(404, `resource "${path}" not found`);
+
+  if (r.fileFields.size > 0) {
+    try {
+      deleteAllFileFields(reg.filesDir, path);
+    } catch {
+      // best-effort cleanup
+    }
+  }
+  return new Response(null, { status: 204 });
+}
+
+export function handleSingletonGet(reg: Registry, match: RouteMatch): Response {
+  const r = match.resource;
+  const path = buildSingletonPath(reg, r, match.parentIds);
+
+  let stored = getResource(reg.db, r.plural, path, r.schema);
+  if (!stored) {
+    // Implicit creation: a singleton always exists.
+    const now = nowRFC3339();
+    stored = {
+      id: singletonId(r, match.parentIds),
+      path,
+      create_time: now,
+      update_time: now,
+      fields: {},
+    };
+    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+  }
+  return jsonResponse(singletonToMap(r, stored));
+}
+
+export async function handleSingletonUpdate(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+): Promise<Response> {
+  const r = match.resource;
+  const path = buildSingletonPath(reg, r, match.parentIds);
+
+  let patch: Record<string, unknown>;
+  try {
+    patch = await req.json();
+  } catch {
+    return errorResponse(400, 'invalid JSON');
+  }
+
+  for (const std of STANDARD_FIELDS) delete patch[std];
+  stripReadOnlyFields(r.schema, patch);
+
+  const typeErr = validateTypes(r.schema, patch);
+  if (typeErr) return errorResponse(400, typeErr);
+  const enumErr = validateEnums(r.enums, patch);
+  if (enumErr) return errorResponse(400, enumErr);
+
+  const existing = getResource(reg.db, r.plural, path, r.schema);
+  const now = nowRFC3339();
+
+  if (!existing) {
+    const stored: StoredResource = {
+      id: singletonId(r, match.parentIds),
+      path,
+      create_time: now,
+      update_time: now,
+      fields: patch,
+    };
+    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+    return jsonResponse(singletonToMap(r, stored));
+  }
+
+  Object.assign(existing.fields, patch);
+  existing.update_time = now;
+  updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
+  return jsonResponse(singletonToMap(r, existing));
+}
+
+/** The auto-registered `POST /{plural}/{id}:download` for file-field resources. */
+export async function handleDownload(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+): Promise<Response> {
+  const r = match.resource;
+  let payload: { field?: string };
+  try {
+    payload = await req.json();
+  } catch (err) {
+    return errorResponse(400, `invalid JSON: ${err instanceof Error ? err.message : err}`);
+  }
+  const field = payload.field;
+  if (!field) return errorResponse(400, 'field is required');
+  if (!r.fileFields.has(field)) {
+    return errorResponse(400, `field "${field}" is not a file field`);
+  }
+
+  const path = buildResourcePath(r, match.parentIds, match.id);
+  const stored = getResource(reg.db, r.plural, path, r.schema);
+  if (!stored) return errorResponse(404, `resource "${path}" not found`);
+
+  let diskPath: string;
+  try {
+    diskPath = filePath(reg.filesDir, path, field);
+  } catch (err) {
+    return errorResponse(400, err instanceof Error ? err.message : String(err));
+  }
+  const file = Bun.file(diskPath);
+  if (!(await file.exists())) {
+    return errorResponse(404, `file field "${field}" has no content`);
+  }
+  return new Response(file, {
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `inline; filename="${field}"`,
+    },
+  });
+}

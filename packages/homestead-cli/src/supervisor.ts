@@ -1,27 +1,25 @@
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { loadProject } from './project.ts';
-import { aepbaseOAuthEnv } from './config.ts';
-import { appAccessEnv } from './app-access.js';
-import { startAepbase } from './aepbase.ts';
-import { startSidecar, type SidecarHandle } from './sidecar.ts';
-import { startVite } from './vite.ts';
-import { startEdge } from './edge.ts';
-import { spaAssets } from './embed.ts';
-import type { Child } from './proc.ts';
+import { findBun, spaAssets } from './embed.ts';
+import { repoRoot } from './paths.ts';
+import { Child } from './proc.ts';
 
 export interface StartOptions {
   dev: boolean;
   frontendPort: number;
+  /** Internal loopback port for the engine API (the old aepbase port). */
   aepbasePort: number;
-  sidecarPort: number;
   /** Overrides <project>/data when set. */
   dataDir?: string;
 }
 
 /**
- * Bring the full stack up and block until a signal (or a component exiting),
- * then shut everything down in order: frontend → sidecar → aepbase.
+ * Bring the server up and block until a signal (or the dev child exiting).
+ *
+ * Prod: homestead-server runs in-process (one process total; systemd
+ * `Restart=` covers crash recovery). Dev: it runs as a `bun --watch` child
+ * so server-code edits hot-reload, mirroring the old dev sidecar.
  */
 export async function runStart(
   projectDir: string,
@@ -31,69 +29,81 @@ export async function runStart(
   const dataDir = opts.dataDir ? resolve(opts.dataDir) : project.dataDir;
   mkdirSync(dataDir, { recursive: true });
 
-  const aepbaseUrl = `http://127.0.0.1:${opts.aepbasePort}`;
-  const sidecarUrl = `http://127.0.0.1:${opts.sidecarPort}`;
-
-  // 1. aepbase
-  log(`starting aepbase on :${opts.aepbasePort}`);
-  const aep = await startAepbase({
-    port: opts.aepbasePort,
-    dataDir,
-    oauthEnv: aepbaseOAuthEnv(),
-    appAccessEnv: appAccessEnv(),
-  });
-
-  // 2. sidecar
-  log(`starting sidecar on :${opts.sidecarPort}`);
-  const sidecar = await startSidecar({
-    dev: opts.dev,
-    port: opts.sidecarPort,
-    aepbaseUrl,
-    adminEmail: aep.credentials.email,
-    adminPassword: aep.credentials.password,
-  });
-
-  // 3. frontend — Vite (dev) or the embedded SPA via the edge (prod).
-  let vite: Child | undefined;
-  let edge: ReturnType<typeof Bun.serve> | undefined;
   if (opts.dev) {
-    log(`starting vite on :${opts.frontendPort}`);
-    vite = startVite({ port: opts.frontendPort, aepbaseUrl, sidecarUrl });
-  } else {
-    edge = startEdge({
-      port: opts.frontendPort,
-      aepbaseUrl,
-      sidecarUrl,
-      spa: spaAssets(),
-    });
+    await runDev(dataDir, opts);
+    return;
   }
 
-  // 4. Readiness banner (best-effort).
-  if (await waitForPort(opts.frontendPort, 30_000)) {
-    log('ready');
-    log(`  app       http://localhost:${opts.frontendPort}`);
-    log(`  aepbase   ${aepbaseUrl}`);
-    log(`  superuser ${aep.credentials.email} / ${aep.credentials.password}`);
-  } else {
-    log(`frontend never became reachable on :${opts.frontendPort}`);
-  }
+  const { startServer } = await import('./server-inproc.js');
+  const server = await startServer({
+    dev: false,
+    publicPort: opts.frontendPort,
+    internalPort: opts.aepbasePort,
+    dataDir,
+    spa: spaAssets(),
+  });
 
-  // 5. Block until a signal or any component exits.
-  await waitForShutdownTrigger({ aep: aep.child, sidecar, vite });
-
-  // 6. Ordered shutdown: frontend first (drains in-flight), then sidecar,
-  //    then aepbase last.
-  if (edge) edge.stop();
-  if (vite) await vite.stop();
-  await sidecar.stop();
-  await aep.child.stop();
+  banner(opts);
+  await waitForSignal();
+  await server.stop();
 }
 
-function waitForShutdownTrigger(children: {
-  aep: Child;
-  sidecar: SidecarHandle;
-  vite?: Child;
-}): Promise<void> {
+async function runDev(dataDir: string, opts: StartOptions): Promise<void> {
+  const entry = join(repoRoot, 'packages', 'homestead-server', 'src', 'index.ts');
+  if (!existsSync(entry)) {
+    throw new Error(
+      `homestead-server source not found at ${entry} (run --dev from the repo root)`,
+    );
+  }
+  log(`starting homestead-server (watch) on :${opts.frontendPort}`);
+  const child = new Child({
+    cmd: [
+      findBun(),
+      '--watch',
+      'run',
+      entry,
+      '--dev',
+      '--port',
+      String(opts.frontendPort),
+      '--internal-port',
+      String(opts.aepbasePort),
+      '--data-dir',
+      dataDir,
+    ],
+    cwd: repoRoot,
+    tag: '[server]',
+  });
+
+  if (await waitForPort(opts.frontendPort, 60_000)) {
+    banner(opts);
+  } else {
+    log(`server never became reachable on :${opts.frontendPort}`);
+  }
+
+  await new Promise<void>((resolveOnce) => {
+    let done = false;
+    const finish = (msg: string) => {
+      if (done) return;
+      done = true;
+      log(msg);
+      resolveOnce();
+    };
+    process.once('SIGINT', () => finish('received SIGINT, shutting down'));
+    process.once('SIGTERM', () => finish('received SIGTERM, shutting down'));
+    void child.wait().then((c) => finish(`server exited (${c})`));
+  });
+
+  await child.stop();
+}
+
+function banner(opts: StartOptions): void {
+  log('ready');
+  log(`  app       http://localhost:${opts.frontendPort}`);
+  log(`  engine    http://127.0.0.1:${opts.aepbasePort} (loopback)`);
+  log('  superuser printed on first boot; reset with `homestead admin reset-password`');
+}
+
+function waitForSignal(): Promise<void> {
   return new Promise<void>((resolveOnce) => {
     let done = false;
     const finish = (msg: string) => {
@@ -104,11 +114,6 @@ function waitForShutdownTrigger(children: {
     };
     process.once('SIGINT', () => finish('received SIGINT, shutting down'));
     process.once('SIGTERM', () => finish('received SIGTERM, shutting down'));
-    void children.aep.wait().then((c) => finish(`aepbase exited (${c})`));
-    void children.sidecar.wait().then((c) => finish(`sidecar exited (${c})`));
-    if (children.vite) {
-      void children.vite.wait().then((c) => finish(`vite exited (${c})`));
-    }
   });
 }
 

@@ -1,0 +1,38 @@
+/**
+ * Server configuration. Everything the server needs is passed here directly —
+ * there is no env-var serialization between processes (the launcher calls
+ * `startServer()` in-process; the standalone entry derives options from argv).
+ * Operator config (apps, auth.oauth) is read straight from
+ * homestead.config.ts via src/app-registry.js.
+ */
+
+import type { SpaAssets } from './static';
+
+export interface ServerOptions {
+  /** Dev mode: serve the SPA through Vite middleware with HMR. */
+  dev: boolean;
+  /** User-facing port (SPA + /api/*). */
+  publicPort: number;
+  /**
+   * Loopback-only port serving the engine at bare paths (`/users`,
+   * `/gift-cards`, `/openapi.json`). Drop-in replacement for the old
+   * standalone aepbase port; server-side helpers and e2e talk to this.
+   */
+  internalPort: number;
+  /** Absolute data dir for the sqlite db + uploaded files. */
+  dataDir: string;
+  /** Static SPA assets for prod (defaults to packages/homestead-app/dist). */
+  spa?: SpaAssets;
+  /** App-access cache TTL; defaults to AEPBASE_ACCESS_CACHE_TTL_MS or 5000. */
+  accessCacheTtlMs?: number;
+}
+
+export const DEFAULT_PUBLIC_PORT = 3000;
+export const DEFAULT_INTERNAL_PORT = 8090;
+
+/** Path prefixes owned by the server, never by the SPA/Vite. */
+const SERVER_PREFIXES = ['/api/', '/oauth/', '/health'];
+
+export function isServerPath(path: string): boolean {
+  return SERVER_PREFIXES.some((p) => path === p || path === p.replace(/\/$/, '') || path.startsWith(p));
+}

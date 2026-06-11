@@ -1,0 +1,3564 @@
+{
+  "components": {
+    "schemas": {
+      "aep-resource-definition": {
+        "description": "A resource definition. Create these to dynamically add new API endpoints.",
+        "example": {
+          "create_time": "2024-01-01T00:00:00Z",
+          "description": "A book published by a publisher.",
+          "id": "my-aep-resource-definition",
+          "path": "aep-resource-definitions/my-aep-resource-definition",
+          "plural": "books",
+          "schema": {
+            "properties": {
+              "author": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "singular": "book",
+          "update_time": "2024-06-15T12:00:00Z"
+        },
+        "properties": {
+          "create_time": {
+            "description": "The time this resource definition was created.",
+            "example": "2024-01-01T00:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "description": {
+            "description": "A human-readable description of the resource.",
+            "example": "A book published by a publisher.",
+            "type": "string"
+          },
+          "examples": {
+            "description": "Example values for the resource's fields, keyed by field name.",
+            "type": "object"
+          },
+          "id": {
+            "description": "The unique identifier for this resource definition.",
+            "example": "my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "parents": {
+            "description": "The singular names of parent resources for nested resources.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "path": {
+            "description": "The full resource path (e.g. aep-resource-definitions/book).",
+            "example": "aep-resource-definitions/my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "plural": {
+            "description": "The plural name of the resource, used as the URL collection path (e.g. books).",
+            "example": "books",
+            "type": "string"
+          },
+          "schema": {
+            "description": "The JSON Schema defining the resource's properties.",
+            "example": {
+              "properties": {
+                "author": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "singular": {
+            "description": "The singular name of the resource (e.g. book).",
+            "example": "book",
+            "type": "string"
+          },
+          "update_time": {
+            "description": "The time this resource definition was last updated.",
+            "example": "2024-06-15T12:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "user_settable_create": {
+            "description": "Whether clients can set the resource ID on creation.",
+            "type": "boolean"
+          }
+        },
+        "type": "object",
+        "x-aep-resource": {
+          "patterns": [
+            "aep-resource-definitions/{aep_resource_definition_id}"
+          ],
+          "plural": "aep-resource-definitions",
+          "singular": "aep-resource-definition",
+          "type": "aepbase/aep-resource-definition"
+        }
+      },
+      "gift-card": {
+        "example": {
+          "create_time": "2024-01-01T00:00:00Z",
+          "id": "my-aep-resource-definition",
+          "path": "aep-resource-definitions/my-aep-resource-definition",
+          "update_time": "2024-06-15T12:00:00Z"
+        },
+        "properties": {
+          "amount": {
+            "type": "number"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "card_number": {
+            "type": "string"
+          },
+          "create_time": {
+            "description": "The time this resource was created.",
+            "example": "2024-01-01T00:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "front_image": {
+            "type": "binary",
+            "x-aepbase-file-field": true
+          },
+          "id": {
+            "description": "The unique identifier for this resource.",
+            "example": "my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "merchant": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The full resource path (e.g. publishers/acme/books/1984).",
+            "example": "aep-resource-definitions/my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "update_time": {
+            "description": "The time this resource was last updated.",
+            "example": "2024-06-15T12:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "merchant",
+          "card_number",
+          "amount"
+        ],
+        "type": "object",
+        "x-aep-resource": {
+          "patterns": [
+            "gift-cards/{gift_card_id}"
+          ],
+          "plural": "gift-cards",
+          "singular": "gift-card",
+          "type": "aepbase/gift-card"
+        }
+      },
+      "notification": {
+        "example": {
+          "create_time": "2024-01-01T00:00:00Z",
+          "id": "my-aep-resource-definition",
+          "path": "aep-resource-definitions/my-aep-resource-definition",
+          "update_time": "2024-06-15T12:00:00Z"
+        },
+        "properties": {
+          "create_time": {
+            "description": "The time this resource was created.",
+            "example": "2024-01-01T00:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for this resource.",
+            "example": "my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "path": {
+            "description": "The full resource path (e.g. publishers/acme/books/1984).",
+            "example": "aep-resource-definitions/my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          },
+          "update_time": {
+            "description": "The time this resource was last updated.",
+            "example": "2024-06-15T12:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-aep-resource": {
+          "parents": [
+            "user"
+          ],
+          "patterns": [
+            "users/{user_id}/notifications/{notification_id}"
+          ],
+          "plural": "notifications",
+          "singular": "notification",
+          "type": "aepbase/notification"
+        }
+      },
+      "profile": {
+        "example": {
+          "create_time": "2024-01-01T00:00:00Z",
+          "path": "aep-resource-definitions/my-aep-resource-definition",
+          "update_time": "2024-06-15T12:00:00Z"
+        },
+        "properties": {
+          "bio": {
+            "type": "string"
+          },
+          "create_time": {
+            "description": "The time this resource was created.",
+            "example": "2024-01-01T00:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "path": {
+            "description": "The full resource path (e.g. publishers/acme/books/1984).",
+            "example": "aep-resource-definitions/my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "update_time": {
+            "description": "The time this resource was last updated.",
+            "example": "2024-06-15T12:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-aep-resource": {
+          "parents": [
+            "user"
+          ],
+          "patterns": [
+            "users/{user_id}/profiles/{profile_id}"
+          ],
+          "plural": "profiles",
+          "singleton": true,
+          "singular": "profile",
+          "type": "aepbase/profile"
+        }
+      },
+      "transaction": {
+        "example": {
+          "create_time": "2024-01-01T00:00:00Z",
+          "id": "my-aep-resource-definition",
+          "path": "aep-resource-definitions/my-aep-resource-definition",
+          "update_time": "2024-06-15T12:00:00Z"
+        },
+        "properties": {
+          "create_time": {
+            "description": "The time this resource was created.",
+            "example": "2024-01-01T00:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for this resource.",
+            "example": "my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "new_amount": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "path": {
+            "description": "The full resource path (e.g. publishers/acme/books/1984).",
+            "example": "aep-resource-definitions/my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "update_time": {
+            "description": "The time this resource was last updated.",
+            "example": "2024-06-15T12:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_amount"
+        ],
+        "type": "object",
+        "x-aep-resource": {
+          "parents": [
+            "gift-card"
+          ],
+          "patterns": [
+            "gift-cards/{gift_card_id}/transactions/{transaction_id}"
+          ],
+          "plural": "transactions",
+          "singular": "transaction",
+          "type": "aepbase/transaction"
+        }
+      },
+      "user": {
+        "example": {
+          "create_time": "2024-01-01T00:00:00Z",
+          "id": "my-aep-resource-definition",
+          "path": "aep-resource-definitions/my-aep-resource-definition",
+          "update_time": "2024-06-15T12:00:00Z"
+        },
+        "properties": {
+          "create_time": {
+            "description": "The time this resource was created.",
+            "example": "2024-01-01T00:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for this resource.",
+            "example": "my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "path": {
+            "description": "The full resource path (e.g. publishers/acme/books/1984).",
+            "example": "aep-resource-definitions/my-aep-resource-definition",
+            "readOnly": true,
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "update_time": {
+            "description": "The time this resource was last updated.",
+            "example": "2024-06-15T12:00:00Z",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "type": "object",
+        "x-aep-resource": {
+          "patterns": [
+            "users/{user_id}"
+          ],
+          "plural": "users",
+          "singular": "user",
+          "type": "aepbase/user"
+        }
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "aepbase",
+      "url": "https://github.com/rambleraptor/aepbase"
+    },
+    "description": "A dynamic API backend following the AEP standard. Define resources at runtime and get automatic CRUD endpoints, OpenAPI specs, and more.",
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    },
+    "title": "aepbase",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/aep-resource-definitions": {
+      "get": {
+        "description": "Returns a paginated list of aepResourceDefinitions.",
+        "operationId": "ListAepResourceDefinition",
+        "parameters": [
+          {
+            "description": "The maximum number of results to return per page.",
+            "example": 25,
+            "in": "query",
+            "name": "max_page_size",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A token from a previous list response to fetch the next page.",
+            "example": "eyJsYXN0X2lkIjoiMTIzIn0=",
+            "in": "query",
+            "name": "page_token",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "next_page_token": {
+                      "description": "A token to retrieve the next page of results. Empty if there are no more results.",
+                      "example": "",
+                      "type": "string"
+                    },
+                    "results": {
+                      "description": "The list of aepResourceDefinitions.",
+                      "items": {
+                        "$ref": "#/components/schemas/aep-resource-definition"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid filter expression"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request parameters are invalid."
+          }
+        },
+        "tags": [
+          "aepResourceDefinition"
+        ]
+      },
+      "post": {
+        "description": "Creates a new aepResourceDefinition.",
+        "operationId": "CreateAepResourceDefinition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/aep-resource-definition"
+              }
+            }
+          },
+          "description": "The aepResourceDefinition to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/aep-resource-definition"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 409,
+                    "message": "definition with id \"my-aep-resource-definition\" already exists"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A aepResourceDefinition with the given ID already exists."
+          }
+        },
+        "tags": [
+          "aepResourceDefinition"
+        ]
+      }
+    },
+    "/aep-resource-definitions/{aep_resource_definition_id}": {
+      "delete": {
+        "description": "Deletes a aepResourceDefinition by ID.",
+        "operationId": "DeleteAepResourceDefinition",
+        "parameters": [
+          {
+            "description": "The ID of the aep_resource_definition.",
+            "example": "my-aep_resource_definition",
+            "in": "path",
+            "name": "aep_resource_definition_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "example": {},
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "aepResourceDefinition not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The aepResourceDefinition was not found."
+          }
+        },
+        "tags": [
+          "aepResourceDefinition"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a single aepResourceDefinition by ID.",
+        "operationId": "GetAepResourceDefinition",
+        "parameters": [
+          {
+            "description": "The ID of the aep_resource_definition.",
+            "example": "my-aep_resource_definition",
+            "in": "path",
+            "name": "aep_resource_definition_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/aep-resource-definition"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "aepResourceDefinition not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The aepResourceDefinition was not found."
+          }
+        },
+        "tags": [
+          "aepResourceDefinition"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing aepResourceDefinition. Only the fields provided in the request body are modified.",
+        "operationId": "UpdateAepResourceDefinition",
+        "parameters": [
+          {
+            "description": "The ID of the aep_resource_definition.",
+            "example": "my-aep_resource_definition",
+            "in": "path",
+            "name": "aep_resource_definition_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/aep-resource-definition"
+              }
+            }
+          },
+          "description": "The fields to update on the aepResourceDefinition.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/aep-resource-definition"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "aepResourceDefinition not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The aepResourceDefinition was not found."
+          }
+        },
+        "tags": [
+          "aepResourceDefinition"
+        ]
+      }
+    },
+    "/gift-cards": {
+      "get": {
+        "description": "Returns a paginated list of giftCards.",
+        "operationId": "ListGiftCard",
+        "parameters": [
+          {
+            "description": "The maximum number of results to return per page.",
+            "example": 25,
+            "in": "query",
+            "name": "max_page_size",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A token from a previous list response to fetch the next page.",
+            "example": "eyJsYXN0X2lkIjoiMTIzIn0=",
+            "in": "query",
+            "name": "page_token",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The number of results to skip before returning.",
+            "example": 0,
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A filter expression to narrow results (e.g. \"author=Orwell\").",
+            "example": "author=Orwell",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "next_page_token": {
+                      "description": "A token to retrieve the next page of results. Empty if there are no more results.",
+                      "example": "",
+                      "type": "string"
+                    },
+                    "results": {
+                      "description": "The list of giftCards.",
+                      "items": {
+                        "$ref": "#/components/schemas/gift-card"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid filter expression"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request parameters are invalid."
+          }
+        },
+        "tags": [
+          "giftCard"
+        ]
+      },
+      "post": {
+        "description": "Creates a new giftCard.",
+        "operationId": "CreateGiftCard",
+        "parameters": [
+          {
+            "description": "The ID to use for the new resource definition. If omitted, one is generated automatically.",
+            "example": "my-aep-resource-definition",
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/gift-card"
+              }
+            }
+          },
+          "description": "The giftCard to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gift-card"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 409,
+                    "message": "definition with id \"my-aep-resource-definition\" already exists"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A giftCard with the given ID already exists."
+          }
+        },
+        "tags": [
+          "giftCard"
+        ]
+      }
+    },
+    "/gift-cards/{gift_card_id}": {
+      "delete": {
+        "description": "Deletes a giftCard by ID.",
+        "operationId": "DeleteGiftCard",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "If true, delete even if child resources exist.",
+            "example": false,
+            "in": "query",
+            "name": "force",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "example": {},
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "giftCard not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The giftCard was not found."
+          }
+        },
+        "tags": [
+          "giftCard"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a single giftCard by ID.",
+        "operationId": "GetGiftCard",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gift-card"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "giftCard not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The giftCard was not found."
+          }
+        },
+        "tags": [
+          "giftCard"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing giftCard. Only the fields provided in the request body are modified.",
+        "operationId": "UpdateGiftCard",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/gift-card"
+              }
+            }
+          },
+          "description": "The fields to update on the giftCard.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gift-card"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "giftCard not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The giftCard was not found."
+          }
+        },
+        "tags": [
+          "giftCard"
+        ]
+      },
+      "put": {
+        "description": "Creates or replaces a giftCard.",
+        "operationId": "ApplyGiftCard",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/gift-card"
+              }
+            }
+          },
+          "description": "The full giftCard to create or replace.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gift-card"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/gift-card"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          }
+        },
+        "tags": [
+          "giftCard"
+        ]
+      }
+    },
+    "/gift-cards/{gift_card_id}/transactions": {
+      "get": {
+        "description": "Returns a paginated list of transactions.",
+        "operationId": "ListTransaction",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The maximum number of results to return per page.",
+            "example": 25,
+            "in": "query",
+            "name": "max_page_size",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A token from a previous list response to fetch the next page.",
+            "example": "eyJsYXN0X2lkIjoiMTIzIn0=",
+            "in": "query",
+            "name": "page_token",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The number of results to skip before returning.",
+            "example": 0,
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A filter expression to narrow results (e.g. \"author=Orwell\").",
+            "example": "author=Orwell",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "next_page_token": "",
+                  "results": [
+                    {
+                      "create_time": "2024-01-01T00:00:00Z",
+                      "id": "my-aep-resource-definition",
+                      "path": "aep-resource-definitions/my-aep-resource-definition",
+                      "update_time": "2024-06-15T12:00:00Z"
+                    }
+                  ]
+                },
+                "schema": {
+                  "properties": {
+                    "next_page_token": {
+                      "description": "A token to retrieve the next page of results. Empty if there are no more results.",
+                      "example": "",
+                      "type": "string"
+                    },
+                    "results": {
+                      "description": "The list of transactions.",
+                      "example": [
+                        {
+                          "create_time": "2024-01-01T00:00:00Z",
+                          "id": "my-aep-resource-definition",
+                          "path": "aep-resource-definitions/my-aep-resource-definition",
+                          "update_time": "2024-06-15T12:00:00Z"
+                        }
+                      ],
+                      "items": {
+                        "$ref": "#/components/schemas/transaction"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid filter expression"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request parameters are invalid."
+          }
+        },
+        "tags": [
+          "transaction"
+        ]
+      },
+      "post": {
+        "description": "Creates a new transaction.",
+        "operationId": "CreateTransaction",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID to use for the new resource definition. If omitted, one is generated automatically.",
+            "example": "my-aep-resource-definition",
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/transaction"
+              }
+            }
+          },
+          "description": "The transaction to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/transaction"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 409,
+                    "message": "definition with id \"my-aep-resource-definition\" already exists"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A transaction with the given ID already exists."
+          }
+        },
+        "tags": [
+          "transaction"
+        ]
+      }
+    },
+    "/gift-cards/{gift_card_id}/transactions/{transaction_id}": {
+      "delete": {
+        "description": "Deletes a transaction by ID.",
+        "operationId": "DeleteTransaction",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the transaction.",
+            "example": "my-transaction",
+            "in": "path",
+            "name": "transaction_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "example": {},
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "transaction not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The transaction was not found."
+          }
+        },
+        "tags": [
+          "transaction"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a single transaction by ID.",
+        "operationId": "GetTransaction",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the transaction.",
+            "example": "my-transaction",
+            "in": "path",
+            "name": "transaction_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/transaction"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "transaction not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The transaction was not found."
+          }
+        },
+        "tags": [
+          "transaction"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing transaction. Only the fields provided in the request body are modified.",
+        "operationId": "UpdateTransaction",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the transaction.",
+            "example": "my-transaction",
+            "in": "path",
+            "name": "transaction_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/transaction"
+              }
+            }
+          },
+          "description": "The fields to update on the transaction.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/transaction"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "transaction not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The transaction was not found."
+          }
+        },
+        "tags": [
+          "transaction"
+        ]
+      },
+      "put": {
+        "description": "Creates or replaces a transaction.",
+        "operationId": "ApplyTransaction",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the transaction.",
+            "example": "my-transaction",
+            "in": "path",
+            "name": "transaction_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/transaction"
+              }
+            }
+          },
+          "description": "The full transaction to create or replace.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/transaction"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/transaction"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          }
+        },
+        "tags": [
+          "transaction"
+        ]
+      }
+    },
+    "/gift-cards/{gift_card_id}:download": {
+      "post": {
+        "description": "",
+        "operationId": ":DownloadGiftCard",
+        "parameters": [
+          {
+            "description": "The ID of the gift_card.",
+            "example": "my-gift_card",
+            "in": "path",
+            "name": "gift_card_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "field": {
+                    "description": "Name of the file field to download.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "field"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "description": "",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "The raw file contents.",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful response"
+          }
+        },
+        "tags": [
+          ":downloadgiftcard"
+        ]
+      }
+    },
+    "/users": {
+      "get": {
+        "description": "Returns a paginated list of users.",
+        "operationId": "ListUser",
+        "parameters": [
+          {
+            "description": "The maximum number of results to return per page.",
+            "example": 25,
+            "in": "query",
+            "name": "max_page_size",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A token from a previous list response to fetch the next page.",
+            "example": "eyJsYXN0X2lkIjoiMTIzIn0=",
+            "in": "query",
+            "name": "page_token",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "next_page_token": "",
+                  "results": [
+                    {
+                      "create_time": "2024-01-01T00:00:00Z",
+                      "id": "my-aep-resource-definition",
+                      "path": "aep-resource-definitions/my-aep-resource-definition",
+                      "update_time": "2024-06-15T12:00:00Z"
+                    }
+                  ]
+                },
+                "schema": {
+                  "properties": {
+                    "next_page_token": {
+                      "description": "A token to retrieve the next page of results. Empty if there are no more results.",
+                      "example": "",
+                      "type": "string"
+                    },
+                    "results": {
+                      "description": "The list of users.",
+                      "example": [
+                        {
+                          "create_time": "2024-01-01T00:00:00Z",
+                          "id": "my-aep-resource-definition",
+                          "path": "aep-resource-definitions/my-aep-resource-definition",
+                          "update_time": "2024-06-15T12:00:00Z"
+                        }
+                      ],
+                      "items": {
+                        "$ref": "#/components/schemas/user"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid filter expression"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request parameters are invalid."
+          }
+        },
+        "tags": [
+          "user"
+        ]
+      },
+      "post": {
+        "description": "Creates a new user.",
+        "operationId": "CreateUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/user"
+              }
+            }
+          },
+          "description": "The user to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/user"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 409,
+                    "message": "definition with id \"my-aep-resource-definition\" already exists"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A user with the given ID already exists."
+          }
+        },
+        "tags": [
+          "user"
+        ]
+      }
+    },
+    "/users/{user_id}": {
+      "delete": {
+        "description": "Deletes a user by ID.",
+        "operationId": "DeleteUser",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "If true, delete even if child resources exist.",
+            "example": false,
+            "in": "query",
+            "name": "force",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "example": {},
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "user not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The user was not found."
+          }
+        },
+        "tags": [
+          "user"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a single user by ID.",
+        "operationId": "GetUser",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/user"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "user not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The user was not found."
+          }
+        },
+        "tags": [
+          "user"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing user. Only the fields provided in the request body are modified.",
+        "operationId": "UpdateUser",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/user"
+              }
+            }
+          },
+          "description": "The fields to update on the user.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/user"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "user not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The user was not found."
+          }
+        },
+        "tags": [
+          "user"
+        ]
+      }
+    },
+    "/users/{user_id}/notifications": {
+      "get": {
+        "description": "Returns a paginated list of notifications.",
+        "operationId": "ListNotification",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The maximum number of results to return per page.",
+            "example": 25,
+            "in": "query",
+            "name": "max_page_size",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A token from a previous list response to fetch the next page.",
+            "example": "eyJsYXN0X2lkIjoiMTIzIn0=",
+            "in": "query",
+            "name": "page_token",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The number of results to skip before returning.",
+            "example": 0,
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A filter expression to narrow results (e.g. \"author=Orwell\").",
+            "example": "author=Orwell",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "next_page_token": "",
+                  "results": [
+                    {
+                      "create_time": "2024-01-01T00:00:00Z",
+                      "id": "my-aep-resource-definition",
+                      "path": "aep-resource-definitions/my-aep-resource-definition",
+                      "update_time": "2024-06-15T12:00:00Z"
+                    }
+                  ]
+                },
+                "schema": {
+                  "properties": {
+                    "next_page_token": {
+                      "description": "A token to retrieve the next page of results. Empty if there are no more results.",
+                      "example": "",
+                      "type": "string"
+                    },
+                    "results": {
+                      "description": "The list of notifications.",
+                      "example": [
+                        {
+                          "create_time": "2024-01-01T00:00:00Z",
+                          "id": "my-aep-resource-definition",
+                          "path": "aep-resource-definitions/my-aep-resource-definition",
+                          "update_time": "2024-06-15T12:00:00Z"
+                        }
+                      ],
+                      "items": {
+                        "$ref": "#/components/schemas/notification"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid filter expression"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request parameters are invalid."
+          }
+        },
+        "tags": [
+          "notification"
+        ]
+      },
+      "post": {
+        "description": "Creates a new notification.",
+        "operationId": "CreateNotification",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/notification"
+              }
+            }
+          },
+          "description": "The notification to create.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/notification"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 409,
+                    "message": "definition with id \"my-aep-resource-definition\" already exists"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "A notification with the given ID already exists."
+          }
+        },
+        "tags": [
+          "notification"
+        ]
+      }
+    },
+    "/users/{user_id}/notifications/{notification_id}": {
+      "delete": {
+        "description": "Deletes a notification by ID.",
+        "operationId": "DeleteNotification",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the notification.",
+            "example": "my-notification",
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "example": {},
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "notification not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The notification was not found."
+          }
+        },
+        "tags": [
+          "notification"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a single notification by ID.",
+        "operationId": "GetNotification",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the notification.",
+            "example": "my-notification",
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/notification"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "notification not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The notification was not found."
+          }
+        },
+        "tags": [
+          "notification"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing notification. Only the fields provided in the request body are modified.",
+        "operationId": "UpdateNotification",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the notification.",
+            "example": "my-notification",
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/notification"
+              }
+            }
+          },
+          "description": "The fields to update on the notification.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/notification"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "notification not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The notification was not found."
+          }
+        },
+        "tags": [
+          "notification"
+        ]
+      },
+      "put": {
+        "description": "Creates or replaces a notification.",
+        "operationId": "ApplyNotification",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The ID of the notification.",
+            "example": "my-notification",
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/notification"
+              }
+            }
+          },
+          "description": "The full notification to create or replace.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "id": "my-aep-resource-definition",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/notification"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/notification"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          }
+        },
+        "tags": [
+          "notification"
+        ]
+      }
+    },
+    "/users/{user_id}/profile": {
+      "get": {
+        "description": "Retrieves a single profile by ID.",
+        "operationId": "GetProfile",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/profile"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "profile not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The profile was not found."
+          }
+        },
+        "tags": [
+          "profile"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing profile. Only the fields provided in the request body are modified.",
+        "operationId": "UpdateProfile",
+        "parameters": [
+          {
+            "description": "The ID of the user.",
+            "example": "my-user",
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/profile"
+              }
+            }
+          },
+          "description": "The fields to update on the profile.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "create_time": "2024-01-01T00:00:00Z",
+                  "path": "aep-resource-definitions/my-aep-resource-definition",
+                  "update_time": "2024-06-15T12:00:00Z"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/profile"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 400,
+                    "message": "invalid request body"
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The request body is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": {
+                    "code": 404,
+                    "message": "profile not found."
+                  }
+                },
+                "schema": {
+                  "properties": {
+                    "error": {
+                      "description": "Error details.",
+                      "example": {
+                        "code": 400,
+                        "message": "something went wrong"
+                      },
+                      "properties": {
+                        "code": {
+                          "description": "The HTTP status code.",
+                          "example": 400,
+                          "type": "integer"
+                        },
+                        "message": {
+                          "description": "A human-readable error message.",
+                          "example": "something went wrong",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The profile was not found."
+          }
+        },
+        "tags": [
+          "profile"
+        ]
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8097"
+    }
+  ],
+  "tags": [
+    {
+      "name": "transaction"
+    },
+    {
+      "name": "user"
+    },
+    {
+      "description": "A resource definition. Create these to dynamically add new API endpoints.",
+      "name": "aep-resource-definition"
+    },
+    {
+      "name": "gift-card"
+    },
+    {
+      "name": "notification"
+    },
+    {
+      "name": "profile"
+    }
+  ]
+}
