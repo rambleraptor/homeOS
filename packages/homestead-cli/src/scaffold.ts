@@ -54,6 +54,11 @@ function packageJson(root: string): string {
       '@rambleraptor/homestead-core': HOMESTEAD_VERSION_RANGE,
       '@rambleraptor/homestead-server': HOMESTEAD_VERSION_RANGE,
     },
+    // tsx lets the launcher run the server under node when bun isn't
+    // installed (it also arrives transitively via homestead-server).
+    devDependencies: {
+      tsx: '^4.20.0',
+    },
   };
   return `${JSON.stringify(pkg, null, 2)}\n`;
 }

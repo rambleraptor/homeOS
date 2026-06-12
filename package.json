@@ -1,11 +1,12 @@
 {
   "name": "homestead",
   "private": true,
+  "type": "module",
   "workspaces": [
     "packages/*",
     "tests/e2e"
   ],
-  "//optionalDependencies": "Native deps ship per-platform prebuilt binaries as their own optional deps; the lockfile only captures variants resolved at generation time. We pin both supported targets explicitly — linux-arm64 (deploy) and darwin-arm64 (dev) — so `npm install`/`npm ci` work on both and sharp never builds from source. Keep each version in sync with its parent package.",
+  "//optionalDependencies": "Native deps ship per-platform prebuilt binaries as their own optional deps; the lockfile only captures variants resolved at generation time. We pin both supported targets explicitly \u2014 linux-arm64 (deploy) and darwin-arm64 (dev) \u2014 so `npm install`/`npm ci` work on both and sharp never builds from source. Keep each version in sync with its parent package.",
   "optionalDependencies": {
     "@rollup/rollup-linux-arm64-gnu": "^4.53.5",
     "@rollup/rollup-darwin-arm64": "^4.53.5",

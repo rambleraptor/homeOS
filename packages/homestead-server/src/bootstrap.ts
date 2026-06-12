@@ -10,7 +10,7 @@
  * work before the instance is claimed.
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './engine/sqlite';
 import { generateId, generateToken, nowRFC3339 } from './engine/ids';
 import type { User } from './engine/types';
 import { TYPE_SUPERUSER } from './engine/types';

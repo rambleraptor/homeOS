@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { buildProviders, type OAuthConfig } from '../../src/engine/oauth';
 import { Engine } from '../../src/engine/engine';
+import { listen, type Listener } from '../../src/listen';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -64,12 +65,12 @@ describe('buildProviders', () => {
 });
 
 describe('oauth flow (mocked provider)', () => {
-  let fakeProvider: ReturnType<typeof Bun.serve>;
+  let fakeProvider: Listener;
   let engine: Engine;
   let providerUrl: string;
 
-  beforeAll(() => {
-    fakeProvider = Bun.serve({
+  beforeAll(async () => {
+    fakeProvider = await listen({
       port: 0,
       fetch: async (req) => {
         const url = new URL(req.url);
@@ -114,8 +115,8 @@ describe('oauth flow (mocked provider)', () => {
     });
   });
 
-  afterAll(() => {
-    fakeProvider.stop(true);
+  afterAll(async () => {
+    await fakeProvider.stop();
   });
 
   const get = (path: string, headers: Record<string, string> = {}) =>
@@ -147,7 +148,7 @@ describe('oauth flow (mocked provider)', () => {
     const cb = await get(`/oauth/fake/callback?code=abc&state=${state}`, { Cookie: cookie });
     expect(cb.status).toBe(302);
     const location = cb.headers.get('location')!;
-    expect(location).toStartWith('http://localhost:3000/auth/callback#token=');
+    expect(location.startsWith('http://localhost:3000/auth/callback#token=')).toBe(true);
     const token = new URLSearchParams(location.split('#')[1]).get('token')!;
 
     // The minted token resolves the new user via /users/me.
@@ -203,8 +204,8 @@ describe('oauth flow (mocked provider)', () => {
   test('email match links the identity to an existing user', async () => {
     const existing = await seedUser(engine, { email: 'linked@example.com' });
     // New provider identity, same email → link, don't create.
-    fakeProvider.stop(true);
-    fakeProvider = Bun.serve({
+    await fakeProvider.stop();
+    fakeProvider = await listen({
       port: 0,
       fetch: async (req) => {
         const url = new URL(req.url);

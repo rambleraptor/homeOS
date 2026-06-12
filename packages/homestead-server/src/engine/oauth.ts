@@ -10,7 +10,7 @@
  * fragment (so it never lands in access logs).
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './sqlite';
 import { errorResponse, jsonResponse } from './errors';
 import { generateId, generateToken, nowRFC3339 } from './ids';
 import type { User } from './types';

@@ -62,7 +62,7 @@ export interface HomesteadConfig {
   /**
    * Optional auth configuration. Consumed by the `homestead` launcher (not the
    * SPA bundle) to configure aepbase. Secrets are read from the environment
-   * when the launcher evaluates this file under Bun.
+   * when the launcher evaluates this file server-side.
    */
   auth?: AuthConfig;
 }

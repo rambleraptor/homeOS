@@ -11,11 +11,13 @@
  */
 
 import { errorResponse, HttpError, isUniqueConstraintError, jsonResponse } from './errors';
+import { existsSync } from 'node:fs';
 import {
   deleteAllFileFields,
   FILE_FIELD_SENTINEL,
   fileFieldExists,
   filePath,
+  openFileStream,
   writeFileField,
 } from './files';
 import { generateId, nowRFC3339 } from './ids';
@@ -568,11 +570,10 @@ export async function handleDownload(
   } catch (err) {
     return errorResponse(400, err instanceof Error ? err.message : String(err));
   }
-  const file = Bun.file(diskPath);
-  if (!(await file.exists())) {
+  if (!existsSync(diskPath)) {
     return errorResponse(404, `file field "${field}" has no content`);
   }
-  return new Response(file, {
+  return new Response(openFileStream(diskPath), {
     headers: {
       'Content-Type': 'application/octet-stream',
       'Content-Disposition': `inline; filename="${field}"`,

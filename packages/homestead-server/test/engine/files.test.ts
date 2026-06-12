@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'vitest';
+import { existsSync } from 'node:fs';
 import { call, defineResource, makeEngine, type TestEngine } from './helpers';
 import { filePath } from '../../src/engine/files';
 
@@ -148,11 +149,11 @@ describe('file lifecycle', () => {
     expect(got.attachment).toContain(':download?field=attachment');
 
     const diskPath = filePath(t.filesDir, 'docs/d3', 'attachment');
-    expect(await Bun.file(diskPath).exists()).toBe(true);
+    expect(existsSync(diskPath)).toBe(true);
 
     const del = await call(t.engine, 'DELETE', '/docs/d3', { token: t.adminToken });
     expect(del.status).toBe(204);
-    expect(await Bun.file(diskPath).exists()).toBe(false);
+    expect(existsSync(diskPath)).toBe(false);
   });
 
   test('path traversal segments are rejected', () => {

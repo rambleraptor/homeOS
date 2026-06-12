@@ -1,6 +1,6 @@
 /** Port of aepbase/middleware_test.go plus an end-to-end gate scenario. */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'vitest';
 import {
   AccessStore,
   appFieldName,

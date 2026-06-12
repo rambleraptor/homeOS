@@ -1,5 +1,7 @@
-import { test, expect } from 'bun:test';
+import { test, expect } from 'vitest';
 import { writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Resource } from '@aep_dev/aep-lib-ts';
 import {
   buildBody,
@@ -158,7 +160,7 @@ test('rejects unknown flags and file-field flags', () => {
 });
 
 test('--@data supplies the whole body but cannot mix with field flags', () => {
-  const path = `${import.meta.dir}/.tmp-data-${process.pid}.json`;
+  const path = join(tmpdir(), `.tmp-data-${process.pid}.json`);
   writeFileSync(path, JSON.stringify({ id: 'gc1', merchant: 'Foo', amount: 5 }));
   try {
     const body = buildBody(giftCard, fieldFlags(giftCard), { '@data': path }, {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { call, makeEngine, seedUser, type TestEngine } from './helpers';
 import { insertUser } from '../../src/engine/users';
 import { generateId, nowRFC3339 } from '../../src/engine/ids';

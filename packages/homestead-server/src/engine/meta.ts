@@ -4,7 +4,7 @@
  * live resource through the Registry.
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './sqlite';
 import { errorResponse, jsonResponse } from './errors';
 import { nowRFC3339 } from './ids';
 import type { Registry } from './registry';

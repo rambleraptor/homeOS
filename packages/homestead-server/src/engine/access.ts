@@ -14,7 +14,7 @@
  *   tagged      → caller's account tags intersect the app's enabled_tags
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './sqlite';
 import type { AccessCheck } from './engine';
 import { errorResponse } from './errors';
 import { TYPE_SUPERUSER } from './types';

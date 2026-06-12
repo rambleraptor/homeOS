@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, watch, type FSWatcher } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { loadProject } from './project.ts';
-import { findBun, resolveServerModule } from './runtime.ts';
+import { findRuntime, resolveServerModule, type JsRuntime } from './runtime.ts';
 import { Child } from './proc.ts';
 import { ensureSpaBuild, pruneSpaBuilds, type SpaBuild } from './spa-build.ts';
 
@@ -25,12 +25,12 @@ const WATCHED_FILES = new Set([
 /**
  * Bring the server up and block until a signal (or the server exiting).
  *
- * The server always runs as a `bun` child resolved from the project's
- * node_modules — the compiled launcher can't import the operator's config
- * (no node_modules resolution at runtime in compiled binaries), so the
- * project's own runtime evaluates it.
+ * The server always runs as a runtime child (bun, or node + tsx) resolved
+ * from the project's node_modules — the compiled launcher can't import the
+ * operator's config (no node_modules resolution at runtime in compiled
+ * binaries), so the project's own runtime evaluates it.
  *
- * Dev: `bun --watch` child with Vite middleware (HMR) — server and SPA both
+ * Dev: a watch-mode child with Vite middleware (HMR) — server and SPA both
  * hot-reload. Prod: the launcher builds the SPA (content-hash cached), serves
  * it via the child, and watches homestead.config.ts / package-lock.json to
  * rebuild + restart on change. Open tabs poll /api/app-version and reload.
@@ -42,8 +42,8 @@ export async function runStart(
   const project = loadProject(projectDir);
   const dataDir = opts.dataDir ? resolve(opts.dataDir) : project.dataDir;
   mkdirSync(dataDir, { recursive: true });
-  const bun = findBun();
-  const entry = await resolveEntryInstallingDeps(project.root, bun);
+  const runtime = findRuntime(project.root);
+  const entry = await resolveEntryInstallingDeps(project.root, runtime);
 
   let build: SpaBuild | null = null;
   if (!opts.dev) {
@@ -68,16 +68,14 @@ export async function runStart(
 
   const spawnServer = (): Child => {
     const cmd = opts.dev
-      ? [bun, '--watch', 'run', ...serverArgs(entry, dataDir, opts), '--dev']
-      : [
-          bun,
-          'run',
-          ...serverArgs(entry, dataDir, opts),
+      ? runtime.watch(entry, [...serverArgs(dataDir, opts), '--dev'])
+      : runtime.run(entry, [
+          ...serverArgs(dataDir, opts),
           '--spa-dist',
           build!.dist,
           '--build-id',
           build!.buildId,
-        ];
+        ]);
     const c = new Child({ cmd, cwd: project.root, tag: '[server]' });
     void c.wait().then((code) => {
       // Deliberate restarts swap `child` before the old process exits; only
@@ -177,28 +175,28 @@ export async function runStart(
  */
 async function resolveEntryInstallingDeps(
   projectRoot: string,
-  bun: string,
+  runtime: JsRuntime,
 ): Promise<string> {
   try {
     return resolveServerModule(projectRoot, 'index.ts');
   } catch (err) {
     if (!existsSync(join(projectRoot, 'package.json'))) throw err;
-    log('dependencies not installed — running bun install');
+    const installCmd = runtime.install();
+    log(`dependencies not installed — running ${installCmd.join(' ')}`);
     const install = new Child({
-      cmd: [bun, 'install'],
+      cmd: installCmd,
       cwd: projectRoot,
       tag: '[install]',
     });
     if ((await install.wait()) !== 0) {
-      throw new Error('bun install failed — fix the errors above and retry');
+      throw new Error('dependency install failed — fix the errors above and retry');
     }
     return resolveServerModule(projectRoot, 'index.ts');
   }
 }
 
-function serverArgs(entry: string, dataDir: string, opts: StartOptions): string[] {
+function serverArgs(dataDir: string, opts: StartOptions): string[] {
   return [
-    entry,
     '--port',
     String(opts.frontendPort),
     '--internal-port',
@@ -219,7 +217,7 @@ async function waitForPort(port: number, timeoutMs: number): Promise<boolean> {
     } catch {
       // not up yet
     }
-    await Bun.sleep(200);
+    await new Promise((r) => setTimeout(r, 200));
   }
   return false;
 }

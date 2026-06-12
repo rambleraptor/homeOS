@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'vitest';
 import { compileFilter } from '../../src/engine/filter';
 import type { Schema } from '../../src/engine/types';
 

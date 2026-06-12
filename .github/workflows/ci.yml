@@ -26,7 +26,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # node:sqlite (used when the server runs under Node) needs >= 22.13
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
@@ -52,6 +53,9 @@ jobs:
 
       - name: Build + test homestead launcher
         run: make homestead-test
+
+      - name: Run server + CLI tests under Node
+        run: make test-node
 
       - name: CI Summary
         if: success()

@@ -4,8 +4,10 @@
  * e.g. data/files/gift-cards/abc123/front_image.
  */
 
-import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { Readable } from 'node:stream';
 
 /** The DB column value marking that a file field has on-disk content. */
 export const FILE_FIELD_SENTINEL = '1';
@@ -33,7 +35,12 @@ export async function writeFileField(
 ): Promise<void> {
   const p = filePath(root, resourcePath, field);
   mkdirSync(dirname(p), { recursive: true });
-  await Bun.write(p, content);
+  await writeFile(p, new Uint8Array(await content.arrayBuffer()));
+}
+
+/** A web ReadableStream over a disk file, for streaming Response bodies. */
+export function openFileStream(path: string): ReadableStream {
+  return Readable.toWeb(createReadStream(path)) as unknown as ReadableStream;
 }
 
 export function fileFieldExists(root: string, resourcePath: string, field: string): boolean {

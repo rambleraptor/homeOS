@@ -2,7 +2,9 @@
 
 This document gives both Claude and human contributors the ground rules for
 working on the Homestead repo. The backend is **homestead-server**
-(`packages/homestead-server`) — one Bun process containing the **engine** (a
+(`packages/homestead-server`) — one process (Bun, or Node ≥ 22.13 via tsx;
+the runtime seams are `src/listen.ts`, `src/engine/sqlite.ts`, and
+`src/engine/password.ts`) containing the **engine** (a
 TypeScript rewrite of aepbase: an AEP-compliant dynamic REST server over
 SQLite, with users/auth, OAuth, file fields, and app-access gating baked in)
 plus the API routes the SPA can't serve itself (test notifications, the
@@ -11,7 +13,8 @@ schema sync. The frontend is a **Vite + React SPA** (`react-router-dom`) that
 talks to the engine through same-origin `/api/aep` routes; in dev, Vite runs
 in middleware mode *inside* the server process (single port, HMR included).
 In production the `homestead` launcher (`packages/homestead-cli`, compiled
-with Bun into a thin binary) runs the server as a `bun` child resolved from
+with Bun into a thin binary) runs the server as a runtime child (bun, or
+node + tsx when bun isn't installed) resolved from
 the project's node_modules, serving a SPA the launcher builds on the box
 (content-hash cached; rebuilt + restarted automatically when
 `homestead.config.ts` changes — open tabs poll `/api/app-version` and
@@ -57,20 +60,31 @@ make type-check
 ### 4. Tests ✅
 
 ```bash
-make test                  # Vitest (frontend unit/integration tests)
+make test                  # Vitest (frontend) + Bun (CLI/server unit tests)
+make test-node             # CLI/server unit tests under Node (vitest)
 make test-e2e              # Playwright end-to-end tests
 ```
+
+The CLI/server test files import from `vitest`, which `bun test` aliases to
+`bun:test` — the same suite runs under both runtimes. Don't use Bun-only
+APIs (`Bun.*`, `bun:sqlite`, `import.meta.dir`) in server/CLI code or tests;
+go through the runtime seams above or use `node:*` equivalents.
 
 ## Development Workflow
 
 ### Full local stack
 
-Everything runs in one Bun process. From source, no compile step is needed:
+Everything runs in one process — Bun or Node both work. From source, no
+compile step is needed:
 
 ```bash
 bun packages/homestead-cli/src/cli.ts start --dev
 # or run the server directly:
 bun packages/homestead-server/src/index.ts --dev
+
+# the same, under Node (>= 22.13, for node:sqlite):
+npx tsx packages/homestead-cli/src/cli.ts start --dev
+npx tsx packages/homestead-server/src/index.ts --dev
 ```
 
 To build and run the production launcher binary instead:

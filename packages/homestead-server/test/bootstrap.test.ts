@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test';
-import { Database } from 'bun:sqlite';
+import { describe, expect, test } from 'vitest';
+import { Database } from '../src/engine/sqlite';
+import { verifyPassword } from '../src/engine/password';
 import {
   claimSetup,
   createSuperuser,
@@ -50,7 +51,7 @@ describe('claimSetup', () => {
     expect(needsSetup(db)).toBe(false);
     const found = getUserByEmail(db, 'me@home.dev');
     expect(found?.user.type).toBe('superuser');
-    expect(await Bun.password.verify('hunter2hunter2', found!.hash)).toBe(true);
+    expect(await verifyPassword('hunter2hunter2', found!.hash)).toBe(true);
 
     await expect(claimSetup(db, 'evil@example.com', 'p4ssw0rdp4ssw0rd')).rejects.toThrow(
       'already set up',
@@ -75,8 +76,8 @@ describe('resetSuperuserPassword', () => {
     expect(password).toMatch(/^[0-9a-f]{16}$/);
 
     const { hash } = getUserByEmail(db, 'owner@example.com')!;
-    expect(await Bun.password.verify(password, hash)).toBe(true);
-    expect(await Bun.password.verify('old', hash)).toBe(false);
+    expect(await verifyPassword(password, hash)).toBe(true);
+    expect(await verifyPassword('old', hash)).toBe(false);
   });
 
   test('throws when no superuser exists', async () => {

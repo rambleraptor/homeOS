@@ -1,5 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { srcDir } from './paths.ts';
 import { loadProject } from './project.ts';
 
 const UNIT_DIR = '/etc/systemd/system';
@@ -38,11 +40,12 @@ export function parseInterval(value: string): number {
 
 /**
  * How to invoke this CLI from a unit file. A compiled binary is its own
- * executable (process.execPath); from source we run the entry via Bun.
+ * executable (process.execPath); from source we re-create this process's
+ * own invocation (bun, or node + the tsx loader args).
  */
 export function resolveInvocation(): string {
-  if (Bun.embeddedFiles.length > 0) return process.execPath;
-  return `${process.execPath} ${resolve(import.meta.dir, 'cli.ts')}`;
+  if (typeof Bun !== 'undefined' && Bun.embeddedFiles.length > 0) return process.execPath;
+  return [process.execPath, ...process.execArgv, resolve(srcDir, 'cli.ts')].join(' ');
 }
 
 interface RenderParams extends Required<Omit<InstallServiceOptions, 'envFile'>> {
@@ -126,8 +129,8 @@ interface RunResult {
 }
 
 function run(cmd: string[]): RunResult {
-  const p = Bun.spawnSync({ cmd, stdout: 'inherit', stderr: 'pipe' });
-  return { code: p.exitCode ?? 1, err: new TextDecoder().decode(p.stderr).trim() };
+  const p = spawnSync(cmd[0]!, cmd.slice(1), { stdio: ['inherit', 'inherit', 'pipe'] });
+  return { code: p.status ?? 1, err: (p.stderr ?? '').toString().trim() };
 }
 
 /**

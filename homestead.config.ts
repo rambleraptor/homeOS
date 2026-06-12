@@ -27,9 +27,10 @@ import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
 /**
  * Read an env var. Guarded so this file stays importable in the browser (the
  * SPA registry imports it for `apps`): `process` is undefined there, so the
- * guard short-circuits to `undefined` rather than throwing. Under Bun (the
- * `homestead` launcher) it reads the real environment — which is where OAuth
- * secrets are sourced. Secrets therefore never land in the client bundle.
+ * guard short-circuits to `undefined` rather than throwing. On the server
+ * (the `homestead` launcher, bun or node) it reads the real environment —
+ * which is where OAuth secrets are sourced. Secrets therefore never land in
+ * the client bundle.
  */
 const fromEnv = (key: string): string | undefined =>
   typeof process !== 'undefined' ? process.env[key] : undefined;
