@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { parseArgs, type ParseArgsConfig } from 'node:util';
-import { scaffold } from './scaffold.ts';
+import { scaffold, scaffoldApp } from './scaffold.ts';
 import { runDoctor, hasFailures, type Check } from './doctor.ts';
 
 async function main(argv: string[]): Promise<number> {
@@ -16,6 +16,8 @@ async function main(argv: string[]): Promise<number> {
       return startCmd(rest);
     case 'init':
       return initCmd(rest);
+    case 'init-app':
+      return initAppCmd(rest);
     case 'doctor':
       return doctorCmd(rest);
     case 'update':
@@ -107,7 +109,13 @@ async function adminCmd(args: string[]): Promise<number> {
 async function initCmd(args: string[]): Promise<number> {
   const parsed = parse(args, {}, { positionals: true });
   if (!parsed) return 1;
-  const root = scaffold(parsed.positionals[0] ?? '.');
+  let root: string;
+  try {
+    root = scaffold(parsed.positionals[0] ?? '.');
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
   console.log(`scaffolded Homestead project at ${root}`);
 
   // Install up front so `homestead start` is the only remaining step. A
@@ -128,6 +136,31 @@ async function initCmd(args: string[]): Promise<number> {
   console.log(`  cd ${root}`);
   console.log('  homestead start\n');
   console.log('Edit homestead.config.ts to pick which apps ship.');
+  return 0;
+}
+
+async function initAppCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, {}, { positionals: true });
+  if (!parsed) return 1;
+  const rawName = parsed.positionals[0];
+  if (!rawName) {
+    console.error('usage: homestead init-app <name>');
+    return 1;
+  }
+  let dir: string;
+  let names: ReturnType<typeof scaffoldApp>['names'];
+  try {
+    ({ dir, names } = scaffoldApp(rawName, '.'));
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+  console.log(`scaffolded app "${names.display}" at ${dir}`);
+  console.log('\nWire it into homestead.config.ts:');
+  console.log(`  import { ${names.camel}App } from './apps/${names.slug}';`);
+  console.log('  // ...then add it to the apps array:');
+  console.log(`  apps: [\n    ${names.camel}App,\n    // ...\n  ],`);
+  console.log('\nRestart `homestead start` to apply the new resources.');
   return 0;
 }
 
@@ -210,6 +243,7 @@ function printUsage(): void {
       '',
       'Usage:',
       '  homestead init [<dir>]      Scaffold a new project (homestead.config.ts + package.json + apps/).',
+      '  homestead init-app <name>   Scaffold a new custom app skeleton under ./apps/<name>.',
       '  homestead start [--dev]     Boot the server + SPA using homestead.config.ts in CWD.',
       '  homestead doctor            Check whether the host can run `homestead start`.',
       '  homestead update            Pull the config repo (its git upstream); restart the service if it changed.',
