@@ -1,14 +1,18 @@
 /**
  * Built-in user resource: /users CRUD, the `:login`/`:logout` custom
  * methods, and the `me` alias — port of pkg/user. Passwords are bcrypt
- * hashes; Bun.password verifies both Go's $2a$ and Bun's $2b$ variants.
+ * hashes; verifyPassword handles both Go's $2a$ and the newer $2b$ variants.
  */
 
-import type { Database } from 'bun:sqlite';
 import { errorResponse, isUniqueConstraintError, jsonResponse } from './errors';
 import { generateId, generateToken, nowRFC3339 } from './ids';
+import { hashPassword, verifyPassword } from './password';
+import type { Database } from './sqlite';
 import type { User } from './types';
 import { TYPE_REGULAR, TYPE_SUPERUSER } from './types';
+
+// Re-exported for callers that hash alongside user writes (bootstrap, tests).
+export { hashPassword, verifyPassword };
 
 export function createUserTables(db: Database): void {
   db.run(`CREATE TABLE IF NOT EXISTS _users (
@@ -109,11 +113,6 @@ export function deleteToken(db: Database, token: string): void {
   db.query('DELETE FROM _tokens WHERE token = ?').run(token);
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  // Go used bcrypt.DefaultCost (10); Bun emits $2b$ which Go-era rows coexist with.
-  return Bun.password.hash(password, { algorithm: 'bcrypt', cost: 10 });
-}
-
 export function extractBearerToken(req: Request): string {
   const auth = req.headers.get('authorization');
   if (!auth) return '';
@@ -140,7 +139,7 @@ export async function handleLogin(db: Database, req: Request): Promise<Response>
   const found = getUserByEmail(db, body.email);
   if (!found) return errorResponse(401, 'invalid email or password');
 
-  const ok = await Bun.password.verify(body.password, found.hash).catch(() => false);
+  const ok = await verifyPassword(body.password, found.hash);
   if (!ok) return errorResponse(401, 'invalid email or password');
 
   const token = generateToken();

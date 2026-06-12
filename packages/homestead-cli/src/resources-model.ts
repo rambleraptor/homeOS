@@ -1,10 +1,11 @@
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import axios from 'axios';
 import { APIClient, Client, logger } from '@aep_dev/aep-lib-ts';
 import type { OpenAPI, Resource } from '@aep_dev/aep-lib-ts';
 import { loadProject } from './project.ts';
-import { findBun, resolveServerModule } from './runtime.ts';
+import { findRuntime, resolveServerModule } from './runtime.ts';
 
 // aep-lib-ts logs OpenAPI parsing at INFO; silence it so command output is clean.
 logger.settings.minLevel = 7;
@@ -189,9 +190,9 @@ async function resolveAuth(
 const TOKEN_MARKER = '@@HOMESTEAD_TOKEN@@';
 
 /**
- * Mint a superuser token from the project's database, via a bun child of the
- * project's homestead-server (tools/mint-admin-token.ts) so the binary never
- * bundles engine code.
+ * Mint a superuser token from the project's database, via a runtime child of
+ * the project's homestead-server (tools/mint-admin-token.ts) so the binary
+ * never bundles engine code.
  */
 function mintLocalAdminToken(
   opts: ConnectOptions,
@@ -210,18 +211,14 @@ function mintLocalAdminToken(
   } catch (err) {
     throw new ConnectError(err instanceof Error ? err.message : String(err));
   }
-  const proc = Bun.spawnSync({
-    cmd: [findBun(), 'run', tool, '--data-dir', dataDir],
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  const line = new TextDecoder()
-    .decode(proc.stdout)
+  const cmd = findRuntime(opts.projectDir ?? '.').run(tool, ['--data-dir', dataDir]);
+  const proc = spawnSync(cmd[0]!, cmd.slice(1), { encoding: 'utf8' });
+  const line = (proc.stdout ?? '')
     .split('\n')
     .find((l) => l.startsWith(TOKEN_MARKER));
-  if (proc.exitCode !== 0 || !line) {
-    const err = new TextDecoder().decode(proc.stderr).trim();
-    throw new ConnectError(err.split('\n')[0] || `token mint failed (exit ${proc.exitCode})`);
+  if (proc.status !== 0 || !line) {
+    const err = (proc.stderr ?? '').trim();
+    throw new ConnectError(err.split('\n')[0] || `token mint failed (exit ${proc.status})`);
   }
   const admin = JSON.parse(line.slice(TOKEN_MARKER.length)) as {
     token: string;

@@ -1,5 +1,6 @@
+import { spawnSync } from 'node:child_process';
 import { loadProject } from './project.ts';
-import { findBun } from './runtime.ts';
+import { findRuntime, which } from './runtime.ts';
 
 export interface UpdateOptions {
   /** Project directory (the git checkout). Defaults to CWD via runUpdate. */
@@ -20,12 +21,11 @@ interface RunResult {
 
 /** Run a command synchronously, capturing trimmed stdout/stderr. */
 function run(cmd: string[], cwd: string): RunResult {
-  const p = Bun.spawnSync({ cmd, cwd, stdout: 'pipe', stderr: 'pipe' });
-  const dec = new TextDecoder();
+  const p = spawnSync(cmd[0]!, cmd.slice(1), { cwd, encoding: 'utf8' });
   return {
-    code: p.exitCode ?? 1,
-    out: dec.decode(p.stdout).trim(),
-    err: dec.decode(p.stderr).trim(),
+    code: p.status ?? 1,
+    out: (p.stdout ?? '').trim(),
+    err: (p.stderr ?? '').trim(),
   };
 }
 
@@ -69,7 +69,7 @@ export function trackedUpstream(root: string): TrackedUpstream {
 
 /** True when systemctl exists and the unit is installed (reading needs no sudo). */
 function serviceInstalled(name: string, cwd: string): boolean {
-  if (!Bun.which('systemctl')) return false;
+  if (!which('systemctl')) return false;
   return run(['systemctl', 'cat', `${name}.service`], cwd).code === 0;
 }
 
@@ -150,8 +150,9 @@ export async function runUpdate(opts: UpdateOptions): Promise<number> {
       root,
     );
     if (depsDiff.out !== '') {
-      log('dependencies changed — running bun install');
-      const install = run([findBun(), 'install'], root);
+      const installCmd = findRuntime(root).install();
+      log(`dependencies changed — running ${installCmd.join(' ')}`);
+      const install = run(installCmd, root);
       if (install.code !== 0) {
         log(`install failed: ${install.err || install.out || `exit ${install.code}`}`);
         log(`rolling back to ${localHead.slice(0, 12)}`);

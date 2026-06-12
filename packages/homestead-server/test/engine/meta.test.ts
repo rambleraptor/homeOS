@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { call, defineResource, makeEngine, BOOK_DEF, type TestEngine } from './helpers';
 
 let t: TestEngine;
@@ -14,7 +14,7 @@ describe('definition create', () => {
     const body = await res.json();
     expect(body.id).toBe('book');
     expect(body.path).toBe('aep-resource-definitions/book');
-    expect(body.create_time).toBeString();
+    expect(typeof body.create_time).toBe('string');
 
     // Routes are live immediately.
     const list = await call(t.engine, 'GET', '/books', { token: t.adminToken });

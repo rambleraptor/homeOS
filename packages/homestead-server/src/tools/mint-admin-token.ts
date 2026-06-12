@@ -10,7 +10,7 @@
 
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { Database } from 'bun:sqlite';
+import { Database } from '../engine/sqlite';
 import { mintAdminToken } from '../bootstrap';
 
 function flagValue(argv: string[], name: string): string | undefined {

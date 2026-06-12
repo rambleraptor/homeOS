@@ -8,10 +8,11 @@
  * config edit produces a new hash → new build → server child restart.
  */
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { cacheRoot, findBun } from './runtime.ts';
+import { cacheRoot, findRuntime } from './runtime.ts';
 import { spawnChild } from './proc.ts';
 
 export interface SpaBuild {
@@ -39,13 +40,11 @@ export function spaBuildId(projectRoot: string): string {
     const file = join(projectRoot, name);
     if (existsSync(file)) h.update(readFileSync(file));
   }
-  const head = Bun.spawnSync({
-    cmd: ['git', 'rev-parse', 'HEAD'],
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
     cwd: projectRoot,
-    stdout: 'pipe',
-    stderr: 'ignore',
+    stdio: ['ignore', 'pipe', 'ignore'],
   });
-  h.update(head.exitCode === 0 ? head.stdout : 'no-git');
+  h.update(head.status === 0 ? head.stdout : 'no-git');
   return h.digest('hex').slice(0, 16);
 }
 
@@ -59,7 +58,7 @@ export function resolveShellRoot(projectRoot: string): string {
   const linked = join(projectRoot, 'node_modules', '@rambleraptor', 'homestead-app');
   if (!existsSync(join(linked, 'vite.config.ts'))) {
     throw new Error(
-      `SPA shell not found at ${linked} — run \`bun install\` in ${projectRoot}`,
+      `SPA shell not found at ${linked} — install dependencies (\`bun install\` / \`npm install\`) in ${projectRoot}`,
     );
   }
   return realpathSync(linked);
@@ -80,12 +79,13 @@ export async function ensureSpaBuild(projectRoot: string): Promise<SpaBuild> {
   const shellRoot = resolveShellRoot(projectRoot);
   const viteBin = join(projectRoot, 'node_modules', '.bin', 'vite');
   if (!existsSync(viteBin)) {
-    throw new Error(`vite not found at ${viteBin} — run \`bun install\` in ${projectRoot}`);
+    throw new Error(`vite not found at ${viteBin} — install dependencies (\`bun install\` / \`npm install\`) in ${projectRoot}`);
   }
 
   log(`building SPA (${buildId}) — this can take a minute`);
   const child = spawnChild({
-    cmd: [findBun(), viteBin, 'build', '--outDir', dist, '--emptyOutDir'],
+    // The vite bin is plain JS, so the runtime executable runs it directly.
+    cmd: [findRuntime(projectRoot).exe, viteBin, 'build', '--outDir', dist, '--emptyOutDir'],
     cwd: shellRoot,
     env: {
       HOMESTEAD_BUILD_ID: buildId,

@@ -6,7 +6,7 @@
  */
 
 import { Hono } from 'hono';
-import type { Database } from 'bun:sqlite';
+import type { Database } from '../engine/sqlite';
 import { claimSetup, needsSetup } from '../bootstrap';
 
 const MIN_PASSWORD_LENGTH = 8;

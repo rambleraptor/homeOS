@@ -1,5 +1,6 @@
 /**
- * homestead-server — the whole backend in one Bun process.
+ * homestead-server — the whole backend in one process (Bun, or Node ≥ 22.13
+ * via tsx; see listen.ts / engine/sqlite.ts for the runtime seams).
  *
  * Two listeners, one process:
  *  - public (user-facing): /api/aep/* (custom-method gateway + engine),
@@ -15,6 +16,7 @@ import { Hono } from 'hono';
 import { join } from 'node:path';
 import { DEFAULT_ACCESS_CACHE_TTL_MS, makeAccessCheck } from './engine/access';
 import { Engine } from './engine/engine';
+import { listen } from './listen';
 import { isServerPath, type ServerOptions } from './options';
 import { diskSpaAssets, serveStatic } from './static';
 
@@ -86,10 +88,9 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // --- internal loopback listener (the old aepbase port) ---
   // Bare engine paths plus the same /api/* routes as the public port, so
   // tools like `homestead resources` need only this one URL.
-  const internal = Bun.serve({
+  const internal = await listen({
     hostname: '127.0.0.1',
     port: opts.internalPort,
-    idleTimeout: 0,
     fetch: (req) => {
       const path = new URL(req.url).pathname;
       if (path === '/api' || path.startsWith('/api/')) return publicApp.fetch(req);
@@ -104,16 +105,15 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     stopPublic = dev.stop;
   } else {
     const spa = opts.spa ?? diskSpaAssets();
-    const server = Bun.serve({
+    const server = await listen({
       port: opts.publicPort,
-      idleTimeout: 0,
       fetch: (req) => {
         const path = new URL(req.url).pathname;
         if (isServerPath(path)) return publicApp.fetch(req);
         return serveStatic(spa, path);
       },
     });
-    stopPublic = () => server.stop(true);
+    stopPublic = server.stop;
   }
 
   // Apply app-declared schema in the background; serving doesn't depend on
@@ -138,7 +138,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     engine,
     stop: async () => {
       await stopPublic();
-      internal.stop(true);
+      await internal.stop();
       engine.db.close();
     },
   };

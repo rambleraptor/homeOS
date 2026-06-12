@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { call, defineResource, makeEngine, seedUser, BOOK_DEF, type TestEngine } from './helpers';
 
 let t: TestEngine;
@@ -123,7 +123,7 @@ describe('list + pagination', () => {
       await call(t.engine, 'GET', '/books?max_page_size=2', { token: t.adminToken })
     ).json();
     expect(page1.results.length).toBe(2);
-    expect(page1.next_page_token).toBeString();
+    expect(typeof page1.next_page_token).toBe('string');
 
     const page2 = await (
       await call(t.engine, 'GET', `/books?max_page_size=2&page_token=${encodeURIComponent(page1.next_page_token)}`, {

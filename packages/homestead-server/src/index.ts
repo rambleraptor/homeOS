@@ -1,9 +1,9 @@
 /**
- * Standalone entry — `bun run src/index.ts [--dev] [--port N]
- * [--internal-port N] [--data-dir PATH] [--spa-dist DIR] [--build-id ID]`.
- * This is how the server always runs: the launcher CLI spawns it as a `bun`
- * child (passing --spa-dist at the launcher-built SPA in prod), and dev/e2e
- * run it directly.
+ * Standalone entry — `bun run src/index.ts` or `tsx src/index.ts` with
+ * `[--dev] [--port N] [--internal-port N] [--data-dir PATH] [--spa-dist DIR]
+ * [--build-id ID]`. This is how the server always runs: the launcher CLI
+ * spawns it as a runtime child (passing --spa-dist at the launcher-built SPA
+ * in prod), and dev/e2e run it directly.
  */
 
 import { resolve } from 'node:path';

@@ -4,7 +4,7 @@
  * skip + pageSize + 1 to detect the next page.
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './sqlite';
 import type { Schema, StoredResource } from './types';
 import { STANDARD_FIELDS } from './types';
 import { sanitizeTableName } from './db';

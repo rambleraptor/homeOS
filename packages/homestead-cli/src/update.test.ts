@@ -1,4 +1,5 @@
-import { test, expect } from 'bun:test';
+import { test, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,9 +12,9 @@ test('needsUpdate is false only when the two commits match', () => {
 });
 
 function git(cwd: string, ...args: string[]): void {
-  const p = Bun.spawnSync({ cmd: ['git', ...args], cwd, stdout: 'ignore', stderr: 'pipe' });
-  if (p.exitCode !== 0) {
-    throw new Error(`git ${args.join(' ')}: ${new TextDecoder().decode(p.stderr)}`);
+  const p = spawnSync('git', args, { cwd, stdio: ['ignore', 'ignore', 'pipe'], encoding: 'utf8' });
+  if (p.status !== 0) {
+    throw new Error(`git ${args.join(' ')}: ${p.stderr}`);
   }
 }
 

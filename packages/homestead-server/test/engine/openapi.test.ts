@@ -8,7 +8,7 @@
  *    `homestead resources`.
  */
 
-import { beforeAll, describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'vitest';
 import { APIClient } from '@aep_dev/aep-lib-ts';
 import goSnapshot from '../fixtures/openapi-go-snapshot.json';
 import { call, defineResource, makeEngine, type TestEngine } from './helpers';

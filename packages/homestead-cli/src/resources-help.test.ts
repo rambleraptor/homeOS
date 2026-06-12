@@ -1,4 +1,4 @@
-import { test, expect } from 'bun:test';
+import { test, expect } from 'vitest';
 import type { Resource } from '@aep_dev/aep-lib-ts';
 import { renderIndex, renderResourceHelp, supportedVerbs } from './resources-help.ts';
 

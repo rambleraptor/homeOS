@@ -120,16 +120,16 @@ async function initCmd(args: string[]): Promise<number> {
 
   // Install up front so `homestead start` is the only remaining step. A
   // failure isn't fatal — start retries the install itself.
-  console.log('installing dependencies (bun install)...');
-  const { findBun } = await import('./runtime.ts');
-  const install = Bun.spawnSync({
-    cmd: [findBun(), 'install'],
+  const { findRuntime } = await import('./runtime.ts');
+  const { spawnSync } = await import('node:child_process');
+  const installCmd = findRuntime(root).install();
+  console.log(`installing dependencies (${installCmd.join(' ')})...`);
+  const install = spawnSync(installCmd[0]!, installCmd.slice(1), {
     cwd: root,
-    stdout: 'inherit',
-    stderr: 'inherit',
+    stdio: 'inherit',
   });
-  if (install.exitCode !== 0) {
-    console.error('bun install failed — `homestead start` will retry it.');
+  if (install.status !== 0) {
+    console.error('dependency install failed — `homestead start` will retry it.');
   }
 
   console.log('\nNext steps:');

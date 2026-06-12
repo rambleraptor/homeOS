@@ -9,7 +9,7 @@
  * Relies on the app registry being initialized (importing ../app-registry).
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './engine/sqlite';
 import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/sync';
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';

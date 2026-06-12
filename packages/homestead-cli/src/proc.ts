@@ -1,4 +1,4 @@
-import type { Subprocess } from 'bun';
+import { spawn, type ChildProcess } from 'node:child_process';
 
 export interface SpawnOptions {
   /** argv; cmd[0] is the executable (absolute path or resolved on PATH). */
@@ -13,9 +13,11 @@ export interface SpawnOptions {
 /**
  * A spawned child with prefixed log piping and graceful shutdown. Mirrors the
  * Go launcher's internal/proc: SIGTERM, escalating to SIGKILL after a deadline.
+ * Built on node:child_process so the launcher runs under Bun and Node alike.
  */
 export class Child {
-  readonly proc: Subprocess;
+  readonly proc: ChildProcess;
+  private readonly exited: Promise<number>;
   private readonly pumps: Promise<void>[];
   private stopping = false;
 
@@ -24,25 +26,25 @@ export class Child {
     for (const [k, v] of Object.entries({ ...process.env, ...opts.env })) {
       if (v !== undefined) env[k] = v;
     }
-    this.proc = Bun.spawn({
-      cmd: opts.cmd,
+    this.proc = spawn(opts.cmd[0]!, opts.cmd.slice(1), {
       cwd: opts.cwd,
       env,
-      stdin: 'inherit',
-      stdout: 'pipe',
-      stderr: 'pipe',
+      stdio: ['inherit', 'pipe', 'pipe'],
     });
-    // stdout/stderr are ReadableStreams because we pass 'pipe' above; the
-    // Subprocess generic doesn't narrow on the literal options, so assert it.
+    this.exited = new Promise<number>((resolve) => {
+      // A spawn failure (missing executable) emits 'error' and never 'exit'.
+      this.proc.once('error', () => resolve(1));
+      this.proc.once('exit', (code, signal) => resolve(code ?? (signal ? 1 : 0)));
+    });
     this.pumps = [
-      pipePrefixed(this.proc.stdout as ReadableStream<Uint8Array>, opts.tag),
-      pipePrefixed(this.proc.stderr as ReadableStream<Uint8Array>, opts.tag),
+      pipePrefixed(this.proc.stdout, opts.tag),
+      pipePrefixed(this.proc.stderr, opts.tag),
     ];
   }
 
   /** Resolves with the exit code once the process and its log pumps finish. */
   async wait(): Promise<number> {
-    const code = await this.proc.exited;
+    const code = await this.exited;
     await Promise.allSettled(this.pumps);
     return code;
   }
@@ -50,7 +52,7 @@ export class Child {
   /** SIGTERM, escalating to SIGKILL after `graceMs`. Idempotent. */
   async stop(graceMs = 15_000): Promise<void> {
     if (this.stopping) {
-      await this.proc.exited;
+      await this.exited;
       return;
     }
     this.stopping = true;
@@ -66,7 +68,7 @@ export class Child {
         // already gone
       }
     }, graceMs);
-    await this.proc.exited;
+    await this.exited;
     clearTimeout(timer);
     await Promise.allSettled(this.pumps);
   }
@@ -76,9 +78,9 @@ export function spawnChild(opts: SpawnOptions): Child {
   return new Child(opts);
 }
 
-/** Streams a readable byte stream to the console, one tagged line at a time. */
+/** Streams a child's output to the console, one tagged line at a time. */
 async function pipePrefixed(
-  stream: ReadableStream<Uint8Array> | undefined,
+  stream: AsyncIterable<Buffer | Uint8Array> | null,
   tag: string,
 ): Promise<void> {
   if (!stream) return;

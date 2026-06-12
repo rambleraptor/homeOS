@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check type-check-cli type-check-server build test test-cli test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
+.PHONY: help install clean lint type-check type-check-cli type-check-server build test test-cli test-node test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
 
 # Release target platforms (filename arch follows Bun's convention: x64/arm64).
 RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
@@ -65,6 +65,12 @@ test-cli: ## Run the homestead CLI + server unit tests (Bun)
 	$(BUN) test $(CLI_DIR)/
 	@echo "Running homestead-server tests..."
 	$(BUN) test $(SERVER_DIR)/
+
+test-node: ## Run the homestead CLI + server unit tests under Node (vitest)
+	@echo "Running homestead-server tests (node)..."
+	cd $(SERVER_DIR) && npx vitest run
+	@echo "Running homestead CLI tests (node)..."
+	cd $(CLI_DIR) && npx vitest run
 
 test-e2e: ## Run end-to-end tests with Playwright
 	@echo "Running e2e tests..."

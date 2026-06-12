@@ -5,7 +5,7 @@
  * → bearer auth (with the same exemptions) → app-access check → route.
  */
 
-import type { Database } from 'bun:sqlite';
+import type { Database } from './sqlite';
 import { join } from 'node:path';
 import { openDb } from './db';
 import { errorResponse, HttpError } from './errors';

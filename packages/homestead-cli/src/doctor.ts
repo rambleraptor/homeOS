@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { loadProject } from './project.ts';
+import { findRuntime } from './runtime.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
 export interface Check {
@@ -20,7 +21,7 @@ export interface DoctorOptions {
 export async function runDoctor(opts: DoctorOptions): Promise<Check[]> {
   const checks: Check[] = [];
   checks.push(platformCheck());
-  checks.push(toolCheck('bun', 'required to run homestead'));
+  checks.push(runtimeCheck(opts.projectDir));
   checks.push(await portCheck('frontend port', opts.frontendPort));
   checks.push(await portCheck('engine port', opts.aepbasePort));
   checks.push(projectCheck(opts.projectDir));
@@ -44,11 +45,16 @@ function platformCheck(): Check {
   };
 }
 
-function toolCheck(bin: string, why: string): Check {
-  const path = Bun.which(bin);
-  return path
-    ? { name: bin, status: 'ok', detail: path }
-    : { name: bin, status: 'fail', detail: `not found on PATH — ${why}` };
+function runtimeCheck(projectDir: string): Check {
+  try {
+    return { name: 'runtime', status: 'ok', detail: findRuntime(projectDir).label };
+  } catch (err) {
+    return {
+      name: 'runtime',
+      status: 'fail',
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 function portCheck(name: string, port: number): Promise<Check> {
