@@ -44,6 +44,10 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@homestead/config': path.resolve(__dirname, '../../homestead.config.ts'),
+      // Auto-discovered apps glob in src/apps/registry.ts (mirrors
+      // vite.config.ts; the workspace root has no apps/ dir, so it
+      // resolves to zero modules here).
+      '@homestead-project/apps': path.resolve(__dirname, '../../apps'),
     },
   },
 });

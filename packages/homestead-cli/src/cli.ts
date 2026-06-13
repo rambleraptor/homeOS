@@ -135,7 +135,8 @@ async function initCmd(args: string[]): Promise<number> {
   console.log('\nNext steps:');
   console.log(`  cd ${root}`);
   console.log('  homestead start\n');
-  console.log('Edit homestead.config.ts to pick which apps ship.');
+  console.log('Edit homestead.config.ts to pick which apps ship, or run');
+  console.log('`homestead init-app <name>` — apps under ./apps/ are auto-discovered.');
   return 0;
 }
 
@@ -156,11 +157,8 @@ async function initAppCmd(args: string[]): Promise<number> {
     return 1;
   }
   console.log(`scaffolded app "${names.display}" at ${dir}`);
-  console.log('\nWire it into homestead.config.ts:');
-  console.log(`  import { ${names.camel}App } from './apps/${names.slug}';`);
-  console.log('  // ...then add it to the apps array:');
-  console.log(`  apps: [\n    ${names.camel}App,\n    // ...\n  ],`);
-  console.log('\nRestart `homestead start` to apply the new resources.');
+  console.log('\nNo wiring needed — apps/*/app.homestead.ts is auto-discovered.');
+  console.log('Restart `homestead start` to apply the new app and its resources.');
   return 0;
 }
 

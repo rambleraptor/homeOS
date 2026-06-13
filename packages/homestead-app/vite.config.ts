@@ -1,7 +1,8 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { execSync } from 'node:child_process';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const METHOD_STUB_ID = '\0homestead-custom-method-stub';
@@ -60,13 +61,41 @@ const srcDir = fileURLToPath(new URL('./src', import.meta.url));
 const configPath =
   process.env.HOMESTEAD_CONFIG ??
   fileURLToPath(new URL('../../homestead.config.ts', import.meta.url));
+const projectRoot = dirname(configPath);
+// Auto-discovered apps: the boot shim globs
+// `@homestead-project/apps/*/app.homestead.ts` through this alias.
+const projectAppsDir = join(projectRoot, 'apps');
+
+/**
+ * The project's apps/ dir lives outside the Vite root (this package), so the
+ * dev watcher doesn't cover it — newly added app.homestead.ts files would
+ * never invalidate the boot shim's glob. Watch it explicitly.
+ */
+function watchProjectApps(): Plugin {
+  return {
+    name: 'homestead:watch-project-apps',
+    apply: 'serve',
+    configureServer(server) {
+      server.watcher.add(projectAppsDir);
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => ({
-  plugins: [stubCustomMethods(), react(), tailwindcss()],
+  plugins: [stubCustomMethods(), watchProjectApps(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': srcDir,
       '@homestead/config': configPath,
+      '@homestead-project/apps': projectAppsDir,
+    },
+  },
+  server: {
+    fs: {
+      // Explicit allow replaces Vite's default, so keep the workspace root
+      // (covers the repo checkout) and add the operator's project dir (the
+      // config + apps/ live outside this package).
+      allow: [searchForWorkspaceRoot(srcDir), projectRoot],
     },
   },
   // Keep the existing `process.env.*` reads in shared packages working in
@@ -91,9 +120,10 @@ export default defineConfig(({ mode }) => ({
         '',
     ),
   },
-  // No dev `server` block: in dev, Vite runs in middleware mode inside
+  // No dev proxy: in dev, Vite runs in middleware mode inside
   // homestead-server (see packages/homestead-server/src/dev-vite.ts), which
-  // serves /api/* and /oauth/* itself — no proxy needed.
+  // serves /api/* and /oauth/* itself. The `server` block above only widens
+  // fs access for the out-of-root config + apps/ dir.
   build: {
     // Built SPA. The launcher overrides --outDir into its build cache
     // (spa-build.ts); `make build` uses this default. Sourcemaps stay off in

@@ -10,7 +10,14 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { cacheRoot, findRuntime } from './runtime.ts';
 import { spawnChild } from './proc.ts';
@@ -28,14 +35,27 @@ function buildsDir(): string {
 
 /**
  * Hash everything that feeds the SPA build: the operator config (bundled into
- * the SPA), package.json + lockfiles (app package versions), and the git HEAD
- * (source edits in a workspace checkout arrive as commits via `homestead
- * update`). Uncommitted source edits don't change the hash — that's what
- * `--dev` is for.
+ * the SPA), the apps/ tree (auto-discovered apps are bundled too, and may
+ * never be committed), package.json + lockfiles (app package versions), and
+ * the git HEAD (source edits in a workspace checkout arrive as commits via
+ * `homestead update`). Other uncommitted source edits don't change the hash —
+ * that's what `--dev` is for.
  */
 export function spaBuildId(projectRoot: string): string {
   const h = createHash('sha256');
   h.update(readFileSync(join(projectRoot, 'homestead.config.ts')));
+  const appsDir = join(projectRoot, 'apps');
+  if (existsSync(appsDir)) {
+    const files = readdirSync(appsDir, { recursive: true, encoding: 'utf8' })
+      .filter((rel) => statSync(join(appsDir, rel)).isFile())
+      .sort();
+    for (const rel of files) {
+      h.update(rel);
+      h.update('\0');
+      h.update(readFileSync(join(appsDir, rel)));
+      h.update('\0');
+    }
+  }
   for (const name of ['package.json', 'package-lock.json', 'bun.lock']) {
     const file = join(projectRoot, name);
     if (existsSync(file)) h.update(readFileSync(file));

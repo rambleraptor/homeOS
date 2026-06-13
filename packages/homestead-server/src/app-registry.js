@@ -22,10 +22,22 @@ import {
   withAlwaysInstalled,
 } from '@rambleraptor/homestead-core/apps/core-apps';
 import { buildAppAccessMap } from '@rambleraptor/homestead-core/apps/access-map';
+import { mergeDiscoveredApps } from '@rambleraptor/homestead-core/apps/discovery';
+import {
+  defaultAppsDir,
+  discoverApps,
+} from '@rambleraptor/homestead-core/server/app-discovery';
 import { handleChat } from '@rambleraptor/homestead-core/server/chat/handler';
 import config from '../../../homestead.config.ts';
 
-initializeAppRegistry(withAlwaysInstalled(config.apps));
+// Apps dropped under the project's apps/ dir (apps/*/app.homestead.ts)
+// are picked up on top of the config's explicit list. Top-level await is
+// fine here: server.ts loads this module via dynamic import.
+initializeAppRegistry(
+  withAlwaysInstalled(
+    mergeDiscoveredApps(config.apps ?? [], await discoverApps(defaultAppsDir())),
+  ),
+);
 
 /**
  * The collection→app gating map derived from the registry, or null when no

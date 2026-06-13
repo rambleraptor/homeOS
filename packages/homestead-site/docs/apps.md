@@ -52,6 +52,7 @@ your behalf — add a grocery item, log a recipe, redeem a perk.
 
 ## Want your own app?
 
-The built-ins are just apps sitting next to yours. Scaffold a folder with an
-`app.config.ts`, add one line to `homestead.config.ts`, and it ships alongside
-the rest — see the [Quick Start](./guides/quick-start).
+The built-ins are just apps sitting next to yours. Drop a folder with an
+`app.homestead.ts` under `apps/` (or run `homestead init-app <name>`) and it's
+picked up automatically, shipping alongside the rest — see the
+[Quick Start](./guides/quick-start).

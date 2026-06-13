@@ -66,11 +66,14 @@ function packageJson(root: string): string {
 const CONFIG_TS = `/**
  * Homestead instance configuration.
  *
- * This is the ONE file you edit to choose what your homestead serves.
- * Comment out an app to remove it; import a new one to add it.
+ * The \`apps\` array wires in apps explicitly — npm-installed ones like
+ * the imports below, or local apps you prefer to list by hand. Comment
+ * one out to remove it; import a new one to add it.
  *
- * To add a custom app, drop a .ts file under ./apps/ exporting an
- * AppConfig, then add the import + array entry below.
+ * Custom apps don't need wiring at all: anything under
+ * ./apps/<dir>/app.homestead.ts is discovered automatically and added
+ * on top of this list (an explicit entry wins on an id collision).
+ * Scaffold one with \`homestead init-app <name>\`.
  */
 
 import {
@@ -101,8 +104,10 @@ export default config;
 
 const APPS_README = `# Custom Apps
 
-Drop .ts files in this directory and import them from
-\`../homestead.config.ts\` to add custom features to your Homestead instance.
+Each subdirectory with an \`app.homestead.ts\` file (default-exporting
+its AppConfig) is picked up automatically — no wiring in
+\`../homestead.config.ts\` needed. Restart \`homestead start\` after
+adding an app so the server syncs its resources.
 
 Run \`homestead init-app <name>\` to scaffold a new app skeleton here.
 `;
@@ -165,10 +170,9 @@ export function appNames(raw: string): AppNames {
 
 /**
  * Scaffold a custom app skeleton under `<cwd>/apps/<slug>/`: an AppConfig
- * (`app.config.ts`), a starter resource definition (`resources.ts`), record
- * types (`types.ts`), a home component, and a barrel `index.ts`. Refuses to
- * overwrite an existing app directory. Returns the names so the caller can
- * print wiring instructions for `homestead.config.ts`.
+ * (`app.homestead.ts`, auto-discovered on boot), a starter resource
+ * definition (`resources.ts`), record types (`types.ts`), a home component,
+ * and a barrel `index.ts`. Refuses to overwrite an existing app directory.
  */
 export function scaffoldApp(raw: string, cwd = '.'): { dir: string; names: AppNames } {
   const names = appNames(raw);
@@ -178,7 +182,7 @@ export function scaffoldApp(raw: string, cwd = '.'): { dir: string; names: AppNa
   }
 
   const files: Array<[string, string]> = [
-    [join(dir, 'app.config.ts'), appConfigTs(names)],
+    [join(dir, 'app.homestead.ts'), appConfigTs(names)],
     [join(dir, 'resources.ts'), appResourcesTs(names)],
     [join(dir, 'types.ts'), appTypesTs(names)],
     [join(dir, 'components', `${names.pascal}Home.tsx`), appHomeTsx(names)],
@@ -194,6 +198,9 @@ export function scaffoldApp(raw: string, cwd = '.'): { dir: string; names: AppNa
 function appConfigTs(n: AppNames): string {
   return `/**
  * ${n.display} App Configuration
+ *
+ * Auto-discovered: any apps/<dir>/app.homestead.ts default-exporting an
+ * AppConfig is picked up on boot — no homestead.config.ts wiring needed.
  */
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
@@ -219,6 +226,8 @@ export const ${n.camel}App: AppConfig = {
   defaultEnabled: 'all',
   resources: ${n.camel}Resources,
 };
+
+export default ${n.camel}App;
 `;
 }
 
@@ -295,7 +304,7 @@ function appIndexTs(n: AppNames): string {
  * ${n.display} App Exports
  */
 
-export { ${n.camel}App } from './app.config';
+export { ${n.camel}App } from './app.homestead';
 export type { ${n.singularPascal} } from './types';
 `;
 }

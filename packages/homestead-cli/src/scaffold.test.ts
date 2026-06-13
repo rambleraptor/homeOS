@@ -61,25 +61,27 @@ test('appNames splits camelCase input and rejects empty names', () => {
   expect(() => appNames('   ')).toThrow(/no usable/);
 });
 
-test('scaffoldApp writes a skeleton app the config can import', () => {
+test('scaffoldApp writes a skeleton app that auto-discovery picks up', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'hs-app-'));
   try {
     const { dir, names } = scaffoldApp('Book Shelf', cwd);
     expect(dir).toBe(join(cwd, 'apps', 'book-shelf'));
     expect(names.camel).toBe('bookShelf');
 
-    const config = readFileSync(join(dir, 'app.config.ts'), 'utf8');
+    const config = readFileSync(join(dir, 'app.homestead.ts'), 'utf8');
     expect(config).toContain("export const bookShelfApp: AppConfig");
     expect(config).toContain("id: 'book-shelf'");
     expect(config).toContain("basePath: '/book-shelf'");
     expect(config).toContain('BookShelfHome');
+    // Discovery requires the default export.
+    expect(config).toContain('export default bookShelfApp');
 
     expect(existsSync(join(dir, 'resources.ts'))).toBe(true);
     expect(existsSync(join(dir, 'types.ts'))).toBe(true);
     expect(existsSync(join(dir, 'components', 'BookShelfHome.tsx'))).toBe(true);
 
     const index = readFileSync(join(dir, 'index.ts'), 'utf8');
-    expect(index).toContain("export { bookShelfApp } from './app.config'");
+    expect(index).toContain("export { bookShelfApp } from './app.homestead'");
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

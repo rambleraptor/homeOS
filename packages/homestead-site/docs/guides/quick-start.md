@@ -1,18 +1,22 @@
 # Quick Start: Your First App
 
 Apps are Homestead's version of apps. This guide builds a minimal
-"Hello World" app, adds it to your config, and starts it.
+"Hello World" app under your project's `apps/` directory and starts it —
+no config wiring needed.
 
 Every app is one object that follows the `AppConfig` shape: an id, a name,
 an icon, a base path, and one or more routes. A route points at a React
 component.
 
+> Shortcut: `homestead init-app hello` scaffolds all of the below (plus a
+> starter resource definition) in one command.
+
 ## 1. Write the page component
 
-Create a folder for your app and add a component for its page.
+Create a folder for your app under `apps/` and add a component for its page.
 
 ```tsx
-// packages/homestead-apps/hello/HelloHome.tsx
+// apps/hello/HelloHome.tsx
 export function HelloHome() {
   return (
     <div className="p-6">
@@ -25,14 +29,14 @@ export function HelloHome() {
 
 ## 2. Declare the app
 
-Add a `app.config.ts` next to the component. The `icon` and route
-`component` are lazy imports.
+Add an `app.homestead.ts` next to the component, default-exporting the
+config. The `icon` and route `component` are lazy imports.
 
 ```ts
-// packages/homestead-apps/hello/app.config.ts
+// apps/hello/app.homestead.ts
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-export const helloApp: AppConfig = {
+const helloApp: AppConfig = {
   id: 'hello',
   name: 'Hello',
   description: 'My first Homestead app.',
@@ -47,32 +51,24 @@ export const helloApp: AppConfig = {
     },
   ],
 };
+
+export default helloApp;
 ```
 
-## 3. Add it to your config
-
-Import the app in `homestead.config.ts` and add it to the `apps` array.
-
-```ts
-// homestead.config.ts
-import { helloApp } from '@rambleraptor/homestead-apps/hello/app.config';
-
-const config: HomesteadConfig = {
-  apps: [
-    // ...existing apps
-    helloApp,
-  ],
-};
-```
-
-## 4. Start it
+## 3. Start it
 
 ```bash
-make start
+homestead start
 ```
 
-Open the app, sign in, and go to `/hello`. The app appears in the sidebar
-under its `section`.
+That's it — any `apps/<dir>/app.homestead.ts` is discovered automatically
+at boot and merged with the apps listed in `homestead.config.ts`. Open the
+app, sign in, and go to `/hello`. The app appears in the sidebar under its
+`section`.
+
+The explicit `apps` array in `homestead.config.ts` still works exactly as
+before — use it for npm-installed apps, or when you want to wire an app in
+by hand (an explicit entry wins if both declare the same id).
 
 ## Next steps
 
