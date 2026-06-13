@@ -214,9 +214,15 @@ workspace and a TypeScript path alias defined in
 `packages/homestead-apps/tsconfig.json`; Vite resolves the workspace
 packages natively (no Next.js `transpilePackages`).
 
-The list of apps served by an instance lives in
-`homestead.config.ts` (at the repo root) — that is the only file an operator edits
-to add or remove an app. Routes are declared inline on each
+The list of apps served by an instance comes from two places, merged at
+boot: the explicit `apps` array in `homestead.config.ts` (at the repo
+root), plus any auto-discovered `apps/<dir>/app.homestead.ts` files in
+the project's `apps/` directory (each default-exports its `AppConfig`;
+an explicit config entry wins on an id collision). The SPA discovers
+them at build time (`import.meta.glob` in the boot shim) and the server
+at boot (`@rambleraptor/homestead-core/server/app-discovery`); the
+shared validation/merge helpers live in
+`@rambleraptor/homestead-core/apps/discovery`. Routes are declared inline on each
 `AppRoute` (the `component` field). The SPA's react-router setup
 (`packages/homestead-app/src/App.tsx`) sends every unmatched path to the catch-all
 renderer in `packages/homestead-app/src/apps/AppRoute.tsx`, which resolves the
@@ -317,9 +323,11 @@ project dir:
 
 - `homestead start` (prod): builds the SPA via the project's vite into
   `~/.homestead/cache/spa-builds/<hash>` (`src/spa-build.ts`; hash of
-  config + lockfile + git HEAD, so unchanged projects boot instantly),
-  then spawns `bun .../homestead-server/src/index.ts --spa-dist <dir>`.
-  It watches `homestead.config.ts` / `package-lock.json` and, on change,
+  config + the `apps/` tree + lockfile + git HEAD, so unchanged projects
+  boot instantly), then spawns
+  `bun .../homestead-server/src/index.ts --spa-dist <dir>`.
+  It watches `homestead.config.ts` / `package-lock.json` / the `apps/`
+  tree (auto-discovered apps) and, on change,
   rebuilds the SPA and restarts the server child (idempotent schema sync
   reruns on boot); open tabs poll `/api/app-version` and reload.
 - `homestead start --dev`: `bun --watch` child with Vite middleware (HMR).

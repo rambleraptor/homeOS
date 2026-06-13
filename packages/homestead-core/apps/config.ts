@@ -54,10 +54,16 @@ export interface AuthConfig {
  */
 export interface HomesteadConfig {
   /**
-   * Apps included in this instance. Order is preserved for any
+   * Apps wired in explicitly — npm-installed apps, or local apps the
+   * operator prefers to list by hand. Order is preserved for any
    * use-cases that care; the registry sorts by `navOrder` for nav.
+   *
+   * Apps under the project's `apps/` directory that ship an
+   * `app.homestead.ts` are discovered automatically and added on top
+   * of this list (an explicit entry wins on an id collision), so a
+   * pure-discovery project can omit this entirely.
    */
-  apps: AppConfig[];
+  apps?: AppConfig[];
 
   /**
    * Optional auth configuration. Consumed by the `homestead` launcher (not the

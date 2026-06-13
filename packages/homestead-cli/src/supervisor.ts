@@ -32,8 +32,9 @@ const WATCHED_FILES = new Set([
  *
  * Dev: a watch-mode child with Vite middleware (HMR) — server and SPA both
  * hot-reload. Prod: the launcher builds the SPA (content-hash cached), serves
- * it via the child, and watches homestead.config.ts / package-lock.json to
- * rebuild + restart on change. Open tabs poll /api/app-version and reload.
+ * it via the child, and watches homestead.config.ts / package-lock.json and
+ * the apps/ tree (auto-discovered apps) to rebuild + restart on change. Open
+ * tabs poll /api/app-version and reload.
  */
 export async function runStart(
   projectDir: string,
@@ -76,7 +77,14 @@ export async function runStart(
           '--build-id',
           build!.buildId,
         ]);
-    const c = new Child({ cmd, cwd: project.root, tag: '[server]' });
+    const c = new Child({
+      cmd,
+      cwd: project.root,
+      // Explicit, even though the server's default is <cwd>/apps — the dir
+      // may not exist yet, and discovery handles that.
+      env: { HOMESTEAD_APPS_DIR: join(project.root, 'apps') },
+      tag: '[server]',
+    });
     void c.wait().then((code) => {
       // Deliberate restarts swap `child` before the old process exits; only
       // an unexpected death of the current child brings the launcher down.
@@ -139,13 +147,41 @@ export async function runStart(
   // Watch the directory, not the file: editors replace files atomically,
   // which silently detaches a direct file watch.
   let watcher: FSWatcher | null = null;
+  let appsWatcher: FSWatcher | null = null;
   let debounce: ReturnType<typeof setTimeout> | null = null;
+  const scheduleReload = (): void => {
+    if (debounce) clearTimeout(debounce);
+    debounce = setTimeout(() => void reload(), 500);
+  };
+  // Auto-discovered apps live under <project>/apps; any change there feeds
+  // the build hash, so the whole tree triggers a reload (the buildId
+  // no-change guard absorbs noise). Re-armed from the root watcher when the
+  // dir is created or replaced after boot.
+  const closeAppsWatcher = (): void => {
+    appsWatcher?.close();
+    appsWatcher = null;
+  };
+  const armAppsWatcher = (): void => {
+    const appsDir = join(project.root, 'apps');
+    if (!existsSync(appsDir)) {
+      closeAppsWatcher();
+      return;
+    }
+    if (appsWatcher) return;
+    appsWatcher = watch(appsDir, { recursive: true }, () => scheduleReload());
+    appsWatcher.on('error', closeAppsWatcher);
+  };
   if (!opts.dev) {
     watcher = watch(project.root, (_event, filename) => {
+      if (filename === 'apps') {
+        armAppsWatcher();
+        scheduleReload();
+        return;
+      }
       if (!filename || !WATCHED_FILES.has(filename)) return;
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => void reload(), 500);
+      scheduleReload();
     });
+    armAppsWatcher();
   }
 
   process.once('SIGINT', () => finish(0, 'received SIGINT, shutting down'));
@@ -163,6 +199,7 @@ export async function runStart(
 
   await finished;
   watcher?.close();
+  closeAppsWatcher();
   if (debounce) clearTimeout(debounce);
   await child.stop();
   return exitCode;
