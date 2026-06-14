@@ -1,9 +1,9 @@
 /**
  * Playwright Configuration for Homestead E2E Tests.
  *
- * A single homestead-server process is managed in `globalSetup`: the SPA on
- * :5173 (Vite middleware) and the engine API on :8092 (kept off the
- * developer's :8090). The schema is applied in-process on boot.
+ * A single homestead-server process is managed in `globalSetup`, on one port
+ * (:5173, kept off the developer's :3000): the SPA via Vite middleware and the
+ * engine under /api/aep. The schema is applied in-process on boot.
  */
 
 import { defineConfig, devices } from '@playwright/test';

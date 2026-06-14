@@ -39,9 +39,8 @@ homestead start            # production: builds the SPA, caches by content hash
 homestead start --dev      # development: Vite middleware + HMR, same port
 ```
 
-Useful flags: `--port=N` (public port, default 3000),
-`--aepbase-port=N` (loopback-only engine API, default 8090),
-`--data-dir=PATH` (default `<project>/data`).
+Useful flags: `--port=N` (the one port — SPA + the `/api/aep` engine,
+default 3000), `--data-dir=PATH` (default `<project>/data`).
 
 A fresh instance boots **unclaimed**. The first visit to the SPA shows a
 one-shot form that creates the superuser account (`POST /api/setup`).
@@ -93,8 +92,8 @@ restarts the server child; open tabs poll `/api/app-version` and reload.
   claimed before; use `homestead admin reset-password`.
 - **Schema sync failure on boot** — a `[resources]` error names the bad
   definition; fix the app's `resources.ts` (see the add-resource skill).
-- **Port in use** — pass `--port`; the engine API port (8090) is
-  loopback-only and rarely conflicts, but `--aepbase-port` moves it.
+- **Port in use** — pass `--port` to move the one server port; the engine
+  rides on it under `/api/aep`.
 - **Stale SPA after config edits** — production builds are cached under
   `~/.homestead/cache/spa-builds/<hash>`; the hash covers config,
   lockfile, and git HEAD, so a rebuild happens automatically — check the

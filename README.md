@@ -71,7 +71,7 @@ homestead start
 ```
 [homestead] ready
 [homestead]   app       http://localhost:3000
-[homestead]   engine    http://127.0.0.1:8090 (loopback)
+[homestead]   engine    http://localhost:3000/api/aep
 [homestead]   superuser printed on first boot; reset with `homestead admin reset-password`
 ```
 
@@ -104,12 +104,11 @@ homestead start --data-dir=/var/lib/homestead   # where sqlite + files live
 | Flag              | Default            | Purpose                                            |
 |-------------------|--------------------|----------------------------------------------------|
 | `--dev`           | off                | Serve the SPA via Vite (HMR) instead of the build  |
-| `--port=N`        | `3000`             | User-facing port                                   |
-| `--aepbase-port=N`| `8090`             | Engine API port (loopback only)                    |
+| `--port=N`        | `3000`             | User-facing port (SPA + the `/api/aep` engine)     |
 | `--data-dir=PATH` | `<project>/data`   | The server's sqlite db + uploaded files            |
 
-Only `--port` is exposed to the outside world; the engine API binds to
-loopback and is reached through the same-origin `/api/aep` routes.
+There is one port; the engine is reached through the same-origin `/api/aep`
+routes on it.
 
 ### `homestead init`
 
@@ -132,21 +131,20 @@ writable, …) before you start it.
 
 ```bash
 homestead doctor
-homestead doctor --port=8080 --aepbase-port=9000
+homestead doctor --port=8080
 ```
 
 ## Architecture
 
-A running Homestead is personal infrastructure in one Bun process serving
-two listeners:
+A running Homestead is personal infrastructure in one Bun process on a single
+port:
 
 - **engine** — a TypeScript backend serving an
   [AEP](https://www.aep.dev)-compliant REST API backed by SQLite. Holds all
-  your data and binds to loopback (:8090).
-- **public web server** — the only outward-facing port. Serves the React
-  SPA, the engine at same-origin `/api/aep`, and the server-side APIs
-  (notifications, chat, app custom methods). The schema sync registers each
-  app's collections on boot.
+  your data and is reachable only under the same-origin `/api/aep` prefix.
+- **public web server** — the one port. Serves the React SPA, the engine at
+  same-origin `/api/aep`, and the server-side APIs (notifications, chat, app
+  custom methods). The schema sync registers each app's collections on boot.
 
 Because the API is AEP-compliant, the frontend is optional: you can reach
 your data through the AEP ecosystem (a Terraform provider, CLI, or the

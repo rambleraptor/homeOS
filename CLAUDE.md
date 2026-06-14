@@ -19,9 +19,11 @@ the project's node_modules, serving a SPA the launcher builds on the box
 (content-hash cached; rebuilt + restarted automatically when
 `homestead.config.ts` changes — open tabs poll `/api/app-version` and
 reload). Nothing is embedded in the binary: app code and config live in the
-operator's project. The engine listens on two ports: the public one (SPA +
-/api/*) and a loopback-only "engine API" port (:8090, bare aepbase-style
-paths) used by server-side helpers, e2e, and `homestead resources`.
+operator's project. The server listens on a single port (SPA + /api/*); the
+engine is reachable only under the `/api/aep` prefix — there is no separate
+engine port. Same-box callers (server-side helpers, the boot-time schema sync,
+e2e, and `homestead resources`) reach it over loopback at that same
+`/api/aep` prefix.
 
 ## Table of Contents
 
@@ -263,7 +265,7 @@ SPA and apps share:
 - `api/aepbase.ts` — thin REST client wrapper for the engine (client-side)
 - `server/aepbase.ts` — server-side engine helper used by homestead-server's
   routes (the client-side wrapper uses localStorage, so server code uses
-  this instead; it talks to the loopback engine API)
+  this instead; it talks to the engine over loopback at the `/api/aep` prefix)
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `AppConfig`/`AppFlagDef` contract types
 - `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
@@ -297,8 +299,9 @@ The whole backend in one Bun process:
   requires `GEMINI_API_KEY`), `GET /api/custom-methods`, and the
   `/api/aep` gateway (`aep-gateway.ts`) that dispatches AEP-136 custom
   methods and passes everything else to the engine in-process.
-- `src/server.ts` — `startServer()`: two listeners (public + loopback
-  engine API on :8090), superuser bootstrap (`src/bootstrap.ts` — a fresh
+- `src/server.ts` — `startServer()`: a single listener (SPA + /api/*, with the
+  engine exposed only under the `/api/aep` gateway), superuser bootstrap
+  (`src/bootstrap.ts` — a fresh
   instance boots unclaimed with a pending superuser; `/api/setup` +
   the SPA's first-visit form claim it; exports `createSuperuser` /
   `claimSetup` / `needsSetup` / `resetSuperuserPassword` /

@@ -2,14 +2,13 @@
  * homestead-server — the whole backend in one process (Bun, or Node ≥ 22.13
  * via tsx; see listen.ts / engine/sqlite.ts for the runtime seams).
  *
- * Two listeners, one process:
- *  - public (user-facing): /api/aep/* (custom-method gateway + engine),
- *    /api/chat, /api/notifications, /api/custom-methods, /oauth/*, then the
- *    SPA (Vite middleware in dev, static assets in prod).
- *  - internal (127.0.0.1 only): the engine at bare paths (/users,
- *    /gift-cards, /openapi.json) — a drop-in for the old standalone aepbase
- *    port used by server-side helpers, schema sync, e2e, and
- *    `homestead resources`.
+ * One listener, one process. Everything is served on the public port:
+ * /api/aep/* (the custom-method gateway + the engine, the *only* way to reach
+ * aepbase), /api/chat, /api/notifications, /api/custom-methods, /oauth/*, then
+ * the SPA (Vite middleware in dev, static assets in prod). Same-box callers
+ * (schema sync, server-side helpers, the `homestead resources` CLI) reach the
+ * engine over loopback at the same /api/aep prefix — there is no separate
+ * engine port.
  */
 
 import { Hono } from 'hono';
@@ -22,7 +21,6 @@ import { diskSpaAssets, serveStatic } from './static';
 
 export interface RunningServer {
   publicPort: number;
-  internalPort: number;
   engine: Engine;
   stop: () => Promise<void>;
 }
@@ -38,12 +36,16 @@ function accessCacheTtlMs(opts: ServerOptions): number {
 }
 
 export async function startServer(opts: ServerOptions): Promise<RunningServer> {
-  const internalBase = `http://127.0.0.1:${opts.internalPort}`;
+  // Loopback origin for same-box callers (schema sync, server-side helpers,
+  // the `homestead resources` CLI). The engine is reachable only under the
+  // /api/aep prefix on the public port — there is no separate engine port.
+  const loopbackOrigin = `http://127.0.0.1:${opts.publicPort}`;
+  const engineBase = `${loopbackOrigin}/api/aep`;
 
   // homestead-core/server/aepbase reads AEPBASE_URL at import time, so it
   // must be set before any route module loads (they're imported lazily
   // below for exactly this reason).
-  process.env.AEPBASE_URL = process.env.AEPBASE_URL || internalBase;
+  process.env.AEPBASE_URL = process.env.AEPBASE_URL || engineBase;
 
   // Importing the registry module initializes the app registry (side effect).
   const registry = await import('./app-registry');
@@ -52,7 +54,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const engine = new Engine({
     dbPath: join(opts.dataDir, 'aepbase.db'),
     filesDir: join(opts.dataDir, 'files'),
-    serverUrl: internalBase,
+    serverUrl: engineBase,
     oauth: registry.oauthConfig(),
   });
 
@@ -81,22 +83,9 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   publicApp.route('/api/setup', makeSetupRoute(engine.db));
   publicApp.route('/api/notifications', notificationsRoute);
   publicApp.route('/api/chat', chatRoute);
-  publicApp.route('/api/aep', makeAepGateway(engine, internalBase));
+  publicApp.route('/api/aep', makeAepGateway(engine, loopbackOrigin));
   // OAuth redirects arrive on the public origin; the engine serves them.
   publicApp.all('/oauth/*', (c) => engine.fetch(c.req.raw));
-
-  // --- internal loopback listener (the old aepbase port) ---
-  // Bare engine paths plus the same /api/* routes as the public port, so
-  // tools like `homestead resources` need only this one URL.
-  const internal = await listen({
-    hostname: '127.0.0.1',
-    port: opts.internalPort,
-    fetch: (req) => {
-      const path = new URL(req.url).pathname;
-      if (path === '/api' || path.startsWith('/api/')) return publicApp.fetch(req);
-      return engine.fetch(req);
-    },
-  });
 
   let stopPublic: () => Promise<void> | void;
   if (opts.dev) {
@@ -120,11 +109,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // it (the sync is idempotent and best-effort).
   void (async () => {
     const { syncSchema } = await import('./schema-sync');
-    await syncSchema(engine.db, internalBase);
+    await syncSchema(engine.db, engineBase);
   })();
 
   console.log(
-    `[homestead-server] public :${opts.publicPort}${opts.dev ? ' (dev: vite middleware)' : ''}, internal 127.0.0.1:${opts.internalPort}`,
+    `[homestead-server] listening on :${opts.publicPort}${opts.dev ? ' (dev: vite middleware)' : ''}`,
   );
   if (setupState === 'pending') {
     console.log(
@@ -134,11 +123,9 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
 
   return {
     publicPort: opts.publicPort,
-    internalPort: opts.internalPort,
     engine,
     stop: async () => {
       await stopPublic();
-      await internal.stop();
       engine.db.close();
     },
   };

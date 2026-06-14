@@ -66,7 +66,6 @@ async function startCmd(args: string[]): Promise<number> {
   const parsed = parse(args, {
     dev: { type: 'boolean', default: false },
     port: { type: 'string' },
-    'aepbase-port': { type: 'string' },
     'data-dir': { type: 'string' },
   });
   if (!parsed) return 1;
@@ -76,7 +75,6 @@ async function startCmd(args: string[]): Promise<number> {
     return await runStart('.', {
       dev: values.dev === true,
       frontendPort: numFlag(values.port, 3000),
-      aepbasePort: numFlag(values['aepbase-port'], 8090),
       dataDir: strFlag(values['data-dir']),
     });
   } catch (err) {
@@ -165,13 +163,11 @@ async function initAppCmd(args: string[]): Promise<number> {
 async function doctorCmd(args: string[]): Promise<number> {
   const parsed = parse(args, {
     port: { type: 'string' },
-    'aepbase-port': { type: 'string' },
   });
   if (!parsed) return 1;
   const checks = await runDoctor({
     projectDir: '.',
     frontendPort: numFlag(parsed.values.port, 3000),
-    aepbasePort: numFlag(parsed.values['aepbase-port'], 8090),
   });
   for (const c of checks) console.log(formatCheck(c));
   console.log();
@@ -251,8 +247,7 @@ function printUsage(): void {
       '',
       'Flags for `start`:',
       '  --dev                       Serve the SPA via Vite (HMR) instead of the cached production build.',
-      '  --port=N                    User-facing port (default 3000).',
-      '  --aepbase-port=N            engine API port, loopback (default 8090).',
+      '  --port=N                    User-facing port; serves the SPA and /api/aep engine (default 3000).',
       '  --data-dir=PATH             server data dir (default <project>/data).',
       '',
       'Flags for `update`:',
@@ -269,8 +264,8 @@ function printUsage(): void {
       '  --env-file=PATH             EnvironmentFile for the units (default <project>/.env if present).',
       '',
       'Flags for `resources`:',
-      '  --server-url=URL            Engine API base URL (default http://127.0.0.1:<aepbase-port>).',
-      '  --aepbase-port=N            Engine API port when --server-url is unset (default 8090).',
+      '  --server-url=URL            Engine base URL (default http://127.0.0.1:<port>/api/aep).',
+      '  --port=N                    App port for the engine base URL when --server-url is unset (default 3000).',
       '  --@data=PATH                JSON file supplying a custom method/create body.',
       '  --token=TOKEN               Bearer token; skips the local admin-token mint.',
       '  --email=EMAIL --password=PW Superuser creds; skips the local admin-token mint.',

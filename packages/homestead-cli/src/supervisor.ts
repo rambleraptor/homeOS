@@ -8,8 +8,6 @@ import { ensureSpaBuild, pruneSpaBuilds, type SpaBuild } from './spa-build.ts';
 export interface StartOptions {
   dev: boolean;
   frontendPort: number;
-  /** Internal loopback port for the engine API (the old aepbase port). */
-  aepbasePort: number;
   /** Overrides <project>/data when set. */
   dataDir?: string;
 }
@@ -190,7 +188,7 @@ export async function runStart(
   if (await waitForPort(opts.frontendPort, 60_000)) {
     log('ready');
     log(`  app       http://localhost:${opts.frontendPort}`);
-    log(`  engine    http://127.0.0.1:${opts.aepbasePort} (loopback)`);
+    log(`  engine    http://localhost:${opts.frontendPort}/api/aep`);
     log('  login     first visit asks you to create the admin account');
     log('            (recover later with `homestead admin reset-password`)');
   } else {
@@ -233,14 +231,7 @@ async function resolveEntryInstallingDeps(
 }
 
 function serverArgs(dataDir: string, opts: StartOptions): string[] {
-  return [
-    '--port',
-    String(opts.frontendPort),
-    '--internal-port',
-    String(opts.aepbasePort),
-    '--data-dir',
-    dataDir,
-  ];
+  return ['--port', String(opts.frontendPort), '--data-dir', dataDir];
 }
 
 async function waitForPort(port: number, timeoutMs: number): Promise<boolean> {
