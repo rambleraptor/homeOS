@@ -78,8 +78,42 @@ function validateField(
   if (field.properties && field.type !== 'object') {
     fail(`field "${path}" declares properties but is not an object`);
   }
+  if (field.default !== undefined) {
+    if (field.type === 'file') {
+      fail(`field "${path}" is a file field and cannot declare a default`);
+    }
+    if (field.enum && !field.enum.includes(field.default as string)) {
+      fail(`field "${path}" default must be one of its enum values`);
+    }
+    const typeErr = checkDefaultType(field.type, field.default);
+    if (typeErr) fail(`field "${path}" default ${typeErr}`);
+  }
   if (field.properties) validateFields(field.properties, path, fail);
   if (field.items) validateField(field.items, `${path}[]`, fail);
+}
+
+/** Verify a declared default matches the field's declared type. */
+function checkDefaultType(type: FieldDef['type'], value: unknown): string | null {
+  switch (type) {
+    case 'string':
+      return typeof value === 'string' ? null : 'must be a string';
+    case 'integer':
+      return typeof value === 'number' && Number.isInteger(value)
+        ? null
+        : 'must be an integer';
+    case 'number':
+      return typeof value === 'number' ? null : 'must be a number';
+    case 'boolean':
+      return typeof value === 'boolean' ? null : 'must be a boolean';
+    case 'array':
+      return Array.isArray(value) ? null : 'must be an array';
+    case 'object':
+      return typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? null
+        : 'must be an object';
+    default:
+      return null;
+  }
 }
 
 /** Translate a definition's fields into the aepbase wire schema. */
@@ -113,6 +147,7 @@ function toWireProperty(field: FieldDef): JsonSchemaProperty {
     type: field.type === 'file' ? 'binary' : field.type,
     ...(description ? { description } : {}),
     ...(field.format ? { format: field.format } : {}),
+    ...(field.default !== undefined ? { default: field.default } : {}),
     ...(field.type === 'file' ? { 'x-aepbase-file-field': true } : {}),
   };
   if (field.items) prop.items = toWireProperty(field.items);

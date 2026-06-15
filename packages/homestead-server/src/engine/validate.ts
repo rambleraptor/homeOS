@@ -90,6 +90,27 @@ export function validateEnums(
   return null;
 }
 
+/**
+ * Fill in schema-declared `default` values for fields absent from a create
+ * (or full-replace apply) payload, in place. Standard, readOnly, and file
+ * fields never receive defaults; non-primitive defaults are deep-cloned so
+ * records don't share mutable references.
+ */
+export function applyDefaults(schema: Schema, fields: Record<string, unknown>): void {
+  for (const [name, prop] of Object.entries(schema.properties ?? {})) {
+    if (prop.default === undefined) continue;
+    if (STANDARD_FIELDS.has(name) || prop.readOnly) continue;
+    if (prop['x-aepbase-file-field']) continue;
+    if (name in fields) continue;
+    fields[name] = cloneDefault(prop.default);
+  }
+}
+
+function cloneDefault(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
 /** Remove readOnly-marked fields from a client payload, in place. */
 export function stripReadOnlyFields(schema: Schema, fields: Record<string, unknown>): void {
   for (const name of Object.keys(fields)) {

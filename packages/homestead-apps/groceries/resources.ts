@@ -22,7 +22,9 @@ export const groceriesResources: ResourceDefinition[] = [
     user_settable_create: true,
     fields: {
       name: { type: 'string', required: true },
-      checked: { type: 'boolean' },
+      // Quick-add omits `checked`; the engine fills this default so every
+      // grocery persists as unchecked rather than with the field absent.
+      checked: { type: 'boolean', default: false },
       category: { type: 'string' },
       notes: { type: 'string' },
       store: { type: 'string', description: 'stores/{store_id}' },

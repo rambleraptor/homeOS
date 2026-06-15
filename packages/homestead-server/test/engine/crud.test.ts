@@ -83,6 +83,73 @@ describe('create', () => {
   });
 });
 
+describe('defaults', () => {
+  const WIDGET_DEF = {
+    singular: 'widget',
+    plural: 'widgets',
+    user_settable_create: true,
+    schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        enabled: { type: 'boolean', default: false },
+        count: { type: 'integer', default: 3 },
+        tags: { type: 'array', default: ['new'] },
+      },
+      required: ['name'],
+    },
+  };
+
+  beforeEach(async () => {
+    expect((await defineResource(t, WIDGET_DEF)).status).toBe(200);
+  });
+
+  test('applies declared defaults for absent fields on create', async () => {
+    const res = await call(t.engine, 'POST', '/widgets', {
+      token: t.adminToken,
+      body: { name: 'W' },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.enabled).toBe(false);
+    expect(body.count).toBe(3);
+    expect(body.tags).toEqual(['new']);
+  });
+
+  test('does not override values sent over the wire', async () => {
+    const res = await call(t.engine, 'POST', '/widgets', {
+      token: t.adminToken,
+      body: { name: 'W', enabled: true, count: 9, tags: [] },
+    });
+    const body = await res.json();
+    expect(body.enabled).toBe(true);
+    expect(body.count).toBe(9);
+    expect(body.tags).toEqual([]);
+  });
+
+  test('default array is deep-cloned, not shared across records', async () => {
+    const a = await (
+      await call(t.engine, 'POST', '/widgets', { token: t.adminToken, body: { name: 'A' } })
+    ).json();
+    (a.tags as string[]).push('mutated');
+    const b = await (
+      await call(t.engine, 'POST', '/widgets', { token: t.adminToken, body: { name: 'B' } })
+    ).json();
+    expect(b.tags).toEqual(['new']);
+  });
+
+  test('defaults persist and survive read-back', async () => {
+    const created = await (
+      await call(t.engine, 'POST', '/widgets', { token: t.adminToken, body: { name: 'W' } })
+    ).json();
+    const got = await (
+      await call(t.engine, 'GET', `/widgets/${created.id}`, { token: t.adminToken })
+    ).json();
+    expect(got.enabled).toBe(false);
+    expect(got.count).toBe(3);
+  });
+});
+
 describe('get', () => {
   test('404 envelope for a missing resource', async () => {
     const res = await call(t.engine, 'GET', '/books/nope', { token: t.adminToken });

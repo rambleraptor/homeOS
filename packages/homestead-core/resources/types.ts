@@ -57,6 +57,14 @@ export interface FieldDef {
    * @default false
    */
   required?: boolean;
+  /**
+   * Default value applied by the engine when the field is omitted from a
+   * create (or full-replace apply) request. Encoded into the wire schema's
+   * standard JSON-schema `default` keyword (which aepbase preserves on
+   * round-trip, unlike `enum`). Not valid on `file` fields, and must match
+   * the field's declared `type`.
+   */
+  default?: unknown;
   /** Element type for `array` fields. */
   items?: FieldDef;
   /** Nested fields for `object` fields. */
@@ -83,6 +91,8 @@ export interface JsonSchemaProperty {
   items?: JsonSchemaProperty;
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
+  /** Default applied by the engine when the field is omitted on create. */
+  default?: unknown;
   /**
    * aepbase experimental marker for binary fields backed by uploaded
    * files. Produced by the translator from `type: 'file'` fields. See
