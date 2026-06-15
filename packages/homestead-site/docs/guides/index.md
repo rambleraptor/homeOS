@@ -13,7 +13,17 @@ Curious what ships by default? See the [built-in apps](../apps).
 Apps are Homestead's version of apps. These guides cover what an app can do
 beyond rendering a page.
 
+- **[Defining Resources](./resources)** — declare the data your app stores and get a REST API for it.
+- **[State Management](./state-management)** — read and write resources with the built-in data layer.
 - **[Dashboard Widgets](./widgets)** — add a summary card to the home dashboard.
 - **[App Flags](./app-flags)** — typed, household-wide settings an app can declare and read.
 - **[Notifications](./notifications)** — send push notifications to users.
 - **[Bulk Import](./bulk-import)** — add CSV import to an app.
+- **[AI Support](./ai)** — work with your data from the CLI, Chat, and MCP clients.
+
+## Using Homestead
+
+Running an instance for your household.
+
+- **[Creating Users](./users)** — claim a new instance and add accounts.
+- **[Access & Tags](./access)** — group users and control which apps they can reach.
