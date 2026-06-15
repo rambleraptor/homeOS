@@ -24,12 +24,12 @@ const { frontmatter } = useData();
 
     <section class="hero">
       <p class="pill"><span class="dot"></span> Self-hosted &middot; one binary &middot; MIT</p>
-      <h1>Build and deploy apps for&nbsp;you, your family, and your&nbsp;agents.</h1>
+      <h1>Personal software for&nbsp;you and your&nbsp;family.</h1>
       <p class="lede">
-        Homestead is the platform under your personal apps — auth, a database,
-        and a one-command deploy in a single self-hosted binary. Your household
-        gets real apps for groceries, recipes, and todos; your agents get a
-        typed API they can discover and call.
+        Build the apps your household actually wants — groceries, recipes,
+        chores — without the App Store, App Review, or a backend to run. One
+        command puts them online for your family, and every app ships with a
+        typed API your agents can call.
       </p>
       <div class="cta">
         <a class="button" href="/guides/installation">Install Homestead</a>
@@ -76,8 +76,9 @@ const { frontmatter } = useData();
         <p class="section-label">What the platform handles</p>
         <h2>The boring, necessary parts — already done.</h2>
         <p class="sub">
-          Every small app needs the same foundation. Homestead ships it, so you
-          write the part that's actually yours and move on with your life.
+          A native app means a developer account, App Review, and a backend to
+          run — for software only your family will open. Homestead ships that
+          foundation, so you write just the part that's yours.
         </p>
       </div>
 

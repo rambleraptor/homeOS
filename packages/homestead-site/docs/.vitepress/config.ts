@@ -60,10 +60,20 @@ export default defineConfig({
         {
           text: 'App Development',
           items: [
+            { text: 'Defining Resources', link: '/guides/resources' },
+            { text: 'State Management', link: '/guides/state-management' },
             { text: 'Dashboard Widgets', link: '/guides/widgets' },
             { text: 'App Flags', link: '/guides/app-flags' },
             { text: 'Notifications', link: '/guides/notifications' },
             { text: 'Bulk Import', link: '/guides/bulk-import' },
+            { text: 'AI Support', link: '/guides/ai' },
+          ],
+        },
+        {
+          text: 'Using Homestead',
+          items: [
+            { text: 'Creating Users', link: '/guides/users' },
+            { text: 'Access & Tags', link: '/guides/access' },
           ],
         },
       ],
