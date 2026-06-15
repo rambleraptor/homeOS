@@ -110,6 +110,15 @@ describe('toWireSchema', () => {
       }).properties.due_at,
     ).toEqual({ type: 'string', format: 'date-time' });
   });
+
+  it('emits the default keyword on the wire property', () => {
+    const { properties } = toWireSchema({
+      checked: { type: 'boolean', default: false },
+      count: { type: 'integer', default: 0 },
+    });
+    expect(properties.checked).toEqual({ type: 'boolean', default: false });
+    expect(properties.count).toEqual({ type: 'integer', default: 0 });
+  });
 });
 
 describe('validateResourceDefinition', () => {
@@ -171,6 +180,40 @@ describe('validateResourceDefinition', () => {
         def({ fields: { count: { type: 'number', enum: ['1'] } } }),
       ),
     ).toThrow(/declares enum but is not a string/);
+  });
+
+  it('accepts a default that matches the field type', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ fields: { checked: { type: 'boolean', default: false } } }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects a default whose type mismatches the field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ fields: { count: { type: 'integer', default: 'three' } } }),
+      ),
+    ).toThrow(/default must be an integer/);
+  });
+
+  it('rejects a default on a file field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ fields: { photo: { type: 'file', default: 'x' } } }),
+      ),
+    ).toThrow(/file field .* cannot declare a default/);
+  });
+
+  it('rejects a default outside the declared enum values', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          fields: { status: { type: 'string', enum: ['a', 'b'], default: 'c' } },
+        }),
+      ),
+    ).toThrow(/default must be one of its enum values/);
   });
 
   it('rejects arrays without items and items on non-arrays', () => {

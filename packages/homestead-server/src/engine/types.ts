@@ -14,6 +14,8 @@ export interface SchemaProperty {
   properties?: Record<string, SchemaProperty>;
   required?: string[];
   example?: unknown;
+  /** Default applied on create when the field is absent from the body. */
+  default?: unknown;
   [extension: string]: unknown; // x-aepbase-file-field and friends
 }
 
