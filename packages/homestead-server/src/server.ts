@@ -74,11 +74,16 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const { notificationsRoute } = await import('./routes/notifications');
   const { makeSetupRoute } = await import('./routes/setup');
 
+  // In prod the SPA is served from disk; resolve it up front so /api/app-version
+  // can report its current output hash. Dev serves via Vite middleware (no hash).
+  const spa = opts.dev ? null : (opts.spa ?? diskSpaAssets());
+
   const publicApp = new Hono();
   publicApp.get('/health', (c) => c.json({ ok: true }));
-  // Open tabs poll this and reload when the served SPA build changes (the
-  // launcher rebuilds + restarts the server on homestead.config.ts edits).
-  publicApp.get('/api/app-version', (c) => c.json({ buildId: opts.buildId ?? '' }));
+  // Open tabs poll this and reload when the served SPA build changes. The hash
+  // is derived from the served index.html, so a `vite build --watch` rebuild
+  // bumps it with no server restart; dev returns '' to disable the check.
+  publicApp.get('/api/app-version', (c) => c.json({ buildId: spa?.version() ?? '' }));
   publicApp.get('/api/custom-methods', () => customMethodsResponse());
   publicApp.route('/api/setup', makeSetupRoute(engine.db));
   publicApp.route('/api/notifications', notificationsRoute);
@@ -93,13 +98,12 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     const dev = await startDevServer({ port: opts.publicPort, fetch: publicApp.fetch });
     stopPublic = dev.stop;
   } else {
-    const spa = opts.spa ?? diskSpaAssets();
     const server = await listen({
       port: opts.publicPort,
       fetch: (req) => {
         const path = new URL(req.url).pathname;
         if (isServerPath(path)) return publicApp.fetch(req);
-        return serveStatic(spa, path);
+        return serveStatic(spa!, path);
       },
     });
     stopPublic = server.stop;

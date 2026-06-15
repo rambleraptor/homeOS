@@ -179,15 +179,17 @@ definitions, hooks, components, config wiring, and e2e fixtures).
 
 For a long-lived instance on a local machine (e.g. reachable over
 Tailscale), the single binary runs cleanly under systemd. Install the
-service and an auto-update timer with one command:
+service with one command:
 
 ```bash
-sudo homestead install-service --update-interval=5m
+sudo homestead install-service
 sudo systemctl start homestead
 ```
 
-`homestead update` keeps the box in sync with your config repo — edit
-`homestead.config.ts` from anywhere, push, and the timer pulls + restarts.
+The running instance watches your project: edit `homestead.config.ts` or the
+`apps/` tree and it rebuilds the SPA and reapplies config on its own, and open
+tabs reload — no separate update step. Point the project dir at a git checkout
+and `git pull` when you want to ship new code.
 
 ## Development
 

@@ -109,11 +109,6 @@ export default defineConfig(({ mode }) => ({
     'process.env.NEXT_PUBLIC_COMMIT_DATE': JSON.stringify(commitDate),
     'process.env.NEXT_PUBLIC_COMMIT_MESSAGE': JSON.stringify(commitMessage),
     'process.env.NEXT_PUBLIC_BUILD_ID': JSON.stringify(commitHash),
-    // Set by the launcher's SPA build (spa-build.ts); open tabs compare it
-    // against /api/app-version and reload when the served build changes.
-    'process.env.HOMESTEAD_BUILD_ID': JSON.stringify(
-      process.env.HOMESTEAD_BUILD_ID ?? '',
-    ),
     'process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY': JSON.stringify(
       process.env.VAPID_PUBLIC_KEY ??
         process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ??

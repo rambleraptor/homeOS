@@ -8,34 +8,16 @@ const UNIT_DIR = '/etc/systemd/system';
 
 export interface InstallServiceOptions {
   projectDir: string;
-  /** Base unit name; files are <name>.service and <name>-update.{service,timer}. */
+  /** Base unit name; the file is <name>.service. */
   serviceName: string;
-  /** User the long-running + update units run as. */
+  /** User the long-running unit runs as. */
   user: string;
   /** App port for `homestead start`. */
   port: number;
   /** server data dir; defaults to <project>/data. */
   dataDir?: string;
-  /** Update-check cadence, in seconds. */
-  intervalSeconds: number;
-  /** EnvironmentFile for both units; auto-detected from <project>/.env if unset. */
+  /** EnvironmentFile for the unit; auto-detected from <project>/.env if unset. */
   envFile?: string;
-}
-
-/**
- * Parse a `--update-interval` value into seconds. Accepts `30s`, `5m`, `2h`, or
- * a bare number (interpreted as minutes). Throws on anything unparseable or
- * non-positive.
- */
-export function parseInterval(value: string): number {
-  const m = value.trim().match(/^(\d+(?:\.\d+)?)\s*(s|sec|m|min|h|hr)?$/i);
-  if (!m) throw new Error(`invalid interval ${JSON.stringify(value)}`);
-  const n = Number(m[1]);
-  const unit = (m[2] ?? 'm').toLowerCase();
-  const perUnit = unit.startsWith('s') ? 1 : unit.startsWith('h') ? 3600 : 60;
-  const seconds = Math.round(n * perUnit);
-  if (seconds <= 0) throw new Error(`interval must be positive: ${value}`);
-  return seconds;
 }
 
 /**
@@ -68,7 +50,7 @@ WorkingDirectory=${p.projectDir}
 ExecStart=${p.invocation} start --port ${p.port} --data-dir ${p.dataDir}
 Restart=on-failure
 RestartSec=5s
-${p.envFile ? `EnvironmentFile=${p.envFile}\n` : ''}# homestead cache dir (kept for updates and future use); keep it
+${p.envFile ? `EnvironmentFile=${p.envFile}\n` : ''}# homestead cache dir (holds the SPA build); keep it
 # writable under ProtectSystem=strict.
 Environment="HOMESTEAD_CACHE_DIR=${p.cacheDir}"
 
@@ -86,43 +68,6 @@ WantedBy=multi-user.target
 `;
 }
 
-/** The oneshot unit the timer fires: `homestead update`. */
-export function renderUpdateService(p: RenderParams): string {
-  return `[Unit]
-Description=Homestead auto-update (pull the config repo and restart on changes)
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-User=${p.user}
-WorkingDirectory=${p.projectDir}
-ExecStart=${p.invocation} update --service-name ${p.serviceName}
-${p.envFile ? `EnvironmentFile=${p.envFile}\n` : ''}StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-`;
-}
-
-/** The timer that drives the update check. */
-export function renderUpdateTimer(p: RenderParams): string {
-  return `[Unit]
-Description=Homestead auto-update timer (every ${p.intervalSeconds}s)
-Requires=${p.serviceName}-update.service
-
-[Timer]
-OnBootSec=2min
-OnUnitActiveSec=${p.intervalSeconds}s
-# Catch up if the box was off when a check was due.
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-`;
-}
-
 interface RunResult {
   code: number;
   err: string;
@@ -134,10 +79,9 @@ function run(cmd: string[]): RunResult {
 }
 
 /**
- * Generate and install the systemd units for this instance: the long-running
- * `homestead start` service plus a timer + oneshot that run `homestead update`
- * on a cadence. Idempotent — re-running overwrites the units, so changing
- * `--update-interval` simply rewrites the timer. Requires root.
+ * Generate and install the systemd unit for this instance: the long-running
+ * `homestead start` service. Idempotent — re-running overwrites the unit.
+ * Requires root.
  */
 export async function installServices(opts: InstallServiceOptions): Promise<number> {
   if (!(typeof process.getuid === 'function' && process.getuid() === 0)) {
@@ -170,32 +114,22 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
     user: opts.user,
     port: opts.port,
     dataDir,
-    intervalSeconds: opts.intervalSeconds,
     invocation: resolveInvocation(),
     cacheDir,
     envFile,
   };
 
-  const units: Array<[string, string]> = [
-    [`${opts.serviceName}.service`, renderMainService(params)],
-    [`${opts.serviceName}-update.service`, renderUpdateService(params)],
-    [`${opts.serviceName}-update.timer`, renderUpdateTimer(params)],
-  ];
-  for (const [name, body] of units) {
-    const path = join(UNIT_DIR, name);
-    writeFileSync(path, body, { mode: 0o644 });
-    log(`wrote ${path}`);
-  }
+  const path = join(UNIT_DIR, `${opts.serviceName}.service`);
+  writeFileSync(path, renderMainService(params), { mode: 0o644 });
+  log(`wrote ${path}`);
 
   const reload = run(['systemctl', 'daemon-reload']);
   if (reload.code !== 0) {
     console.error(`systemctl daemon-reload failed: ${reload.err}`);
     return 1;
   }
-  // Enable (but don't start) the long-running service; enable + start the timer
-  // so update checks begin immediately.
+  // Enable (but don't start) the long-running service.
   run(['systemctl', 'enable', `${opts.serviceName}.service`]);
-  run(['systemctl', 'enable', '--now', `${opts.serviceName}-update.timer`]);
 
   log('installed');
   console.log('');
@@ -208,12 +142,8 @@ export async function installServices(opts: InstallServiceOptions): Promise<numb
     `Then open http://localhost:${opts.port} — the first visit asks you to create the admin account.`,
   );
   console.log('');
-  console.log(`Update checks run every ${params.intervalSeconds}s via ${opts.serviceName}-update.timer.`);
-  console.log(`  systemctl list-timers ${opts.serviceName}-update.timer`);
-  // Surface the upstream the update unit will track, so the operator can sanity-check it.
-  const { trackedUpstream } = await import('./update.ts');
-  const { remote, branch } = trackedUpstream(project.root);
-  console.log(`  tracking ${remote}/${branch} (the checkout's upstream; change with \`git branch -u\`)`);
+  console.log('A running instance applies homestead.config.ts and apps/ edits on its own');
+  console.log('(Vite rebuilds the SPA; open tabs reload).');
   return 0;
 }
 

@@ -1,71 +1,39 @@
 /**
- * Build-on-change SPA pipeline.
+ * SPA build pipeline for prod (`homestead start`).
  *
  * The launcher never embeds the SPA: app code (and homestead.config.ts, which
  * the SPA bundles via the `@homestead/config` alias) lives in the operator's
- * project, so the SPA must be built there. Builds land in the cache dir keyed
- * by a content hash; an unchanged project boots without rebuilding, and a
- * config edit produces a new hash → new build → server child restart.
+ * project, so the SPA must be built there. We run Vite's own watch-mode build
+ * (`vite build --watch`) as a resident child: it tracks the real module graph —
+ * homestead.config.ts, the auto-discovered `apps/` tree, and any workspace/npm
+ * app packages they import — and rebuilds `dist` in place on any change. The
+ * server serves that dist and derives the build id from its output (see
+ * `SpaAssets.version()` in homestead-server), so there is no input hashing, no
+ * git coupling, and no enumerated watch list to keep in sync with the bundler.
  */
 
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  readdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  statSync,
-} from 'node:fs';
+import { existsSync, realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { cacheRoot, findRuntime } from './runtime.ts';
-import { spawnChild } from './proc.ts';
+import { Child } from './proc.ts';
 
-export interface SpaBuild {
+/** A resident SPA builder watching the project and rebuilding `dist` in place. */
+export interface SpaWatcher {
   /** Directory holding the built SPA (index.html + assets). */
   dist: string;
-  /** Content hash identifying this build; served at /api/app-version. */
-  buildId: string;
-}
-
-function buildsDir(): string {
-  return join(cacheRoot(), 'spa-builds');
+  /** Stop the watcher child. */
+  stop(): Promise<void>;
 }
 
 /**
- * Hash everything that feeds the SPA build: the operator config (bundled into
- * the SPA), the apps/ tree (auto-discovered apps are bundled too, and may
- * never be committed), package.json + lockfiles (app package versions), and
- * the git HEAD (source edits in a workspace checkout arrive as commits via
- * `homestead update`). Other uncommitted source edits don't change the hash —
- * that's what `--dev` is for.
+ * Stable per-project dist directory, keyed by the project's real path (not its
+ * contents): one project always builds into the same place, so a restart
+ * reuses the existing build while Vite refreshes it.
  */
-export function spaBuildId(projectRoot: string): string {
-  const h = createHash('sha256');
-  h.update(readFileSync(join(projectRoot, 'homestead.config.ts')));
-  const appsDir = join(projectRoot, 'apps');
-  if (existsSync(appsDir)) {
-    const files = readdirSync(appsDir, { recursive: true, encoding: 'utf8' })
-      .filter((rel) => statSync(join(appsDir, rel)).isFile())
-      .sort();
-    for (const rel of files) {
-      h.update(rel);
-      h.update('\0');
-      h.update(readFileSync(join(appsDir, rel)));
-      h.update('\0');
-    }
-  }
-  for (const name of ['package.json', 'package-lock.json', 'bun.lock']) {
-    const file = join(projectRoot, name);
-    if (existsSync(file)) h.update(readFileSync(file));
-  }
-  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
-    cwd: projectRoot,
-    stdio: ['ignore', 'pipe', 'ignore'],
-  });
-  h.update(head.status === 0 ? head.stdout : 'no-git');
-  return h.digest('hex').slice(0, 16);
+export function spaDistDir(projectRoot: string): string {
+  const key = createHash('sha256').update(realpathSync(projectRoot)).digest('hex').slice(0, 16);
+  return join(cacheRoot(), 'spa-builds', key);
 }
 
 /**
@@ -85,51 +53,57 @@ export function resolveShellRoot(projectRoot: string): string {
 }
 
 /**
- * Return the cached build for the project's current hash, building it first
- * if missing. Throws when the build fails (callers keep serving the previous
- * build in that case).
+ * Start `vite build --watch` for the project and resolve once the first build
+ * has produced index.html. The child stays resident and rebuilds `dist` in
+ * place whenever anything in the module graph changes; a failed rebuild leaves
+ * the previous build on disk (Vite keeps serving the last good output).
+ *
+ * Throws if the first build never produces index.html (the child exits, or the
+ * timeout elapses) — callers surface that and abort `start`.
  */
-export async function ensureSpaBuild(projectRoot: string): Promise<SpaBuild> {
-  const buildId = spaBuildId(projectRoot);
-  const dist = join(buildsDir(), buildId);
-  if (existsSync(join(dist, 'index.html'))) {
-    return { dist, buildId };
-  }
-
+export async function startSpaWatch(projectRoot: string): Promise<SpaWatcher> {
   const shellRoot = resolveShellRoot(projectRoot);
   const viteBin = join(projectRoot, 'node_modules', '.bin', 'vite');
   if (!existsSync(viteBin)) {
-    throw new Error(`vite not found at ${viteBin} — install dependencies (\`bun install\` / \`npm install\`) in ${projectRoot}`);
+    throw new Error(
+      `vite not found at ${viteBin} — install dependencies (\`bun install\` / \`npm install\`) in ${projectRoot}`,
+    );
   }
 
-  log(`building SPA (${buildId}) — this can take a minute`);
-  const child = spawnChild({
+  const dist = spaDistDir(projectRoot);
+  // Clean slate for the first build. We deliberately omit `--emptyOutDir`: in
+  // watch mode that would wipe `dist` at the start of every rebuild, opening a
+  // window where the server 404s the SPA. Vite leaves the dir alone (it's
+  // outside the project root), so old hashed assets linger until the next
+  // start — a fresh boot clears them here.
+  rmSync(dist, { recursive: true, force: true });
+
+  log('starting SPA build (vite build --watch)');
+  const child = new Child({
     // The vite bin is plain JS, so the runtime executable runs it directly.
-    cmd: [findRuntime(projectRoot).exe, viteBin, 'build', '--outDir', dist, '--emptyOutDir'],
+    cmd: [findRuntime(projectRoot).exe, viteBin, 'build', '--watch', '--outDir', dist],
     cwd: shellRoot,
-    env: {
-      HOMESTEAD_BUILD_ID: buildId,
-      HOMESTEAD_CONFIG: join(projectRoot, 'homestead.config.ts'),
-    },
-    tag: '[spa-build]',
+    env: { HOMESTEAD_CONFIG: join(projectRoot, 'homestead.config.ts') },
+    tag: '[spa]',
   });
-  const code = await child.wait();
-  if (code !== 0 || !existsSync(join(dist, 'index.html'))) {
-    rmSync(dist, { recursive: true, force: true });
-    throw new Error(`vite build failed (exit ${code})`);
-  }
-  return { dist, buildId };
-}
 
-/** Drop cached builds other than the ones in `keep` (the one being served). */
-export function pruneSpaBuilds(keep: string[]): void {
-  const dir = buildsDir();
-  if (!existsSync(dir)) return;
-  const keepSet = new Set(keep);
-  for (const entry of readdirSync(dir)) {
-    if (keepSet.has(entry)) continue;
-    rmSync(join(dir, entry), { recursive: true, force: true });
+  let childExited = false;
+  void child.wait().then(() => (childExited = true));
+
+  const indexPath = join(dist, 'index.html');
+  const deadline = Date.now() + 180_000;
+  while (!existsSync(indexPath)) {
+    if (childExited) {
+      throw new Error('vite build exited before producing the SPA — see [spa] logs above');
+    }
+    if (Date.now() > deadline) {
+      await child.stop();
+      throw new Error('SPA build timed out (no index.html after 180s)');
+    }
+    await new Promise((r) => setTimeout(r, 200));
   }
+  log('SPA build ready');
+  return { dist, stop: () => child.stop() };
 }
 
 function log(msg: string): void {

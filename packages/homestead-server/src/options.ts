@@ -17,13 +17,6 @@ export interface ServerOptions {
   dataDir: string;
   /** Static SPA assets for prod (defaults to packages/homestead-app/dist). */
   spa?: SpaAssets;
-  /**
-   * Identifier of the SPA build being served, exposed at /api/app-version.
-   * The launcher passes the build hash; open tabs poll the endpoint and
-   * reload when it changes. Empty/absent (dev, bare source runs) disables
-   * the client-side reload check.
-   */
-  buildId?: string;
   /** App-access cache TTL; defaults to AEPBASE_ACCESS_CACHE_TTL_MS or 5000. */
   accessCacheTtlMs?: number;
 }

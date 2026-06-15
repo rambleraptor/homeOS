@@ -20,8 +20,6 @@ async function main(argv: string[]): Promise<number> {
       return initAppCmd(rest);
     case 'doctor':
       return doctorCmd(rest);
-    case 'update':
-      return updateCmd(rest);
     case 'install-service':
       return installServiceCmd(rest);
     case 'resources': {
@@ -179,25 +177,8 @@ async function doctorCmd(args: string[]): Promise<number> {
   return 0;
 }
 
-async function updateCmd(args: string[]): Promise<number> {
-  const parsed = parse(args, {
-    'service-name': { type: 'string', default: 'homestead' },
-    force: { type: 'boolean', default: false },
-    'no-restart': { type: 'boolean', default: false },
-  });
-  if (!parsed) return 1;
-  const { runUpdate } = await import('./update.ts');
-  return runUpdate({
-    projectDir: '.',
-    serviceName: strFlag(parsed.values['service-name']) ?? 'homestead',
-    force: parsed.values.force === true,
-    restart: parsed.values['no-restart'] !== true,
-  });
-}
-
 async function installServiceCmd(args: string[]): Promise<number> {
   const parsed = parse(args, {
-    'update-interval': { type: 'string', default: '5m' },
     'service-name': { type: 'string', default: 'homestead' },
     user: { type: 'string' },
     port: { type: 'string' },
@@ -205,14 +186,7 @@ async function installServiceCmd(args: string[]): Promise<number> {
     'env-file': { type: 'string' },
   });
   if (!parsed) return 1;
-  const { installServices, parseInterval } = await import('./service.ts');
-  let intervalSeconds: number;
-  try {
-    intervalSeconds = parseInterval(strFlag(parsed.values['update-interval']) ?? '5m');
-  } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    return 1;
-  }
+  const { installServices } = await import('./service.ts');
   return installServices({
     projectDir: '.',
     serviceName: strFlag(parsed.values['service-name']) ?? 'homestead',
@@ -220,7 +194,6 @@ async function installServiceCmd(args: string[]): Promise<number> {
       strFlag(parsed.values.user) ?? process.env.SUDO_USER ?? process.env.USER ?? 'root',
     port: numFlag(parsed.values.port, 3000),
     dataDir: strFlag(parsed.values['data-dir']),
-    intervalSeconds,
     envFile: strFlag(parsed.values['env-file']),
   });
 }
@@ -240,8 +213,7 @@ function printUsage(): void {
       '  homestead init-app <name>   Scaffold a new custom app skeleton under ./apps/<name>.',
       '  homestead start [--dev]     Boot the server + SPA using homestead.config.ts in CWD.',
       '  homestead doctor            Check whether the host can run `homestead start`.',
-      '  homestead update            Pull the config repo (its git upstream); restart the service if it changed.',
-      '  homestead install-service   (Optional) Install the systemd service + auto-update timer (run with sudo).',
+      '  homestead install-service   (Optional) Install the systemd service (run with sudo).',
       '  homestead resources [...]   CRUD/List resources + their custom methods (run bare to list them).',
       '  homestead admin reset-password  Rotate the superuser password (prints the new one).',
       '',
@@ -250,13 +222,7 @@ function printUsage(): void {
       '  --port=N                    User-facing port; serves the SPA and /api/aep engine (default 3000).',
       '  --data-dir=PATH             server data dir (default <project>/data).',
       '',
-      'Flags for `update`:',
-      '  --service-name=NAME         systemd service to restart (default homestead).',
-      '  --no-restart                Sync the checkout but do not restart the service.',
-      '  --force                     Restart even when there are no new commits.',
-      '',
       'Flags for `install-service`:',
-      '  --update-interval=DUR       Auto-update cadence: 30s, 5m, 2h, or bare minutes (default 5m).',
       '  --service-name=NAME         Base unit name (default homestead).',
       '  --user=NAME                 User the units run as (default $SUDO_USER).',
       '  --port=N                    App port baked into the service (default 3000).',
