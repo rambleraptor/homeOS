@@ -84,9 +84,8 @@ const config: HomesteadConfig = {
   auth,
 };
 
-// The directory holding this file is a git checkout. `homestead update`
-// fast-forwards it to the checkout's upstream (origin/main unless you change
-// it with `git branch -u`) and restarts the service, so config edits — e.g.
-// pushed from a phone — take effect.
+// A running `homestead start` watches this file (and the apps/ tree): edit it
+// and the launcher rebuilds the SPA and reapplies config automatically, and
+// open tabs reload on their own — no separate update step.
 
 export default config;

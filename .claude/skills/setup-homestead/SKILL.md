@@ -1,6 +1,6 @@
 ---
 name: setup-homestead
-description: Stand up a new Homestead instance end-to-end — scaffold the project, first boot, claim the admin account, enable chat, and (optionally) install the systemd service with auto-update. Use when the user asks to "set up homestead", "deploy homestead", "install on my server", "get started", or hits first-boot/claim/service problems.
+description: Stand up a new Homestead instance end-to-end — scaffold the project, first boot, claim the admin account, enable chat, and (optionally) install the systemd service. Use when the user asks to "set up homestead", "deploy homestead", "install on my server", "get started", or hits first-boot/claim/service problems.
 ---
 
 # Set Up a Homestead Instance
@@ -39,9 +39,8 @@ homestead start            # production: builds the SPA, caches by content hash
 homestead start --dev      # development: Vite middleware + HMR, same port
 ```
 
-Useful flags: `--port=N` (public port, default 3000),
-`--aepbase-port=N` (loopback-only engine API, default 8090),
-`--data-dir=PATH` (default `<project>/data`).
+Useful flags: `--port=N` (the one port — SPA + the `/api/aep` engine,
+default 3000), `--data-dir=PATH` (default `<project>/data`).
 
 A fresh instance boots **unclaimed**. The first visit to the SPA shows a
 one-shot form that creates the superuser account (`POST /api/setup`).
@@ -61,22 +60,18 @@ server's environment — put it in the project's `.env`. Without it,
 ## Step 5: Install as a service (optional, Linux + systemd)
 
 ```bash
-sudo homestead install-service --update-interval=5m
+sudo homestead install-service
 ```
 
-This generates and enables `homestead.service` plus a
-`homestead-update.timer` that runs `homestead update` on the cadence —
-the "edit config from your phone" flow: push to the config repo, the
-timer pulls and restarts. Other flags: `--service-name`, `--user`,
-`--port`, `--data-dir`, `--env-file` (defaults to `<project>/.env` when
-present).
+This generates and enables `homestead.service`, which runs
+`homestead start`. Other flags: `--service-name`, `--user`, `--port`,
+`--data-dir`, `--env-file` (defaults to `<project>/.env` when present).
 
-`homestead update` pulls the project checkout's own git upstream
-(`git branch -u` to change it; `origin/main` when unset), reruns
-`bun install` when the lockfile changed, and restarts the service when
-behind. systemd is optional — without the unit, a running
-`homestead start` notices config changes itself, rebuilds the SPA, and
-restarts the server child; open tabs poll `/api/app-version` and reload.
+A running instance applies edits on its own: change `homestead.config.ts`
+or the `apps/` tree and the launcher's `vite build --watch` rebuilds the
+SPA while the server reapplies config (OAuth/app-access/schema); open tabs
+poll `/api/app-version` and reload. To ship new code, point the project dir
+at a git checkout and `git pull` (the running instance picks it up).
 
 ## Step 6: Verify
 
@@ -84,8 +79,7 @@ restarts the server child; open tabs poll `/api/app-version` and reload.
 2. Apps listed in `homestead.config.ts` appear in the nav.
 3. `homestead resources` (bare) lists the synced resources over the
    loopback engine API.
-4. If installed as a service: `systemctl status homestead` and
-   `systemctl list-timers homestead-update*`.
+4. If installed as a service: `systemctl status homestead`.
 
 ## Troubleshooting quick hits
 
@@ -93,8 +87,8 @@ restarts the server child; open tabs poll `/api/app-version` and reload.
   claimed before; use `homestead admin reset-password`.
 - **Schema sync failure on boot** — a `[resources]` error names the bad
   definition; fix the app's `resources.ts` (see the add-resource skill).
-- **Port in use** — pass `--port`; the engine API port (8090) is
-  loopback-only and rarely conflicts, but `--aepbase-port` moves it.
+- **Port in use** — pass `--port` to move the one server port; the engine
+  rides on it under `/api/aep`.
 - **Stale SPA after config edits** — production builds are cached under
   `~/.homestead/cache/spa-builds/<hash>`; the hash covers config,
   lockfile, and git HEAD, so a rebuild happens automatically — check the

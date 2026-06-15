@@ -95,9 +95,9 @@ const config: HomesteadConfig = {
   ],
 };
 
-// Tip: make this directory a git checkout and \`homestead update\` will
-// fast-forward it to its upstream (origin/main, or whatever \`git branch -u\`
-// says) and restart the service — handy for editing config from a phone.
+// Tip: a running \`homestead start\` watches this file and the apps/ tree —
+// edit them and it rebuilds the SPA and reapplies config automatically; open
+// tabs reload on their own.
 
 export default config;
 `;

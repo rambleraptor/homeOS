@@ -98,9 +98,9 @@ Mirror the change in the app's `types.ts` (record interface +
    and confirm the sync log line: `created` for new resources,
    `updated` for patched ones, no errors. Name-validation failures
    surface here with a `[resources] invalid definition` error.
-3. Optionally inspect the applied definition via the loopback engine
-   API: `homestead resources` (bare invocation lists resources), or
-   `curl 127.0.0.1:8090/aep-resource-definitions/<singular>` with an
+3. Optionally inspect the applied definition: `homestead resources` (bare
+   invocation lists resources), or
+   `curl 127.0.0.1:3000/api/aep/aep-resource-definitions/<singular>` with an
    admin token.
 4. Run the app's e2e specs if data paths changed:
    `cd tests/e2e && npm run test -- packages/homestead-apps/<app>/e2e/`.

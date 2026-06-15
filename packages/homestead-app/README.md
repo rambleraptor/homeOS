@@ -42,9 +42,9 @@ npm run type-check
 Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Override the aepbase backend that `/api/aep` proxies to. Defaults to
-# http://127.0.0.1:8090 — only set this when running aepbase elsewhere.
-AEPBASE_URL=http://127.0.0.1:8090
+# Override the engine base that server-side helpers call. Defaults to
+# http://127.0.0.1:3000/api/aep — only set this when the engine is elsewhere.
+AEPBASE_URL=http://127.0.0.1:3000/api/aep
 NEXT_PUBLIC_APP_NAME=Homestead
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
 ```

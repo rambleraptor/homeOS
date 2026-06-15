@@ -14,10 +14,13 @@ logger.settings.minLevel = 7;
 export interface ConnectOptions {
   /** Project directory holding homestead.config.ts + data/. Defaults to CWD. */
   projectDir?: string;
-  /** Full engine API base URL. Wins over `aepbasePort`. */
+  /**
+   * App origin or engine base URL. Wins over `port`. A trailing `/api/aep`
+   * is optional — it's normalized away to recover the origin.
+   */
   serverUrl?: string;
-  /** Engine loopback port (default 8090) when `serverUrl` is not given. */
-  aepbasePort?: number;
+  /** App port (default 3000) when `serverUrl` is not given. */
+  port?: number;
   /** Explicit data dir holding the sqlite db; overrides the project's. */
   dataDir?: string;
   /** Pre-obtained bearer token; skips the local admin-token mint. */
@@ -70,9 +73,13 @@ export class ConnectError extends Error {}
  * schema hasn't been synced yet.
  */
 export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
-  const serverUrl = resolveServerUrl(opts);
-  const sidecarUrl = serverUrl; // custom methods are served by the same process
-  await probe(serverUrl);
+  // The engine is reachable only under /api/aep on the app origin; the
+  // custom-method gateway (/api/custom-methods, /api/aep/<plural>:<verb>)
+  // lives at the origin root.
+  const origin = resolveOrigin(opts);
+  const serverUrl = `${origin}/api/aep`;
+  const sidecarUrl = origin;
+  await probe(origin);
 
   const { token, userId } = await resolveAuth(serverUrl, opts);
   const openapi = await fetchOpenApi(serverUrl);
@@ -148,20 +155,23 @@ function patchCreateMethods(
   }
 }
 
-function resolveServerUrl(opts: ConnectOptions): string {
-  if (opts.serverUrl) return opts.serverUrl.replace(/\/$/, '');
-  const port = opts.aepbasePort ?? 8090;
+/** Resolve the app origin, tolerating a `--server-url` that includes /api/aep. */
+function resolveOrigin(opts: ConnectOptions): string {
+  if (opts.serverUrl) {
+    return opts.serverUrl.replace(/\/$/, '').replace(/\/api\/aep$/, '');
+  }
+  const port = opts.port ?? 3000;
   return `http://127.0.0.1:${port}`;
 }
 
 /** One-shot reachability check so we fail fast with a clear message. */
-async function probe(serverUrl: string): Promise<void> {
+async function probe(origin: string): Promise<void> {
   try {
-    await fetch(`${serverUrl}/`, { signal: AbortSignal.timeout(2_000) });
+    await fetch(`${origin}/`, { signal: AbortSignal.timeout(2_000) });
   } catch {
     throw new ConnectError(
-      `no aepbase listening on ${serverUrl} — is \`homestead start\` running? ` +
-        '(override with --server-url or --aepbase-port)',
+      `no homestead server listening on ${origin} — is \`homestead start\` running? ` +
+        '(override with --server-url or --port)',
     );
   }
 }

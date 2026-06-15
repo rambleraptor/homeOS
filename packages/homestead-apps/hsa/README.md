@@ -183,9 +183,9 @@ Get an API key at: https://makersuite.google.com/app/apikey
 ### aepbase URL
 
 The app talks to aepbase via the shared `/api/aep` same-origin
-proxy configured in `frontend/next.config.ts`. Override the upstream
-target by setting `AEPBASE_URL` if aepbase runs somewhere other than
-`http://127.0.0.1:8090`.
+prefix on the one server port. Server-side helpers reach the engine at the
+same prefix; override the target by setting `AEPBASE_URL` if the engine runs
+somewhere other than `http://127.0.0.1:3000/api/aep`.
 
 ## Tips
 

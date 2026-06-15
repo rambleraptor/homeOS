@@ -15,13 +15,15 @@ in middleware mode *inside* the server process (single port, HMR included).
 In production the `homestead` launcher (`packages/homestead-cli`, compiled
 with Bun into a thin binary) runs the server as a runtime child (bun, or
 node + tsx when bun isn't installed) resolved from
-the project's node_modules, serving a SPA the launcher builds on the box
-(content-hash cached; rebuilt + restarted automatically when
-`homestead.config.ts` changes — open tabs poll `/api/app-version` and
-reload). Nothing is embedded in the binary: app code and config live in the
-operator's project. The engine listens on two ports: the public one (SPA +
-/api/*) and a loopback-only "engine API" port (:8090, bare aepbase-style
-paths) used by server-side helpers, e2e, and `homestead resources`.
+the project's node_modules, serving a SPA the launcher builds on the box with
+`vite build --watch` (rebuilt in place whenever `homestead.config.ts`, the
+`apps/` tree, or an imported app package changes — open tabs poll
+`/api/app-version` and reload). Nothing is embedded in the binary: app code and config live in the
+operator's project. The server listens on a single port (SPA + /api/*); the
+engine is reachable only under the `/api/aep` prefix — there is no separate
+engine port. Same-box callers (server-side helpers, the boot-time schema sync,
+e2e, and `homestead resources`) reach it over loopback at that same
+`/api/aep` prefix.
 
 ## Table of Contents
 
@@ -263,7 +265,7 @@ SPA and apps share:
 - `api/aepbase.ts` — thin REST client wrapper for the engine (client-side)
 - `server/aepbase.ts` — server-side engine helper used by homestead-server's
   routes (the client-side wrapper uses localStorage, so server code uses
-  this instead; it talks to the loopback engine API)
+  this instead; it talks to the engine over loopback at the `/api/aep` prefix)
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `AppConfig`/`AppFlagDef` contract types
 - `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
@@ -297,8 +299,9 @@ The whole backend in one Bun process:
   requires `GEMINI_API_KEY`), `GET /api/custom-methods`, and the
   `/api/aep` gateway (`aep-gateway.ts`) that dispatches AEP-136 custom
   methods and passes everything else to the engine in-process.
-- `src/server.ts` — `startServer()`: two listeners (public + loopback
-  engine API on :8090), superuser bootstrap (`src/bootstrap.ts` — a fresh
+- `src/server.ts` — `startServer()`: a single listener (SPA + /api/*, with the
+  engine exposed only under the `/api/aep` gateway), superuser bootstrap
+  (`src/bootstrap.ts` — a fresh
   instance boots unclaimed with a pending superuser; `/api/setup` +
   the SPA's first-visit form claim it; exports `createSuperuser` /
   `claimSetup` / `needsSetup` / `resetSuperuserPassword` /
@@ -321,36 +324,36 @@ in-process (compiled Bun executables have no node_modules resolution at
 runtime), so everything project-shaped runs as a `bun` child inside the
 project dir:
 
-- `homestead start` (prod): builds the SPA via the project's vite into
-  `~/.homestead/cache/spa-builds/<hash>` (`src/spa-build.ts`; hash of
-  config + the `apps/` tree + lockfile + git HEAD, so unchanged projects
-  boot instantly), then spawns
-  `bun .../homestead-server/src/index.ts --spa-dist <dir>`.
-  It watches `homestead.config.ts` / `package-lock.json` / the `apps/`
-  tree (auto-discovered apps) and, on change,
-  rebuilds the SPA and restarts the server child (idempotent schema sync
-  reruns on boot); open tabs poll `/api/app-version` and reload.
+- `homestead start` (prod): runs the project's vite in watch mode
+  (`vite build --watch`, `src/spa-build.ts`) over the SPA's real module graph
+  — `homestead.config.ts`, the auto-discovered `apps/` tree, and the app
+  packages they import — rebuilding `~/.homestead/cache/spa-builds/<project>`
+  in place on any change, then spawns
+  `bun .../homestead-server/src/index.ts --spa-dist <dir>`. The server derives
+  the build id from the served `index.html` (whose asset names are
+  content-hashed) and exposes it at `/api/app-version`, so a rebuild bumps the
+  version with no restart and open tabs reload. A small watcher additionally
+  restarts the server child when `homestead.config.ts` or the `apps/` tree
+  change, so OAuth/app-access/schema re-apply (idempotent schema sync reruns
+  on boot). There is no git or input-hash coupling — Vite's module graph is the
+  source of truth for what changed.
 - `homestead start --dev`: `bun --watch` child with Vite middleware (HMR).
-- `homestead update` pulls the project's git checkout (tracking the
-  checkout's own upstream — `git branch -u` to change it, `origin/main` when
-  unset), runs `bun install` when package.json or a lockfile changed, and
-  restarts the systemd service when it's behind — the "edit config from your
-  phone" flow. systemd is optional: without the unit, update just syncs the
-  checkout and a running `homestead start` applies the changes itself.
 - `homestead admin reset-password` and the `resources` token mint run as bun
   children of the project's homestead-server (`src/tools/`), so the binary
   bundles zero engine code and can never write to a db with stale logic.
 
 Other commands: `init`, `doctor`, `install-service` (sudo; installs the
-systemd service + an auto-update timer running `update` on
-`--update-interval`, default 5m), `resources`, `admin reset-password`.
+systemd service), `resources`, `admin reset-password`.
 
 ### Deployment
 
 Systemd-based deployment is driven entirely by the launcher:
 `sudo homestead install-service` generates + enables the `homestead.service`
-unit plus a `homestead-update.timer`/`.service` that runs `homestead update`
-on a cadence. No separate scripts or source checkout required.
+unit that runs `homestead start`. No separate scripts required. A running
+instance applies `homestead.config.ts` and `apps/` edits on its own (Vite
+rebuilds the SPA; the server reapplies config), so there is no separate update
+step — point the project dir at a git checkout and `git pull` when you want to
+ship new code.
 
 ## aepbase schema (TypeScript)
 

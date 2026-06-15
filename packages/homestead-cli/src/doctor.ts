@@ -14,7 +14,6 @@ export interface Check {
 export interface DoctorOptions {
   projectDir: string;
   frontendPort: number;
-  aepbasePort: number;
 }
 
 /** Run the read-only self-checks for `homestead start`. */
@@ -22,8 +21,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<Check[]> {
   const checks: Check[] = [];
   checks.push(platformCheck());
   checks.push(runtimeCheck(opts.projectDir));
-  checks.push(await portCheck('frontend port', opts.frontendPort));
-  checks.push(await portCheck('engine port', opts.aepbasePort));
+  checks.push(await portCheck('app port', opts.frontendPort));
   checks.push(projectCheck(opts.projectDir));
   checks.push(depsCheck(opts.projectDir));
   return checks;

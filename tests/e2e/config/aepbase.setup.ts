@@ -1,9 +1,9 @@
 /**
  * homestead-server test instance setup.
  *
- * One Bun process serves everything the e2e suite needs: the SPA via Vite
- * middleware on :5173, and the engine API ("aepbase") on the loopback
- * :8092 listener. The schema sync runs in-process on boot.
+ * One Bun process on a single port (:5173) serves everything the e2e suite
+ * needs: the SPA via Vite middleware, and the engine ("aepbase") under the
+ * /api/aep prefix. The schema sync runs in-process on boot.
  *
  * A fresh instance boots unclaimed; we claim it via POST /api/setup with
  * known admin credentials (the same first-visit setup flow the SPA uses),
@@ -17,7 +17,6 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { get as httpGet } from 'http';
 
-const ENGINE_PORT = 8092;
 const APP_PORT = 5173;
 const READY_TIMEOUT_MS = 120000;
 const POLL_INTERVAL_MS = 500;
@@ -35,13 +34,13 @@ export function getProjectRoot(): string {
   return join(process.cwd(), '../..');
 }
 
-/** The engine API base URL (the old standalone-aepbase port). */
-export function getAepbaseUrl(): string {
-  return `http://127.0.0.1:${ENGINE_PORT}`;
-}
-
 export function getAppUrl(): string {
   return `http://localhost:${APP_PORT}`;
+}
+
+/** The engine base URL — aepbase is reachable only under /api/aep. */
+export function getAepbaseUrl(): string {
+  return `${getAppUrl()}/api/aep`;
 }
 
 function getTestDirs() {
@@ -90,8 +89,6 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
       '--dev',
       '--port',
       String(APP_PORT),
-      '--internal-port',
-      String(ENGINE_PORT),
       '--data-dir',
       dataDir,
     ],
@@ -176,7 +173,8 @@ const ADMIN_PASSWORD = 'e2e-admin-password';
 /** POST /api/setup — claim the unclaimed instance. 409 means already claimed. */
 async function claimInstance(): Promise<boolean> {
   try {
-    const res = await fetch(`${getAepbaseUrl()}/api/setup`, {
+    // /api/setup is an app route at the origin root, not under /api/aep.
+    const res = await fetch(`${getAppUrl()}/api/setup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),

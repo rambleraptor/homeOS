@@ -28,7 +28,7 @@ import {
 /** Flags consumed by connect/output rather than treated as resource fields. */
 const GLOBAL_FLAGS = [
   'server-url',
-  'aepbase-port',
+  'port',
   'token',
   'email',
   'password',
@@ -238,7 +238,7 @@ function reservedFlags(resource: Resource): Set<string> {
 function connectOptions(flags: RawFlags): ConnectOptions {
   return {
     serverUrl: str(flags['server-url']),
-    aepbasePort: num(flags['aepbase-port']),
+    port: num(flags['port']),
     dataDir: str(flags['data-dir']),
     token: str(flags.token),
     email: str(flags.email),

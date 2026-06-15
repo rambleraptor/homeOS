@@ -14,10 +14,14 @@ import type { Engine } from '../engine/engine';
 
 const PREFIX = '/api/aep';
 
-export function makeAepGateway(engine: Engine, internalBase: string): Hono {
+export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
   const gateway = new Hono();
 
-  /** Hand an untouched request to the engine, preserving method/body. */
+  /**
+   * Hand an untouched request to the engine, preserving method/body. The
+   * engine only reads the request's pathname + query; `engineOrigin` just
+   * makes the URL absolute so `new Request(...)` can parse it.
+   */
   function passthrough(request: Request, path: string): Promise<Response> {
     const init: RequestInit & { duplex?: 'half' } = {
       method: request.method,
@@ -28,7 +32,7 @@ export function makeAepGateway(engine: Engine, internalBase: string): Hono {
       init.body = request.body;
       init.duplex = 'half';
     }
-    return engine.fetch(new Request(`${internalBase}${path}`, init));
+    return engine.fetch(new Request(`${engineOrigin}${path}`, init));
   }
 
   gateway.all('/*', (c) => {

@@ -3,24 +3,21 @@ import { join, resolve } from 'node:path';
 import { loadProject } from './project.ts';
 import { findRuntime, resolveServerModule, type JsRuntime } from './runtime.ts';
 import { Child } from './proc.ts';
-import { ensureSpaBuild, pruneSpaBuilds, type SpaBuild } from './spa-build.ts';
+import { startSpaWatch, type SpaWatcher } from './spa-build.ts';
 
 export interface StartOptions {
   dev: boolean;
   frontendPort: number;
-  /** Internal loopback port for the engine API (the old aepbase port). */
-  aepbasePort: number;
   /** Overrides <project>/data when set. */
   dataDir?: string;
 }
 
-/** Files in the project root that trigger a rebuild + server restart. */
-const WATCHED_FILES = new Set([
-  'homestead.config.ts',
-  'package.json',
-  'package-lock.json',
-  'bun.lock',
-]);
+/**
+ * Project-root files whose changes need the *server* re-read (OAuth + app-access
+ * from homestead.config.ts, schema sync + app discovery from the apps/ tree).
+ * The SPA itself is rebuilt by Vite's own watcher, not by this list.
+ */
+const SERVER_RESTART_FILE = 'homestead.config.ts';
 
 /**
  * Bring the server up and block until a signal (or the server exiting).
@@ -31,10 +28,12 @@ const WATCHED_FILES = new Set([
  * binaries), so the project's own runtime evaluates it.
  *
  * Dev: a watch-mode child with Vite middleware (HMR) — server and SPA both
- * hot-reload. Prod: the launcher builds the SPA (content-hash cached), serves
- * it via the child, and watches homestead.config.ts / package-lock.json and
- * the apps/ tree (auto-discovered apps) to rebuild + restart on change. Open
- * tabs poll /api/app-version and reload.
+ * hot-reload. Prod: `vite build --watch` rebuilds the SPA in place over its
+ * real module graph (config, the apps/ tree, app packages), the server serves
+ * that dist and exposes its output hash at /api/app-version, and a small
+ * watcher restarts the server when homestead.config.ts or the apps/ tree
+ * change so OAuth/app-access/schema re-apply. Open tabs poll /api/app-version
+ * and reload when the served build changes.
  */
 export async function runStart(
   projectDir: string,
@@ -46,10 +45,11 @@ export async function runStart(
   const runtime = findRuntime(project.root);
   const entry = await resolveEntryInstallingDeps(project.root, runtime);
 
-  let build: SpaBuild | null = null;
+  // Prod: stand up the resident SPA builder first and wait for its first build,
+  // so the server has a dist to serve the moment it boots.
+  let spa: SpaWatcher | null = null;
   if (!opts.dev) {
-    build = await ensureSpaBuild(project.root);
-    pruneSpaBuilds([build.buildId]);
+    spa = await startSpaWatch(project.root);
   }
 
   let child: Child;
@@ -70,13 +70,7 @@ export async function runStart(
   const spawnServer = (): Child => {
     const cmd = opts.dev
       ? runtime.watch(entry, [...serverArgs(dataDir, opts), '--dev'])
-      : runtime.run(entry, [
-          ...serverArgs(dataDir, opts),
-          '--spa-dist',
-          build!.dist,
-          '--build-id',
-          build!.buildId,
-        ]);
+      : runtime.run(entry, [...serverArgs(dataDir, opts), '--spa-dist', spa!.dist]);
     const c = new Child({
       cmd,
       cwd: project.root,
@@ -101,45 +95,30 @@ export async function runStart(
   };
   child = spawnServer();
 
-  // Prod only: rebuild + restart when the operator edits the config (or an
-  // update pulls a new lockfile). A failed build keeps the current server
-  // running. Dev needs none of this — the config is in Vite's module graph.
-  let reloadBusy = false;
-  let reloadPending = false;
-  const reload = async (): Promise<void> => {
+  // Prod only: restart the server when the operator edits homestead.config.ts
+  // or the apps/ tree, so OAuth/app-access/schema re-apply. The SPA reload is
+  // handled separately — Vite's watcher rebuilds the dist and the server's
+  // /api/app-version exposes the new output hash, so tabs reload on their own.
+  let restartBusy = false;
+  let restartPending = false;
+  const restartServer = async (): Promise<void> => {
     if (shuttingDown) return;
-    if (reloadBusy) {
-      reloadPending = true;
+    if (restartBusy) {
+      restartPending = true;
       return;
     }
-    reloadBusy = true;
+    restartBusy = true;
     try {
-      log('project config changed — rebuilding SPA');
-      let next: SpaBuild;
-      try {
-        next = await ensureSpaBuild(project.root);
-      } catch (err) {
-        log(
-          `SPA rebuild failed — keeping the current build: ${err instanceof Error ? err.message : err}`,
-        );
-        return;
-      }
-      if (next.buildId === build!.buildId) {
-        log('no effective change — keeping the current build');
-        return;
-      }
+      log('project config changed — restarting server');
       restarting = true;
       await child.stop();
-      build = next;
       child = spawnServer();
       restarting = false;
-      pruneSpaBuilds([build.buildId]);
-      log(`restarted on SPA build ${build.buildId}`);
     } finally {
-      reloadBusy = false;
-      if (reloadPending && !shuttingDown) {
-        reloadPending = false;
-        void reload();
+      restartBusy = false;
+      if (restartPending && !shuttingDown) {
+        restartPending = false;
+        void restartServer();
       }
     }
   };
@@ -149,14 +128,13 @@ export async function runStart(
   let watcher: FSWatcher | null = null;
   let appsWatcher: FSWatcher | null = null;
   let debounce: ReturnType<typeof setTimeout> | null = null;
-  const scheduleReload = (): void => {
+  const scheduleRestart = (): void => {
     if (debounce) clearTimeout(debounce);
-    debounce = setTimeout(() => void reload(), 500);
+    debounce = setTimeout(() => void restartServer(), 500);
   };
-  // Auto-discovered apps live under <project>/apps; any change there feeds
-  // the build hash, so the whole tree triggers a reload (the buildId
-  // no-change guard absorbs noise). Re-armed from the root watcher when the
-  // dir is created or replaced after boot.
+  // Auto-discovered apps live under <project>/apps; a change there can alter
+  // schema or discovery, so restart the server. Re-armed from the root watcher
+  // when the dir is created or replaced after boot.
   const closeAppsWatcher = (): void => {
     appsWatcher?.close();
     appsWatcher = null;
@@ -168,18 +146,17 @@ export async function runStart(
       return;
     }
     if (appsWatcher) return;
-    appsWatcher = watch(appsDir, { recursive: true }, () => scheduleReload());
+    appsWatcher = watch(appsDir, { recursive: true }, () => scheduleRestart());
     appsWatcher.on('error', closeAppsWatcher);
   };
   if (!opts.dev) {
     watcher = watch(project.root, (_event, filename) => {
       if (filename === 'apps') {
         armAppsWatcher();
-        scheduleReload();
+        scheduleRestart();
         return;
       }
-      if (!filename || !WATCHED_FILES.has(filename)) return;
-      scheduleReload();
+      if (filename === SERVER_RESTART_FILE) scheduleRestart();
     });
     armAppsWatcher();
   }
@@ -190,7 +167,7 @@ export async function runStart(
   if (await waitForPort(opts.frontendPort, 60_000)) {
     log('ready');
     log(`  app       http://localhost:${opts.frontendPort}`);
-    log(`  engine    http://127.0.0.1:${opts.aepbasePort} (loopback)`);
+    log(`  engine    http://localhost:${opts.frontendPort}/api/aep`);
     log('  login     first visit asks you to create the admin account');
     log('            (recover later with `homestead admin reset-password`)');
   } else {
@@ -201,7 +178,7 @@ export async function runStart(
   watcher?.close();
   closeAppsWatcher();
   if (debounce) clearTimeout(debounce);
-  await child.stop();
+  await Promise.all([child.stop(), spa?.stop()]);
   return exitCode;
 }
 
@@ -233,14 +210,7 @@ async function resolveEntryInstallingDeps(
 }
 
 function serverArgs(dataDir: string, opts: StartOptions): string[] {
-  return [
-    '--port',
-    String(opts.frontendPort),
-    '--internal-port',
-    String(opts.aepbasePort),
-    '--data-dir',
-    dataDir,
-  ];
+  return ['--port', String(opts.frontendPort), '--data-dir', dataDir];
 }
 
 async function waitForPort(port: number, timeoutMs: number): Promise<boolean> {

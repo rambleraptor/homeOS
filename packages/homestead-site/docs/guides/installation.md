@@ -48,7 +48,7 @@ re-runs it automatically if it's ever missing).
 ```
 [homestead] ready
 [homestead]   app       http://localhost:3000
-[homestead]   engine    http://127.0.0.1:8090 (loopback)
+[homestead]   engine    http://localhost:3000/api/aep
 [homestead]   login     first visit asks you to create the admin account
 ```
 

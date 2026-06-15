@@ -185,9 +185,8 @@ const { frontmatter } = useData();
         <h3>For self-hosters</h3>
         <p>
           One binary on one port, systemd-ready.
-          <code>homestead install-service</code> sets up the service and an
-          auto-update timer; <code>homestead doctor</code> checks the box
-          first.
+          <code>homestead install-service</code> sets up the service;
+          <code>homestead doctor</code> checks the box first.
         </p>
         <a class="link" href="/guides/installation">Install &rarr;</a>
       </article>
@@ -230,11 +229,11 @@ const { frontmatter } = useData();
         <details>
           <summary>How do updates work?</summary>
           <p>
-            Your instance is a git checkout of your own config.
-            <code>homestead update</code> pulls it and restarts;
-            <code>homestead install-service</code> adds a systemd timer that
-            does it automatically. If an update breaks the restart, Homestead
-            rolls back to the previous commit and brings everything back up.
+            Edit <code>homestead.config.ts</code> or your apps and a running
+            instance applies the change on its own — it rebuilds the SPA and
+            reapplies config, and open tabs reload. To ship new code, point the
+            project dir at a git checkout of your config and <code>git pull</code>;
+            the running instance picks it up with no extra step.
           </p>
         </details>
 
@@ -264,9 +263,9 @@ const { frontmatter } = useData();
             Your data: nothing. The database binds to loopback and a single
             port faces your network — many people keep even that on a private
             network like Tailscale. The binary only reaches out for things
-            you ask for: release downloads, <code>homestead update</code>
-            pulling your own git remote, and — only if you turn them on —
-            Google sign-in and web-push delivery.
+            you ask for: release downloads, <code>git pull</code> of your own
+            config remote, and — only if you turn them on — Google sign-in and
+            web-push delivery.
           </p>
         </details>
 

@@ -5,7 +5,8 @@
  * and Node.
  */
 
-import { existsSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openFileStream } from './engine/files';
@@ -21,6 +22,14 @@ export interface SpaAsset {
 export interface SpaAssets {
   index(): SpaAsset;
   file(relPath: string): SpaAsset | null;
+  /**
+   * A short hash identifying the current build, derived from index.html (whose
+   * asset references are content-hashed, so it changes iff the build output
+   * does). Served at /api/app-version; open tabs reload when it changes. The
+   * launcher's `vite build --watch` rewrites the dist in place, so this tracks
+   * rebuilds without any restart or input hashing.
+   */
+  version(): string;
 }
 
 const DEFAULT_DIST = fileURLToPath(
@@ -73,6 +82,10 @@ export function diskSpaAssets(dir: string = DEFAULT_DIST): SpaAssets {
   if (!existsSync(indexPath)) {
     throw new Error(`built SPA not found at ${dir} — run \`make build\`, or start with --dev`);
   }
+  // Cache the index.html hash by mtime so polling /api/app-version doesn't
+  // re-read + re-hash on every request; a `vite build --watch` rewrite bumps
+  // the mtime and invalidates it.
+  let cached: { mtimeMs: number; hash: string } | null = null;
   return {
     index: () => asset(indexPath),
     file: (rel) => {
@@ -80,6 +93,19 @@ export function diskSpaAssets(dir: string = DEFAULT_DIST): SpaAssets {
       if (!safe || safe === '.') return null;
       const p = join(dir, safe);
       return p.startsWith(dir) && isFile(p) ? asset(p) : null;
+    },
+    version: () => {
+      try {
+        const mtimeMs = statSync(indexPath).mtimeMs;
+        if (!cached || cached.mtimeMs !== mtimeMs) {
+          const hash = createHash('sha256').update(readFileSync(indexPath)).digest('hex').slice(0, 16);
+          cached = { mtimeMs, hash };
+        }
+        return cached.hash;
+      } catch {
+        // Mid-rewrite read failure — fall back to the last known hash.
+        return cached?.hash ?? '';
+      }
     },
   };
 }
