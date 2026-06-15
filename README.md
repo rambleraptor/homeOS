@@ -2,9 +2,9 @@
 
 <img src="packages/homestead-site/public/homestead-icon.png" alt="Homestead" width="116" />
 
-# homestead
+# Homestead
 
-**build and deploy apps for you, your family, and your agents**
+**Build and deploy apps for you, your family, and your agents**
 
 a self-hosted platform for personal apps — private software you shape for your
 own life, run on your own server, and expose through a backend that agents can
@@ -29,7 +29,7 @@ It's warm personal infrastructure with a small agent-native app OS underneath:
 apps give people useful surfaces, while the AEP backend gives humans *and*
 agents a structured API over the same data.
 
-## install
+## Install
 
 macOS or Linux, x64 or arm64:
 
@@ -48,7 +48,7 @@ curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts
 
 Prebuilt binaries embed the SPA and the server — no Node, Bun, or Go at runtime.
 
-## quick start
+## Quick Start
 
 ```bash
 homestead init my-home     # scaffold a project (homestead.config.ts + apps/)
@@ -69,7 +69,7 @@ Open the **app** URL and log in with the superuser password printed once on
 first boot (rotate it any time with `homestead admin reset-password`). That's
 the whole stack — no separate terminals, env vars, or schema step.
 
-## core concepts
+## Core Concepts
 
 - **apps** — every feature is a self-contained app: routes, data, widgets, and
   settings in one folder. You pick which ones ship by editing a single file.
@@ -83,7 +83,7 @@ the whole stack — no separate terminals, env vars, or schema step.
   OAuth sign-in and per-app access gating keep Uncle Mike out of your date-night
   app.
 
-## how it compares
+## How It Compares
 
 |                          | roll your own        | a SaaS app         | homestead                          |
 | ------------------------ | -------------------- | ------------------ | ---------------------------------- |
@@ -94,7 +94,7 @@ the whole stack — no separate terminals, env vars, or schema step.
 | where your data lives    | depends              | their servers      | local SQLite on hardware you own   |
 | your own custom apps     | unlimited effort     | impossible         | a folder + one line of config      |
 
-## agents can use homestead too
+## Agents Can Use Homestead Too
 
 Because the API is AEP-compliant, the frontend is optional — your data is
 reachable across the AEP ecosystem and your existing agentic workflows:
@@ -112,7 +112,7 @@ Apps declare resources instead of hiding state inside components, so agents get
 secure access to your structured, personal data — no scraping UI state, no
 guessing how an app works.
 
-## included apps
+## Included Apps
 
 Homestead ships with a growing set of opt-in apps:
 
@@ -131,7 +131,7 @@ different mix, or your own custom app? See the
 skill scaffolds a new app end-to-end (resources, hooks, components, config
 wiring, and e2e fixtures).
 
-## the homestead cli
+## The Homestead CLI
 
 The binary is self-contained — it's how you create projects, run the full
 stack, and check whether a machine is ready to host Homestead. Run
@@ -151,7 +151,7 @@ stack, and check whether a machine is ready to host Homestead. Run
 There is one port; the engine is reached through the same-origin `/api/aep`
 routes on it.
 
-## architecture
+## Architecture
 
 A running Homestead is personal infrastructure in one process on a single port:
 
@@ -161,7 +161,7 @@ A running Homestead is personal infrastructure in one process on a single port:
   the server-side APIs (notifications, chat, app custom methods). The schema
   sync registers each app's collections on boot.
 
-### modular design
+### Modular Design
 
 Every feature is an **app** with its own:
 
@@ -179,7 +179,7 @@ Every feature is an **app** with its own:
 3. Done — no per-route page files, no registry edits. The app appears in the
    navigation automatically and the router serves its routes.
 
-## production deployment
+## Production Deployment
 
 For a long-lived instance on a local machine (e.g. reachable over Tailscale),
 the single binary runs cleanly under systemd:
@@ -194,14 +194,14 @@ The running instance watches your project: edit `homestead.config.ts` or the
 tabs reload — no separate update step. Point the project dir at a git checkout
 and `git pull` when you want to ship new code.
 
-## configuration
+## Configuration
 
 Everything an instance serves comes from `homestead.config.ts` at the project
 root: the `apps` array, OAuth providers (`auth.oauth`), and the per-app access
 map. Apps under `apps/<dir>/app.homestead.ts` are auto-discovered and merged
 in. See the [configuration guide](packages/homestead-site/docs/guides/index.md).
 
-## docs
+## Docs
 
 - [Quick Start](packages/homestead-site/docs/guides/quick-start.md)
 - [Installation](packages/homestead-site/docs/guides/installation.md)
@@ -213,7 +213,7 @@ in. See the [configuration guide](packages/homestead-site/docs/guides/index.md).
 - [Creating Users](packages/homestead-site/docs/guides/users.md)
 - [Access & Tags](packages/homestead-site/docs/guides/access.md)
 
-## development
+## Development
 
 Working on Homestead itself requires the source toolchain:
 
@@ -231,7 +231,7 @@ Use `make start` to build and run the source checkout in one step. The full
 contributor workflow and the make targets (`make ci`, `make test`,
 `make test-e2e`) live in [CLAUDE.md](CLAUDE.md).
 
-### publishing releases
+### Publishing Releases
 
 Push a semver tag to publish prebuilt binaries:
 
@@ -245,12 +245,6 @@ arm64, packages them as `.tar.gz` archives, writes `SHA256SUMS`, and uploads
 everything to the GitHub Release. `scripts/install.sh` downloads from those
 release assets.
 
-## license
+## License
 
 MIT License
-
-## star history
-
-<a href="https://star-history.com/#rambleraptor/homestead&Date">
-  <img src="https://api.star-history.com/svg?repos=rambleraptor/homestead&type=Date" alt="Star History Chart" width="600" />
-</a>
