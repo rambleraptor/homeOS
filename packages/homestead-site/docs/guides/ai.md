@@ -10,6 +10,9 @@ makes it easy to work with from AI tools. Homestead gives you three ways in:
   language.
 - **[An MCP server](#connecting-an-mcp-server)** — connect Claude or another
   MCP client to your instance.
+- **[Claude Code skills](#claude-code-skills)** — drop-in skills that teach
+  Claude Code how to scaffold apps, edit your schema, and stand up an
+  instance.
 
 ---
 
@@ -126,3 +129,48 @@ at your instance:
 Follow the `aep-mcp-server` README for its exact configuration, then add it
 to your MCP client (such as Claude). From there the model can list, read,
 and write your household resources directly.
+
+---
+
+## Claude Code skills
+
+Homestead ships a set of [Claude Code](https://claude.com/claude-code)
+skills — packaged instructions that teach Claude Code how to do common
+Homestead tasks the right way, following the repo's architecture and schema
+rules. They live in the Homestead repo under `.claude/skills/`:
+
+| Skill              | What it does                                                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `setup-homestead`  | Stand up a new instance end-to-end — scaffold the project, first boot, claim the admin account, enable chat, and install the service.   |
+| `create-app`       | Scaffold a new feature app end-to-end — resources, hooks, components, config wiring, and e2e fixtures.                                   |
+| `add-resource`     | Add or modify a resource definition (new fields, enums, file fields, child resources), with the safe-vs-destructive change rules baked in. |
+| `add-widget`       | Add a dashboard widget to an existing app.                                                                                               |
+
+### Installing them
+
+Claude Code auto-discovers skills from a `.claude/skills/` directory, so
+when you open the Homestead repo itself in Claude Code the skills above are
+already available — no setup needed.
+
+To use them from somewhere else (your own project, or every project), copy
+them out of a clone of the Homestead repo:
+
+**For every project** (your personal, user-level skills):
+
+```bash
+mkdir -p ~/.claude/skills
+cp -R /path/to/homestead/.claude/skills/* ~/.claude/skills/
+```
+
+**For a single project** (only that project sees them):
+
+```bash
+# run from the root of the project you want the skills in
+mkdir -p .claude/skills
+cp -R /path/to/homestead/.claude/skills/* .claude/skills/
+```
+
+Start a new Claude Code session and the skills are live. Claude Code picks
+the matching one automatically when you describe the task — "create an app
+for tracking chores", "add a status field to gift cards", "set up
+homestead" — or you can invoke one by name, e.g. `/create-app`.
