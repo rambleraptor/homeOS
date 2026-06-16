@@ -1,34 +1,27 @@
 # Installation
 
-Homestead is one small binary plus your project directory. The binary is the
+Homestead is one small CLI plus your project directory. The CLI is the
 launcher; your apps, config, and the web UI live in the project, so editing
 `homestead.config.ts` updates the running site without reinstalling anything.
-[Bun](https://bun.sh) is required at runtime (it runs the server and builds
-the web UI from your project).
+[Node.js](https://nodejs.org) 22.13 or newer is required at runtime (it runs
+the server and builds the web UI from your project).
 
 Homestead runs on macOS and Linux (arm64 and x86-64).
 
 ## Install the CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
+npm install -g @rambleraptor/homestead-cli
 ```
 
-This downloads the right binary for your platform, verifies it, and installs it
-to `~/.local/bin/homestead`.
-
-To install somewhere else or pin a version, set these first:
-
-| Variable                | Effect                                  |
-| ----------------------- | --------------------------------------- |
-| `HOMESTEAD_INSTALL_DIR` | Where to install (e.g. `/usr/local/bin`). |
-| `HOMESTEAD_VERSION`     | A specific release (e.g. `v0.1.0`).       |
-
-Make sure the install directory is on your `PATH`, then check it works:
+This puts the `homestead` command on your `PATH`. Check it works:
 
 ```bash
 homestead --help
 ```
+
+Prefer not to install globally? Skip this step and run the commands below with
+`npx @rambleraptor/homestead-cli` in place of `homestead`.
 
 ## Run your first instance
 

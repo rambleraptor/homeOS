@@ -18,8 +18,8 @@ actually understand.
 
 Building a personal app is too hard. You need a developer account, App Review,
 sideloading — and you still have to run a backend, for software only your
-family will ever open. Homestead ships that whole foundation as one binary, so
-you write just the part that's yours.
+family will ever open. Homestead ships that whole foundation for you, so you
+write just the part that's yours.
 
 `homestead start` boots the entire stack in a single process on one port: the
 React app, the [AEP](https://www.aep.dev)-compliant TypeScript backend, the
@@ -31,22 +31,19 @@ agents a structured API over the same data.
 
 ## Install
 
-macOS or Linux, x64 or arm64:
+macOS or Linux, x64 or arm64. Requires [Node.js](https://nodejs.org) 22.13 or
+newer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash
+npm install -g @rambleraptor/homestead-cli
 ```
 
-The installer downloads the right prebuilt binary, verifies it against the
-release checksums, and drops it at `~/.local/bin/homestead`. Point it elsewhere
-or pin a version with env vars:
+That puts the `homestead` command on your `PATH`. Prefer not to install
+globally? Run it on demand with `npx`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh \
-  | HOMESTEAD_INSTALL_DIR=/usr/local/bin HOMESTEAD_VERSION=v0.1.0 bash
+npx @rambleraptor/homestead-cli init my-home
 ```
-
-Prebuilt binaries embed the SPA and the server — no Node, Bun, or Go at runtime.
 
 ## Quick Start
 
@@ -87,7 +84,7 @@ the whole stack — no separate terminals, env vars, or schema step.
 
 |                          | roll your own        | a SaaS app         | homestead                          |
 | ------------------------ | -------------------- | ------------------ | ---------------------------------- |
-| backend to run           | you assemble it      | someone else's     | one binary, included               |
+| backend to run           | you assemble it      | someone else's     | one command, included              |
 | App Store + review       | required for native  | n/a                | none — just open the URL           |
 | family auth & access     | you build it         | per-product silos  | built in (OAuth + access gating)   |
 | agent-ready API          | you design it        | rarely, if ever    | AEP REST, discovered on boot       |
@@ -133,9 +130,8 @@ wiring, and e2e fixtures).
 
 ## The Homestead CLI
 
-The binary is self-contained — it's how you create projects, run the full
-stack, and check whether a machine is ready to host Homestead. Run
-`homestead help` for the full list.
+The CLI is how you create projects, run the full stack, and check whether a
+machine is ready to host Homestead. Run `homestead help` for the full list.
 
 | command                         | what it does                                                        |
 | ------------------------------- | ------------------------------------------------------------------- |
@@ -182,7 +178,7 @@ Every feature is an **app** with its own:
 ## Production Deployment
 
 For a long-lived instance on a local machine (e.g. reachable over Tailscale),
-the single binary runs cleanly under systemd:
+Homestead runs cleanly under systemd:
 
 ```bash
 sudo homestead install-service
