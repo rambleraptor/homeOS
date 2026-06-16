@@ -1,10 +1,19 @@
 {
   "name": "@rambleraptor/homestead-cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/rambleraptor/homestead#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambleraptor/homestead.git",
+    "directory": "packages/homestead-cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
-    "homestead": "src/cli.ts"
+    "homestead": "bin/homestead.mjs"
   },
   "scripts": {
     "start": "bun run src/cli.ts",
@@ -14,8 +23,8 @@
   },
   "dependencies": {
     "@aep_dev/aep-lib-ts": "^0.0.2",
-    "@rambleraptor/homestead-core": "*",
-    "@rambleraptor/homestead-apps": "*",
+    "@rambleraptor/homestead-core": "^0.1.0",
+    "@rambleraptor/homestead-apps": "^0.1.0",
     "axios": "^1.6.0",
     "tsx": "^4.20.0"
   },

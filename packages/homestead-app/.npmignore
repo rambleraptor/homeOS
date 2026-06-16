@@ -1,0 +1,7 @@
+# SPA shell: the launcher runs `vite build` against this source in the operator
+# project, so ship the source tree (src/, index.html, vite.config.ts, public/,
+# configs) but never the stale local build.
+__tests__/
+*.test.ts
+*.tsbuildinfo
+dist/

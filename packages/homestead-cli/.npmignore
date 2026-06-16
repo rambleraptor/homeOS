@@ -1,0 +1,5 @@
+# Published as TypeScript source: bin/homestead.mjs (Node entry) + src/ run by
+# Bun/tsx in the consumer. Drop dev-only artifacts.
+__tests__/
+*.test.ts
+*.tsbuildinfo

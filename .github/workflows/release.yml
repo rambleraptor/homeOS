@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: write
+  # Required for npm OIDC trusted publishing (tokenless publish + provenance).
+  id-token: write
 
 jobs:
   release:
@@ -43,11 +45,15 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: package-lock.json
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: make install
@@ -71,6 +77,24 @@ jobs:
           done
           cd dist/release
           sha256sum homestead-*.tar.gz > SHA256SUMS
+
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          pkg_version="$(node -p "require('./packages/homestead-core/package.json').version")"
+          tag_version="${{ steps.version.outputs.version }}"
+          if [ "v${pkg_version}" != "${tag_version}" ]; then
+            echo "Tag ${tag_version} does not match package version v${pkg_version}." >&2
+            echo "Bump the version field in the homestead-* package.json files (and HOMESTEAD_VERSION_RANGE in scaffold.ts) before tagging." >&2
+            exit 1
+          fi
+
+      # Tokenless publish via OIDC trusted publishing. Requires a Trusted
+      # Publisher configured on npmjs.com for each homestead-* package (repo
+      # rambleraptor/homestead, workflow release.yml). npm mints a short-lived
+      # token from the id-token permission and attaches build provenance.
+      - name: Publish packages to npm
+        run: npm publish --workspaces --access public
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

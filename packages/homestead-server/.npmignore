@@ -1,0 +1,6 @@
+# Published as TypeScript source (run by Bun/tsx in the consumer). Ship the
+# source tree, drop dev-only artifacts.
+__tests__/
+test/
+*.test.ts
+*.tsbuildinfo
