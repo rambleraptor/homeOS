@@ -55,12 +55,12 @@ const { frontmatter } = useData();
       <p class="section-label muted">One-command deploy</p>
       <h2>Install, init, start.</h2>
       <p class="deploy-sub">
-        One command pulls a verified binary. Another boots the web app, the REST
-        backend, the schema sync, and the database together — one process, one
-        port, on a machine you already own.
+        One command installs the CLI from npm. Another boots the web app, the
+        REST backend, the schema sync, and the database together — one process,
+        one port, on a machine you already own.
       </p>
       <div class="commands">
-        <pre><code><span class="prompt">$</span> curl -fsSL https://raw.githubusercontent.com/rambleraptor/homestead/main/scripts/install.sh | bash</code></pre>
+        <pre><code><span class="prompt">$</span> npm install -g @rambleraptor/homestead-cli</code></pre>
         <pre><code><span class="prompt">$</span> homestead init my-home
 <span class="prompt">$</span> cd my-home
 <span class="prompt">$</span> homestead start</code></pre>
