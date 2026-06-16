@@ -1,8 +1,17 @@
 {
   "name": "@rambleraptor/homestead-server",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/rambleraptor/homestead#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambleraptor/homestead.git",
+    "directory": "packages/homestead-server"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22.13"
   },
@@ -16,8 +25,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@rambleraptor/homestead-apps": "*",
-    "@rambleraptor/homestead-core": "*",
+    "@rambleraptor/homestead-apps": "^0.1.0",
+    "@rambleraptor/homestead-core": "^0.1.0",
     "bcryptjs": "^3.0.2",
     "hono": "^4.6.14",
     "tsx": "^4.20.0",

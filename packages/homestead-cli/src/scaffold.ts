@@ -31,10 +31,10 @@ export function scaffold(dir: string): string {
 }
 
 /**
- * Version range for the scaffolded homestead packages. `*` until the packages
- * are published with real versions — tighten to a caret range then.
+ * Version range for the scaffolded homestead packages. Tracks the published
+ * homestead release line; bump the minor here when cutting a new release.
  */
-const HOMESTEAD_VERSION_RANGE = '*';
+const HOMESTEAD_VERSION_RANGE = '^0.1.0';
 
 function packageJson(root: string): string {
   // npm package-name rules: lowercase, no spaces; fall back when the

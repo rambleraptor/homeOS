@@ -1,8 +1,20 @@
 {
   "name": "@rambleraptor/homestead-apps",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "type": "module",
   "main": "./index.ts",
-  "types": "./index.ts"
+  "types": "./index.ts",
+  "license": "MIT",
+  "homepage": "https://github.com/rambleraptor/homestead#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambleraptor/homestead.git",
+    "directory": "packages/homestead-apps"
+  },
+  "dependencies": {
+    "@rambleraptor/homestead-core": "^0.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
