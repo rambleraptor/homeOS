@@ -10,6 +10,8 @@ makes it easy to work with from AI tools. Homestead gives you three ways in:
   language.
 - **[An MCP server](#connecting-an-mcp-server)** — connect Claude or another
   MCP client to your instance.
+- **[Agent skills](#agent-skills)** — drop-in skills that teach your coding
+  agent how to scaffold apps, edit your schema, and stand up an instance.
 
 ---
 
@@ -126,3 +128,26 @@ at your instance:
 Follow the `aep-mcp-server` README for its exact configuration, then add it
 to your MCP client (such as Claude). From there the model can list, read,
 and write your household resources directly.
+
+---
+
+## Agent skills
+
+Homestead ships [`SKILL.md`](https://agentskills.io) skills, in the repo
+under `.claude/skills/`:
+
+| Skill             | What it does                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `setup-homestead` | Stand up a new instance — scaffold, first boot, claim the admin account, install service. |
+| `create-app`      | Scaffold a new feature app end-to-end — resources, hooks, components, config, e2e.        |
+| `add-resource`    | Add or modify a resource definition (fields, enums, file fields, child resources).        |
+| `add-widget`      | Add a dashboard widget to an existing app.                                                 |
+
+Copy them into your agent's skills directory (use `~/...` for all projects,
+or the dotted form inside one project), then start a fresh session:
+
+```bash
+cp -R /path/to/homestead/.claude/skills/*  ~/.claude/skills/    # Claude Code
+cp -R /path/to/homestead/.claude/skills/*  ~/.codex/skills/     # Codex
+cp -R /path/to/homestead/.claude/skills/*  ~/.gemini/skills/    # Gemini CLI
+```
