@@ -30,6 +30,5 @@ export const gamesApp: AppConfig = {
   section: 'Relationships',
   showInNav: true,
   navOrder: 22,
-  enabled: true,
   children: [minigolfApp, pictionaryApp, bridgeApp],
 };

@@ -33,7 +33,6 @@ export const usersApp: AppConfig = {
   section: 'Settings',
   showInNav: true,
   navOrder: 91,
-  enabled: true,
   defaultEnabled: 'superusers',
   resources: usersResources,
 };

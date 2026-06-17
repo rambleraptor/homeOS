@@ -28,6 +28,5 @@ export const notificationsApp: AppConfig = {
       (m) => m.NotificationsTopBarBadge,
     ),
   navOrder: 4,
-  enabled: true,
   resources: notificationsResources,
 };

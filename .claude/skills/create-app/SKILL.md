@@ -158,7 +158,6 @@ export const featureApp: AppConfig = {
   showInNav: true,
   navOrder: 20,
   section: 'Games',       // or 'Money', 'Relationships', etc.
-  enabled: true,
   resources: featureResources,
   // Optional: typed flags. See packages/homestead-apps/groceries/app.config.ts.
   // flags: { ... }

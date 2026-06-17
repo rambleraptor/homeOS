@@ -27,7 +27,6 @@ export const superuserApp: AppConfig = {
   section: 'Settings',
   showInNav: true,
   navOrder: 90,
-  enabled: true,
   defaultEnabled: 'superusers',
   children: [flagManagementApp],
 };

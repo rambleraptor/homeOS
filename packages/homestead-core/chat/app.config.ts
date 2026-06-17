@@ -24,5 +24,4 @@ export const chatApp: AppConfig = {
   ],
   placement: 'topbar',
   navOrder: 5,
-  enabled: true,
 };

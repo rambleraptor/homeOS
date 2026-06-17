@@ -21,7 +21,6 @@ export const todosApp: AppConfig = {
   showInNav: true,
   navOrder: 5,
   section: 'Tasks',
-  enabled: true,
   defaultEnabled: 'all',
   resources: todosResources,
   widgets: [

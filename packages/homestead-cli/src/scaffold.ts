@@ -222,7 +222,6 @@ export const ${n.camel}App: AppConfig = {
   ],
   showInNav: true,
   navOrder: 100,
-  enabled: true,
   defaultEnabled: 'all',
   resources: ${n.camel}Resources,
 };

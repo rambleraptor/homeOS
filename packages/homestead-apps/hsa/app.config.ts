@@ -23,6 +23,5 @@ export const hsaApp: AppConfig = {
   showInNav: true,
   navOrder: 4,
   section: 'Money',
-  enabled: true,
   resources: hsaResources,
 };

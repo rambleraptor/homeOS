@@ -45,10 +45,10 @@ class AppRegistryImpl implements AppRegistry {
   apps: AppConfig[];
 
   constructor(apps: AppConfig[]) {
-    // Filter out disabled apps and sort by navOrder
-    this.apps = apps
-      .filter((m) => m.enabled !== false)
-      .sort((a, b) => (a.navOrder || 100) - (b.navOrder || 100));
+    // Sort by navOrder
+    this.apps = [...apps].sort(
+      (a, b) => (a.navOrder || 100) - (b.navOrder || 100),
+    );
 
     this.validateApps();
   }

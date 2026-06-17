@@ -24,7 +24,6 @@ export const groceriesApp: AppConfig = {
   section: 'Food',
   showInNav: true,
   navOrder: 2,
-  enabled: true,
   resources: groceriesResources,
   // Deleting a store re-homes its items under "No Store". Everything
   // else (optimistic shape, body projection, list cache key) is derived
