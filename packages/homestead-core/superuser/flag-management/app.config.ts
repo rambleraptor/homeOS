@@ -24,6 +24,5 @@ export const flagManagementApp: AppConfig = {
       gates: ['enabled'],
     },
   ],
-  enabled: true,
   defaultEnabled: 'superusers',
 };

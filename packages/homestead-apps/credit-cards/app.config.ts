@@ -24,7 +24,6 @@ export const creditCardsApp: AppConfig = {
   showInNav: true,
   navOrder: 5,
   section: 'Money',
-  enabled: true,
   resources: creditCardsResources,
   // Only the top-level `credit-card` resource gets generic offline
   // CRUD defaults. Perks + redemptions are nested under credit-cards

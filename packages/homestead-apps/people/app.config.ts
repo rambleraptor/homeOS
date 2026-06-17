@@ -29,7 +29,6 @@ export const peopleApp: AppConfig = {
   section: 'Relationships',
   showInNav: true,
   navOrder: 3,
-  enabled: true,
   resources: peopleResources,
   filters: [
     {

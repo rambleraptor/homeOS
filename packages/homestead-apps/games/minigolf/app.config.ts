@@ -24,6 +24,5 @@ export const minigolfApp: AppConfig = {
       gates: ['enabled'],
     },
   ],
-  enabled: true,
   resources: minigolfResources,
 };

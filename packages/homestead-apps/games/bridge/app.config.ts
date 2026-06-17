@@ -23,5 +23,4 @@ export const bridgeApp: AppConfig = {
       gates: ['enabled'],
     },
   ],
-  enabled: true,
 };

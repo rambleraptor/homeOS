@@ -23,5 +23,4 @@ export const dashboardApp: AppConfig = {
   ],
   showInNav: false,
   navOrder: 1,
-  enabled: true,
 };

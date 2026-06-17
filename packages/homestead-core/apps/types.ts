@@ -191,13 +191,6 @@ export interface AppConfig {
   section?: string;
 
   /**
-   * Whether this app is enabled
-   * Can be used for feature flags
-   * @default true
-   */
-  enabled?: boolean;
-
-  /**
    * Default audience for the built-in `enabled` flag that the registry
    * auto-injects for every app. Controls who can see/use the app
    * until an admin overrides the flag in the Flag Management UI.

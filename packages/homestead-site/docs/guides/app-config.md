@@ -66,7 +66,6 @@ import the config without pulling in the component graph.
 | `topBarBadge`      | `LazyComponent`                             | —           | Badge inside a topbar app's button (fetches its own data).          |
 | `navOrder`         | `number`                                    | `100`       | Sort order within a section (lower first).                          |
 | `section`          | `string`                                    | —           | Grouping header in the sidebar. Unsectioned apps render last.       |
-| `enabled`          | `boolean`                                   | `true`      | Static on/off switch.                                              |
 | `defaultEnabled`   | `AppVisibility`                             | `'all'`     | Starting audience for the auto `enabled` flag — see [App Flags](./app-flags#gating-your-app-on-visibility). |
 | `metadata`         | `Record<string, unknown>`                   | —           | Arbitrary app-specific data.                                       |
 | `filters`          | `AppFilterDecl[]`                           | —           | Client-side, in-memory list filters.                               |

@@ -31,7 +31,6 @@ export const recipesApp: AppConfig = {
   showInNav: true,
   navOrder: 5,
   section: 'Food',
-  enabled: true,
   defaultEnabled: 'superusers',
   resources: recipesResources,
   filters: [

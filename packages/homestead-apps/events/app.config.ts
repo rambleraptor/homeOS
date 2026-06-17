@@ -25,7 +25,6 @@ export const eventsApp: AppConfig = {
   showInNav: true,
   navOrder: 4,
   section: 'Relationships',
-  enabled: true,
   resources: eventsResources,
   filters: [
     { key: 'name', label: 'Name', type: 'text' },

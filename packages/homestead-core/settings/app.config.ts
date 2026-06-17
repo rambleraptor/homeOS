@@ -23,5 +23,4 @@ export const settingsApp: AppConfig = {
   section: 'Settings',
   showInNav: true,
   navOrder: 100,
-  enabled: true,
 };

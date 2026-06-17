@@ -38,6 +38,5 @@ export const pictionaryApp: AppConfig = {
       gates: ['enabled'],
     },
   ],
-  enabled: true,
   resources: pictionaryResources,
 };
