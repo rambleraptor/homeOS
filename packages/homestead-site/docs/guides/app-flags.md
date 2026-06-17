@@ -1,15 +1,11 @@
 # App Flags
 
-App flags let your app add a typed, household-wide setting and read
-or write it at runtime with a single hook. Use them for feature toggles,
-per-app behavior switches, and other small bits of household-wide state
-that don't deserve their own resource.
-
-A flag is a typed value (`string`, `number`, `boolean`, or `enum`) you
-declare in your app's `app.config.ts`. There's one stored value per
-flag for the whole household, and you read or write it with the
-`useAppFlag` hook. Operators can also edit any flag from the superuser
-Flag Management UI at `/superuser/flag-management`.
+A flag is one typed value (`string`, `number`, `boolean`, or `enum`) shared
+across the whole household — a feature toggle, a default store, anything too
+small to deserve its own resource. You declare it in your app's
+`app.config.ts` and read or write it with the `useAppFlag` hook. Operators can
+edit any flag from the superuser Flag Management UI at
+`/superuser/flag-management`.
 
 ## Table of Contents
 

@@ -1,7 +1,6 @@
 # Bulk Import
 
-Let users import rows from a CSV into your app. This guide shows how to
-add a working CSV importer to a Homestead feature app.
+Let users import rows from a CSV into your app.
 
 You declare **what** to import — a CSV schema, per-field validators, and a
 "save one row" function. The framework supplies the **how** — the file
@@ -56,22 +55,22 @@ packages/homestead-apps/<feature>/bulk-import/
 ```ts
 // packages/homestead-apps/<feature>/bulk-import/schema.ts
 import type { BulkImportSchema } from '@rambleraptor/homestead-core/shared/bulk-import';
-import { validateName, validateAmount } from './validators';
+import { validateTask, validatePoints } from './validators';
 
-export interface MyImportData {
-  name: string;
-  amount: number;
+export interface ChoreData {
+  task: string;
+  points: number;
 }
 
-export const myImportSchema: BulkImportSchema<MyImportData> = {
+export const choreSchema: BulkImportSchema<ChoreData> = {
   requiredFields: [
-    { name: 'name', required: true, validator: validateName,
-      description: 'Display name (max 200 chars)' },
-    { name: 'amount', required: true, validator: validateAmount,
-      description: 'Numeric amount' },
+    { name: 'task', required: true, validator: validateTask,
+      description: 'Chore name (max 200 chars)' },
+    { name: 'points', required: true, validator: validatePoints,
+      description: 'Points earned for finishing it' },
   ],
   optionalFields: [],
-  generateTemplate: () => 'name,amount\nExample,42.00\n',
+  generateTemplate: () => 'task,points\nTake out the trash,5\n',
 };
 ```
 
@@ -90,12 +89,12 @@ returns `{ value: U }` on success or `{ value, error }` on failure. The
 // packages/homestead-apps/<feature>/bulk-import/validators.ts
 import type { FieldValidator } from '@rambleraptor/homestead-core/shared/bulk-import';
 
-export const validateName: FieldValidator<string> = (value) => {
-  const name = value.trim();
-  if (name.length > 200) {
-    return { value: name, error: 'name must be 200 characters or less' };
+export const validateTask: FieldValidator<string> = (value) => {
+  const task = value.trim();
+  if (task.length > 200) {
+    return { value: task, error: 'task must be 200 characters or less' };
   }
-  return { value: name };
+  return { value: task };
 };
 ```
 
@@ -112,12 +111,12 @@ a string:
 
 ```ts
 // in your bulk-import/index.tsx
-import { MY_THINGS } from '../resources';
+import { CHORES } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 
 const bulkImport = useBulkImport({
-  collection: MY_THINGS,
-  queryKey: queryKeys.app('my-thing').list(),
+  collection: CHORES,
+  queryKey: queryKeys.app('chores').list(),
 });
 ```
 
@@ -133,10 +132,10 @@ prettier — see `GiftCardPreview.tsx`, `PersonPreview.tsx`, or
 `GamePreview.tsx` for examples. Set it on the schema:
 
 ```ts
-import { MyPreview } from './MyPreview';
-export const myImportSchema: BulkImportSchema<MyImportData> = {
+import { ChorePreview } from './ChorePreview';
+export const choreSchema: BulkImportSchema<ChoreData> = {
   // ...
-  PreviewComponent: MyPreview,
+  PreviewComponent: ChorePreview,
 };
 ```
 
@@ -145,23 +144,23 @@ export const myImportSchema: BulkImportSchema<MyImportData> = {
 ```tsx
 // packages/homestead-apps/<feature>/bulk-import/index.tsx
 import { BulkImportContainer, useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
-import { MY_THINGS } from '../resources';
+import { CHORES } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { myImportSchema } from './schema';
+import { choreSchema } from './schema';
 
-export function MyAppBulkImport() {
+export function ChoresBulkImport() {
   const bulkImport = useBulkImport({
-    collection: MY_THINGS,
-    queryKey: queryKeys.app('my-thing').list(),
+    collection: CHORES,
+    queryKey: queryKeys.app('chores').list(),
   });
 
   return (
     <BulkImportContainer
       config={{
-        appName: 'My Things',
-        appNamePlural: 'my things',
-        backRoute: '/my-thing',
-        schema: myImportSchema,
+        appName: 'Chores',
+        appNamePlural: 'chores',
+        backRoute: '/chores',
+        schema: choreSchema,
         onImport: bulkImport.mutateAsync,
         isImporting: bulkImport.isPending,
       }}
@@ -179,20 +178,20 @@ component:
 
 ```ts
 // packages/homestead-apps/<feature>/app.config.ts
-export const myApp: AppConfig = {
+export const choresApp: AppConfig = {
   // ...
-  basePath: '/my-thing',
+  basePath: '/chores',
   routes: [
     {
       path: '',
       index: true,
       component: () =>
-        import('./components/MyHome').then((m) => m.MyHome),
+        import('./components/ChoresHome').then((m) => m.ChoresHome),
     },
     {
       path: 'import',
       component: () =>
-        import('./bulk-import').then((m) => m.MyAppBulkImport),
+        import('./bulk-import').then((m) => m.ChoresBulkImport),
     },
   ],
   // ...
@@ -201,7 +200,7 @@ export const myApp: AppConfig = {
 
 The SPA's catch-all renderer
 (`packages/homestead-app/src/apps/AppRoute.tsx`) resolves the route's
-lazy `component` for the matched path (here `/my-thing/import`), so there's
+lazy `component` for the matched path (here `/chores/import`), so there's
 nothing else to wire up.
 
 ### 8. Add a discoverable link
@@ -259,7 +258,7 @@ provide the per-row write. Collection constants come from the app's
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 
-useBulkImport<MyImportData, void>({
+useBulkImport<PictionaryImportData, void>({
   queryKey: queryKeys.app('pictionary').all(),
   saveItem: async (row, { createdBy }) => {
     const game = await aepbase.create(PICTIONARY_GAMES, {
@@ -348,24 +347,24 @@ starts. The result is passed to every `saveItem` call as `ctx`:
 
 ```ts
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { MY_THINGS } from '../resources';
+import { CHORES } from '../resources';
 import { PEOPLE } from '../../people/resources';
 
 interface PersonRecord { id: string; name: string }
 
-useBulkImport<MyImportData, Map<string, string>>({
-  queryKey: queryKeys.app('my-thing').list(),
+useBulkImport<ChoreImportData, Map<string, string>>({
+  queryKey: queryKeys.app('chores').list(),
   prepare: async () => {
     const people = await aepbase.list<PersonRecord>(PEOPLE);
     return new Map(people.map((p) => [p.name.toLowerCase(), p.id]));
   },
   saveItem: async (row, { ctx: peopleByName, createdBy }) => {
-    const ownerId = peopleByName.get(row.owner.toLowerCase());
-    if (!ownerId) {
-      throw new Error(`Unknown owner: "${row.owner}"`);
+    const assigneeId = peopleByName.get(row.assignee.toLowerCase());
+    if (!assigneeId) {
+      throw new Error(`Unknown assignee: "${row.assignee}"`);
     }
-    await aepbase.create(MY_THINGS, {
-      owner: `people/${ownerId}`,
+    await aepbase.create(CHORES, {
+      assignee: `people/${assigneeId}`,
       ...row, created_by: createdBy,
     });
   },
@@ -385,5 +384,5 @@ the preview before the import even runs.
 > (`packages/homestead-apps/people/hooks/useBulkImportPeople.ts`) is a
 > hand-written `useMutation` because it needs two passes — create everyone
 > first, then resolve partner-by-name references — and its `index.tsx`
-> simply imports that hook instead of `useBulkImport`. Reach for a custom
+> imports that hook instead of `useBulkImport`. Reach for a custom
 > hook when the framework's single-pass loop isn't enough.
