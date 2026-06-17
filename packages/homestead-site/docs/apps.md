@@ -1,13 +1,16 @@
 ---
-title: Built-in apps
-description: The apps Homestead ships with — todos, groceries, recipes, gift cards, and more.
+title: Example apps
+description: A showcase of apps built on Homestead — todos, groceries, recipes, gift cards, and more — to use as-is or for inspiration.
 ---
 
-# Built-in apps
+# Example apps
 
 Every feature in Homestead is a self-contained app, and every app is opt-in.
-`homestead init` starts you with a sensible set; the full list lives in your
-`homestead.config.ts`, and adding or removing an app is a one-line change.
+The apps below ship in the repo as a showcase of what you can build — install
+the ones you want, fork them to fit your household, or use them as inspiration
+for your own. `homestead init` starts you with a sensible set; the full list
+lives in your `homestead.config.ts`, and adding or removing an app is a
+one-line change.
 
 ## Tasks
 
@@ -40,7 +43,7 @@ Every feature in Homestead is a self-contained app, and every app is opt-in.
 - **Notifications** — view and manage your notifications, including web push.
 
 A few core apps — **Settings**, **Users**, and the **Superuser** console — are
-always installed; they're part of the platform rather than the catalog.
+always installed; they're part of the platform rather than the showcase.
 
 ## Agents get all of it, too
 
@@ -50,6 +53,6 @@ add a grocery item, log a recipe, redeem a perk.
 
 ## Want your own app?
 
-The built-ins are just apps sitting next to yours. Drop a folder with an
+These examples are just apps sitting next to yours. Drop a folder with an
 `app.homestead.ts` under `apps/` (or run `homestead init-app <name>`) and it's
 picked up automatically — see the [Quick Start](./guides/quick-start).

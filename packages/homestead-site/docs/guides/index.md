@@ -1,7 +1,7 @@
 # Docs
 
 Documentation for installing Homestead and building your own apps on it.
-Curious what ships by default? See the [built-in apps](../apps).
+Want inspiration? See the [example apps](../apps).
 
 ## Getting Started
 
