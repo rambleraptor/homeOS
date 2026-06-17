@@ -133,7 +133,7 @@ and write your household resources directly.
 
 ## Agent skills
 
-Homestead ships [`SKILL.md`](https://code.claude.com/docs/en/skills) skills —
+Homestead ships [`SKILL.md`](https://agentskills.io) skills —
 packaged instructions that teach a coding agent to do common Homestead tasks
 the right way. They live in the repo under `.claude/skills/`:
 
