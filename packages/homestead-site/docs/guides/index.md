@@ -13,6 +13,7 @@ Curious what ships by default? See the [built-in apps](../apps).
 Apps are Homestead's version of apps. These guides cover what an app can do
 beyond rendering a page.
 
+- **[App Config](./app-config)** — the field-by-field reference for the `AppConfig` manifest every app exports.
 - **[Defining Resources](./resources)** — declare the data your app stores and get a REST API for it.
 - **[State Management](./state-management)** — read and write resources with the built-in data layer.
 - **[Dashboard Widgets](./widgets)** — add a summary card to the home dashboard.
