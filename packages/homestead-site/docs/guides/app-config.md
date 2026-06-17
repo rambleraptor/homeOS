@@ -17,8 +17,8 @@ on an id collision):
 
 - **Auto-discovered** — `apps/<dir>/app.homestead.ts` **default**-exports the
   config. No wiring needed; this is what the [Quick Start](./quick-start) uses.
-- **Explicit** — listed in the `apps` array of `homestead.config.ts`. Built-in
-  apps **named**-export their config from `app.config.ts`.
+- **Explicit** — listed in the `apps` array of `homestead.config.ts`. The
+  bundled example apps **named**-export their config from `app.config.ts`.
 
 ## Minimal config
 
