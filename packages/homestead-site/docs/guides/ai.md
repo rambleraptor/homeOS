@@ -1,7 +1,7 @@
 # AI Support
 
-Your household data lives behind a standard, AEP-compliant REST API, which
-makes it easy to work with from AI tools. Homestead gives you three ways in:
+Your household data lives behind a standard, AEP-compliant REST API, so it's
+easy to work with from AI tools. There are four ways in:
 
 - **[`homestead resources`](#the-homestead-resources-cli)** — a CLI that
   discovers your schema and reads/writes data, ideal for an agent or for
@@ -109,11 +109,10 @@ Conversations are not stored — each one lives only in the open tab.
 
 ## Connecting an MCP server
 
-[MCP](https://modelcontextprotocol.io) lets AI clients like Claude call
-external tools. Because your data is a standard AEP REST API, the
-community [`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) can
-expose it to any MCP client — turning every resource into a tool the model
-can call, the same way Chat works, but inside your AI client of choice.
+Because your data is a standard AEP REST API, the community
+[`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) exposes it to any
+[MCP](https://modelcontextprotocol.io) client — every resource becomes a tool
+the model can call, the same way Chat does, but inside your own client.
 
 The MCP server runs separately from Homestead (it isn't bundled). Point it
 at your instance:

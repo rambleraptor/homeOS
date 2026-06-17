@@ -10,8 +10,7 @@ Curious what ships by default? See the [built-in apps](../apps).
 
 ## App Development
 
-Apps are Homestead's version of apps. These guides cover what an app can do
-beyond rendering a page.
+What an app can do beyond rendering a page.
 
 - **[App Config](./app-config)** — the field-by-field reference for the `AppConfig` manifest every app exports.
 - **[Defining Resources](./resources)** — declare the data your app stores and get a REST API for it.
