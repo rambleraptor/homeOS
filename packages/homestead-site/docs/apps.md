@@ -9,8 +9,6 @@ Every feature in Homestead is a self-contained app, and every app is opt-in.
 `homestead init` starts you with a sensible set; the full list lives in your
 `homestead.config.ts`, and adding or removing an app is a one-line change.
 
-These are the apps that ship in the box today.
-
 ## Tasks
 
 - **Todos** — daily todo list with progress tracking.
@@ -47,12 +45,11 @@ always installed; they're part of the platform rather than the catalog.
 ## Agents get all of it, too
 
 Every app above publishes its schema and operations through Homestead's
-AEP-compliant API, so anything you can do in these apps, an agent can do on
-your behalf — add a grocery item, log a recipe, redeem a perk.
+AEP-compliant API, so anything you can do, an agent can do on your behalf —
+add a grocery item, log a recipe, redeem a perk.
 
 ## Want your own app?
 
 The built-ins are just apps sitting next to yours. Drop a folder with an
 `app.homestead.ts` under `apps/` (or run `homestead init-app <name>`) and it's
-picked up automatically, shipping alongside the rest — see the
-[Quick Start](./guides/quick-start).
+picked up automatically — see the [Quick Start](./guides/quick-start).

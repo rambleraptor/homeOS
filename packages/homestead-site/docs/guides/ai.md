@@ -1,7 +1,7 @@
 # AI Support
 
-Your household data lives behind a standard, AEP-compliant REST API, which
-makes it easy to work with from AI tools. Homestead gives you three ways in:
+Your household data lives behind a standard, AEP-compliant REST API, so it's
+easy to work with from AI tools. There are four ways in:
 
 - **[`homestead resources`](#the-homestead-resources-cli)** — a CLI that
   discovers your schema and reads/writes data, ideal for an agent or for

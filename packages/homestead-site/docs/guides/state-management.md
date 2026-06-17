@@ -3,10 +3,10 @@
 Homestead apps don't manage server state by hand. Every resource you
 [define](./resources) is reachable through a typed REST client, and
 [TanStack Query](https://tanstack.com/query) (React Query) handles the
-caching, loading flags, refetching, and cache invalidation. You write
-small hooks that wrap the client; the rest is handled for you.
+caching, loading flags, refetching, and invalidation. You write small hooks
+that wrap the client.
 
-This page covers the four tools you'll reach for:
+This page covers four tools:
 
 - [The aepbase client](#the-aepbase-client) — read and write resources.
 - [Query keys](#query-keys) — name your cache slots consistently.

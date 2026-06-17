@@ -1,8 +1,7 @@
 # Notifications
 
-This guide is for app authors who want their feature to send push
-notifications to a user — and, optionally, read them back. It leads with the
-usage you'll actually write.
+For app authors who want their feature to send push notifications to a user —
+and, optionally, read them back.
 
 ## Prerequisite: VAPID keys
 
@@ -24,13 +23,12 @@ The public key is baked into the SPA bundle at build time (`make build` /
 `make homestead` source `packages/homestead-app/.env`), so set it before you
 build. Web push requires HTTPS (localhost is exempt).
 
-## Mental model
+## How it works
 
-Your app sends a notification with a single server-side helper. Homestead
-handles delivery (signs and sends the web push to the user's devices) and
-records the notification in that user's inbox so the UI can show it. The
-notification always goes to the **calling** user. You don't manage push
-subscriptions or inbox rows yourself.
+Your app sends a notification with one server-side helper. Homestead signs and
+delivers the web push to the user's devices, then records it in that user's
+inbox for the UI to show. The notification always goes to the **calling** user;
+you don't manage push subscriptions or inbox rows yourself.
 
 ## Sending a notification from your app
 

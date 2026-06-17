@@ -8,7 +8,7 @@ list worth surfacing on the home screen.
 
 ## Table of Contents
 
-- [Mental Model](#mental-model)
+- [How widgets work](#how-widgets-work)
 - [Add a Widget to Your App](#add-a-widget-to-your-app)
 - [WidgetCard](#widgetcard)
 - [Conventions and Gotchas](#conventions-and-gotchas)
@@ -16,15 +16,15 @@ list worth surfacing on the home screen.
 
 ---
 
-## Mental Model
+## How widgets work
 
 Widgets are self-contained components your app declares in its
 `app.config.ts`. The dashboard discovers them from every installed app's
-config, sorts them by `order` (lower first), and renders each one in a vertical
+config, sorts them by `order` (lower first), and renders each in a vertical
 stack — filtered to the apps the viewer can access and reordered per the
 viewer's saved preferences. Your widget fetches its own data and receives **no
-props**. You don't touch any dashboard or registry code; declaring the widget
-is enough for it to appear.
+props**. Declaring the widget is enough for it to appear; you don't touch any
+dashboard or registry code.
 
 ---
 
