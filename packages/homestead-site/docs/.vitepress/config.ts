@@ -60,6 +60,7 @@ export default defineConfig({
         {
           text: 'App Development',
           items: [
+            { text: 'App Config', link: '/guides/app-config' },
             { text: 'Defining Resources', link: '/guides/resources' },
             { text: 'State Management', link: '/guides/state-management' },
             { text: 'Dashboard Widgets', link: '/guides/widgets' },
