@@ -143,10 +143,8 @@ under `.claude/skills/`:
 | `add-resource`    | Add or modify a resource definition (fields, enums, file fields, child resources).        |
 | `add-widget`      | Add a dashboard widget to an existing app.                                                 |
 
-`SKILL.md` is a cross-agent format — the same folder works in Claude Code,
-Codex, and Gemini CLI. Copy the skills into your agent's directory (use
-`~/...` for all projects, or the dotted form inside one project), then start
-a fresh session. Each agent picks the matching skill from your request.
+Copy them into your agent's skills directory (use `~/...` for all projects,
+or the dotted form inside one project), then start a fresh session:
 
 ```bash
 cp -R /path/to/homestead/.claude/skills/*  ~/.claude/skills/    # Claude Code
