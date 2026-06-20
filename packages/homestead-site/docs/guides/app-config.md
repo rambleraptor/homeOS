@@ -1,29 +1,39 @@
 # App Config
 
-Every Homestead app is one object that follows the `AppConfig` shape — the
-manifest the registry reads to wire your app into navigation, the router, the
-dashboard, settings, and the schema sync, all from declared data. This page is
-the field reference.
+Every Homestead app is one object that follows the `AppConfig` shape. It tells
+Homestead how to add your app to navigation, the router, the dashboard,
+settings, and the schema sync. This page is the field reference.
 
 The type lives in
 [`@rambleraptor/homestead-core/apps/types`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-core/apps/types.ts).
 New to apps? Start with the [Quick Start](./quick-start); this page assumes you
 already know what an app is.
 
-## Where it lives
+This page covers:
 
-A config can be declared in two places, merged at boot (an explicit entry wins
-on an id collision):
+- [Where to declare a config](#where-to-declare-a-config)
+- [Writing a minimal config](#writing-a-minimal-config)
+- [Field reference](#field-reference)
+- [Adding routes](#adding-routes)
+- [Adding flags and user settings](#adding-flags-and-user-settings)
+- [Adding dashboard widgets](#adding-dashboard-widgets)
+- [Nesting apps](#nesting-apps)
+
+## Where to declare a config
+
+Declare your config in one of two places:
 
 - **Auto-discovered** — `apps/<dir>/app.homestead.ts` **default**-exports the
   config. No wiring needed; this is what the [Quick Start](./quick-start) uses.
 - **Explicit** — listed in the `apps` array of `homestead.config.ts`. The
   bundled example apps **named**-export their config from `app.config.ts`.
 
-## Minimal config
+If the same `id` appears in both places, the explicit entry wins.
+
+## Writing a minimal config
 
 Only `id`, `name`, `description`, `icon`, `basePath`, and `routes` are
-required. Everything else is optional and additive.
+required. Everything else is optional.
 
 ```ts
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
@@ -46,11 +56,10 @@ const groceryApp: AppConfig = {
 export default groceryApp;
 ```
 
-Note the **lazy** thunks: `icon` and each route's `component` are
-`() => import(...)`, which keeps them code-split and lets non-React consumers
-import the config without pulling in the component graph.
+Write `icon` and each route's `component` as lazy thunks — `() => import(...)`
+— not direct imports.
 
-## Fields
+## Field reference
 
 | Field              | Type                                        | Default     | Purpose                                                                 |
 | ------------------ | ------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
@@ -59,7 +68,7 @@ import the config without pulling in the component graph.
 | `description` *    | `string`                                    | —           | Short summary of the app.                                              |
 | `icon` *           | `LazyIcon`                                  | —           | Lazy Lucide icon thunk.                                                |
 | `basePath` *       | `string`                                    | —           | Route prefix; must start with `/`.                                    |
-| `routes` *         | `AppRoute[]`                                | —           | The app's pages ([below](#routes)).                                   |
+| `routes` *         | `AppRoute[]`                                | —           | The app's pages ([below](#adding-routes)).                            |
 | `homeScreenIcon`   | `string`                                    | shared icon | PWA "Add to Home Screen" image path (square PNG, ~512×512).            |
 | `showInNav`        | `boolean`                                   | `true`      | `false` hides the app from nav but keeps routes reachable.            |
 | `placement`        | `'sidebar' \| 'topbar'`                     | `'sidebar'` | Where the nav entry renders. Topbar apps are icon-only.              |
@@ -71,11 +80,11 @@ import the config without pulling in the component graph.
 | `filters`          | `AppFilterDecl[]`                           | —           | Client-side, in-memory list filters.                               |
 | `resources`        | `ResourceDefinition[]`                      | —           | aepbase collections the app owns — see [Resources](./resources).   |
 | `offlineOverrides` | `Record<string, ResourceOverride \| false>` | —           | Override auto-derived mutation defaults; `false` opts out entirely. |
-| `flags`            | `Record<string, AppFlagDef>`                | —           | Household-wide typed settings ([below](#flags-user-settings)).      |
+| `flags`            | `Record<string, AppFlagDef>`                | —           | Household-wide typed settings ([below](#adding-flags-and-user-settings)). |
 | `userSettings`     | `Record<string, UserSettingDef>`            | —           | Per-user typed settings (same shape as `flags`).                   |
 | `settingsWidget`   | `LazyComponent`                             | —           | Custom settings-page UI in place of the auto-generated form.       |
-| `widgets`          | `DashboardWidget[]`                         | —           | Dashboard summary cards ([below](#widgets)).                       |
-| `children`         | `AppConfig[]`                               | —           | Sub-apps; makes this a container app ([below](#nested-apps)).      |
+| `widgets`          | `DashboardWidget[]`                         | —           | Dashboard summary cards ([below](#adding-dashboard-widgets)).      |
+| `children`         | `AppConfig[]`                               | —           | Sub-apps; makes this a container app ([below](#nesting-apps)).     |
 
 `*` = required.
 
@@ -83,11 +92,10 @@ import the config without pulling in the component graph.
 > a resource definition (`ResourceDefinition.customMethods`), addressed as
 > `POST /<plural>:<verb>`.
 
-## Routes
+## Adding routes
 
-Each route's `path` is relative to `basePath`; the SPA's single catch-all
-renderer resolves it. Use `''` for the index and `:name` for params, which
-arrive on the component's `params` prop.
+Each route's `path` is relative to `basePath`. Use `''` for the index and
+`:name` for params, which arrive on the component's `params` prop.
 
 ```ts
 routes: [
@@ -102,7 +110,7 @@ routes: [
 guards. Set `dynamic: true` on routes with `:name` params so they aren't
 prerendered.
 
-## Flags & user settings
+## Adding flags and user settings
 
 `flags` are household-wide; `userSettings` are per-user. Both share the
 `AppFlagDef` shape and are read with `useAppFlag` / `useUserSetting`. See the
@@ -122,11 +130,11 @@ flags: {
 `enum` flags also take `options: readonly string[]`. Every app additionally
 gets an auto-injected `enabled` flag — don't declare your own.
 
-## Widgets
+## Adding dashboard widgets
 
-Self-contained, zero-prop dashboard cards declared with a lazy `component`.
-The dashboard discovers them across all apps and lays them out by `order`
-(lower first; default `100`). See the [Dashboard Widgets](./widgets) guide.
+Dashboard cards declared with a lazy `component`. Each widget takes no props
+and fetches its own data. The dashboard lays widgets out by `order` (lower
+first; default `100`). See the [Dashboard Widgets](./widgets) guide.
 
 ```ts
 widgets: [
@@ -139,12 +147,13 @@ widgets: [
 ],
 ```
 
-## Nested apps
+## Nesting apps
 
 Setting `children` makes an app a container. Each child is a full `AppConfig`
-whose `basePath` must be a prefix of the parent's; the parent's index renders a
-landing of child cards. Children get their own `enabled` flag (so they gate
-independently) but stay out of top-level nav — the parent owns the placement.
+whose `basePath` must start with the parent's. The parent's index renders a
+landing of child cards. Children get their own `enabled` flag, so they gate
+independently, but they stay out of top-level nav — the parent owns the
+placement.
 
 ```ts
 { id: 'finance', basePath: '/finance', /* ... */ children: [creditCardsApp, hsaApp] }

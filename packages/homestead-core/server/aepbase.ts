@@ -102,6 +102,21 @@ function pathFor(plural: string, parent?: ParentPath): string {
 }
 
 /**
+ * Build an error suffix that includes aepbase's response body, not just the
+ * status code. The chat tools surface these messages to the user, so the
+ * actual reason (validation message, "not found", etc.) must survive.
+ */
+async function aepError(res: Response): Promise<string> {
+  let detail = '';
+  try {
+    detail = (await res.text()).trim();
+  } catch {
+    // Body already consumed or unreadable — fall back to the status alone.
+  }
+  return detail ? `${res.status}: ${detail}` : `${res.status}`;
+}
+
+/**
  * List records, following `next_page_token` pagination.
  */
 export async function aepList<T>(
@@ -118,7 +133,7 @@ export async function aepList<T>(
     if (pageToken) qs.set('page_token', pageToken);
     const res = await aepbaseFetch(`${base}?${qs}`, { token });
     if (!res.ok) {
-      throw new Error(`list ${base} → ${res.status}`);
+      throw new Error(`list ${base} → ${await aepError(res)}`);
     }
     const body = (await res.json()) as {
       results?: T[];
@@ -137,7 +152,7 @@ export async function aepGet<T>(
   parent?: ParentPath,
 ): Promise<T> {
   const res = await aepbaseFetch(`${pathFor(plural, parent)}/${id}`, { token });
-  if (!res.ok) throw new Error(`get ${plural}/${id} → ${res.status}`);
+  if (!res.ok) throw new Error(`get ${plural}/${id} → ${await aepError(res)}`);
   return (await res.json()) as T;
 }
 
@@ -153,8 +168,7 @@ export async function aepCreate<T>(
     body,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`create ${plural} → ${res.status}: ${text}`);
+    throw new Error(`create ${plural} → ${await aepError(res)}`);
   }
   return (await res.json()) as T;
 }
@@ -172,7 +186,7 @@ export async function aepUpdate<T>(
     body,
     mergePatch: true,
   });
-  if (!res.ok) throw new Error(`update ${plural}/${id} → ${res.status}`);
+  if (!res.ok) throw new Error(`update ${plural}/${id} → ${await aepError(res)}`);
   return (await res.json()) as T;
 }
 
@@ -186,7 +200,7 @@ export async function aepRemove(
     token,
     method: 'DELETE',
   });
-  if (!res.ok) throw new Error(`delete ${plural}/${id} → ${res.status}`);
+  if (!res.ok) throw new Error(`delete ${plural}/${id} → ${await aepError(res)}`);
 }
 
 /**

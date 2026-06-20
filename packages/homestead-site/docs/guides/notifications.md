@@ -1,42 +1,54 @@
 # Notifications
 
-For app authors who want their feature to send push notifications to a user —
-and, optionally, read them back.
+Send push notifications from your app to a user, and optionally read them back.
+Homestead signs and delivers the web push to the user's devices and records it
+in their inbox. A notification always goes to the **calling** user — you don't
+manage push subscriptions or inbox rows yourself.
 
-## Prerequisite: VAPID keys
+This page covers:
 
-Push needs a VAPID keypair. Generate one per environment with `npx web-push
-generate-vapid-keys`, then set the keys in `packages/homestead-app/.env` (copy
-[`packages/homestead-app/.env.example`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-app/.env.example)
-as a starting point):
+- [Set up VAPID keys](#set-up-vapid-keys)
+- [Send a notification](#send-a-notification)
+- [Send from a custom method](#send-from-a-custom-method)
+- [Send from a server route](#send-from-a-server-route)
+- [Read notifications](#read-notifications)
+- [Add notifications to a new app](#add-notifications-to-a-new-app)
+- [Test notifications](#test-notifications)
+
+---
+
+## Set up VAPID keys
+
+Push needs a VAPID keypair. Generate one per environment:
 
 ```bash
-# Public key — exposed to the browser so the service worker can subscribe.
-VAPID_PUBLIC_KEY=<public-key>
+npx web-push generate-vapid-keys
+```
 
-# Server-side keys — used by homestead-server to sign pushes. Keep them secret.
+Set the keys in `packages/homestead-app/.env` (copy
+[`.env.example`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-app/.env.example)
+to start):
+
+```bash
+VAPID_PUBLIC_KEY=<public-key>
 VAPID_PRIVATE_KEY=<private-key>
 VAPID_EMAIL=mailto:you@example.com
 ```
 
-The public key is baked into the SPA bundle at build time (`make build` /
-`make homestead` source `packages/homestead-app/.env`), so set it before you
-build. Web push requires HTTPS (localhost is exempt).
+The browser uses the public key to subscribe; the server uses both keys to sign
+pushes. Keep `VAPID_PRIVATE_KEY` secret.
 
-## How it works
+Set the keys before you build: `make build` and `make homestead` bake the
+public key into the SPA bundle. Web push requires HTTPS (localhost is exempt).
 
-Your app sends a notification with one server-side helper. Homestead signs and
-delivers the web push to the user's devices, then records it in that user's
-inbox for the UI to show. The notification always goes to the **calling** user;
-you don't manage push subscriptions or inbox rows yourself.
+---
 
-## Sending a notification from your app
+## Send a notification
 
-The server-side helper lives in
-[`packages/homestead-core/server/notifications.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-core/server/notifications.ts)
-and is runtime-agnostic — it takes a standard web `Request`/auth and returns a
-web `Response`, so it works under the server's Hono routes and app custom
-methods alike. It exposes two entry points:
+Call one server-side helper from
+[`packages/homestead-core/server/notifications.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-core/server/notifications.ts).
+It returns a web `Response`, so it works in both server routes and app custom
+methods. There are two entry points:
 
 ```ts
 import {
@@ -46,37 +58,32 @@ import {
 } from '@rambleraptor/homestead-core/server/notifications';
 ```
 
-`UserNotificationOptions` is:
+Both take a `UserNotificationOptions`:
 
-```ts
-interface UserNotificationOptions {
-  title: string;             // notification title the user sees
-  body: string;              // notification body text
-  tag: string;               // stable id; repeated pushes with the same tag collapse
-  url: string;               // path to open when the notification is clicked
-  sourceCollection?: string; // aepbase plural this is about (e.g. 'people')
-  sourceId?: string;         // record id, for the inbox icon + deep link
-}
-```
+| Field              | Required | Description                                                       |
+|--------------------|----------|-------------------------------------------------------------------|
+| `title`            | yes      | Notification title the user sees                                  |
+| `body`             | yes      | Notification body text                                            |
+| `tag`              | yes      | Stable id; pushes with the same tag collapse instead of stacking  |
+| `url`              | yes      | Path to open when the notification is clicked                     |
+| `sourceCollection` | no       | aepbase plural this is about (e.g. `'people'`), for icon + link   |
+| `sourceId`         | no       | Record id, for the inbox icon and deep link                       |
 
-Two choices matter most:
+Use a stable `tag` (e.g. `'grocery-notification'`) so repeated pushes replace
+each other. Set `sourceCollection` to the aepbase plural — `'people'`, not
+`'person'`.
 
-- **`tag`** — use a stable value so repeated pushes collapse rather than stack
-  (e.g. `'grocery-notification'`).
-- **`sourceCollection` / `sourceId`** — set these so the inbox can pick the
-  right icon and deep-link back to the record. `sourceCollection` is the
-  aepbase plural (e.g. `'people'`, not `'person'`).
+---
 
-### From an app custom method (AEP-136)
+## Send from a custom method
 
-App-owned endpoints are **resource custom methods**, not standalone routes.
-Declare a `customMethods` entry on the app's resource definition and
-implement a handler; the server's `/api/aep` gateway dispatches
-`POST /api/aep/<plural>:<verb>` to it, after authenticating the caller. The
-handler receives that already-authenticated caller, so it calls
-`sendNotificationForAuth(auth, …)` directly.
+Use this when the notification comes from your app. App endpoints are resource
+custom methods (AEP-136): you declare them on a resource and the server's
+`/api/aep` gateway serves `POST /api/aep/<plural>:<verb>`, authenticating the
+caller first. Your handler receives the authenticated caller and passes it to
+`sendNotificationForAuth(auth, …)`.
 
-The grocery "list updated" push is the canonical example
+Write the handler. The grocery "list updated" push is the working example
 ([`packages/homestead-apps/groceries/methods/send-notification.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/groceries/methods/send-notification.ts)):
 
 ```ts
@@ -110,13 +117,16 @@ customMethods: {
 
 Trigger it from the client with `aepbase.customMethod('<plural>', '<verb>')`
 (see
-[`packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts)).
+[`useSendGroceryNotification.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts)).
 
-### From a server route (Hono)
+---
 
-If you own a core server endpoint instead, it authenticates the incoming
-request itself, so it calls `sendUserNotification(request, …)` with Hono's raw
-`Request` (`c.req.raw`). The built-in test endpoint is the canonical example
+## Send from a server route
+
+Use this when you own a core server endpoint instead of an app method. The
+route authenticates the request itself, so it calls
+`sendUserNotification(request, …)` with Hono's raw `Request` (`c.req.raw`). The
+built-in test endpoint is the working example
 ([`packages/homestead-server/src/routes/notifications.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-server/src/routes/notifications.ts)):
 
 ```ts
@@ -135,12 +145,12 @@ notificationsRoute.post('/send-test', (c) =>
 );
 ```
 
-## Reading notifications
+---
 
-You usually don't need to render notifications in your app — link to
-`/notifications`, the unified inbox. If you do want to read them, the
-notifications app ships these hooks. Import them from their hook apps
-under `@rambleraptor/homestead-apps/notifications/hooks/…`:
+## Read notifications
+
+Most apps don't render notifications — link to `/notifications`, the shared
+inbox, instead. To read them in your app, use these hooks:
 
 | Hook                              | Import                                                                  | Returns                                       |
 |-----------------------------------|-------------------------------------------------------------------------|-----------------------------------------------|
@@ -148,40 +158,50 @@ under `@rambleraptor/homestead-apps/notifications/hooks/…`:
 | `useNotificationStats()`          | `@rambleraptor/homestead-apps/notifications/hooks/useNotificationStats`    | `{ total, unread, read }`                     |
 | `useMarkNotificationAsRead()`     | `@rambleraptor/homestead-apps/notifications/hooks/useMarkNotificationAsRead` | Mutation, takes a notification id           |
 
-Plus `useUnreadNotifications()` from the dashboard app
-(`@rambleraptor/homestead-apps/dashboard/hooks/useUnreadNotifications`) for
-a top-N inbox preview.
+For a top-N inbox preview, use `useUnreadNotifications()` from
+`@rambleraptor/homestead-apps/dashboard/hooks/useUnreadNotifications`.
 
-Each notification you read back carries `title` and `message` (what the user
-sees), `read` / `read_at` (read state), and `source_collection` /
-`source_id` (the record it's about, for icons and deep links). For a
-app-scoped feed, query the notifications and filter client-side by
-`source_collection === '<your-collection>'`.
+Each notification carries `title` and `message` (what the user sees), `read`
+and `read_at` (read state), and `source_collection` and `source_id` (the
+record it's about). For an app-scoped feed, read the notifications and filter
+client-side by `source_collection === '<your-collection>'`.
 
-## Adding notifications to a new app
+---
 
-1. Implement a custom-method handler under your app (e.g.
-   `methods/send-notification.ts`) that exports a default
-   `CustomMethodHandler` calling `sendNotificationForAuth(auth, { … })`.
-2. Declare it on the relevant resource in your app's `resources.ts` via the
-   `customMethods` map (`{ '<verb>': { target: 'collection', load: () =>
-   import('./methods/<verb>') } }`). The schema sync registers it; the server
-   gateway then serves `POST /api/aep/<plural>:<verb>`.
-3. Trigger it from the client with
-   `aepbase.customMethod('<plural>', '<verb>')` (see
+## Add notifications to a new app
+
+1. Write a custom-method handler under your app (e.g.
+   `methods/send-notification.ts`) that default-exports a `CustomMethodHandler`
+   calling `sendNotificationForAuth(auth, { … })`.
+2. Declare it on a resource in your app's `resources.ts` `customMethods` map:
+
+   ```ts
+   customMethods: {
+     'send-notification': {
+       target: 'collection',
+       load: () => import('./methods/send-notification'),
+     },
+   },
+   ```
+
+   On boot, the server serves it at `POST /api/aep/<plural>:<verb>`.
+3. Trigger it from the client with `aepbase.customMethod('<plural>', '<verb>')`
+   (see
    [`useSendGroceryNotification.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts)).
-4. Decide on a stable `tag` so repeated pushes collapse rather than stack.
-5. Set `sourceCollection` to your aepbase plural (e.g. `'people'`, not
-   `'person'`) and `sourceId` to the record id, so the inbox can pick the
-   right icon and deep-link.
+4. Use a stable `tag` so repeated pushes replace each other.
+5. Set `sourceCollection` to your aepbase plural (`'people'`, not `'person'`)
+   and `sourceId` to the record id.
 
-## Testing
+---
 
-- **Unit:** mock `aepbase` (already done globally in
-  `packages/homestead-app/src/test/setup.ts`) and assert your hook invokes
-  `aepbase.customMethod(...)` (or your server route invokes
-  `sendNotificationForAuth`) with the right payload.
-- **Manual smoke test:** with the dev stack running, `POST` to
-  `/api/notifications/send-test` from the browser DevTools console (the
-  Settings page wires this up via `useSendTestNotification`). You should
-  see a push and a new row in your inbox.
+## Test notifications
+
+Write a unit test: mock `aepbase` (done globally in
+`packages/homestead-app/src/test/setup.ts`) and assert your hook calls
+`aepbase.customMethod(...)` — or your server route calls
+`sendNotificationForAuth` — with the right payload.
+
+Run a manual smoke test: with the dev stack running, `POST` to
+`/api/notifications/send-test` from the browser DevTools console. (The Settings
+page wires this up via `useSendTestNotification`.) You see a push and a new row
+in your inbox.

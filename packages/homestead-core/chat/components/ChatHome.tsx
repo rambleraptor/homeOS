@@ -25,6 +25,25 @@ function ToolCallChip({ call }: { call: ChatToolCall }) {
   );
 }
 
+/** Animated three-dot "assistant is typing" indicator. */
+function TypingIndicator() {
+  return (
+    <div className="flex justify-start" data-testid="chat-pending">
+      <div className="bg-bg-pearl rounded-2xl px-4 py-3">
+        <div className="flex items-center gap-1">
+          {[0, 150, 300].map((delay) => (
+            <span
+              key={delay}
+              className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+              style={{ animationDelay: `${delay}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: UiChatMessage }) {
   const isUser = message.role === 'user';
   return (
@@ -120,15 +139,12 @@ export function ChatHome() {
           {messages.map((message, i) => (
             <MessageBubble key={i} message={message} />
           ))}
-          {pending && (
-            <div className="flex justify-start">
-              <div className="bg-bg-pearl rounded-2xl px-4 py-2 text-sm text-gray-500">
-                Thinking…
-              </div>
-            </div>
-          )}
+          {pending && <TypingIndicator />}
           {error && (
-            <p className="text-sm text-red-600 text-center" role="alert">
+            <p
+              className="text-sm text-red-600 whitespace-pre-wrap break-words rounded-lg bg-red-50 px-3 py-2"
+              role="alert"
+            >
               {error}
             </p>
           )}

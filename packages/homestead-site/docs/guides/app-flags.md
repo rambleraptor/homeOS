@@ -50,9 +50,8 @@ function DefaultStoreBadge() {
 }
 ```
 
-That's it. Defaults are guaranteed (no `undefined` even before the
-backend round-trips), and the Flag Management UI picks the new flag up
-automatically.
+A flag with a `default` never returns `undefined`. The Flag Management
+UI picks up the new flag automatically.
 
 ---
 
@@ -104,8 +103,8 @@ export const exampleApp: AppConfig = {
 };
 ```
 
-Re-exporting the option tuple as both a value and a `typeof` type is the
-idiomatic way to keep call-site types narrow.
+Export the option tuple as a `const` so you can reuse it for narrow
+call-site types.
 
 ---
 
@@ -142,9 +141,12 @@ const { value } = useAppFlag<Theme>('settings', 'theme');
 ### Writing without reading
 
 If you only need to write (e.g. an admin form), use the lower-level
-`useUpdateAppFlag` hook directly:
+`useUpdateAppFlag` hook. Import it from its hooks path — it isn't
+re-exported from `@rambleraptor/homestead-core/settings`:
 
 ```ts
+import { useUpdateAppFlag } from '@rambleraptor/homestead-core/settings/hooks/useUpdateAppFlag';
+
 const update = useUpdateAppFlag();
 await update.mutateAsync({ appId, key, value });
 ```

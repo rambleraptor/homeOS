@@ -1,21 +1,30 @@
 # Quick Start: A Grocery List
 
-This guide builds a working **Grocery List** app under your project's
-`apps/` directory — a page that adds items and lists them, backed by its
-own aepbase collection. No config wiring needed.
+Build a working **Grocery List** app: a page that adds items and lists them,
+backed by its own database collection. By the end you'll have a new app in
+your sidebar with no config wiring.
 
-An app is one object that follows the `AppConfig` shape: an id, a name, an
-icon, a base path, routes, and optionally the `resources` (collections) it
-owns. A route points at a React component.
+This page covers:
 
-> Shortcut: `homestead init-app grocery` scaffolds all of the below in one
-> command.
+- [Define the app](#define-the-app)
+- [Write the page](#write-the-page)
+- [Run it](#run-it)
+- [Next steps](#next-steps)
 
-## 1. Declare the collection and app
+To generate everything below in one command, run:
 
-Create a folder under `apps/` and add an `app.homestead.ts` that
-default-exports the config. It declares one `grocery-item` collection and
-one route. The `icon` and route `component` are lazy imports.
+```bash
+homestead init-app grocery
+```
+
+This creates `apps/grocery/` with a starter app config, resource, and home
+component you can edit. To write the files by hand instead, follow along.
+
+## Define the app {#define-the-app}
+
+Create `apps/grocery/app.homestead.ts` and default-export the app config
+below. It declares one `grocery-item` collection and one route. The `icon`
+and route `component` load on demand.
 
 ```ts
 // apps/grocery/app.homestead.ts
@@ -47,12 +56,14 @@ const groceryApp: AppConfig = {
 export default groceryApp;
 ```
 
-The collection is created automatically on boot by the schema sync. Field
-names stay snake_case; `singular` / `plural` stay kebab-case.
+Homestead creates the `grocery-item` collection the next time you start the
+server. Keep field names in snake_case, and `singular` / `plural` in
+kebab-case.
 
-## 2. Write the page component
+## Write the page {#write-the-page}
 
-The page reads the list with the aepbase client and adds items to it.
+This page lists the saved items and adds new ones. Create
+`apps/grocery/GroceryHome.tsx`:
 
 ```tsx
 // apps/grocery/GroceryHome.tsx
@@ -88,24 +99,25 @@ export function GroceryHome() {
 }
 ```
 
-## 3. Start it
+## Run it {#run-it}
+
+Start the server:
 
 ```bash
 homestead start
 ```
 
-That's it — any `apps/<dir>/app.homestead.ts` is discovered automatically
-at boot and merged with the apps listed in `homestead.config.ts`. Open the
-app, sign in, and go to `/grocery`. The app appears in the sidebar under
-its `section`.
+Sign in, then open `/grocery`. Your app appears in the sidebar under its
+`section`. Add an item; it persists and reappears when you reload.
 
-The explicit `apps` array in `homestead.config.ts` still works exactly as
-before — use it for npm-installed apps, or when you want to wire an app in
-by hand (an explicit entry wins if both declare the same id).
+Homestead finds any `apps/<dir>/app.homestead.ts` on startup, so no config
+edit is needed. To install an app from npm or wire one in by hand, add it to
+the `apps` array in `homestead.config.ts`. If both declare the same `id`,
+the entry in `homestead.config.ts` wins.
 
-## Next steps
+## Next steps {#next-steps}
 
-Your list now persists. From here an app can do much more:
+Your list now persists. From here an app can do more:
 
 - **[Widgets](./widgets)** — add a "items remaining" card to the dashboard.
 - **[App Flags](./app-flags)** — add typed, household-wide settings.

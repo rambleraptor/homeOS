@@ -1,37 +1,38 @@
 # Dashboard Widgets
 
-A widget is a small React component your app contributes to the home
-dashboard (`/dashboard`) — a compact, read-only summary of your app's data
-(items left to buy, upcoming events, perks due soon) with a link that drills
-into the full app. Add one when your app has an at-a-glance number or
-list worth surfacing on the home screen.
+A widget is a small React component your app shows on the home dashboard
+(`/dashboard`) — a compact, read-only summary of your app's data (items left
+to buy, upcoming events, perks due soon) with a link into the full app. Add
+one when your app has an at-a-glance number or list worth surfacing on the
+home screen.
 
-## Table of Contents
+This page covers:
 
 - [How widgets work](#how-widgets-work)
-- [Add a Widget to Your App](#add-a-widget-to-your-app)
-- [WidgetCard](#widgetcard)
-- [Conventions and Gotchas](#conventions-and-gotchas)
-- [Existing Widgets](#existing-widgets)
+- [Add a widget to your app](#add-a-widget-to-your-app)
+- [WidgetCard reference](#widgetcard-reference)
+- [Conventions and gotchas](#conventions-and-gotchas)
+- [Find existing widgets](#find-existing-widgets)
 
 ---
 
 ## How widgets work
 
-Widgets are self-contained components your app declares in its
-`app.config.ts`. The dashboard discovers them from every installed app's
-config, sorts them by `order` (lower first), and renders each in a vertical
-stack — filtered to the apps the viewer can access and reordered per the
-viewer's saved preferences. Your widget fetches its own data and receives **no
-props**. Declaring the widget is enough for it to appear; you don't touch any
-dashboard or registry code.
+You declare a widget in your app's `app.config.ts`, and the dashboard renders
+it automatically — no dashboard or registry edits needed.
+
+Each widget takes **no props** and fetches its own data. The dashboard
+collects the widgets from every installed app, drops widgets for apps the
+viewer can't access, and stacks the rest vertically. It orders them by each
+widget's `order` value (lower first), then applies the viewer's saved
+ordering and hidden-widget choices from the dashboard customization UI.
 
 ---
 
-## Add a Widget to Your App
+## Add a widget to your app
 
-Two steps: write the component, then register it in `app.config.ts`. Say you
-want a `recipes` widget showing meals cooked this week.
+Write the component, then register it in `app.config.ts`. The example below
+adds a `recipes` widget showing meals cooked this week.
 
 ### 1. Write the widget component
 
@@ -42,9 +43,8 @@ Put it under your app's `components/` folder, one file per widget named
 packages/homestead-apps/recipes/components/RecipesCookedThisWeekWidget.tsx
 ```
 
-A widget takes no props, fetches its own data via an app-scoped hook, wraps
-its content in `<WidgetCard>` for consistent chrome, and handles the loading
-and empty states explicitly:
+The component takes no props, fetches its own data via an app-scoped hook,
+wraps its content in `<WidgetCard>`, and handles the loading and empty states:
 
 ```tsx
 import { ChefHat, Loader2 } from 'lucide-react';
@@ -83,20 +83,21 @@ export function RecipesCookedThisWeekWidget() {
 }
 ```
 
-Note the imports: shared chrome comes from the
-`@rambleraptor/homestead-core/...` alias, while the app's own hook is a
-relative `../hooks/...` import. If the data hook you need doesn't exist, add it
-under `packages/homestead-apps/<feature>/hooks/` first; reuse an existing
-hook when one already covers your data. There is no `'use client'` directive —
-this is a Vite + React SPA, not Next.js.
+Import shared chrome (`WidgetCard`) from the
+`@rambleraptor/homestead-core/...` alias, and your app's own hook as a relative
+`../hooks/...` import. If the data hook you need doesn't exist, add it under
+`packages/homestead-apps/<feature>/hooks/` first, or reuse an existing hook
+that already covers your data.
 
 ### 2. Register the widget in `app.config.ts`
 
-Append it to the app's `widgets` array. The `component` is a **lazy thunk**
-(`() => import(...).then((m) => m.X)`), matching how routes and icons are
-declared. Pick a **globally unique** id (prefix with the app id), give it a
-human-readable `label` (shown in the dashboard customization UI), and choose an
-`order` that positions it relative to widgets from other apps:
+Append an entry to the app's `widgets` array. Set:
+
+- `id` — globally unique across all apps; prefix it with the app id.
+- `label` — shown in the dashboard customization UI. Falls back to `id`.
+- `component` — a lazy thunk, `() => import(...).then((m) => m.X)`.
+- `order` — position relative to other apps' widgets. Lower renders first;
+  defaults to 100.
 
 ```ts
 // packages/homestead-apps/recipes/app.config.ts
@@ -116,7 +117,7 @@ export const recipesApp: AppConfig = {
 };
 ```
 
-For reference, here is the groceries app's declaration:
+The groceries app's declaration:
 
 ```ts
 // packages/homestead-apps/groceries/app.config.ts
@@ -131,29 +132,32 @@ widgets: [
 ],
 ```
 
-That's it — the dashboard discovers your widget automatically; no registry
-edits needed.
+### 3. Verify it appears
 
-### 3. Verify and run the gate
+Start the dev stack:
 
 ```bash
 make dev
-# or, for the full stack: bun packages/homestead-cli/src/cli.ts start --dev
 ```
 
-Visit `/dashboard` and confirm the widget appears in the right slot relative to
-other widgets, then run `make ci && make test`. If you add an e2e check, follow
-the existing widget testid pattern (`<feature>-widget` or
-`<feature>-<slug>-widget`) so the Page Object can target it without CSS
-selectors.
+Visit `/dashboard` and confirm the widget appears in the expected slot
+relative to other widgets. Then run the gate:
+
+```bash
+make ci && make test
+```
+
+If you add an e2e check, give the widget a testid matching the pattern
+`<feature>-widget` or `<feature>-<slug>-widget` so the Page Object can target
+it without CSS selectors.
 
 ---
 
-## WidgetCard
+## WidgetCard reference
 
-`<WidgetCard>` is the standard wrapper that gives every widget a consistent
-look (rounded card, icon chip, link-style title, optional config gear, collapse
-toggle). The props you'll use:
+`<WidgetCard>` is the standard wrapper for a widget: a rounded card with an
+icon chip, link-style title, optional config gear, and a collapse toggle. Its
+props:
 
 ```ts
 export interface WidgetCardProps {
@@ -172,20 +176,18 @@ export interface WidgetCardProps {
 
 Notes:
 
-- The title is wrapped in a react-router `<Link to={href}>` (from
-  `react-router-dom`, **not** `next/link`). Point `href` at your app's home
-  route so users can drill in by clicking the title.
-- When `configHref` is set, a settings gear renders in the header linking to
-  the widget's configuration page (also a react-router `<Link>`). It exposes
-  `data-testid="widget-config-link"`.
-- Collapse state is local to the widget instance (not persisted). Keep
-  `defaultCollapsed` `false` unless the body is expensive or noisy.
-- The collapse toggle exposes `data-testid="widget-collapse-toggle"`; if you
-  interact with it in e2e tests, scope the lookup to your widget's outer testid.
+- Point `href` at your app's home route so clicking the title drills into the
+  app. The title links via `react-router-dom`'s `<Link>`.
+- Set `configHref` to add a settings gear in the header linking to the
+  widget's config page. The gear exposes `data-testid="widget-config-link"`.
+- Collapse state is local to the widget and not persisted. Leave
+  `defaultCollapsed` at `false` unless the body is expensive or noisy.
+- The collapse toggle exposes `data-testid="widget-collapse-toggle"`. In e2e
+  tests, scope the lookup to your widget's outer testid.
 
 ---
 
-## Conventions and Gotchas
+## Conventions and gotchas
 
 **Naming**
 
@@ -198,53 +200,46 @@ Notes:
 
 **Order values**
 
-`order` controls global widget ordering, not per-app. Choose values with
-gaps (10, 20, 30, …) so future widgets can slot in without renumbering. The
-default is `100`; widgets without an explicit order land at the bottom in
-declaration order. The viewer can override this ordering (and hide widgets)
-through the dashboard customization UI, so `order` is the default, not a
+`order` ranks a widget against widgets from all other apps, not just your own.
+Choose values with gaps (10, 20, 30, …) so future widgets can slot in without
+renumbering. The default is `100`. The viewer can reorder and hide widgets in
+the dashboard customization UI, so treat `order` as a default, not a
 guarantee.
 
 **Data fetching**
 
-- Use a React Query hook from your app's `hooks/` directory. The widget
-  benefits from the same cache as the rest of the app — the dashboard won't
-  refetch data the user already loaded elsewhere. Prefer queries the rest of
-  the app already runs; cheap fetches matter since widgets load on the
-  dashboard regardless of which app the user opens next.
-- Always render an `isLoading` branch and an empty branch. Avoid showing `0`
-  with no context; phrase the empty state in plain English.
+- Use a React Query hook from your app's `hooks/` directory. The widget shares
+  the app's cache, so the dashboard reuses data the user already loaded.
+  Prefer queries the rest of the app already runs.
+- Always render an `isLoading` branch and an empty branch. Phrase the empty
+  state in plain English rather than showing a bare `0`.
 
 **Visuals**
 
-- Wrap the body in `<WidgetCard>` rather than a custom container — the
-  dashboard relies on consistent card geometry.
-- Keep widgets compact. The dashboard column is `max-w-3xl`; widgets that need
-  more space should link out to a full-page view via the title `href`.
+- Wrap the body in `<WidgetCard>`, not a custom container.
+- Keep widgets compact. The dashboard column is `max-w-3xl`; link out via the
+  title `href` for anything that needs more space.
 - Use the project palette (`text-text-main`, `text-text-muted`,
-  `font-display`, `font-body`, `bg-surface-white`, `text-brand-navy`, etc.).
+  `font-display`, `font-body`, `bg-surface-white`, `text-brand-navy`).
 
 **Don'ts**
 
-- Don't accept props on a widget component. The contract is zero-prop
-  components. If a widget needs configuration, wire it through app flags
-  (`AppConfig.flags`) and read the value with `useAppFlag(...)` from
+- Don't accept props. Widgets are zero-prop. For configuration, declare an app
+  flag (`AppConfig.flags`) and read it with `useAppFlag(...)` from
   `@rambleraptor/homestead-core/settings`.
-- Don't import another app's components into your widget. Apps stay
-  self-contained.
-- Don't write data from a widget. Widgets are read-only summaries; provide a
-  CTA that links into the app for mutations.
-- Don't import eagerly — keep the lazy `component: () => import(...)` form so
-  your widget code stays code-split out of the main bundle.
-- Don't add `'use client'` or import from `next/*` — this is a Vite SPA.
+- Don't import another app's components.
+- Don't write data from a widget. Widgets are read-only; link into the app for
+  mutations.
+- Don't import the component eagerly. Keep the lazy
+  `component: () => import(...)` form.
 
 ---
 
-## Existing Widgets
+## Find existing widgets
 
-The widgets already in the repo are good references when you write your own
-(e.g. `packages/homestead-apps/groceries/components/GroceriesWidget.tsx`).
-Find the current list with:
+The widgets in the repo are good references when you write your own (for
+example `packages/homestead-apps/groceries/components/GroceriesWidget.tsx`).
+List them all:
 
 ```bash
 grep -rn "widgets:" packages/homestead-apps/*/app.config.ts

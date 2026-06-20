@@ -64,18 +64,23 @@ wire format for you.
 | `type`     | Stores                                        |
 | ---------- | --------------------------------------------- |
 | `string`   | Text.                                         |
-| `number`   | Integer or decimal.                           |
+| `number`   | An integer or decimal.                        |
+| `integer`  | A whole number.                               |
 | `boolean`  | `true` / `false`.                             |
-| `object`   | A nested JSON object.                         |
+| `object`   | A nested JSON object (declare its `properties`). |
+| `array`    | A list (declare its element type in `items`).  |
 | `file`     | An uploaded file (see [File Fields](#file-fields)). |
 
 Each field can also set:
 
-- `required: true` — the field must be present on create.
-- `description` — a short note, surfaced in the generated API docs and to
-  the chat assistant.
-- `enum: [...]` — restrict a string to a fixed set of values.
-- `singular_name` / `plural_name` — optional display names.
+| Option                          | Effect                                                        |
+| ------------------------------- | ------------------------------------------------------------- |
+| `required: true`                | The field must be present on create.                          |
+| `description`                   | A short note, shown in the generated API docs and to the chat assistant. |
+| `enum: [...]`                   | Restrict a string to a fixed set of values.                   |
+| `default`                       | Value the engine applies when the field is omitted on create. Not allowed on `file` fields. |
+| `format`                        | JSON-schema format hint for a string field, e.g. `date-time`. |
+| `singular_name` / `plural_name` | Display names.                                                 |
 
 ---
 

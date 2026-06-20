@@ -1,40 +1,26 @@
 # Access & Tags
 
-By default every signed-in user can reach every app. When you want some
-apps limited to certain people — kids' chores hidden from guests, finances
-visible only to the adults — you group users with **tags** and grant
-access by tag. A tag is effectively a user list: label the people who
-belong, then point an app at that label.
+By default every signed-in user can reach every app. To limit an app to
+certain people — kids' chores hidden from guests, finances for adults only —
+group users with **tags**, then grant the app access by tag.
 
-Access is enforced on the server, not just hidden in the UI, so tagging is
-a real authorization boundary — not a cosmetic one.
+A **tag** is a label on a user account, like `adults`, `kids`, or `guests`.
+A user can have several. To restrict an app, set it to **tagged** mode and
+list the allowed tags. A user gets in if they have **any** of those tags.
 
-## Table of Contents
+Tag checks run on the server for every request, so they apply to the API
+and AI tools too — not only the web UI.
 
-- [The Idea](#the-idea)
-- [Step 1: Tag Your Users](#step-1-tag-your-users)
-- [Step 2: Restrict an App by Tag](#step-2-restrict-an-app-by-tag)
-- [Visibility Modes](#visibility-modes)
-- [Notes](#notes)
+## This page covers
 
----
-
-## The Idea
-
-Two pieces work together:
-
-- **Tags** are labels you put on user accounts — `adults`, `kids`,
-  `guests`, whatever fits your household. A user can have several.
-- **App access** decides who can reach each app. Set an app to the
-  **tagged** mode and list which tags are allowed. A user gets in if they
-  have **any** of those tags.
-
-So a tag is your reusable "user list," and each app picks which lists it
-trusts.
+- [Tag your users](#tag-your-users)
+- [Restrict an app by tag](#restrict-an-app-by-tag)
+- [Access modes](#access-modes)
+- [Reference notes](#reference-notes)
 
 ---
 
-## Step 1: Tag Your Users
+## Tag your users
 
 Tags are assigned per user in the **Users** app (**Settings → Users**, see
 [Creating Users](./users)):
@@ -49,46 +35,42 @@ child's. Those names are what you'll reference when restricting apps.
 
 ---
 
-## Step 2: Restrict an App by Tag
+## Restrict an app by tag
 
-App access is controlled in **Flag Management**, a superuser screen at
-**Settings → Flag Management**.
+Set app access in **Flag Management**, a superuser screen at **Settings →
+Flag Management**.
 
 1. Go to **Settings → Flag Management**.
 2. Find the app you want to limit.
-3. Set its **enabled** option to **tagged**.
-4. In the **enabled tags** field that appears, list the tags allowed to use
-   it (e.g. `adults`).
-5. The change applies immediately.
+3. Set its **Enabled** option to **tagged**.
+4. In the **Allowed tags** field that appears, list the tags allowed to use
+   it (for example, `adults`).
 
-Now only users carrying one of those tags can open the app — or reach its
-data through the API. Everyone else won't see it in their navigation, and
-the server will refuse their requests.
-
----
-
-## Visibility Modes
-
-The **enabled** setting on each app supports four modes:
-
-| Mode           | Who can access the app                                              |
-| -------------- | ------------------------------------------------------------------ |
-| **all**        | Every signed-in user (the default).                                |
-| **superusers** | Superusers only — handy for hiding work in progress.               |
-| **none**       | Nobody, including superusers.                                      |
-| **tagged**     | Only users whose tags match the app's **enabled tags** list.       |
+The change applies immediately. Only users with one of those tags can open
+the app or reach its data through the API. Everyone else won't see it in
+their navigation, and the server returns a 403 for their requests.
 
 ---
 
-## Notes
+## Access modes
 
-- **Any-of matching.** In **tagged** mode a user needs just one matching
-  tag, not all of them.
-- **Superusers don't bypass tagged mode.** If an app is restricted to
-  `adults` and a superuser should reach it, give that superuser the
-  `adults` tag too.
-- **Enforced on the server.** Tag checks run on every request, so access
-  control holds even for the API and AI tools — not only the web UI.
-- **Tagging is for grouping, not secrets.** Tags decide which apps a person
-  can open; they aren't per-record permissions. Within an app a user reaches
-  has access to, they see that app's shared household data.
+The **Enabled** setting on each app has four modes:
+
+| Mode           | Who can access the app                                       |
+| -------------- | ------------------------------------------------------------ |
+| **all**        | Every signed-in user (the default).                          |
+| **superusers** | Superusers only.                                             |
+| **none**       | Nobody, including superusers.                                |
+| **tagged**     | Only users whose tags match the app's **Allowed tags** list. |
+
+---
+
+## Reference notes
+
+- **Any-of matching.** In **tagged** mode a user needs one matching tag, not
+  all of them.
+- **Superusers don't bypass tagged mode.** To let a superuser reach an app
+  restricted to `adults`, give that superuser the `adults` tag too.
+- **Tags group apps, not records.** Tags decide which apps a person can open.
+  They aren't per-record permissions: inside an app a user can reach, they
+  see that app's shared household data.

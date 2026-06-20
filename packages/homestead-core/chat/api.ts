@@ -29,14 +29,26 @@ export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
     throw new ChatNotConfiguredError();
   }
   if (!res.ok) {
-    let message = `HTTP ${res.status}`;
-    try {
-      const body = (await res.json()) as { message?: string };
-      if (body.message) message = body.message;
-    } catch {
-      // Non-JSON error body; keep the status message.
-    }
-    throw new Error(message);
+    throw new Error(await errorMessage(res));
   }
   return (await res.json()) as ChatResponse;
+}
+
+/**
+ * Build a full error message from a failed response: the server's
+ * `error`/`message` fields when the body is JSON, otherwise the raw body
+ * text — always prefixed with the status so nothing is reduced to just an
+ * HTTP code.
+ */
+async function errorMessage(res: Response): Promise<string> {
+  const raw = await res.text();
+  let detail = raw.trim();
+  try {
+    const body = JSON.parse(raw) as { error?: string; message?: string };
+    const parts = [body.error, body.message].filter(Boolean);
+    if (parts.length > 0) detail = parts.join(': ');
+  } catch {
+    // Non-JSON body; surface the raw text as-is.
+  }
+  return detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`;
 }
