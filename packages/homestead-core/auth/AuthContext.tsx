@@ -26,7 +26,7 @@ import { aepbase, AepbaseError } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
-import { ACCOUNT_TAGS } from '../users/resources';
+import { ACCOUNT_TAGS } from '../superuser/users/resources';
 
 interface AccountTagRecord {
   id: string;
@@ -165,7 +165,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setState({
       user,
       token: aepbase.authStore.token || null,
-      isAuthenticated: aepbase.authStore.isValid,
+      // Require both, matching onChange below; the bootstrap effect validates.
+      isAuthenticated: aepbase.authStore.isValid && !!user,
       isLoading: false,
     });
   }, []);
@@ -256,6 +257,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
     }
   }, [logout]);
+
+  // The mount effect trusts a persisted token optimistically (a local check),
+  // but a reset/reprovisioned instance can leave a stale token that routes
+  // straight to a 401'ing dashboard instead of the login/setup screen.
+  // Validate once on load: refreshUser drops the session on 401/403 and keeps
+  // it on transient failures. A token with no user is unusable, so drop it.
+  useEffect(() => {
+    if (!aepbase.authStore.isValid) return;
+    if (!aepbase.getCurrentUser()) {
+      logout();
+      return;
+    }
+    void refreshUser();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const value: AuthContextValue = {
     ...state,

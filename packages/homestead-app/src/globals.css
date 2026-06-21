@@ -5,8 +5,17 @@
  * workspace packages are never scanned and any utility class used only there
  * (e.g. pointer-events-auto, translate-x-full, lg:hidden in
  * Sidebar/AppShell/recipe-card overlays) is absent from the bundle. Make those
- * scans explicit. */
-@source "../../../packages";
+ * scans explicit.
+ *
+ * Source the two packages that ship client UI by their sibling paths rather
+ * than the monorepo's `packages/` dir: homestead-app, -core, and -apps sit
+ * next to each other in BOTH layouts — `packages/homestead-*` in this repo and
+ * `node_modules/@rambleraptor/homestead-*` once the app is installed into an
+ * operator's project. A `packages`-relative path resolves to a non-existent
+ * `node_modules/packages` in the installed layout, which silently drops every
+ * class from these packages and ships an unstyled SPA. */
+@source "../../homestead-core";
+@source "../../homestead-apps";
 
 /* Inter + Outfit are loaded via <link> in index.html (Google Fonts). The
  * design tokens below reference these variables; define them here so the

@@ -4,20 +4,19 @@
  * This is the ONE file you edit to choose what your homestead serves.
  * Comment out an app to remove it; import a new one to add it.
  *
- * The settings and superuser apps are always installed by the
- * registry — you don't list them here. They cover account management
- * and flag management, which the rest of the app depends on.
+ * The dashboard, notifications, settings, superuser, users, and chat apps
+ * are always installed by the registry — you don't list them here. They
+ * cover the dashboard, account management, and flag management, which the
+ * rest of the app depends on.
  */
 
 import {
   creditCardsApp,
-  dashboardApp,
   eventsApp,
   gamesApp,
   giftCardsApp,
   groceriesApp,
   hsaApp,
-  notificationsApp,
   peopleApp,
   recipesApp,
   todosApp,
@@ -69,7 +68,6 @@ const auth: HomesteadConfig['auth'] =
 
 const config: HomesteadConfig = {
   apps: [
-    dashboardApp,
     todosApp,
     giftCardsApp,
     groceriesApp,
@@ -79,7 +77,6 @@ const config: HomesteadConfig = {
     hsaApp,
     creditCardsApp,
     gamesApp,
-    notificationsApp,
   ],
   auth,
 };

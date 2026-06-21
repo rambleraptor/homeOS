@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import DefaultTheme from 'vitepress/theme';
 import { useData } from 'vitepress';
+import Apps from './Apps.vue';
 
 const { frontmatter } = useData();
 </script>
 
 <template>
-  <DefaultTheme.Layout v-if="frontmatter.layout !== 'landing'" />
+  <Apps v-if="frontmatter.layout === 'showcase'" />
+  <DefaultTheme.Layout v-else-if="frontmatter.layout !== 'landing'" />
   <main v-else class="hs">
     <header class="topbar">
       <a class="brand" href="/" aria-label="Homestead home">
@@ -30,9 +32,8 @@ const { frontmatter } = useData();
       </p>
       <div class="audience">
         <p>
-          <strong>You.</strong> All your app needs is a data model to get
-          started. You can add in a React frontend, notifications, offline
-          functionality and more when you're ready.
+          <strong>You.</strong> All your app needs to get started is a data
+          model. Add a React frontend, notifications, or offline support later.
         </p>
         <p>
           <strong>Your family.</strong> Homestead handles authentication and
@@ -41,8 +42,8 @@ const { frontmatter } = useData();
         </p>
         <p>
           <strong>Your agents.</strong> Your data is exposed through a chatbot
-          and an agent-friendly CLI. Use your existing agentic workflows to get
-          secure access to your structured, personal data.
+          and an agent-friendly CLI. Point your existing agents at it — they get
+          scoped access to your data, and nothing more.
         </p>
       </div>
       <div class="cta">
@@ -55,9 +56,9 @@ const { frontmatter } = useData();
       <p class="section-label muted">One-command deploy</p>
       <h2>Install, init, start.</h2>
       <p class="deploy-sub">
-        One command installs the CLI from npm. Another boots the web app, the
-        REST backend, the schema sync, and the database together — one process,
-        one port, on a machine you already own.
+        One command installs the CLI from npm. The next runs the whole thing —
+        frontend, backend, and database in a single process — on a machine you
+        already own.
       </p>
       <div class="commands">
         <pre><code><span class="prompt">$</span> npm install -g @rambleraptor/homestead-cli</code></pre>
@@ -73,7 +74,7 @@ const { frontmatter } = useData();
         <img src="/homestead-icon.png" alt="" />
         <span>Homestead</span>
       </div>
-      <p>Build and deploy apps for you, your family, and your agents.</p>
+      <p>Personal apps you actually own.</p>
       <nav aria-label="Footer">
         <a href="#install">Install</a>
         <a href="/apps">Apps</a>
