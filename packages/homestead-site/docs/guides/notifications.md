@@ -154,12 +154,12 @@ inbox, instead. To read them in your app, use these hooks:
 
 | Hook                              | Import                                                                  | Returns                                       |
 |-----------------------------------|-------------------------------------------------------------------------|-----------------------------------------------|
-| `useNotifications()`              | `@rambleraptor/homestead-apps/notifications/hooks/useNotifications`        | All notifications for the current user        |
-| `useNotificationStats()`          | `@rambleraptor/homestead-apps/notifications/hooks/useNotificationStats`    | `{ total, unread, read }`                     |
-| `useMarkNotificationAsRead()`     | `@rambleraptor/homestead-apps/notifications/hooks/useMarkNotificationAsRead` | Mutation, takes a notification id           |
+| `useNotifications()`              | `@rambleraptor/homestead-core/notifications/hooks/useNotifications`        | All notifications for the current user        |
+| `useNotificationStats()`          | `@rambleraptor/homestead-core/notifications/hooks/useNotificationStats`    | `{ total, unread, read }`                     |
+| `useMarkNotificationAsRead()`     | `@rambleraptor/homestead-core/notifications/hooks/useMarkNotificationAsRead` | Mutation, takes a notification id           |
 
 For a top-N inbox preview, use `useUnreadNotifications()` from
-`@rambleraptor/homestead-apps/dashboard/hooks/useUnreadNotifications`.
+`@rambleraptor/homestead-core/dashboard/hooks/useUnreadNotifications`.
 
 Each notification carries `title` and `message` (what the user sees), `read`
 and `read_at` (read state), and `source_collection` and `source_id` (the

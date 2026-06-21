@@ -1,7 +1,7 @@
 /**
  * Users page E2E tests.
  *
- * Only superusers may access /users. These specs exercise the CRUD
+ * Only superusers may access /superuser/users. These specs exercise the CRUD
  * flow as the bootstrap admin and verify the regular-user gate
  * (nav hidden, direct navigation redirects to /dashboard).
  */
@@ -137,10 +137,10 @@ test.describe('Users page (regular user gate)', () => {
     await expect(link).toHaveCount(0);
   });
 
-  test('direct navigation to /users redirects regular users to /dashboard', async ({
+  test('direct navigation to /superuser/users redirects regular users to /dashboard', async ({
     authenticatedPage,
   }) => {
-    await authenticatedPage.goto('/users');
+    await authenticatedPage.goto('/superuser/users');
     await authenticatedPage.waitForURL('/dashboard', { timeout: 5000 });
     await expect(authenticatedPage).toHaveURL(/\/dashboard$/);
   });

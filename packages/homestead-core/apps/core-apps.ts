@@ -11,9 +11,10 @@
  */
 
 import { chatApp } from '../chat/app.config';
+import { dashboardApp } from '../dashboard/app.config';
+import { notificationsApp } from '../notifications/app.config';
 import { settingsApp } from '../settings/app.config';
 import { superuserApp } from '../superuser/app.config';
-import { usersApp } from '../users/app.config';
 import type { AppConfig } from './types';
 
 /**
@@ -21,18 +22,29 @@ import type { AppConfig } from './types';
  * collections are part of the core experience and are never gated by the
  * backend app-access middleware (aepbase's own user-parenting protects
  * the user-scoped ones).
+ *
+ * The Users app is not listed here directly — it's a child of the Superuser
+ * app (`superuserApp.children`) and ships as part of that subtree.
  */
 export const ALWAYS_INSTALLED_APPS: AppConfig[] = [
+  dashboardApp,
   superuserApp,
-  usersApp,
   settingsApp,
   chatApp,
+  notificationsApp,
 ];
 
-/** Ids of the always-installed core apps. */
-export const ALWAYS_INSTALLED_APP_IDS: string[] = ALWAYS_INSTALLED_APPS.map(
-  (m) => m.id,
-);
+/**
+ * Ids of the always-installed core apps, walking nested children so a
+ * built-in app declared as a child (e.g. Users under Superuser) is still
+ * recognized as always-installed — its collections must stay exempt from
+ * the app-access gate just like its parent's.
+ */
+export const ALWAYS_INSTALLED_APP_IDS: string[] = (function collectIds(
+  apps: AppConfig[],
+): string[] {
+  return apps.flatMap((app) => [app.id, ...collectIds(app.children ?? [])]);
+})(ALWAYS_INSTALLED_APPS);
 
 /**
  * Append the always-installed core apps to an operator's app list,

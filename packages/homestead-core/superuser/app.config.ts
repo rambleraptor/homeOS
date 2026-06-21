@@ -9,6 +9,7 @@
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { flagManagementApp } from './flag-management/app.config';
+import { usersApp } from './users/app.config';
 
 export const superuserApp: AppConfig = {
   id: 'superuser',
@@ -28,5 +29,5 @@ export const superuserApp: AppConfig = {
   showInNav: true,
   navOrder: 90,
   defaultEnabled: 'superusers',
-  children: [flagManagementApp],
+  children: [usersApp, flagManagementApp],
 };

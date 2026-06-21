@@ -79,7 +79,6 @@ const CONFIG_TS = `/**
  */
 
 // import {
-//   dashboardApp,
 //   giftCardsApp,
 //   groceriesApp,
 //   recipesApp,
@@ -88,8 +87,9 @@ const CONFIG_TS = `/**
 import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
 
 const config: HomesteadConfig = {
+  // The dashboard, notifications, settings, superuser, users, and chat apps
+  // are always installed — you don't list them here.
   apps: [
-    // dashboardApp,
     // todosApp,
     // giftCardsApp,
     // groceriesApp,

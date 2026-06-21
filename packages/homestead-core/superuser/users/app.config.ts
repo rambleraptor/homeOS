@@ -1,10 +1,11 @@
 /**
- * Users — top-level core app for managing user accounts.
+ * Users — child of the Superuser app for managing user accounts.
  *
- * Lives alongside `settings` and `superuser` as an always-installed
- * core app. Defaults to `'superusers'` visibility, and the route
- * applies the explicit `'superuser'` gate so regular users hitting
- * `/users` directly are redirected.
+ * Sidebar placement is owned by the parent (`superuserApp`); this app
+ * surfaces as a card on the Superuser landing page rather than its own
+ * nav entry. Defaults to `'superusers'` visibility, and the route applies
+ * the explicit `'superuser'` gate so regular users hitting
+ * `/superuser/users` directly are redirected.
  *
  * The underlying `user` collection is owned by aepbase via
  * `EnableUsers = true`; this app deliberately does not declare a
@@ -21,7 +22,7 @@ export const usersApp: AppConfig = {
   name: 'Users',
   description: 'Create and manage user accounts.',
   icon: () => import('lucide-react').then((m) => m.UserCog),
-  basePath: '/users',
+  basePath: '/superuser/users',
   routes: [
     {
       path: '',
@@ -30,9 +31,6 @@ export const usersApp: AppConfig = {
       gates: ['superuser', 'enabled'],
     },
   ],
-  section: 'Settings',
-  showInNav: true,
-  navOrder: 91,
   defaultEnabled: 'superusers',
   resources: usersResources,
 };
