@@ -1,6 +1,6 @@
 {
   "name": "@rambleraptor/homestead-apps",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./index.ts",
   "types": "./index.ts",
