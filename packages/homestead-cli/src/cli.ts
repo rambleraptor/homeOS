@@ -153,8 +153,7 @@ async function initAppCmd(args: string[]): Promise<number> {
     return 1;
   }
   console.log(`scaffolded app "${names.display}" at ${dir}`);
-  console.log('\nNo wiring needed — apps/*/app.homestead.ts is auto-discovered.');
-  console.log('Restart `homestead start` to apply the new app and its resources.');
+  console.log('\nRestart `homestead start` to apply the new app and its resources.');
   return 0;
 }
 

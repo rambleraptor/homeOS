@@ -73,15 +73,13 @@ test('scaffoldApp writes a skeleton app that auto-discovery picks up', () => {
     expect(config).toContain("id: 'book-shelf'");
     expect(config).toContain("basePath: '/book-shelf'");
     expect(config).toContain('BookShelfHome');
+    // The starter resource is defined inline on the AppConfig.
+    expect(config).toContain("singular: 'book-shelf'");
+    expect(config).toContain("plural: 'book-shelf'");
     // Discovery requires the default export.
     expect(config).toContain('export default bookShelfApp');
 
-    expect(existsSync(join(dir, 'resources.ts'))).toBe(true);
-    expect(existsSync(join(dir, 'types.ts'))).toBe(true);
     expect(existsSync(join(dir, 'components', 'BookShelfHome.tsx'))).toBe(true);
-
-    const index = readFileSync(join(dir, 'index.ts'), 'utf8');
-    expect(index).toContain("export { bookShelfApp } from './app.homestead'");
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

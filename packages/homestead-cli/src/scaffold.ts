@@ -172,9 +172,9 @@ export function appNames(raw: string): AppNames {
 
 /**
  * Scaffold a custom app skeleton under `<cwd>/apps/<slug>/`: an AppConfig
- * (`app.homestead.ts`, auto-discovered on boot), a starter resource
- * definition (`resources.ts`), record types (`types.ts`), a home component,
- * and a barrel `index.ts`. Refuses to overwrite an existing app directory.
+ * (`app.homestead.ts`, auto-discovered on boot, with a starter resource
+ * defined inline) and a home component. Refuses to overwrite an existing
+ * app directory.
  */
 export function scaffoldApp(raw: string, cwd = '.'): { dir: string; names: AppNames } {
   const names = appNames(raw);
@@ -185,10 +185,7 @@ export function scaffoldApp(raw: string, cwd = '.'): { dir: string; names: AppNa
 
   const files: Array<[string, string]> = [
     [join(dir, 'app.homestead.ts'), appConfigTs(names)],
-    [join(dir, 'resources.ts'), appResourcesTs(names)],
-    [join(dir, 'types.ts'), appTypesTs(names)],
     [join(dir, 'components', `${names.pascal}Home.tsx`), appHomeTsx(names)],
-    [join(dir, 'index.ts'), appIndexTs(names)],
   ];
   for (const [path, body] of files) {
     mkdirSync(dirname(path), { recursive: true });
@@ -206,7 +203,6 @@ function appConfigTs(n: AppNames): string {
  */
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
-import { ${n.camel}Resources } from './resources';
 
 export const ${n.camel}App: AppConfig = {
   id: '${n.slug}',
@@ -225,55 +221,22 @@ export const ${n.camel}App: AppConfig = {
   showInNav: true,
   navOrder: 100,
   defaultEnabled: 'all',
-  resources: ${n.camel}Resources,
+  // A starter resource. Add fields or more resources as your app grows.
+  resources: [
+    {
+      singular: '${n.singular}',
+      plural: '${n.slug}',
+      description: 'TODO: describe this resource.',
+      user_settable_create: true,
+      fields: {
+        name: { type: 'string', description: 'Display name.', required: true },
+        created_by: { type: 'string', description: 'users/{user_id}' },
+      },
+    },
+  ],
 };
 
 export default ${n.camel}App;
-`;
-}
-
-function appResourcesTs(n: AppNames): string {
-  return `import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
-
-/**
- * Collection plural identifiers — the URL segment aepbase uses for each
- * resource. Import these from hooks so renaming a collection is a one-file
- * change.
- */
-export const ${n.pluralConst} = '${n.slug}' as const;
-
-export const ${n.camel}Resources: ResourceDefinition[] = [
-  {
-    singular: '${n.singular}',
-    plural: ${n.pluralConst},
-    description: 'TODO: describe this resource.',
-    user_settable_create: true,
-    fields: {
-      name: { type: 'string', description: 'Display name.', required: true },
-      created_by: { type: 'string', description: 'users/{user_id}' },
-    },
-  },
-];
-`;
-}
-
-function appTypesTs(n: AppNames): string {
-  return `/**
- * ${n.display} App Types
- */
-
-/**
- * A ${n.singular} record from aepbase. Matches the shape declared in
- * \`./resources.ts\`.
- */
-export interface ${n.singularPascal} {
-  id: string;
-  path: string;
-  name: string;
-  created_by?: string;
-  create_time: string;
-  update_time: string;
-}
 `;
 }
 
@@ -282,8 +245,7 @@ function appHomeTsx(n: AppNames): string {
  * ${n.display} home page. Rendered at the app's index route (\`/${n.slug}\`).
  *
  * Fetch data with hooks built on the aepbase client
- * (\`@rambleraptor/homestead-core/api/aepbase\`) and the collection constants
- * in \`../resources\`.
+ * (\`@rambleraptor/homestead-core/api/aepbase\`).
  */
 export function ${n.pascal}Home() {
   return (
@@ -297,16 +259,6 @@ export function ${n.pascal}Home() {
     </div>
   );
 }
-`;
-}
-
-function appIndexTs(n: AppNames): string {
-  return `/**
- * ${n.display} App Exports
- */
-
-export { ${n.camel}App } from './app.homestead';
-export type { ${n.singularPascal} } from './types';
 `;
 }
 
