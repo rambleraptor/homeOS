@@ -18,7 +18,7 @@ const groups: Group[] = [
     apps: [
       {
         name: 'Todos',
-        blurb: 'A daily todo list with progress tracking.',
+        blurb: 'A shared daily todo list that tracks how much you got through.',
         source: `${repo}/homestead-apps/todos`,
       },
     ],
@@ -28,13 +28,13 @@ const groups: Group[] = [
     apps: [
       {
         name: 'Groceries',
-        blurb: 'Manage your grocery list with smart categorization.',
+        blurb: 'A grocery list that sorts itself into categories as you add items.',
         source: `${repo}/homestead-apps/groceries`,
       },
       {
         name: 'Recipes',
         blurb:
-          'Keep household recipes with structured ingredients, and log what you cooked.',
+          'Household recipes with proper ingredient lists, plus a log of what you cooked.',
         source: `${repo}/homestead-apps/recipes`,
       },
     ],
@@ -44,18 +44,18 @@ const groups: Group[] = [
     apps: [
       {
         name: 'Gift Cards',
-        blurb: 'Track household gift cards and their balances.',
+        blurb: 'Every gift card the household owns, with its current balance.',
         source: `${repo}/homestead-apps/gift-cards`,
       },
       {
         name: 'Credit Cards',
-        blurb: 'Track credit card perks and maximize rewards.',
+        blurb: "Each card's perks in one place, so the rewards don't go to waste.",
         source: `${repo}/homestead-apps/credit-cards`,
       },
       {
         name: 'HSA Receipts',
         blurb:
-          'Track unreimbursed medical expenses for tax-free HSA withdrawals.',
+          'Unreimbursed medical receipts, kept ready for a tax-free HSA withdrawal.',
         source: `${repo}/homestead-apps/hsa`,
       },
     ],
@@ -65,18 +65,18 @@ const groups: Group[] = [
     apps: [
       {
         name: 'People',
-        blurb: 'Contact information and important dates for the people you know.',
+        blurb: 'Contact details and the dates worth remembering for people in your life.',
         source: `${repo}/homestead-apps/people`,
       },
       {
         name: 'Events',
-        blurb: 'Track yearly-recurring household events.',
+        blurb: 'The recurring dates — birthdays, anniversaries — that come around each year.',
         source: `${repo}/homestead-apps/events`,
       },
       {
         name: 'Games',
         blurb:
-          'Scorekeeping for the games you play — mini golf, Pictionary, bridge.',
+          'Score-keeping for the games you play, from mini golf to Pictionary to bridge.',
         source: `${repo}/homestead-apps/games`,
       },
     ],
@@ -86,12 +86,12 @@ const groups: Group[] = [
     apps: [
       {
         name: 'Dashboard',
-        blurb: 'An overview built from widgets the other apps contribute.',
+        blurb: "A single overview stitched together from the other apps' widgets.",
         source: `${repo}/homestead-core/dashboard`,
       },
       {
         name: 'Notifications',
-        blurb: 'View and manage your notifications, including web push.',
+        blurb: 'Everything your apps want to tell you, web push included.',
         source: `${repo}/homestead-core/notifications`,
       },
     ],
@@ -116,13 +116,14 @@ const groups: Group[] = [
 
     <section class="apps-hero">
       <p class="section-label">Example apps</p>
-      <h1>Every feature is an app.</h1>
+      <h1>Apps we've already built.</h1>
       <p class="lede">
-        The apps below ship in the repo. Install the ones you want, edit them to
-        fit your household, or use them as a starting point for your own.
-        <code>homestead init</code> gives you a default set; add or remove an app
-        by editing the <code>apps</code> array in
-        <code>homestead.config.ts</code>.
+        Everything here already ships in the repo — real apps built to run a
+        household, not demos of a framework. Install the ones you want as-is,
+        change whatever doesn't fit, or copy one as the starting point for an app
+        of your own. <code>homestead init</code> sets you up with a default set;
+        the <code>apps</code> array in <code>homestead.config.ts</code> decides
+        what's installed.
       </p>
     </section>
 
@@ -148,10 +149,11 @@ const groups: Group[] = [
 
     <section class="apps-note">
       <p>
-        The <strong>Settings</strong>, <strong>Users</strong>, and
-        <strong>Superuser</strong> apps are always installed. Every app also
-        publishes its schema and operations through Homestead's AEP-compliant
-        API, so anything you can do in an app, an agent can do too.
+        <strong>Settings</strong>, <strong>Users</strong>, and
+        <strong>Superuser</strong> come built in — you can't remove them. And
+        because every app exposes its data through Homestead's API, your agents
+        can use them too: adding a grocery item or logging a recipe the same way
+        you would.
       </p>
       <div class="cta">
         <a class="button" href="/guides/quick-start">Build your own app</a>
