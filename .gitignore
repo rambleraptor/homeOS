@@ -40,7 +40,9 @@ scripts/node_modules/
 aepbase/terraform/terraform.lock.hcl
 
 # homestead single-binary launcher output (built by `make homestead` / `release`)
-bin/
+# Anchored to the repo root so it does NOT match packages/*/bin/ (e.g. the
+# homestead-cli npm entrypoint at packages/homestead-cli/bin/homestead.mjs).
+/bin/
 
 # Built SPA (embedded into the homestead binary by `make homestead`)
 packages/homestead-app/dist/

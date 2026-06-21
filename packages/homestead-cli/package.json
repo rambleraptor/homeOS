@@ -1,6 +1,6 @@
 {
   "name": "@rambleraptor/homestead-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "license": "MIT",
   "homepage": "https://github.com/rambleraptor/homestead#readme",
@@ -19,7 +19,8 @@
     "start": "bun run src/cli.ts",
     "start:node": "tsx src/cli.ts",
     "test": "bun test",
-    "test:node": "vitest run"
+    "test:node": "vitest run",
+    "prepack": "node -e \"require('fs').accessSync('bin/homestead.mjs')\" || (echo 'ERROR: bin/homestead.mjs is missing — the homestead command will not be installed. Check that it is not gitignored.' && exit 1)"
   },
   "dependencies": {
     "@aep_dev/aep-lib-ts": "^0.0.2",
