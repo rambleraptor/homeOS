@@ -55,6 +55,7 @@ export default defineConfig({
           items: [
             { text: 'Installation', link: '/guides/installation' },
             { text: 'Quick Start', link: '/guides/quick-start' },
+            { text: 'AI Support', link: '/guides/ai' },
           ],
         },
         {
@@ -63,11 +64,16 @@ export default defineConfig({
             { text: 'App Config', link: '/guides/app-config' },
             { text: 'Defining Resources', link: '/guides/resources' },
             { text: 'State Management', link: '/guides/state-management' },
+            { text: 'Offline Support', link: '/guides/offline' },
+          ],
+        },
+        {
+          text: 'Adding App Features',
+          items: [
             { text: 'Dashboard Widgets', link: '/guides/widgets' },
             { text: 'App Flags', link: '/guides/app-flags' },
             { text: 'Notifications', link: '/guides/notifications' },
             { text: 'Bulk Import', link: '/guides/bulk-import' },
-            { text: 'AI Support', link: '/guides/ai' },
           ],
         },
         {

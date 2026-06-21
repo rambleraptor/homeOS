@@ -66,32 +66,34 @@ function packageJson(root: string): string {
 const CONFIG_TS = `/**
  * Homestead instance configuration.
  *
- * The \`apps\` array wires in apps explicitly — npm-installed ones like
- * the imports below, or local apps you prefer to list by hand. Comment
- * one out to remove it; import a new one to add it.
+ * A fresh instance ships with no apps. Add them two ways:
  *
- * Custom apps don't need wiring at all: anything under
- * ./apps/<dir>/app.homestead.ts is discovered automatically and added
- * on top of this list (an explicit entry wins on an id collision).
- * Scaffold one with \`homestead init-app <name>\`.
+ *   1. npm-installed example apps — import from
+ *      \`@rambleraptor/homestead-apps\` and list them in \`apps\` below.
+ *      The example set is already a dependency; uncomment the imports
+ *      to use it (only the apps you list are bundled).
+ *
+ *   2. Custom apps — anything under ./apps/<dir>/app.homestead.ts is
+ *      discovered automatically; no wiring here needed. Scaffold one
+ *      with \`homestead init-app <name>\`.
  */
 
-import {
-  dashboardApp,
-  giftCardsApp,
-  groceriesApp,
-  recipesApp,
-  todosApp,
-} from '@rambleraptor/homestead-apps';
+// import {
+//   dashboardApp,
+//   giftCardsApp,
+//   groceriesApp,
+//   recipesApp,
+//   todosApp,
+// } from '@rambleraptor/homestead-apps';
 import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
 
 const config: HomesteadConfig = {
   apps: [
-    dashboardApp,
-    todosApp,
-    giftCardsApp,
-    groceriesApp,
-    recipesApp,
+    // dashboardApp,
+    // todosApp,
+    // giftCardsApp,
+    // groceriesApp,
+    // recipesApp,
   ],
 };
 

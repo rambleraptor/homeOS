@@ -1,26 +1,25 @@
 # AI Support
 
-Your household data lives behind a standard, AEP-compliant REST API, so it's
-easy to work with from AI tools. There are four ways in:
+Your household data sits behind a standard REST API, so AI tools can work
+with it. You have four ways in:
 
-- **[`homestead resources`](#the-homestead-resources-cli)** — a CLI that
-  discovers your schema and reads/writes data, ideal for an agent or for
-  scripting.
-- **[Chat](#chat)** — a built-in assistant that manages your data in plain
-  language.
-- **[An MCP server](#connecting-an-mcp-server)** — connect Claude or another
-  MCP client to your instance.
-- **[Agent skills](#agent-skills)** — drop-in skills that teach your coding
-  agent how to scaffold apps, edit your schema, and stand up an instance.
+- **[`homestead resources`](#read-and-write-data-from-the-cli)** — a CLI that
+  reads and writes your data. Best for an agent or a script.
+- **[Chat](#chat-with-your-data)** — a built-in assistant that manages your
+  data in plain language.
+- **[An MCP server](#connect-an-mcp-client)** — connect Claude or another MCP
+  client to your instance.
+- **[Agent skills](#teach-a-coding-agent-with-skills)** — drop-in skills that
+  teach your coding agent to scaffold apps, edit your schema, and stand up an
+  instance.
 
 ---
 
-## The `homestead resources` CLI
+## Read and write data from the CLI
 
-`homestead resources` is a self-describing client for your household's
-data. It mints a short-lived admin token locally (by reading your
-instance's database — no stored credentials needed) and talks to the
-engine over its REST API. Run it on the box where Homestead is installed.
+`homestead resources` reads and writes your household data from the command
+line. Run it on the box where Homestead is installed; it authenticates
+itself by reading the instance's database, so you don't pass credentials.
 
 **List every resource and what you can do with it:**
 
@@ -63,11 +62,11 @@ For a child resource, pass the parent id before the verb:
 homestead resources --gift-card <card-id> transaction list
 ```
 
-Because the command discovers the schema at runtime, it always reflects
-the resources your apps actually declare — point an agent at it and it can
-learn your whole API by running `homestead resources`.
+The command discovers your schema at runtime, so it always lists the
+resources your apps declare. Point an agent at it and it learns your whole
+API by running `homestead resources`.
 
-### Useful flags
+### Flags
 
 | Flag                          | Purpose                                                        |
 | ----------------------------- | -------------------------------------------------------------- |
@@ -79,60 +78,61 @@ learn your whole API by running `homestead resources`.
 
 ---
 
-## Chat
+## Chat with your data
 
 Chat is a built-in assistant, powered by Gemini, that looks up and changes
 your household data in plain language — "how much is left on my Visa gift
 card?", "add milk to the grocery list", "what events are coming up?". It's
-always installed; you'll find it in the top navigation.
+always installed; find it in the top navigation.
 
-Under the hood it's given a tool for every operation on every resource, so
-it works with **any** app you've added — no per-app setup. It acts with
-**your** permissions, confirms before deleting, and shows you which
-actions it took.
+Chat works with **any** app you've added, with no per-app setup. It acts
+with **your** permissions, confirms before deleting, and shows you which
+actions it took. Conversations are not stored — each one lives only in the
+open tab.
 
-### Enabling it
+### Enable Chat
 
-Chat needs a Gemini API key, set on the server as an environment variable:
+Chat needs a Gemini API key. Get one from
+[Google AI Studio](https://makersuite.google.com/app/apikey), then set it on
+the server in your project's `.env`:
 
 ```bash
-# in your project's .env
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-Get a key from [Google AI Studio](https://makersuite.google.com/app/apikey).
-The key stays server-side. Without it, the chat screen reports that the
-assistant isn't configured; everything else in Homestead works as normal.
-Conversations are not stored — each one lives only in the open tab.
+Restart the server. The Chat screen now answers questions instead of
+reporting that the assistant isn't configured.
+
+Without a key, the rest of Homestead works as normal. The key stays
+server-side.
 
 ---
 
-## Connecting an MCP server
+## Connect an MCP client
 
-Because your data is a standard AEP REST API, the community
-[`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) exposes it to any
-[MCP](https://modelcontextprotocol.io) client — every resource becomes a tool
-the model can call, the same way Chat does, but inside your own client.
+The community
+[`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) exposes your
+data to any [MCP](https://modelcontextprotocol.io) client, such as Claude.
+Every resource becomes a tool the model can call. The MCP server runs
+separately from Homestead.
 
-The MCP server runs separately from Homestead (it isn't bundled). Point it
-at your instance:
+Point it at your instance with two values:
 
 - **API URL** — your instance's engine, at the `/api/aep` prefix
-  (e.g. `http://your-host:3000/api/aep`). The OpenAPI document is served at
+  (e.g. `http://your-host:3000/api/aep`). The OpenAPI document is at
   `/api/aep/openapi.json`.
-- **Bearer token** — the API expects a bearer token. Obtain one by logging
-  in with superuser credentials against the engine's login endpoint, the
-  same way the SPA and `homestead resources --email … --password …` do.
+- **Bearer token** — get one by logging in with your superuser credentials
+  against the engine's login endpoint, the same way
+  `homestead resources --email … --password …` does.
 
-Follow the `aep-mcp-server` README for its exact configuration, then add it
-to your MCP client (such as Claude). From there the model can list, read,
-and write your household resources directly.
+Follow the `aep-mcp-server` README to configure it, then add it to your MCP
+client. The model can then list, read, and write your household resources.
 
 ---
 
-## Agent skills
+## Teach a coding agent with skills
 
-Homestead ships [`SKILL.md`](https://agentskills.io) skills, in the repo
+Homestead ships [`SKILL.md`](https://agentskills.io) skills in the repo
 under `.claude/skills/`:
 
 | Skill             | What it does                                                                              |

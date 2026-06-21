@@ -23,11 +23,18 @@ for (const { app, def } of getAllResourceDefsWithApp()) {
   });
 }
 
-const ReactQueryDevtools = lazy(() =>
-  import('@tanstack/react-query-devtools').then((m) => ({
-    default: m.ReactQueryDevtools,
-  })),
-);
+// Gate the dynamic import on `import.meta.env.DEV` so a production build
+// (`vite build`, what `homestead start` runs) constant-folds this to the
+// `() => null` branch and drops the import entirely. That keeps
+// react-query-devtools a dev-only dependency: operators who install only
+// production deps never need it, and Rollup never tries to resolve it.
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-query-devtools').then((m) => ({
+        default: m.ReactQueryDevtools,
+      })),
+    )
+  : (_props: { initialIsOpen?: boolean }) => null;
 
 interface ProvidersProps {
   children: React.ReactNode;

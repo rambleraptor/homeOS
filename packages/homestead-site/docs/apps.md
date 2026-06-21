@@ -5,12 +5,12 @@ description: A showcase of apps built on Homestead — todos, groceries, recipes
 
 # Example apps
 
-Every feature in Homestead is a self-contained app, and every app is opt-in.
-The apps below ship in the repo as a showcase of what you can build — install
-the ones you want, fork them to fit your household, or use them as inspiration
-for your own. `homestead init` starts you with a sensible set; the full list
-lives in your `homestead.config.ts`, and adding or removing an app is a
-one-line change.
+Every feature in Homestead is a self-contained app. The apps below ship in the
+repo — install the ones you want, edit them to fit your household, or use them
+as a starting point for your own.
+
+`homestead init` gives you a default set. Your installed apps are listed in
+`homestead.config.ts`; add or remove an app by editing that array.
 
 ## Tasks
 
@@ -42,17 +42,23 @@ one-line change.
   other apps contribute.
 - **Notifications** — view and manage your notifications, including web push.
 
-A few core apps — **Settings**, **Users**, and the **Superuser** console — are
-always installed; they're part of the platform rather than the showcase.
+The **Settings**, **Users**, and **Superuser** apps are always installed. You
+can't remove them.
 
-## Agents get all of it, too
+## Let agents use your apps
 
-Every app above publishes its schema and operations through Homestead's
-AEP-compliant API, so anything you can do, an agent can do on your behalf —
-add a grocery item, log a recipe, redeem a perk.
+Every app publishes its schema and operations through Homestead's
+AEP-compliant API. Anything you can do in an app, an agent can do too — add a
+grocery item, log a recipe, redeem a perk.
 
-## Want your own app?
+## Build your own app
 
-These examples are just apps sitting next to yours. Drop a folder with an
-`app.homestead.ts` under `apps/` (or run `homestead init-app <name>`) and it's
-picked up automatically — see the [Quick Start](./guides/quick-start).
+Run `homestead init-app <name>` to scaffold a new app under `apps/`:
+
+```bash
+homestead init-app chores
+```
+
+Homestead discovers any folder with an `app.homestead.ts` under `apps/`
+automatically. Restart `homestead start` to load the new app. See the
+[Quick Start](./guides/quick-start) for a full walkthrough.

@@ -15,24 +15,23 @@ else.
 
 ## Claiming a New Instance
 
-A brand-new instance starts **unclaimed** — there are no accounts yet. The
-first time you open it, the login screen asks you to create the admin
-account instead of signing in:
+A brand-new instance has no accounts yet. The first time you open it, the
+login screen asks you to create the admin (superuser) account instead of
+signing in.
 
 1. Open the app in your browser.
-2. Enter an email and a password (at least 8 characters) for the admin
-   (superuser) account.
-3. Submit. You're now signed in as the superuser.
+2. Enter an email.
+3. Enter a password (at least 8 characters) and confirm it.
+4. Click **Create Admin Account**. You're now signed in as the superuser.
 
-This is a one-time step. Once claimed, the instance shows the normal login
+This is a one-time step. After that, the instance shows the normal login
 screen, and only a superuser can create more accounts.
 
 ---
 
 ## Adding Users
 
-User management lives in the **Users** app, visible to superusers under
-**Settings → Users**.
+Only superusers can add users.
 
 1. Go to **Settings → Users**.
 2. Click **Add User**.
@@ -46,15 +45,13 @@ User management lives in the **Users** app, visible to superusers under
    | **Tags**         | Optional labels for grouping users — see [Access & Tags](./access). |
    | **Password**     | Required. Must be at least 8 characters.                    |
 
-4. Save. The account is ready to use immediately.
+4. Click **Create User**. The account works immediately.
 
 There's no email invite flow — you set each user's password when you create
 the account and share it with them. They can use it to sign in right away.
 
-> **Superuser vs. regular.** Superusers can manage accounts, edit
-> household settings, and control which apps each person can reach. Regular
-> users just use the apps they have access to. Keep the superuser role to
-> the people who actually administer the household.
+Give the **Superuser** type only to people who administer the household.
+Regular users can only open the apps they have access to.
 
 ---
 
@@ -73,10 +70,23 @@ From the same **Users** screen:
 ## Recovering a Lost Password
 
 If a superuser is locked out, reset the password from the command line on
-the server:
+the server. Run this in the project directory:
 
 ```bash
 homestead admin reset-password
 ```
 
-This sets a new superuser password without needing access to the UI.
+This generates a new password and prints it, along with the account email:
+
+```
+superuser password reset:
+  Email:    admin@example.com
+  Password: a1b2c3d4e5f6g7h8
+```
+
+Sign in with that email and password. To target a specific superuser when
+there's more than one, pass its email:
+
+```bash
+homestead admin reset-password --email someone@example.com
+```

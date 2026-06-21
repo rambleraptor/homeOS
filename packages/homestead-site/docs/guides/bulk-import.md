@@ -2,13 +2,16 @@
 
 Let users import rows from a CSV into your app.
 
-You declare **what** to import — a CSV schema, per-field validators, and a
-"save one row" function. The framework supplies the **how** — the file
+You provide three things: a CSV schema, per-field validators, and a function
+that saves one row. The bulk-import framework provides the rest — the file
 upload UI, CSV parsing, a validation summary, a row preview, per-row error
-reporting, and the import loop with React Query invalidation. Validators run
-synchronously at parse time (so they can't hit the API); the framework then
-loops your valid rows and calls your save logic for each. Import everything
-from the workspace alias
+reporting, and the import loop that refreshes your React Query data.
+
+Validators run at parse time and can't make API calls. For checks that need
+to fetch data, do them in the save step instead (see
+[Resolving references by name](#resolving-references-by-name)).
+
+Import everything from
 `@rambleraptor/homestead-core/shared/bulk-import`.
 
 ## Table of Contents
@@ -33,12 +36,13 @@ from the workspace alias
 
 ## Adding bulk import to your app
 
-The shortest path is to copy the gift-cards app's setup
-(`packages/homestead-apps/gift-cards/bulk-import/`); for nested writes,
-copy Pictionary's
+The fastest start is to copy an existing app's setup. For a simple
+one-row-to-one-record import, copy gift cards
+(`packages/homestead-apps/gift-cards/bulk-import/`). For an import that
+writes a parent record plus children, copy Pictionary
 (`packages/homestead-apps/games/pictionary/bulk-import/`).
 
-### 1. Create the bulk-import folder
+### 1. Create the bulk-import folder {#1-create-the-bulk-import-folder}
 
 ```
 packages/homestead-apps/<feature>/bulk-import/
@@ -50,7 +54,7 @@ packages/homestead-apps/<feature>/bulk-import/
 └── useBulkImport<App>.ts (only if save logic is non-trivial)
 ```
 
-### 2. Define the schema
+### 2. Define the schema {#2-define-the-schema}
 
 ```ts
 // packages/homestead-apps/<feature>/bulk-import/schema.ts
@@ -78,7 +82,7 @@ The framework auto-renders the field list (with descriptions) on the
 upload screen and offers a "Download Template" button using
 `generateTemplate()`.
 
-### 3. Write per-field validators
+### 3. Write per-field validators {#3-write-per-field-validators}
 
 A `FieldValidator<U>` takes the raw cell string + the full row object and
 returns `{ value: U }` on success or `{ value, error }` on failure. The
@@ -102,12 +106,11 @@ Validators run synchronously at parse time. For data that needs to be
 fetched async (e.g. "does this person exist?"), defer to the save step
 (see [Resolving references by name](#resolving-references-by-name)).
 
-### 4. Build the save hook
+### 4. Build the save hook {#4-build-the-save-hook}
 
-For a simple one-row → one-resource app, just call `useBulkImport`
-directly with a `collection`. The collection is the kebab-case plural URL
-segment — import it from the app's `resources.ts` rather than hard-coding
-a string:
+For a one-row-to-one-record app, call `useBulkImport` with a `collection`.
+The collection is the kebab-case plural URL segment — import it from the
+app's `resources.ts` rather than hard-coding a string:
 
 ```ts
 // in your bulk-import/index.tsx
@@ -124,12 +127,13 @@ For anything more complex (nested writes, name resolution, multi-step),
 write a wrapper hook that uses the `saveItem` path — see
 [Nested apps](#nested-apps-one-row--parent--children).
 
-### 5. Custom preview component (optional)
+### 5. Custom preview component (optional) {#5-custom-preview-component-optional}
 
-Skipping `PreviewComponent` falls back to `DefaultItemPreview`, which
-just renders each field as a key/value row. Most apps want something
-prettier — see `GiftCardPreview.tsx`, `PersonPreview.tsx`, or
-`GamePreview.tsx` for examples. Set it on the schema:
+If you omit `PreviewComponent`, the preview falls back to
+`DefaultItemPreview`, which renders each field as a key/value row. To show
+a richer preview, set `PreviewComponent` on the schema. See
+`GiftCardPreview.tsx`, `PersonPreview.tsx`, or `GamePreview.tsx` for
+examples:
 
 ```ts
 import { ChorePreview } from './ChorePreview';
@@ -139,7 +143,7 @@ export const choreSchema: BulkImportSchema<ChoreData> = {
 };
 ```
 
-### 6. Wire the entry component
+### 6. Wire the entry component {#6-wire-the-entry-component}
 
 ```tsx
 // packages/homestead-apps/<feature>/bulk-import/index.tsx
@@ -169,12 +173,10 @@ export function ChoresBulkImport() {
 }
 ```
 
-### 7. Register the route
+### 7. Register the route {#7-register-the-route}
 
-The SPA has no per-route page files — routes are declared inline on each
-app. Add an `import` entry to the app's `routes` array in
-`app.config.ts`, pointing `component` at a lazy import of the entry
-component:
+Add an `import` entry to the app's `routes` array in `app.config.ts`.
+Point its `component` at a lazy import of the entry component:
 
 ```ts
 // packages/homestead-apps/<feature>/app.config.ts
@@ -198,12 +200,10 @@ export const choresApp: AppConfig = {
 };
 ```
 
-The SPA's catch-all renderer
-(`packages/homestead-app/src/apps/AppRoute.tsx`) resolves the route's
-lazy `component` for the matched path (here `/chores/import`), so there's
-nothing else to wire up.
+This makes the importer available at `/chores/import`. No other wiring is
+needed.
 
-### 8. Add a discoverable link
+### 8. Add a discoverable link {#8-add-a-discoverable-link}
 
 In your app's home component, add an "Import" button alongside the
 primary "New X" action that navigates to `/<feature>/import` via
@@ -221,11 +221,11 @@ const navigate = useNavigate();
 
 ## Patterns
 
-### Simple apps: one row → one resource
+### Simple apps: one row → one resource {#simple-apps-one-row--one-resource}
 
-Gift cards is the canonical example. It uses the built-in `collection`
-path with no custom hook, pulling the collection constant from the
-app's `resources.ts`:
+Gift cards is the canonical example. It uses the `collection` option with
+no custom hook, pulling the collection constant from the app's
+`resources.ts`:
 
 ```ts
 import { GIFT_CARDS } from '../resources';
@@ -246,12 +246,12 @@ useBulkImport({
 for adding fields the CSV doesn't carry (here the file fields the CSV
 import can't supply). The framework adds `created_by` automatically.
 
-### Nested apps: one row → parent + children
+### Nested apps: one row → parent + children {#nested-apps-one-row--parent--children}
 
 When a row creates a parent record plus child records (e.g. one
-Pictionary game with N teams), use the `saveItem` path. The framework
-still owns the loop, error tracking, and query invalidation; you just
-provide the per-row write. Collection constants come from the app's
+Pictionary game with N teams), use the `saveItem` option. You provide the
+per-row write; the framework still runs the loop, tracks errors, and
+refreshes your data. Pull collection constants from the app's
 `resources.ts`:
 
 ```ts
@@ -304,11 +304,8 @@ export const myImportSchema: BulkImportSchema<CleanShape> = {
 };
 ```
 
-`transformParsed` only runs on rows that passed every per-field
-validator, so you can trust the input. (Pictionary wraps its schema in a
-`makePictionaryImportSchema(peopleByName)` factory so the team validators
-can be wired with an async-loaded people lookup — see
-[Resolving references by name](#resolving-references-by-name).)
+`transformParsed` runs only on rows that passed every per-field
+validator, so you can trust the input.
 
 ### Cross-field validation
 
@@ -340,10 +337,10 @@ export const validateWinner: FieldValidator<number | undefined> = (value, row) =
 
 ### Resolving references by name
 
-Validators run synchronously at parse time, so they can't hit the API.
-For "does this person/store/etc. exist?" checks, defer to save time and
-use the `prepare` hook to load the lookup table once before the loop
-starts. The result is passed to every `saveItem` call as `ctx`:
+Validators run at parse time and can't hit the API. For "does this
+person/store/etc. exist?" checks, defer to save time: use the `prepare`
+option to load a lookup table once before the loop starts. Its result is
+passed to every `saveItem` call as `ctx`:
 
 ```ts
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
@@ -371,18 +368,16 @@ useBulkImport<ChoreImportData, Map<string, string>>({
 });
 ```
 
-A thrown error becomes a per-row import error so the user sees exactly
+A thrown error becomes a per-row import error, so the user sees exactly
 which rows had unknown references. Pictionary's
 `useBulkImportPictionary.ts` is the live example: its `prepare`
 (`loadPeopleMap`) loads a lowercased name → id map, and `saveItem`
 resolves each team's players into `people/{id}` paths, throwing if any
-name is unknown. The same map also drives preview-time validation via the
-`usePeopleNameMap` query (see `peopleMap.ts`), so unknown names surface in
-the preview before the import even runs.
+name is unknown.
 
-> Not every app fits the generic hook. People's importer
-> (`packages/homestead-apps/people/hooks/useBulkImportPeople.ts`) is a
-> hand-written `useMutation` because it needs two passes — create everyone
-> first, then resolve partner-by-name references — and its `index.tsx`
-> imports that hook instead of `useBulkImport`. Reach for a custom
-> hook when the framework's single-pass loop isn't enough.
+> When the single-pass loop isn't enough, write your own
+> `useMutation` instead of `useBulkImport`. People's importer
+> (`packages/homestead-apps/people/hooks/useBulkImportPeople.ts`) does
+> this: it needs two passes — create everyone first, then resolve
+> partner-by-name references — and its `index.tsx` imports that custom
+> hook.

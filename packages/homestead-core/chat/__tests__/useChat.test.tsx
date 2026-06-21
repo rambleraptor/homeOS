@@ -102,17 +102,32 @@ describe('useChat', () => {
     expect(result.current.messages).toEqual([{ role: 'user', content: 'hello' }]);
   });
 
-  it('surfaces server errors and keeps the transcript for retry', async () => {
+  it('surfaces the full server error (status + detail) and keeps the transcript', async () => {
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ message: 'Gemini exploded' }), { status: 502 }),
+      new Response(
+        JSON.stringify({ error: 'Bad gateway', message: 'Gemini exploded' }),
+        { status: 502 },
+      ),
     );
 
     const { result } = renderUseChat();
     await act(() => result.current.send('hello'));
 
-    expect(result.current.error).toBe('Gemini exploded');
+    expect(result.current.error).toBe('HTTP 502: Bad gateway: Gemini exploded');
     expect(result.current.messages).toEqual([{ role: 'user', content: 'hello' }]);
     expect(result.current.pending).toBe(false);
+  });
+
+  it('surfaces a non-JSON error body as raw text', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('upstream timeout', { status: 504 }),
+    );
+
+    const { result } = renderUseChat();
+    await act(() => result.current.send('hello'));
+
+    expect(result.current.error).toBe('HTTP 504: upstream timeout');
+    expect(result.current.messages).toEqual([{ role: 'user', content: 'hello' }]);
   });
 
   it('ignores blank input', async () => {

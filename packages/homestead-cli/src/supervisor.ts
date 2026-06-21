@@ -74,9 +74,16 @@ export async function runStart(
     const c = new Child({
       cmd,
       cwd: project.root,
-      // Explicit, even though the server's default is <cwd>/apps — the dir
-      // may not exist yet, and discovery handles that.
-      env: { HOMESTEAD_APPS_DIR: join(project.root, 'apps') },
+      env: {
+        // The app registry resolves the operator's config from this (a
+        // relative import only works in the source monorepo, not once the
+        // server is installed under node_modules/@rambleraptor/...). Mirrors
+        // what spa-build.ts passes to the SPA build.
+        HOMESTEAD_CONFIG: join(project.root, 'homestead.config.ts'),
+        // Explicit, even though the server's default is <cwd>/apps — the dir
+        // may not exist yet, and discovery handles that.
+        HOMESTEAD_APPS_DIR: join(project.root, 'apps'),
+      },
       tag: '[server]',
     });
     void c.wait().then((code) => {

@@ -1,10 +1,10 @@
 # State Management
 
-Homestead apps don't manage server state by hand. Every resource you
-[define](./resources) is reachable through a typed REST client, and
-[TanStack Query](https://tanstack.com/query) (React Query) handles the
-caching, loading flags, refetching, and invalidation. You write small hooks
-that wrap the client.
+Read and write your app's data through a typed REST client wrapped in small
+hooks. [TanStack Query](https://tanstack.com/query) (React Query) handles
+caching, loading flags, refetching, and invalidation, so you don't manage
+server state by hand. Every resource you [define](./resources) is reachable
+this way.
 
 This page covers four tools:
 
@@ -17,9 +17,9 @@ This page covers four tools:
 
 ## The aepbase client
 
-`@rambleraptor/homestead-core/api/aepbase` is the REST wrapper for your
-resources. Pass the collection's plural (import the constant from the
-app's `resources.ts`).
+Read and write resources with the `aepbase` client from
+`@rambleraptor/homestead-core/api/aepbase`. Pass the collection's plural
+(import the constant from the app's `resources.ts`).
 
 ```ts
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
@@ -48,8 +48,9 @@ await aepbase.list<Transaction>('transactions', {
 
 ## Query keys
 
-`queryKeys` (from `@rambleraptor/homestead-core/api/queryClient`) builds
-stable, hierarchical cache keys so reads and invalidations line up:
+Name your cache slots with `queryKeys` from
+`@rambleraptor/homestead-core/api/queryClient`. It builds hierarchical keys
+so reads and invalidations line up:
 
 ```ts
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
@@ -66,8 +67,8 @@ refreshes every list and detail view in the app.
 
 ## Data hooks
 
-The convention is one small hook per operation, living in your app's
-`hooks/` folder. A **read** is a `useQuery`:
+Write one small hook per operation in your app's `hooks/` folder. A
+**read** is a `useQuery`:
 
 ```ts
 // packages/homestead-apps/gift-cards/hooks/useGiftCards.ts
@@ -111,10 +112,9 @@ Components stay declarative: `const { data, isLoading } = useGiftCards()`
 for reads, `const { mutateAsync, isPending } = useCreateGiftCard()` for
 writes.
 
-### Shortcut for plain CRUD
+### Skip the boilerplate for plain CRUD
 
-If a resource needs no custom logic, skip the boilerplate with the generic
-resource hooks:
+For a resource that needs no custom logic, use the generic resource hooks:
 
 ```ts
 import { useResourceCreate } from '@rambleraptor/homestead-core/api/resourceHooks';
@@ -131,9 +131,8 @@ steps (file handling, nested writes, name resolution).
 
 ## Flags and settings
 
-Not every bit of state deserves its own resource. For small settings,
-Homestead has two purpose-built stores, both read and written with a
-single hook:
+Store small settings without defining a resource. Homestead has two
+stores for this, each read and written with a single hook:
 
 - **App flags** — one value shared across the whole household (feature
   toggles, defaults). Read with `useAppFlag`. See
