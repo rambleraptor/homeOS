@@ -13,30 +13,32 @@ export const pictionaryApp: AppConfig = {
   id: 'pictionary',
   name: 'Pictionary',
   description: 'Track Pictionary games, teams, and winning words',
-  icon: () => import('lucide-react').then((m) => m.Pencil),
-  basePath: '/games/pictionary',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/PictionaryHome').then((m) => m.PictionaryHome),
-      gates: ['enabled'],
-    },
-    {
-      path: 'leaderboard',
-      component: () =>
-        import('./components/PictionaryLeaderboard').then(
-          (m) => m.PictionaryLeaderboard,
-        ),
-      gates: ['enabled'],
-    },
-    {
-      path: 'import',
-      component: () =>
-        import('./bulk-import').then((m) => m.PictionaryBulkImport),
-      gates: ['enabled'],
-    },
-  ],
   resources: pictionaryResources,
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Pencil),
+    basePath: '/games/pictionary',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/PictionaryHome').then((m) => m.PictionaryHome),
+        gates: ['enabled'],
+      },
+      {
+        path: 'leaderboard',
+        component: () =>
+          import('./components/PictionaryLeaderboard').then(
+            (m) => m.PictionaryLeaderboard,
+          ),
+        gates: ['enabled'],
+      },
+      {
+        path: 'import',
+        component: () =>
+          import('./bulk-import').then((m) => m.PictionaryBulkImport),
+        gates: ['enabled'],
+      },
+    ],
+  },
 };

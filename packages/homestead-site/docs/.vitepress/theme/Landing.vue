@@ -53,20 +53,22 @@ const { frontmatter } = useData();
     </section>
 
     <section class="deploy" id="install">
-      <p class="section-label muted">One-command deploy</p>
-      <h2>Install, init, start.</h2>
-      <p class="deploy-sub">
-        One command installs the CLI from npm. The next runs the whole thing —
-        frontend, backend, and database in a single process — on a machine you
-        already own.
-      </p>
-      <div class="commands">
-        <pre><code><span class="prompt">$</span> npm install -g @rambleraptor/homestead-cli</code></pre>
-        <pre><code><span class="prompt">$</span> homestead init my-home
+      <div class="deploy-inner">
+        <p class="section-label muted">One-command deploy</p>
+        <h2>Install, init, start.</h2>
+        <p class="deploy-sub">
+          One command installs the CLI from npm. The next runs the whole thing —
+          frontend, backend, and database in a single process — on a machine you
+          already own.
+        </p>
+        <div class="commands">
+          <pre><code><span class="prompt">$</span> npm install -g @rambleraptor/homestead-cli</code></pre>
+          <pre><code><span class="prompt">$</span> homestead init my-home
 <span class="prompt">$</span> cd my-home
 <span class="prompt">$</span> homestead start</code></pre>
+        </div>
+        <a class="button on-dark" href="https://github.com/rambleraptor/homestead">View on GitHub</a>
       </div>
-      <a class="button on-dark" href="https://github.com/rambleraptor/homestead">View on GitHub</a>
     </section>
 
     <footer class="footer">

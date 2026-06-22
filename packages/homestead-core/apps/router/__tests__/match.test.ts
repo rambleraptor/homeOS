@@ -8,17 +8,19 @@ const Noop = () => null;
 function mod(
   id: string,
   basePath: string,
-  routes: AppConfig['routes'],
+  routes: AppConfig['web']['routes'],
   children?: AppConfig[],
 ): AppConfig {
   return {
     id,
     name: id,
     description: id,
-    icon: Box,
-    basePath,
-    routes,
     children,
+    web: {
+      icon: Box,
+      basePath,
+      routes,
+    },
   };
 }
 

@@ -18,17 +18,19 @@ export const gamesApp: AppConfig = {
   id: 'games',
   name: 'Games',
   description: 'Track games you play with the people in your life',
-  icon: () => import('lucide-react').then((m) => m.Gamepad2),
-  basePath: '/games',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./GamesLanding').then((m) => m.GamesLanding),
-    },
-  ],
-  section: 'Relationships',
-  showInNav: true,
-  navOrder: 22,
   children: [minigolfApp, pictionaryApp, bridgeApp],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Gamepad2),
+    basePath: '/games',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./GamesLanding').then((m) => m.GamesLanding),
+      },
+    ],
+    section: 'Relationships',
+    showInNav: true,
+    navOrder: 22,
+  },
 };

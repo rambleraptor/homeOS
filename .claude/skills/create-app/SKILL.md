@@ -152,15 +152,18 @@ export const featureApp: AppConfig = {
   id: 'feature',
   name: 'Feature',
   description: 'One-line description',
-  icon: Flag,
-  basePath: '/feature',
-  routes: [{ path: '', index: true, component: FeatureHome }],
-  showInNav: true,
-  navOrder: 20,
-  section: 'Games',       // or 'Money', 'Relationships', etc.
   resources: featureResources,
   // Optional: typed flags. See packages/homestead-apps/groceries/app.config.ts.
   // flags: { ... }
+  // `web` groups everything about how the app surfaces in the browser.
+  web: {
+    icon: Flag,
+    basePath: '/feature',
+    routes: [{ path: '', index: true, component: FeatureHome }],
+    showInNav: true,
+    navOrder: 20,
+    section: 'Games',       // or 'Money', 'Relationships', etc.
+  },
 };
 ```
 
@@ -192,16 +195,21 @@ per-route Next.js page files — a single catch-all under
 `frontend/src/app/(app)/[...slug]/page.tsx` resolves URLs against the
 registry and renders `route.component` directly.
 
+`routes` lives under the config's `web` object:
+
 ```ts
 import { FeatureHome } from './components/FeatureHome';
 import { FeatureImport } from './components/FeatureImport';
 
-routes: [
-  { path: '', index: true, component: FeatureHome },
-  { path: 'import', component: FeatureImport },
-  // dynamic params: declare with `:name` and set `dynamic: true`
-  // { path: ':id', component: FeatureDetail, dynamic: true },
-],
+web: {
+  // ...icon, basePath...
+  routes: [
+    { path: '', index: true, component: FeatureHome },
+    { path: 'import', component: FeatureImport },
+    // dynamic params: declare with `:name` and set `dynamic: true`
+    // { path: ':id', component: FeatureDetail, dynamic: true },
+  ],
+},
 ```
 
 If a route should be wrapped in a gate, add `gates: ['enabled']` (or

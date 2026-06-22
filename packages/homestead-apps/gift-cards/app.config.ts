@@ -11,23 +11,25 @@ export const giftCardsApp: AppConfig = {
   id: 'gift-cards',
   name: 'Gift Cards',
   description: 'Manage and track household gift cards',
-  icon: () => import('lucide-react').then((m) => m.Gift),
-  basePath: '/gift-cards',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/GiftCardHome').then((m) => m.GiftCardHome),
-    },
-    {
-      path: 'import',
-      component: () =>
-        import('./bulk-import').then((m) => m.GiftCardsBulkImport),
-    },
-  ],
-  showInNav: true,
-  navOrder: 4,
-  section: 'Money',
   resources: giftCardsResources,
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Gift),
+    basePath: '/gift-cards',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/GiftCardHome').then((m) => m.GiftCardHome),
+      },
+      {
+        path: 'import',
+        component: () =>
+          import('./bulk-import').then((m) => m.GiftCardsBulkImport),
+      },
+    ],
+    showInNav: true,
+    navOrder: 4,
+    section: 'Money',
+  },
 };

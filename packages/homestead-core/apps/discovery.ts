@@ -36,10 +36,10 @@ export function assertDiscoveredApp(
     typeof def !== 'object' ||
     def === null ||
     typeof app.id !== 'string' ||
-    typeof app.basePath !== 'string'
+    typeof app.web?.basePath !== 'string'
   ) {
     throw new Error(
-      `${sourcePath}: default export is not an AppConfig (expected an object with string \`id\` and \`basePath\`)`,
+      `${sourcePath}: default export is not an AppConfig (expected an object with string \`id\` and \`web.basePath\`)`,
     );
   }
   return def as AppConfig;

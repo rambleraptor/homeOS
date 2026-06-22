@@ -13,32 +13,7 @@ export const peopleApp: AppConfig = {
   id: 'people',
   name: 'People',
   description: 'Manage contact information and important dates for people you know',
-  icon: () => import('lucide-react').then((m) => m.Users),
-  basePath: '/people',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./components/PeopleHome').then((m) => m.PeopleHome),
-    },
-    {
-      path: 'import',
-      component: () => import('./bulk-import').then((m) => m.PeopleBulkImport),
-    },
-  ],
-  section: 'Relationships',
-  showInNav: true,
-  navOrder: 3,
   resources: peopleResources,
-  filters: [
-    {
-      key: 'name',
-      label: 'Name',
-      type: 'text',
-      description:
-        "A substring of the person's name. Used by the People list's name filter.",
-    },
-  ],
   userSettings: {
     map_provider: {
       type: 'enum',
@@ -48,5 +23,32 @@ export const peopleApp: AppConfig = {
       options: ['google', 'apple'],
       default: 'google',
     },
+  },
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Users),
+    basePath: '/people',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./components/PeopleHome').then((m) => m.PeopleHome),
+      },
+      {
+        path: 'import',
+        component: () => import('./bulk-import').then((m) => m.PeopleBulkImport),
+      },
+    ],
+    section: 'Relationships',
+    showInNav: true,
+    navOrder: 3,
+    filters: [
+      {
+        key: 'name',
+        label: 'Name',
+        type: 'text',
+        description:
+          "A substring of the person's name. Used by the People list's name filter.",
+      },
+    ],
   },
 };

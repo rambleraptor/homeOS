@@ -103,33 +103,39 @@ Append an entry to the app's `widgets` array. Set:
 // packages/homestead-apps/recipes/app.config.ts
 export const recipesApp: AppConfig = {
   // ...existing fields...
-  widgets: [
-    {
-      id: 'recipes-cooked-this-week',
-      label: 'Cooked this week',
-      component: () =>
-        import('./components/RecipesCookedThisWeekWidget').then(
-          (m) => m.RecipesCookedThisWeekWidget,
-        ),
-      order: 30,
-    },
-  ],
+  web: {
+    // ...icon, basePath, routes...
+    widgets: [
+      {
+        id: 'recipes-cooked-this-week',
+        label: 'Cooked this week',
+        component: () =>
+          import('./components/RecipesCookedThisWeekWidget').then(
+            (m) => m.RecipesCookedThisWeekWidget,
+          ),
+        order: 30,
+      },
+    ],
+  },
 };
 ```
 
-The groceries app's declaration:
+The groceries app's declaration (under `web`):
 
 ```ts
 // packages/homestead-apps/groceries/app.config.ts
-widgets: [
-  {
-    id: 'groceries-remaining',
-    label: 'Groceries',
-    component: () =>
-      import('./components/GroceriesWidget').then((m) => m.GroceriesWidget),
-    order: 10,
-  },
-],
+web: {
+  // ...icon, basePath, routes...
+  widgets: [
+    {
+      id: 'groceries-remaining',
+      label: 'Groceries',
+      component: () =>
+        import('./components/GroceriesWidget').then((m) => m.GroceriesWidget),
+      order: 10,
+    },
+  ],
+},
 ```
 
 ### 3. Verify it appears

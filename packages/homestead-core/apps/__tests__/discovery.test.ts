@@ -8,9 +8,11 @@ function app(id: string): AppConfig {
     id,
     name: id,
     description: `${id} test app`,
-    icon: () => import('lucide-react').then((m) => m.Package),
-    basePath: `/${id}`,
-    routes: [],
+    web: {
+      icon: () => import('lucide-react').then((m) => m.Package),
+      basePath: `/${id}`,
+      routes: [],
+    },
   };
 }
 

@@ -44,7 +44,7 @@ export function EventsList() {
   return (
     <AppFiltersProvider
       appId={eventsApp.id}
-      decls={eventsApp.filters ?? []}
+      decls={eventsApp.web.filters ?? []}
       items={events ?? []}
     >
       <EventsListInner hasAny={(events?.length ?? 0) > 0} />

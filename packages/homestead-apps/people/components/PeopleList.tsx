@@ -38,7 +38,7 @@ export function PeopleList() {
   return (
     <AppFiltersProvider
       appId={peopleApp.id}
-      decls={peopleApp.filters ?? []}
+      decls={peopleApp.web.filters ?? []}
       items={people ?? []}
     >
       <PeopleListInner hasAny={(people?.length ?? 0) > 0} />

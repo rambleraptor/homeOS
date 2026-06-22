@@ -135,7 +135,7 @@ file-carrying write is online-only.
 
 The default offline behavior fits standard CRUD. When a resource needs
 something different, declare it in your app's `app.config.ts` under
-`offlineOverrides`, keyed by the resource's `singular`.
+`web.offlineOverrides`, keyed by the resource's `singular`.
 
 **Cascade a delete.** When deleting one record should also fix up related
 records offline (for example, deleting a store clears the `store` field on its
@@ -143,9 +143,12 @@ items), point the resource at a `cascadeDelete` handler:
 
 ```ts
 // packages/homestead-apps/groceries/app.config.ts
-offlineOverrides: {
-  store: {
-    cascadeDelete: () => import('./offline').then((m) => m.storeCascadeDelete),
+web: {
+  // ...icon, basePath, routes...
+  offlineOverrides: {
+    store: {
+      cascadeDelete: () => import('./offline').then((m) => m.storeCascadeDelete),
+    },
   },
 }
 ```
@@ -154,9 +157,12 @@ offlineOverrides: {
 offline queue shouldn't touch, set it to `false`:
 
 ```ts
-offlineOverrides: {
-  perk: false,
-  redemption: false,
+web: {
+  // ...icon, basePath, routes...
+  offlineOverrides: {
+    perk: false,
+    redemption: false,
+  },
 }
 ```
 
@@ -173,7 +179,7 @@ network unless you wire your own.
 | `resourceMutationKeys(appId, singular)` | `@rambleraptor/homestead-core/api/registerResourceMutationDefaults` | Mutation keys for a hand-written `useMutation` |
 | `useOnlineStatus()` | `@rambleraptor/homestead-core/shared/hooks/useOnlineStatus` | `{ isOnline, isOffline }`, reactive |
 | `<OfflineBanner />` | (in the app shell) | Global offline banner — already mounted |
-| `offlineOverrides` | `app.config.ts` | Per-resource `cascadeDelete` or `false` to opt out |
+| `web.offlineOverrides` | `app.config.ts` | Per-resource `cascadeDelete` or `false` to opt out |
 
 **Offline behavior at a glance:**
 

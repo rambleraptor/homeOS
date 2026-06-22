@@ -32,8 +32,12 @@ If the same `id` appears in both places, the explicit entry wins.
 
 ## Writing a minimal config
 
-Only `id`, `name`, `description`, `icon`, `basePath`, and `routes` are
-required. Everything else is optional.
+Required are `id`, `name`, `description`, and a `web` object holding `icon`,
+`basePath`, and `routes`. Everything else is optional. The `web` object groups
+everything about how the app surfaces in the browser — routing, navigation
+placement, dashboard widgets, list filters, and offline overrides; the
+top-level fields are the app's identity and its data (`flags`, `userSettings`,
+`resources`, `children`).
 
 ```ts
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
@@ -42,30 +46,51 @@ const groceryApp: AppConfig = {
   id: 'grocery',
   name: 'Grocery',
   description: 'A shared grocery list.',
-  icon: () => import('lucide-react').then((m) => m.ShoppingCart),
-  basePath: '/grocery',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./GroceryHome').then((m) => m.GroceryHome),
-    },
-  ],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.ShoppingCart),
+    basePath: '/grocery',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./GroceryHome').then((m) => m.GroceryHome),
+      },
+    ],
+  },
 };
 
 export default groceryApp;
 ```
 
-Write `icon` and each route's `component` as lazy thunks — `() => import(...)`
-— not direct imports.
+Write `web.icon` and each route's `component` as lazy thunks —
+`() => import(...)` — not direct imports.
 
 ## Field reference
 
+### Top-level fields
+
+The app's identity, its data, and the `web` object.
+
+| Field            | Type                             | Default | Purpose                                                                 |
+| ---------------- | -------------------------------- | ------- | ----------------------------------------------------------------------- |
+| `id` *           | `string`                         | —       | Unique identifier (lowercase, no spaces). Keys the registry and flags.  |
+| `name` *         | `string`                         | —       | Display name in nav and UI.                                             |
+| `description` *  | `string`                         | —       | Short summary of the app.                                              |
+| `web` *          | `AppWebConfig`                   | —       | How the app surfaces in the browser ([below](#web-fields)).            |
+| `defaultEnabled` | `AppVisibility`                  | `'all'` | Starting audience for the auto `enabled` flag — see [App Flags](./app-flags#gating-your-app-on-visibility). |
+| `metadata`       | `Record<string, unknown>`        | —       | Arbitrary app-specific data.                                       |
+| `flags`          | `Record<string, AppFlagDef>`     | —       | Household-wide typed settings ([below](#adding-flags-and-user-settings)). |
+| `userSettings`   | `Record<string, UserSettingDef>` | —       | Per-user typed settings (same shape as `flags`).                   |
+| `resources`      | `ResourceDefinition[]`           | —       | aepbase collections the app owns — see [Resources](./resources).   |
+| `children`       | `AppConfig[]`                    | —       | Sub-apps; makes this a container app ([below](#nesting-apps)).     |
+
+### `web` fields
+
+Everything about how the app surfaces in the browser. Lives under the required
+`web` object.
+
 | Field              | Type                                        | Default     | Purpose                                                                 |
 | ------------------ | ------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
-| `id` *             | `string`                                    | —           | Unique identifier (lowercase, no spaces). Keys the registry and flags.  |
-| `name` *           | `string`                                    | —           | Display name in nav and UI.                                             |
-| `description` *    | `string`                                    | —           | Short summary of the app.                                              |
 | `icon` *           | `LazyIcon`                                  | —           | Lazy Lucide icon thunk.                                                |
 | `basePath` *       | `string`                                    | —           | Route prefix; must start with `/`.                                    |
 | `routes` *         | `AppRoute[]`                                | —           | The app's pages ([below](#adding-routes)).                            |
@@ -75,16 +100,10 @@ Write `icon` and each route's `component` as lazy thunks — `() => import(...)`
 | `topBarBadge`      | `LazyComponent`                             | —           | Badge inside a topbar app's button (fetches its own data).          |
 | `navOrder`         | `number`                                    | `100`       | Sort order within a section (lower first).                          |
 | `section`          | `string`                                    | —           | Grouping header in the sidebar. Unsectioned apps render last.       |
-| `defaultEnabled`   | `AppVisibility`                             | `'all'`     | Starting audience for the auto `enabled` flag — see [App Flags](./app-flags#gating-your-app-on-visibility). |
-| `metadata`         | `Record<string, unknown>`                   | —           | Arbitrary app-specific data.                                       |
 | `filters`          | `AppFilterDecl[]`                           | —           | Client-side, in-memory list filters.                               |
-| `resources`        | `ResourceDefinition[]`                      | —           | aepbase collections the app owns — see [Resources](./resources).   |
-| `offlineOverrides` | `Record<string, ResourceOverride \| false>` | —           | Override auto-derived mutation defaults; `false` opts out entirely. |
-| `flags`            | `Record<string, AppFlagDef>`                | —           | Household-wide typed settings ([below](#adding-flags-and-user-settings)). |
-| `userSettings`     | `Record<string, UserSettingDef>`            | —           | Per-user typed settings (same shape as `flags`).                   |
 | `settingsWidget`   | `LazyComponent`                             | —           | Custom settings-page UI in place of the auto-generated form.       |
 | `widgets`          | `DashboardWidget[]`                         | —           | Dashboard summary cards ([below](#adding-dashboard-widgets)).      |
-| `children`         | `AppConfig[]`                               | —           | Sub-apps; makes this a container app ([below](#nesting-apps)).     |
+| `offlineOverrides` | `Record<string, ResourceOverride \| false>` | —           | Override auto-derived mutation defaults; `false` opts out entirely. |
 
 `*` = required.
 
@@ -94,16 +113,20 @@ Write `icon` and each route's `component` as lazy thunks — `() => import(...)`
 
 ## Adding routes
 
-Each route's `path` is relative to `basePath`. Use `''` for the index and
-`:name` for params, which arrive on the component's `params` prop.
+Routes live under `web`. Each route's `path` is relative to `web.basePath`. Use
+`''` for the index and `:name` for params, which arrive on the component's
+`params` prop.
 
 ```ts
-routes: [
-  { path: '', index: true,
-    component: () => import('./GroceriesHome').then((m) => m.GroceriesHome) },
-  { path: ':id', dynamic: true, gates: ['enabled'],
-    component: () => import('./GroceryDetail').then((m) => m.GroceryDetail) },
-],
+web: {
+  // ...icon, basePath...
+  routes: [
+    { path: '', index: true,
+      component: () => import('./GroceriesHome').then((m) => m.GroceriesHome) },
+    { path: ':id', dynamic: true, gates: ['enabled'],
+      component: () => import('./GroceryDetail').then((m) => m.GroceryDetail) },
+  ],
+},
 ```
 
 `gates` wraps the route in `'enabled'` (app visibility) and/or `'superuser'`
@@ -132,29 +155,33 @@ gets an auto-injected `enabled` flag — don't declare your own.
 
 ## Adding dashboard widgets
 
-Dashboard cards declared with a lazy `component`. Each widget takes no props
-and fetches its own data. The dashboard lays widgets out by `order` (lower
-first; default `100`). See the [Dashboard Widgets](./widgets) guide.
+Dashboard cards declared under `web.widgets` with a lazy `component`. Each
+widget takes no props and fetches its own data. The dashboard lays widgets out
+by `order` (lower first; default `100`). See the
+[Dashboard Widgets](./widgets) guide.
 
 ```ts
-widgets: [
-  {
-    id: 'groceries-remaining',   // globally unique; prefix with app id
-    label: 'Groceries',
-    component: () => import('./components/GroceriesWidget').then((m) => m.GroceriesWidget),
-    order: 10,
-  },
-],
+web: {
+  // ...icon, basePath, routes...
+  widgets: [
+    {
+      id: 'groceries-remaining',   // globally unique; prefix with app id
+      label: 'Groceries',
+      component: () => import('./components/GroceriesWidget').then((m) => m.GroceriesWidget),
+      order: 10,
+    },
+  ],
+},
 ```
 
 ## Nesting apps
 
 Setting `children` makes an app a container. Each child is a full `AppConfig`
-whose `basePath` must start with the parent's. The parent's index renders a
+whose `web.basePath` must start with the parent's. The parent's index renders a
 landing of child cards. Children get their own `enabled` flag, so they gate
 independently, but they stay out of top-level nav — the parent owns the
 placement.
 
 ```ts
-{ id: 'finance', basePath: '/finance', /* ... */ children: [creditCardsApp, hsaApp] }
+{ id: 'finance', web: { basePath: '/finance', /* ... */ }, children: [creditCardsApp, hsaApp] }
 ```

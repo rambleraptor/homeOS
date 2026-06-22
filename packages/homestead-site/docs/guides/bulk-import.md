@@ -175,27 +175,30 @@ export function ChoresBulkImport() {
 
 ### 7. Register the route {#7-register-the-route}
 
-Add an `import` entry to the app's `routes` array in `app.config.ts`.
+Add an `import` entry to the app's `web.routes` array in `app.config.ts`.
 Point its `component` at a lazy import of the entry component:
 
 ```ts
 // packages/homestead-apps/<feature>/app.config.ts
 export const choresApp: AppConfig = {
   // ...
-  basePath: '/chores',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/ChoresHome').then((m) => m.ChoresHome),
-    },
-    {
-      path: 'import',
-      component: () =>
-        import('./bulk-import').then((m) => m.ChoresBulkImport),
-    },
-  ],
+  web: {
+    // ...icon...
+    basePath: '/chores',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/ChoresHome').then((m) => m.ChoresHome),
+      },
+      {
+        path: 'import',
+        component: () =>
+          import('./bulk-import').then((m) => m.ChoresBulkImport),
+      },
+    ],
+  },
   // ...
 };
 ```

@@ -9,26 +9,28 @@ export const todosApp: AppConfig = {
   id: 'todos',
   name: 'Todos',
   description: 'Daily todo list with progress tracking.',
-  icon: () => import('lucide-react').then((m) => m.ListTodo),
-  basePath: '/todos',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./components/TodosHome').then((m) => m.TodosHome),
-    },
-  ],
-  showInNav: true,
-  navOrder: 5,
-  section: 'Tasks',
   defaultEnabled: 'all',
   resources: todosResources,
-  widgets: [
-    {
-      id: 'todos-active',
-      label: 'Active todos',
-      component: () => import('./components/TodoWidget').then((m) => m.TodoWidget),
-      order: 5,
-    },
-  ],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.ListTodo),
+    basePath: '/todos',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./components/TodosHome').then((m) => m.TodosHome),
+      },
+    ],
+    showInNav: true,
+    navOrder: 5,
+    section: 'Tasks',
+    widgets: [
+      {
+        id: 'todos-active',
+        label: 'Active todos',
+        component: () => import('./components/TodoWidget').then((m) => m.TodoWidget),
+        order: 5,
+      },
+    ],
+  },
 };

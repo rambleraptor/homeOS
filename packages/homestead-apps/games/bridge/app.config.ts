@@ -12,15 +12,17 @@ export const bridgeApp: AppConfig = {
   id: 'bridge',
   name: 'Bridge',
   description: 'Record bids for each hand of Bridge',
-  icon: () => import('lucide-react').then((m) => m.Club),
-  basePath: '/games/bridge',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/BridgeHome').then((m) => m.BridgeHome),
-      gates: ['enabled'],
-    },
-  ],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Club),
+    basePath: '/games/bridge',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/BridgeHome').then((m) => m.BridgeHome),
+        gates: ['enabled'],
+      },
+    ],
+  },
 };

@@ -208,18 +208,6 @@ export const ${n.camel}App: AppConfig = {
   id: '${n.slug}',
   name: '${n.display}',
   description: 'TODO: describe what ${n.display} does.',
-  icon: () => import('lucide-react').then((m) => m.Package),
-  basePath: '/${n.slug}',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/${n.pascal}Home').then((m) => m.${n.pascal}Home),
-    },
-  ],
-  showInNav: true,
-  navOrder: 100,
   defaultEnabled: 'all',
   // A starter resource. Add fields or more resources as your app grows.
   resources: [
@@ -234,6 +222,20 @@ export const ${n.camel}App: AppConfig = {
       },
     },
   ],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Package),
+    basePath: '/${n.slug}',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/${n.pascal}Home').then((m) => m.${n.pascal}Home),
+      },
+    ],
+    showInNav: true,
+    navOrder: 100,
+  },
 };
 
 export default ${n.camel}App;

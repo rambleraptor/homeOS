@@ -13,16 +13,18 @@ export const flagManagementApp: AppConfig = {
   id: 'flag-management',
   name: 'Flag Management',
   description: 'View and edit every app flag registered in aepbase.',
-  icon: () => import('lucide-react').then((m) => m.Flag),
-  basePath: '/superuser/flag-management',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/FlagManagementHome').then((m) => m.FlagManagementHome),
-      gates: ['enabled'],
-    },
-  ],
   defaultEnabled: 'superusers',
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Flag),
+    basePath: '/superuser/flag-management',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/FlagManagementHome').then((m) => m.FlagManagementHome),
+        gates: ['enabled'],
+      },
+    ],
+  },
 };

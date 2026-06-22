@@ -21,16 +21,18 @@ export const usersApp: AppConfig = {
   id: 'users',
   name: 'Users',
   description: 'Create and manage user accounts.',
-  icon: () => import('lucide-react').then((m) => m.UserCog),
-  basePath: '/superuser/users',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./components/UsersHome').then((m) => m.UsersHome),
-      gates: ['superuser', 'enabled'],
-    },
-  ],
   defaultEnabled: 'superusers',
   resources: usersResources,
+  web: {
+    icon: () => import('lucide-react').then((m) => m.UserCog),
+    basePath: '/superuser/users',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./components/UsersHome').then((m) => m.UsersHome),
+        gates: ['superuser', 'enabled'],
+      },
+    ],
+  },
 };

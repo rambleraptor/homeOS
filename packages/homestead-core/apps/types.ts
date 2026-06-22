@@ -101,32 +101,28 @@ export interface AppRoute {
 }
 
 /**
- * Core App Configuration
- * Every app must export a config object that implements this interface
+ * Web / presentation configuration for an app: how it surfaces in the
+ * browser (routing, navigation placement, the UI surfaces it
+ * contributes) plus its client-side offline-mutation overrides.
  */
-export interface AppConfig {
-  /**
-   * Unique identifier for the app (lowercase, no spaces)
-   * Example: 'dashboard', 'chores', 'meal_planner'
-   */
-  id: string;
-
-  /**
-   * Display name shown in navigation and UI
-   * Example: 'Dashboard', 'Chores', 'Meal Planner'
-   */
-  name: string;
-
-  /**
-   * Short description of app functionality
-   */
-  description: string;
-
+export interface AppWebConfig {
   /**
    * Lucide icon for navigation (lazily loaded). Client consumers render
    * it via `<AppIcon icon={...} />`.
    */
   icon: LazyIcon;
+
+  /**
+   * Base path for app routes (must start with /)
+   * Example: '/dashboard', '/chores'
+   */
+  basePath: string;
+
+  /**
+   * Route definitions for this app
+   * Routes are now defined by the Next.js App Router file structure
+   */
+  routes: AppRoute[];
 
   /**
    * Optional custom icon used when this app is added to a device's home
@@ -140,18 +136,6 @@ export interface AppConfig {
    * Example: `homeScreenIcon: '/app-icons/groceries.png'`
    */
   homeScreenIcon?: string;
-
-  /**
-   * Base path for app routes (must start with /)
-   * Example: '/dashboard', '/chores'
-   */
-  basePath: string;
-
-  /**
-   * Route definitions for this app
-   * Routes are now defined by the Next.js App Router file structure
-   */
-  routes: AppRoute[];
 
   /**
    * Whether this app should appear in the main navigation
@@ -191,6 +175,63 @@ export interface AppConfig {
   section?: string;
 
   /**
+   * Optional filterable fields for the app's list view. A shared
+   * `<FilterBar>` renders one input per decl and the list is filtered
+   * in-memory client-side — no server round-trip.
+   */
+  filters?: AppFilterDecl[];
+
+  /**
+   * Optional custom React component shown on the user Settings page in
+   * place of the auto-generated form. Use this when an app's per-user
+   * settings need bespoke UI (e.g. a picker that depends on other
+   * resources, or grouped controls). The component receives no props
+   * and reads/writes its own state via `useUserSetting`.
+   */
+  settingsWidget?: LazyComponent;
+
+  /**
+   * Optional widgets this app contributes to the dashboard. Each
+   * widget is an independent React component that owns its own data
+   * fetching and presentation.
+   */
+  widgets?: DashboardWidget[];
+
+  /**
+   * Per-resource overrides applied when the offline mutation factory
+   * auto-registers create/update/delete defaults. Key is the resource
+   * `singular`. `false` skips auto-registration entirely (escape hatch
+   * for apps with bespoke mutation logic). An object merges into
+   * `ResourceMutationOpts` — useful for non-standard cache keys,
+   * cascade deletes, custom optimistic shapes, or legacy mutation-key
+   * aliases during migrations.
+   */
+  offlineOverrides?: Record<string, ResourceOverride | false>;
+}
+
+/**
+ * Core App Configuration
+ * Every app must export a config object that implements this interface
+ */
+export interface AppConfig {
+  /**
+   * Unique identifier for the app (lowercase, no spaces)
+   * Example: 'dashboard', 'chores', 'meal_planner'
+   */
+  id: string;
+
+  /**
+   * Display name shown in navigation and UI
+   * Example: 'Dashboard', 'Chores', 'Meal Planner'
+   */
+  name: string;
+
+  /**
+   * Short description of app functionality
+   */
+  description: string;
+
+  /**
    * Default audience for the built-in `enabled` flag that the registry
    * auto-injects for every app. Controls who can see/use the app
    * until an admin overrides the flag in the Flag Management UI.
@@ -202,13 +243,6 @@ export interface AppConfig {
    * Additional app-specific metadata
    */
   metadata?: Record<string, unknown>;
-
-  /**
-   * Optional filterable fields for the app's list view. A shared
-   * `<FilterBar>` renders one input per decl and the list is filtered
-   * in-memory client-side — no server round-trip.
-   */
-  filters?: AppFilterDecl[];
 
   /**
    * Optional app-scoped flags. Each entry declares a typed knob
@@ -229,19 +263,10 @@ export interface AppConfig {
    * `${appId_snake}__${key}`.
    *
    * The settings page renders a section per app that has either
-   * `userSettings` or `settingsWidget`. When only `userSettings` is
+   * `userSettings` or `web.settingsWidget`. When only `userSettings` is
    * declared, an auto-generated form is rendered.
    */
   userSettings?: Record<string, UserSettingDef>;
-
-  /**
-   * Optional custom React component shown on the user Settings page in
-   * place of the auto-generated form. Use this when an app's per-user
-   * settings need bespoke UI (e.g. a picker that depends on other
-   * resources, or grouped controls). The component receives no props
-   * and reads/writes its own state via `useUserSetting`.
-   */
-  settingsWidget?: LazyComponent;
 
   /**
    * Optional aepbase resource definitions owned by this app. The
@@ -253,24 +278,6 @@ export interface AppConfig {
   resources?: ResourceDefinition[];
 
   /**
-   * Per-resource overrides applied when the offline mutation factory
-   * auto-registers create/update/delete defaults. Key is the resource
-   * `singular`. `false` skips auto-registration entirely (escape hatch
-   * for apps with bespoke mutation logic). An object merges into
-   * `ResourceMutationOpts` — useful for non-standard cache keys,
-   * cascade deletes, custom optimistic shapes, or legacy mutation-key
-   * aliases during migrations.
-   */
-  offlineOverrides?: Record<string, ResourceOverride | false>;
-
-  /**
-   * Optional widgets this app contributes to the dashboard. Each
-   * widget is an independent React component that owns its own data
-   * fetching and presentation.
-   */
-  widgets?: DashboardWidget[];
-
-  /**
    * Server-side endpoints are declared as AEP-136 custom methods on the
    * app's resource definitions (`ResourceDefinition.customMethods`),
    * not on the app itself — they live on the resource they act on and
@@ -280,7 +287,7 @@ export interface AppConfig {
 
   /**
    * Optional sub-apps. When set, this app is a container —
-   * the registry validates each child's `basePath` is a prefix-match
+   * the registry validates each child's `web.basePath` is a prefix-match
    * of the parent's, aggregates child routes and dashboard widgets,
    * and a generic `<NestedAppLanding>` renders cards for each
    * child on the parent's index page. Children get their own `enabled`
@@ -290,6 +297,13 @@ export interface AppConfig {
    * the sidebar placement.
    */
   children?: AppConfig[];
+
+  /**
+   * Web / presentation config: routing, navigation placement, the UI
+   * surfaces the app contributes (dashboard widgets, list filters,
+   * settings widget), and its offline-mutation overrides.
+   */
+  web: AppWebConfig;
 }
 
 /**
