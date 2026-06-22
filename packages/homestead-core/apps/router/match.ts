@@ -16,12 +16,14 @@ export interface RouteMatch {
 export function buildRouteEntries(apps: AppConfig[]): RouteEntry[] {
   const out: RouteEntry[] = [];
   const visit = (mod: AppConfig): void => {
-    for (const route of mod.web.routes) {
-      out.push({
-        app: mod,
-        route,
-        segments: pathToSegments(joinPath(mod.web.basePath, route.path)),
-      });
+    if (mod.web) {
+      for (const route of mod.web.routes) {
+        out.push({
+          app: mod,
+          route,
+          segments: pathToSegments(joinPath(mod.web.basePath, route.path)),
+        });
+      }
     }
     for (const child of mod.children ?? []) visit(child);
   };

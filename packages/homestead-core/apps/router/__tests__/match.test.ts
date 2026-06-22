@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { Box } from 'lucide-react';
 import { buildRouteEntries, matchRoute } from '../match';
-import type { AppConfig } from '../../types';
+import type { AppConfig, AppRoute } from '../../types';
 
 const Noop = () => null;
 
 function mod(
   id: string,
   basePath: string,
-  routes: AppConfig['web']['routes'],
+  routes: AppRoute[],
   children?: AppConfig[],
 ): AppConfig {
   return {

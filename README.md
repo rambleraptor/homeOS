@@ -6,28 +6,16 @@
 
 **Build and deploy apps for you, your family, and your agents**
 
-a self-hosted platform for personal apps — private software you shape for your
-own life, run on your own server, and expose through a backend that agents can
-actually understand.
-
 [website](https://myhomestead.dev)&nbsp; · &nbsp;[install](#install)&nbsp; · &nbsp;[quick start](#quick-start)&nbsp; · &nbsp;[apps](#included-apps)&nbsp; · &nbsp;[architecture](#architecture)&nbsp; · &nbsp;[agents](#agents-can-use-homestead-too)&nbsp; · &nbsp;[docs](packages/homestead-site/docs/guides/index.md)
 
 </div>
 
 ---
 
-Building a personal app is too hard. You need a developer account, App Review,
-sideloading — and you still have to run a backend, for software only your
-family will ever open. Homestead ships that whole foundation for you, so you
-write just the part that's yours.
-
-`homestead start` boots the entire stack in a single process on one port: the
-React app, the [AEP](https://www.aep.dev)-compliant TypeScript backend, the
-schema sync, and a same-origin web server. Open the URL, log in, done.
-
-It's warm personal infrastructure with a small agent-native app OS underneath:
-apps give people useful surfaces, while the AEP backend gives humans *and*
-agents a structured API over the same data.
+Homestead is a self-hosted personal platform for your apps. Homestead starts
+as your own personal database with an authenticated, standardized API. When
+you're ready, you can add on CLI-based agent support, a React frontend, AI chatbots,
+and more.
 
 ## Install
 
@@ -59,37 +47,16 @@ homestead start            # boot the whole stack on http://localhost:3000
 [homestead] ready
 [homestead]   app       http://localhost:3000
 [homestead]   engine    http://localhost:3000/api/aep
-[homestead]   superuser printed on first boot; reset with `homestead admin reset-password`
 ```
-
-Open the **app** URL and log in with the superuser password printed once on
-first boot (rotate it any time with `homestead admin reset-password`). That's
-the whole stack — no separate terminals, env vars, or schema step.
 
 ## Core Concepts
 
-- **apps** — every feature is a self-contained app: routes, data, widgets, and
-  settings in one folder. You pick which ones ship by editing a single file.
-- **`homestead.config.ts`** — a project is any directory with this file. It
-  chooses the apps that ship and is where you wire in your own.
-- **the engine** — a TypeScript backend serving an AEP-compliant REST API over
-  SQLite, reachable only under the same-origin `/api/aep` prefix.
-- **schema sync** — declare resources in TypeScript; the schema syncs on boot,
-  creating, patching, and ordering tables for you. No migrations to hand-write.
-- **family access** — users, sessions, and a superuser exist from first boot.
-  OAuth sign-in and per-app access gating keep Uncle Mike out of your date-night
-  app.
-
-## How It Compares
-
-|                          | roll your own        | a SaaS app         | homestead                          |
-| ------------------------ | -------------------- | ------------------ | ---------------------------------- |
-| backend to run           | you assemble it      | someone else's     | one command, included              |
-| App Store + review       | required for native  | n/a                | none — just open the URL           |
-| family auth & access     | you build it         | per-product silos  | built in (OAuth + access gating)   |
-| agent-ready API          | you design it        | rarely, if ever    | AEP REST, discovered on boot       |
-| where your data lives    | depends              | their servers      | local SQLite on hardware you own   |
-| your own custom apps     | unlimited effort     | impossible         | a folder + one line of config      |
+- **App** - Every app is self-contained in a folder with an app.config.ts file. This defines
+  your data models, React code, routes, and more.
+- **Resources** - The data model(s) for your app. Defining a resource schema
+  in your app.config.ts creates the database schema and APIs to manage your data.
+- **`homestead.config.ts`** — homestead reads your homestead.config.ts to understand all of your apps,  authentication information, and more.
+- **homestead CLI** — a TypeScript CLI that serves your homestead instance. Just point it at your       homestead.config.ts
 
 ## Agents Can Use Homestead Too
 
@@ -111,7 +78,8 @@ guessing how an app works.
 
 ## Included Apps
 
-Homestead ships with a growing set of opt-in apps:
+Homestead began as a way for me to easily build personal apps. I ship all
+of my personal apps in the @rambleraptor/homestead-apps package. This includes:
 
 - Todos and projects
 - Groceries with notifications and image processing
@@ -146,56 +114,6 @@ machine is ready to host Homestead. Run `homestead help` for the full list.
 
 There is one port; the engine is reached through the same-origin `/api/aep`
 routes on it.
-
-## Architecture
-
-A running Homestead is personal infrastructure in one process on a single port:
-
-- **engine** — a TypeScript backend serving an AEP-compliant REST API backed by
-  SQLite. Holds all your data, reachable only under same-origin `/api/aep`.
-- **public web server** — the one port. Serves the React SPA, the engine, and
-  the server-side APIs (notifications, chat, app custom methods). The schema
-  sync registers each app's collections on boot.
-
-### Modular Design
-
-Every feature is an **app** with its own:
-
-- Components (`components/`)
-- Hooks (`hooks/`)
-- Types (`types.ts`)
-- Configuration (`app.config.ts`) — declares routes (with their React
-  components), nav placement, dashboard widgets, and app flags
-
-**Adding an app:**
-
-1. Create `packages/homestead-apps/<your-app>/` with an `app.config.ts` that
-   declares `routes` (each with a `component`)
-2. Add the import + array entry to `homestead.config.ts`
-3. Done — no per-route page files, no registry edits. The app appears in the
-   navigation automatically and the router serves its routes.
-
-## Production Deployment
-
-For a long-lived instance on a local machine (e.g. reachable over Tailscale),
-Homestead runs cleanly under systemd:
-
-```bash
-sudo homestead install-service
-sudo systemctl start homestead
-```
-
-The running instance watches your project: edit `homestead.config.ts` or the
-`apps/` tree and it rebuilds the SPA and reapplies config on its own, and open
-tabs reload — no separate update step. Point the project dir at a git checkout
-and `git pull` when you want to ship new code.
-
-## Configuration
-
-Everything an instance serves comes from `homestead.config.ts` at the project
-root: the `apps` array, OAuth providers (`auth.oauth`), and the per-app access
-map. Apps under `apps/<dir>/app.homestead.ts` are auto-discovered and merged
-in. See the [configuration guide](packages/homestead-site/docs/guides/index.md).
 
 ## Docs
 

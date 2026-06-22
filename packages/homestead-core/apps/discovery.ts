@@ -36,10 +36,12 @@ export function assertDiscoveredApp(
     typeof def !== 'object' ||
     def === null ||
     typeof app.id !== 'string' ||
-    typeof app.web?.basePath !== 'string'
+    // `web` is optional (headless apps omit it), but when present its
+    // `basePath` must be a string.
+    (app.web !== undefined && typeof app.web.basePath !== 'string')
   ) {
     throw new Error(
-      `${sourcePath}: default export is not an AppConfig (expected an object with string \`id\` and \`web.basePath\`)`,
+      `${sourcePath}: default export is not an AppConfig (expected an object with a string \`id\`, and a string \`web.basePath\` when \`web\` is present)`,
     );
   }
   return def as AppConfig;

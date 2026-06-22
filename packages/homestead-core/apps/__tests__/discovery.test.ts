@@ -29,11 +29,25 @@ describe('assertDiscoveredApp', () => {
   });
 
   test('rejects a default export that is not an AppConfig', () => {
-    for (const bad of [null, 'alpha', { id: 'alpha' }, { basePath: '/alpha' }]) {
+    // Bad shapes: not an object, missing a string `id`, or `web` present
+    // but without a string `basePath`.
+    for (const bad of [
+      null,
+      'alpha',
+      { basePath: '/alpha' },
+      { id: 'alpha', web: { icon: () => null } },
+    ]) {
       expect(() =>
         assertDiscoveredApp({ default: bad }, 'apps/alpha/app.homestead.ts'),
       ).toThrow(/not an AppConfig/);
     }
+  });
+
+  test('accepts a headless app that omits the optional `web` section', () => {
+    const headless = { id: 'alpha', name: 'Alpha', description: 'no UI' };
+    expect(
+      assertDiscoveredApp({ default: headless }, 'apps/alpha/app.homestead.ts'),
+    ).toBe(headless);
   });
 });
 

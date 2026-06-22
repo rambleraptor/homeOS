@@ -112,7 +112,7 @@ describe('top-bar placement', () => {
   });
 
   it('registers chat as an always-installed core app', () => {
-    expect(getAppById('chat')?.web.basePath).toBe('/chat');
+    expect(getAppById('chat')?.web?.basePath).toBe('/chat');
   });
 });
 
