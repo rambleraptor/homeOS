@@ -21,31 +21,40 @@ function BellBadge() {
   return <TopBarBadge count={3} />;
 }
 
-const makeApp = (overrides: Partial<AppConfig>): AppConfig => ({
-  id: 'app',
-  name: 'App',
-  description: 'test app',
-  icon: () => import('lucide-react').then((m) => m.Bell),
-  basePath: '/app',
-  routes: [],
-  ...overrides,
-});
+const makeApp = (
+  overrides: Partial<Omit<AppConfig, 'web'>> & { web?: Partial<AppConfig['web']> },
+): AppConfig => {
+  const { web, ...rest } = overrides;
+  return {
+    id: 'app',
+    name: 'App',
+    description: 'test app',
+    ...rest,
+    web: {
+      icon: () => import('lucide-react').then((m) => m.Bell),
+      basePath: '/app',
+      routes: [],
+      ...web,
+    },
+  };
+};
 
 const apps: AppConfig[] = [
   makeApp({
     id: 'bell',
     name: 'Bell',
-    basePath: '/bell',
-    placement: 'topbar',
-    topBarBadge: () => Promise.resolve(BellBadge),
+    web: {
+      basePath: '/bell',
+      placement: 'topbar',
+      topBarBadge: () => Promise.resolve(BellBadge),
+    },
   }),
-  makeApp({ id: 'plain', name: 'Plain', basePath: '/plain', placement: 'topbar' }),
-  makeApp({ id: 'side', name: 'Side', basePath: '/side' }),
+  makeApp({ id: 'plain', name: 'Plain', web: { basePath: '/plain', placement: 'topbar' } }),
+  makeApp({ id: 'side', name: 'Side', web: { basePath: '/side' } }),
   makeApp({
     id: 'gated',
     name: 'Gated',
-    basePath: '/gated',
-    placement: 'topbar',
+    web: { basePath: '/gated', placement: 'topbar' },
   }),
 ];
 

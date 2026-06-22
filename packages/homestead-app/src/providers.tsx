@@ -13,7 +13,7 @@ import { ToastProvider } from '@rambleraptor/homestead-core/shared/components/To
 // resource at module scope guarantees that ordering and gives every app
 // offline create/update/delete for free.
 for (const { app, def } of getAllResourceDefsWithApp()) {
-  const override = app.offlineOverrides?.[def.singular];
+  const override = app.web.offlineOverrides?.[def.singular];
   if (override === false) continue;
   registerResourceMutationDefaults(queryClient, {
     appId: app.id,

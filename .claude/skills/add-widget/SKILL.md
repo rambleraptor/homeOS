@@ -44,18 +44,21 @@ core package for core apps). Pattern after an existing one, e.g.
 
 ### 2. Wire it into the app config
 
-In the app's `app.config.ts`:
+In the app's `app.config.ts`, under the config's `web` object:
 
 ```ts
-widgets: [
-  {
-    id: '<app>-<widget>',
-    label: 'Human label',
-    component: () =>
-      import('./components/FooWidget').then((m) => m.FooWidget),
-    order: 30,
-  },
-],
+web: {
+  // ...icon, basePath, routes...
+  widgets: [
+    {
+      id: '<app>-<widget>',
+      label: 'Human label',
+      component: () =>
+        import('./components/FooWidget').then((m) => m.FooWidget),
+      order: 30,
+    },
+  ],
+},
 ```
 
 Pick `order` relative to the existing dashboard (grep `order:` across

@@ -11,16 +11,18 @@ export const dashboardApp: AppConfig = {
   id: 'dashboard',
   name: 'Dashboard',
   description: 'Overview of your Homestead system',
-  icon: () => import('lucide-react').then((m) => m.LayoutDashboard),
-  basePath: '/dashboard',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/DashboardHome').then((m) => m.DashboardHome),
-    },
-  ],
-  showInNav: false,
-  navOrder: 1,
+  web: {
+    icon: () => import('lucide-react').then((m) => m.LayoutDashboard),
+    basePath: '/dashboard',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/DashboardHome').then((m) => m.DashboardHome),
+      },
+    ],
+    showInNav: false,
+    navOrder: 1,
+  },
 };

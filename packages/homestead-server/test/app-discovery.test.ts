@@ -12,7 +12,7 @@ describe('discoverApps', () => {
   test('imports apps/*/app.homestead.ts sorted by directory name', async () => {
     const apps = await discoverApps(join(FIXTURES, 'discovery-apps'));
     expect(apps.map((m) => m.id)).toEqual(['alpha', 'beta']);
-    expect(apps.map((m) => m.basePath)).toEqual(['/alpha', '/beta']);
+    expect(apps.map((m) => m.web.basePath)).toEqual(['/alpha', '/beta']);
     // The not-an-app/ subdir (no app.homestead.ts) was skipped silently.
   });
 

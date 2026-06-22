@@ -31,14 +31,14 @@ export function NestedAppLanding({ app }: Props) {
           return (
             <Link
               key={child.id}
-              to={child.basePath}
+              to={child.web.basePath}
               data-testid={`${app.id}-link-${child.id}`}
               className="block"
             >
               <Card className="h-full transition-colors hover:bg-gray-50">
                 <div className="flex items-start gap-4">
                   <AppIcon
-                    icon={child.icon}
+                    icon={child.web.icon}
                     className="w-6 h-6 text-accent-terracotta mt-1 flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">

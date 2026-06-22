@@ -24,37 +24,45 @@ const minigolf: AppConfig = {
   id: 'minigolf',
   name: 'Mini Golf',
   description: 'Play and track mini golf games',
-  icon: () => Promise.resolve(Flag),
-  basePath: '/games/minigolf',
-  routes: [route],
+  web: {
+    icon: () => Promise.resolve(Flag),
+    basePath: '/games/minigolf',
+    routes: [route],
+  },
 };
 
 const pictionary: AppConfig = {
   id: 'pictionary',
   name: 'Pictionary',
   description: 'Track Pictionary games, teams, and winning words',
-  icon: () => Promise.resolve(Pencil),
-  basePath: '/games/pictionary',
-  routes: [route],
+  web: {
+    icon: () => Promise.resolve(Pencil),
+    basePath: '/games/pictionary',
+    routes: [route],
+  },
 };
 
 const bridge: AppConfig = {
   id: 'bridge',
   name: 'Bridge',
   description: 'Record bids for each hand of Bridge',
-  icon: () => Promise.resolve(Club),
-  basePath: '/games/bridge',
-  routes: [route],
+  web: {
+    icon: () => Promise.resolve(Club),
+    basePath: '/games/bridge',
+    routes: [route],
+  },
 };
 
 const games: AppConfig = {
   id: 'games',
   name: 'Games',
   description: 'Track games you play with the people in your life',
-  icon: () => Promise.resolve(Gamepad2),
-  basePath: '/games',
-  routes: [route],
   children: [minigolf, pictionary, bridge],
+  web: {
+    icon: () => Promise.resolve(Gamepad2),
+    basePath: '/games',
+    routes: [route],
+  },
 };
 
 describe('NestedAppLanding', () => {

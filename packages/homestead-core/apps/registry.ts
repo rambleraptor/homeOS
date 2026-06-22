@@ -47,7 +47,7 @@ class AppRegistryImpl implements AppRegistry {
   constructor(apps: AppConfig[]) {
     // Sort by navOrder
     this.apps = [...apps].sort(
-      (a, b) => (a.navOrder || 100) - (b.navOrder || 100),
+      (a, b) => (a.web.navOrder || 100) - (b.web.navOrder || 100),
     );
 
     this.validateApps();
@@ -68,21 +68,21 @@ class AppRegistryImpl implements AppRegistry {
       }
       ids.add(mod.id);
 
-      if (paths.has(mod.basePath)) {
-        logger.warn(`Duplicate base path detected: ${mod.basePath}`, { basePath: mod.basePath });
+      if (paths.has(mod.web.basePath)) {
+        logger.warn(`Duplicate base path detected: ${mod.web.basePath}`, { basePath: mod.web.basePath });
       }
-      paths.add(mod.basePath);
+      paths.add(mod.web.basePath);
 
-      if (!mod.basePath.startsWith('/')) {
+      if (!mod.web.basePath.startsWith('/')) {
         logger.warn(`App "${mod.id}" base path should start with /`, {
           appId: mod.id,
-          basePath: mod.basePath,
+          basePath: mod.web.basePath,
         });
       }
 
-      if (parent && !mod.basePath.startsWith(parent.basePath + '/')) {
+      if (parent && !mod.web.basePath.startsWith(parent.web.basePath + '/')) {
         logger.warn(
-          `Child app "${mod.id}" base path "${mod.basePath}" must be nested under parent "${parent.id}" (${parent.basePath})`,
+          `Child app "${mod.id}" base path "${mod.web.basePath}" must be nested under parent "${parent.id}" (${parent.web.basePath})`,
           { appId: mod.id, parentId: parent.id },
         );
       }
@@ -124,7 +124,7 @@ class AppRegistryImpl implements AppRegistry {
    */
   getNavigationApps(): AppConfig[] {
     return this.apps.filter(
-      (m) => m.showInNav !== false && m.placement !== 'topbar',
+      (m) => m.web.showInNav !== false && m.web.placement !== 'topbar',
     );
   }
 
@@ -134,16 +134,16 @@ class AppRegistryImpl implements AppRegistry {
    */
   getTopBarApps(): AppConfig[] {
     return this.apps.filter(
-      (m) => m.placement === 'topbar' && m.showInNav !== false,
+      (m) => m.web.placement === 'topbar' && m.web.showInNav !== false,
     );
   }
 
   /**
    * Get all routes from all apps, including nested children.
    */
-  getAllRoutes(): AppConfig['routes'] {
-    const collect = (mod: AppConfig): AppConfig['routes'] => [
-      ...mod.routes,
+  getAllRoutes(): AppConfig['web']['routes'] {
+    const collect = (mod: AppConfig): AppConfig['web']['routes'] => [
+      ...mod.web.routes,
       ...(mod.children ?? []).flatMap(collect),
     ];
     return this.apps.flatMap(collect);
@@ -155,7 +155,7 @@ class AppRegistryImpl implements AppRegistry {
   getStats() {
     return {
       total: this.apps.length,
-      inNavigation: this.apps.filter((m) => m.showInNav !== false).length,
+      inNavigation: this.apps.filter((m) => m.web.showInNav !== false).length,
     };
   }
 }
@@ -248,7 +248,7 @@ export function getTopBarApps(): AppConfig[] {
 /**
  * Helper function to get all routes
  */
-export function getAllRoutes(): AppConfig['routes'] {
+export function getAllRoutes(): AppConfig['web']['routes'] {
   return getAppRegistry().getAllRoutes();
 }
 
@@ -277,7 +277,7 @@ export type RegisteredDashboardWidget = DashboardWidget & {
  */
 export function getAllDashboardWidgets(): RegisteredDashboardWidget[] {
   const collect = (mod: AppConfig): RegisteredDashboardWidget[] => [
-    ...(mod.widgets ?? []).map((w) => ({ ...w, appId: mod.id })),
+    ...(mod.web.widgets ?? []).map((w) => ({ ...w, appId: mod.id })),
     ...(mod.children ?? []).flatMap(collect),
   ];
   return getAppRegistry()
@@ -413,7 +413,7 @@ export function getAllSettingsWidgets(): {
   const out: { appId: string; app: AppConfig }[] = [];
   const visit = (mod: AppConfig): void => {
     const hasSettings =
-      !!mod.settingsWidget ||
+      !!mod.web.settingsWidget ||
       (mod.userSettings && Object.keys(mod.userSettings).length > 0);
     if (hasSettings) {
       out.push({ appId: mod.id, app: mod });
@@ -454,7 +454,7 @@ export function getAllResourceDefs(): ResourceDefinition[] {
 /**
  * Same traversal as {@link getAllResourceDefs}, but pairs each
  * definition with the owning app so callers can read
- * `app.offlineOverrides` and `app.id` while iterating. Used by
+ * `app.web.offlineOverrides` and `app.id` while iterating. Used by
  * the offline mutation factory's auto-registration loop.
  */
 export function getAllResourceDefsWithApp(): {

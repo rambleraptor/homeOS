@@ -12,24 +12,7 @@ export const eventsApp: AppConfig = {
   id: 'events',
   name: 'Events',
   description: 'Track yearly-recurring household events',
-  icon: () => import('lucide-react').then((m) => m.CalendarHeart),
-  basePath: '/events',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/EventsHome').then((m) => m.EventsHome),
-    },
-  ],
-  showInNav: true,
-  navOrder: 4,
-  section: 'Relationships',
   resources: eventsResources,
-  filters: [
-    { key: 'name', label: 'Name', type: 'text' },
-    { key: 'tag', label: 'Tag', type: 'enum', multi: true },
-  ],
   userSettings: {
     countdown_event_id: {
       type: 'string',
@@ -76,26 +59,45 @@ export const eventsApp: AppConfig = {
       default: false,
     },
   },
-  settingsWidget: () =>
-    import('./components/EventsSettingsWidget').then(
-      (m) => m.EventsSettingsWidget,
-    ),
-  widgets: [
-    {
-      id: 'events-countdown',
-      label: 'Countdown',
-      component: () =>
-        import('./components/CountdownWidget').then((m) => m.CountdownWidget),
-      order: 10,
-    },
-    {
-      id: 'events-upcoming',
-      label: 'Upcoming events',
-      component: () =>
-        import('./components/UpcomingEventsWidget').then(
-          (m) => m.UpcomingEventsWidget,
-        ),
-      order: 20,
-    },
-  ],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.CalendarHeart),
+    basePath: '/events',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/EventsHome').then((m) => m.EventsHome),
+      },
+    ],
+    showInNav: true,
+    navOrder: 4,
+    section: 'Relationships',
+    filters: [
+      { key: 'name', label: 'Name', type: 'text' },
+      { key: 'tag', label: 'Tag', type: 'enum', multi: true },
+    ],
+    settingsWidget: () =>
+      import('./components/EventsSettingsWidget').then(
+        (m) => m.EventsSettingsWidget,
+      ),
+    widgets: [
+      {
+        id: 'events-countdown',
+        label: 'Countdown',
+        component: () =>
+          import('./components/CountdownWidget').then((m) => m.CountdownWidget),
+        order: 10,
+      },
+      {
+        id: 'events-upcoming',
+        label: 'Upcoming events',
+        component: () =>
+          import('./components/UpcomingEventsWidget').then(
+            (m) => m.UpcomingEventsWidget,
+          ),
+        order: 20,
+      },
+    ],
+  },
 };

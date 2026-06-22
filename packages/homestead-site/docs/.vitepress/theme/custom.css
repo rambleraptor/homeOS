@@ -385,7 +385,10 @@ body {
   text-align: left;
 }
 
-.hs .deploy > * {
+/* One wrapper owns the centering + gutter so every child — including the
+   inline-flex "View on GitHub" button, which auto margins can't center —
+   lines up on the same left edge as the hero above. */
+.deploy-inner {
   max-width: var(--wrap);
   margin-left: auto;
   margin-right: auto;

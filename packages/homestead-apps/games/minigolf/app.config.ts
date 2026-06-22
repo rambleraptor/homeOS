@@ -13,16 +13,18 @@ export const minigolfApp: AppConfig = {
   id: 'minigolf',
   name: 'Mini Golf',
   description: 'Play and track mini golf games',
-  icon: () => import('lucide-react').then((m) => m.Flag),
-  basePath: '/games/minigolf',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () =>
-        import('./components/MinigolfHome').then((m) => m.MinigolfHome),
-      gates: ['enabled'],
-    },
-  ],
   resources: minigolfResources,
+  web: {
+    icon: () => import('lucide-react').then((m) => m.Flag),
+    basePath: '/games/minigolf',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () =>
+          import('./components/MinigolfHome').then((m) => m.MinigolfHome),
+        gates: ['enabled'],
+      },
+    ],
+  },
 };

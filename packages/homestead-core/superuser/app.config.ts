@@ -15,19 +15,21 @@ export const superuserApp: AppConfig = {
   id: 'superuser',
   name: 'Superuser',
   description: 'App flags and other superuser-only controls',
-  icon: () => import('lucide-react').then((m) => m.ShieldCheck),
-  basePath: '/superuser',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./SuperuserLanding').then((m) => m.SuperuserLanding),
-      gates: ['superuser'],
-    },
-  ],
-  section: 'Settings',
-  showInNav: true,
-  navOrder: 90,
   defaultEnabled: 'superusers',
   children: [usersApp, flagManagementApp],
+  web: {
+    icon: () => import('lucide-react').then((m) => m.ShieldCheck),
+    basePath: '/superuser',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./SuperuserLanding').then((m) => m.SuperuserLanding),
+        gates: ['superuser'],
+      },
+    ],
+    section: 'Settings',
+    showInNav: true,
+    navOrder: 90,
+  },
 };

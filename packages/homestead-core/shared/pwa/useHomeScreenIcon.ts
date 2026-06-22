@@ -29,14 +29,14 @@ export function useHomeScreenIcon(): void {
     const match = matchRoute(slug, entries);
     const mod = match?.app;
 
-    if (mod?.homeScreenIcon) {
+    if (mod?.web.homeScreenIcon) {
       applyHomeScreenIcon(
         document,
         {
           name: mod.name,
           description: mod.description,
-          basePath: mod.basePath,
-          iconHref: mod.homeScreenIcon,
+          basePath: mod.web.basePath,
+          iconHref: mod.web.homeScreenIcon,
         },
         window.location.origin,
       );

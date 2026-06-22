@@ -145,7 +145,7 @@ export function RecipesHome() {
 
           <AppFiltersProvider
             appId={recipesApp.id}
-            decls={recipesApp.filters ?? []}
+            decls={recipesApp.web.filters ?? []}
             items={recipes ?? []}
           >
             <FilterBar />

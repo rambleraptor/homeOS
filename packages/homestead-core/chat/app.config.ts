@@ -13,15 +13,17 @@ export const chatApp: AppConfig = {
   id: 'chat',
   name: 'Chat',
   description: 'Ask the household assistant to look up or change your data',
-  icon: () => import('lucide-react').then((m) => m.MessageCircle),
-  basePath: '/chat',
-  routes: [
-    {
-      path: '',
-      index: true,
-      component: () => import('./components/ChatHome').then((m) => m.ChatHome),
-    },
-  ],
-  placement: 'topbar',
-  navOrder: 5,
+  web: {
+    icon: () => import('lucide-react').then((m) => m.MessageCircle),
+    basePath: '/chat',
+    routes: [
+      {
+        path: '',
+        index: true,
+        component: () => import('./components/ChatHome').then((m) => m.ChatHome),
+      },
+    ],
+    placement: 'topbar',
+    navOrder: 5,
+  },
 };
