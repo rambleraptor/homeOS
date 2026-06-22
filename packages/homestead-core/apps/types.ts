@@ -302,8 +302,14 @@ export interface AppConfig {
    * Web / presentation config: routing, navigation placement, the UI
    * surfaces the app contributes (dashboard widgets, list filters,
    * settings widget), and its offline-mutation overrides.
+   *
+   * Optional: a "headless" app omits `web` entirely. Such an app
+   * contributes no routes, navigation entry, or dashboard widgets — it
+   * only declares server-side surfaces (`resources`, `flags`,
+   * `userSettings`). The registry skips web-less apps when building
+   * navigation, routes, and base-path validation.
    */
-  web: AppWebConfig;
+  web?: AppWebConfig;
 }
 
 /**

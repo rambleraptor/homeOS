@@ -28,17 +28,19 @@ export function NestedAppLanding({ app }: Props) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {children.map((child) => {
+          const web = child.web;
+          if (!web) return null;
           return (
             <Link
               key={child.id}
-              to={child.web.basePath}
+              to={web.basePath}
               data-testid={`${app.id}-link-${child.id}`}
               className="block"
             >
               <Card className="h-full transition-colors hover:bg-gray-50">
                 <div className="flex items-start gap-4">
                   <AppIcon
-                    icon={child.web.icon}
+                    icon={web.icon}
                     className="w-6 h-6 text-accent-terracotta mt-1 flex-shrink-0"
                   />
                   <div className="flex-1 min-w-0">

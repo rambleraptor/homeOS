@@ -43,18 +43,20 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Right side - Top-bar apps */}
         <div className="flex items-center gap-2 ml-auto">
           {topBarApps.map((app) => {
-            const Badge = app.web.topBarBadge
-              ? getLazyComponent(app.web.topBarBadge)
+            const web = app.web;
+            if (!web) return null;
+            const Badge = web.topBarBadge
+              ? getLazyComponent(web.topBarBadge)
               : null;
             return (
               <button
                 key={app.id}
-                onClick={() => navigate(app.web.basePath)}
+                onClick={() => navigate(web.basePath)}
                 className="p-2 rounded-lg hover:bg-bg-pearl transition-colors relative"
                 aria-label={app.name}
                 data-testid={`topbar-app-${app.id}`}
               >
-                <AppIcon icon={app.web.icon} className="w-5 h-5 text-brand-navy" />
+                <AppIcon icon={web.icon} className="w-5 h-5 text-brand-navy" />
                 {Badge && (
                   <Suspense fallback={null}>
                     <Badge />

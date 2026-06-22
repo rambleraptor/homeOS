@@ -82,7 +82,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Group apps by section
   const appsBySection = apps.reduce((acc, app) => {
-    const section = app.web.section || '';
+    const section = app.web?.section || '';
     if (!acc[section]) {
       acc[section] = [];
     }
@@ -189,11 +189,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     {!collapsed && (
                       <div id={contentId} className="space-y-1">
                         {appsBySection[section].map((app) => {
-                          const active = isActive(app.web.basePath);
+                          const web = app.web;
+                          if (!web) return null;
+                          const active = isActive(web.basePath);
                           return (
                             <Link
                               key={app.id}
-                              to={app.web.basePath}
+                              to={web.basePath}
                               onClick={onClose}
                               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                                 active
@@ -202,7 +204,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                               }`}
                             >
                               <AppIcon
-                                icon={app.web.icon}
+                                icon={web.icon}
                                 className="w-5 h-5 flex-shrink-0"
                               />
                               <span className="font-medium">{app.name}</span>

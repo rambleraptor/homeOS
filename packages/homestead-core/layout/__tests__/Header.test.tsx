@@ -22,7 +22,7 @@ function BellBadge() {
 }
 
 const makeApp = (
-  overrides: Partial<Omit<AppConfig, 'web'>> & { web?: Partial<AppConfig['web']> },
+  overrides: Partial<Omit<AppConfig, 'web'>> & { web?: Partial<NonNullable<AppConfig['web']>> },
 ): AppConfig => {
   const { web, ...rest } = overrides;
   return {

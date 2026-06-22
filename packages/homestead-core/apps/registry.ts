@@ -27,6 +27,7 @@ import type {
   AppConfig,
   AppFlagDef,
   AppRegistry,
+  AppRoute,
   UserSettingDef,
 } from './types';
 import type {
@@ -47,7 +48,7 @@ class AppRegistryImpl implements AppRegistry {
   constructor(apps: AppConfig[]) {
     // Sort by navOrder
     this.apps = [...apps].sort(
-      (a, b) => (a.web.navOrder || 100) - (b.web.navOrder || 100),
+      (a, b) => (a.web?.navOrder || 100) - (b.web?.navOrder || 100),
     );
 
     this.validateApps();
@@ -68,23 +69,27 @@ class AppRegistryImpl implements AppRegistry {
       }
       ids.add(mod.id);
 
-      if (paths.has(mod.web.basePath)) {
-        logger.warn(`Duplicate base path detected: ${mod.web.basePath}`, { basePath: mod.web.basePath });
-      }
-      paths.add(mod.web.basePath);
+      // Headless apps (no `web`) declare no base path, so skip all
+      // path-shape and nesting checks for them.
+      if (mod.web) {
+        if (paths.has(mod.web.basePath)) {
+          logger.warn(`Duplicate base path detected: ${mod.web.basePath}`, { basePath: mod.web.basePath });
+        }
+        paths.add(mod.web.basePath);
 
-      if (!mod.web.basePath.startsWith('/')) {
-        logger.warn(`App "${mod.id}" base path should start with /`, {
-          appId: mod.id,
-          basePath: mod.web.basePath,
-        });
-      }
+        if (!mod.web.basePath.startsWith('/')) {
+          logger.warn(`App "${mod.id}" base path should start with /`, {
+            appId: mod.id,
+            basePath: mod.web.basePath,
+          });
+        }
 
-      if (parent && !mod.web.basePath.startsWith(parent.web.basePath + '/')) {
-        logger.warn(
-          `Child app "${mod.id}" base path "${mod.web.basePath}" must be nested under parent "${parent.id}" (${parent.web.basePath})`,
-          { appId: mod.id, parentId: parent.id },
-        );
+        if (parent?.web && !mod.web.basePath.startsWith(parent.web.basePath + '/')) {
+          logger.warn(
+            `Child app "${mod.id}" base path "${mod.web.basePath}" must be nested under parent "${parent.id}" (${parent.web.basePath})`,
+            { appId: mod.id, parentId: parent.id },
+          );
+        }
       }
 
       for (const child of mod.children ?? []) {
@@ -124,7 +129,7 @@ class AppRegistryImpl implements AppRegistry {
    */
   getNavigationApps(): AppConfig[] {
     return this.apps.filter(
-      (m) => m.web.showInNav !== false && m.web.placement !== 'topbar',
+      (m) => !!m.web && m.web.showInNav !== false && m.web.placement !== 'topbar',
     );
   }
 
@@ -134,16 +139,16 @@ class AppRegistryImpl implements AppRegistry {
    */
   getTopBarApps(): AppConfig[] {
     return this.apps.filter(
-      (m) => m.web.placement === 'topbar' && m.web.showInNav !== false,
+      (m) => m.web?.placement === 'topbar' && m.web.showInNav !== false,
     );
   }
 
   /**
    * Get all routes from all apps, including nested children.
    */
-  getAllRoutes(): AppConfig['web']['routes'] {
-    const collect = (mod: AppConfig): AppConfig['web']['routes'] => [
-      ...mod.web.routes,
+  getAllRoutes(): AppRoute[] {
+    const collect = (mod: AppConfig): AppRoute[] => [
+      ...(mod.web?.routes ?? []),
       ...(mod.children ?? []).flatMap(collect),
     ];
     return this.apps.flatMap(collect);
@@ -155,7 +160,7 @@ class AppRegistryImpl implements AppRegistry {
   getStats() {
     return {
       total: this.apps.length,
-      inNavigation: this.apps.filter((m) => m.web.showInNav !== false).length,
+      inNavigation: this.apps.filter((m) => !!m.web && m.web.showInNav !== false).length,
     };
   }
 }
@@ -248,7 +253,7 @@ export function getTopBarApps(): AppConfig[] {
 /**
  * Helper function to get all routes
  */
-export function getAllRoutes(): AppConfig['web']['routes'] {
+export function getAllRoutes(): AppRoute[] {
   return getAppRegistry().getAllRoutes();
 }
 
@@ -277,7 +282,7 @@ export type RegisteredDashboardWidget = DashboardWidget & {
  */
 export function getAllDashboardWidgets(): RegisteredDashboardWidget[] {
   const collect = (mod: AppConfig): RegisteredDashboardWidget[] => [
-    ...(mod.web.widgets ?? []).map((w) => ({ ...w, appId: mod.id })),
+    ...(mod.web?.widgets ?? []).map((w) => ({ ...w, appId: mod.id })),
     ...(mod.children ?? []).flatMap(collect),
   ];
   return getAppRegistry()
@@ -413,7 +418,7 @@ export function getAllSettingsWidgets(): {
   const out: { appId: string; app: AppConfig }[] = [];
   const visit = (mod: AppConfig): void => {
     const hasSettings =
-      !!mod.web.settingsWidget ||
+      !!mod.web?.settingsWidget ||
       (mod.userSettings && Object.keys(mod.userSettings).length > 0);
     if (hasSettings) {
       out.push({ appId: mod.id, app: mod });

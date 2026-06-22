@@ -18,7 +18,7 @@ interface AppUserSettingsCardProps {
 }
 
 export function AppUserSettingsCard({ app }: AppUserSettingsCardProps) {
-  const Widget = app.web.settingsWidget
+  const Widget = app.web?.settingsWidget
     ? getLazyComponent(app.web.settingsWidget)
     : undefined;
   const settings = app.userSettings;
@@ -26,7 +26,9 @@ export function AppUserSettingsCard({ app }: AppUserSettingsCardProps) {
   return (
     <Card>
       <div className="flex items-start gap-4">
-        <AppIcon icon={app.web.icon} className="w-6 h-6 text-blue-500 mt-1" />
+        {app.web?.icon ? (
+          <AppIcon icon={app.web.icon} className="w-6 h-6 text-blue-500 mt-1" />
+        ) : null}
         <div className="flex-1 space-y-4">
           <div>
             <h3
