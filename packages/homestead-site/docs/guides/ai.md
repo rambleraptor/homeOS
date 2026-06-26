@@ -13,6 +13,62 @@ with it. You have four ways in:
   teach your coding agent to scaffold apps, edit your schema, and stand up an
   instance.
 
+The built-in features that call a model directly — [Chat](#chat-with-your-data)
+and the photo-import features (grocery lists, HSA receipts) — share one
+provider you [configure once](#configure-your-ai-provider). The CLI, MCP, and
+skills above use whatever model you already run, so they need no provider
+config.
+
+---
+
+## Configure your AI provider
+
+Homestead's built-in AI features — the [chat assistant](#chat-with-your-data),
+grocery-list photo import, and HSA receipt scanning — run through a single
+provider you choose. Three are supported, via the
+[Vercel AI SDK](https://ai-sdk.dev):
+
+| Provider           | `provider`    | Example model              |
+| ------------------ | ------------- | -------------------------- |
+| OpenAI (Codex)     | `'openai'`    | `gpt-4o`                   |
+| Anthropic (Claude) | `'anthropic'` | `claude-3-5-sonnet-latest` |
+| Google (Gemini)    | `'google'`    | `gemini-2.5-flash`         |
+
+Set the `ai` block in `homestead.config.ts` — provider, model, and auth — and
+read the API key from the environment so the secret never reaches the client
+bundle:
+
+```ts
+// homestead.config.ts
+const aiApiKey = fromEnv('AI_API_KEY');
+const ai: HomesteadConfig['ai'] = aiApiKey
+  ? {
+      provider: 'google', //  'openai' | 'anthropic' | 'google'
+      model: 'gemini-2.5-flash', // must be vision-capable for the photo features
+      auth: { apiKey: aiApiKey },
+    }
+  : undefined;
+
+const config: HomesteadConfig = {
+  apps: [/* … */],
+  ai,
+};
+```
+
+```bash
+# .env — get a key from your chosen provider's console.
+AI_API_KEY=your_ai_provider_api_key_here
+```
+
+Restart the server to apply changes. AI is **opt-in**: with no `ai` block (no
+key set), the chat and photo endpoints return `503` and the rest of Homestead
+works as normal.
+
+::: tip Vision models
+The grocery and HSA photo features send an image to the model, so the
+configured `model` must be vision-capable. The example models above all are.
+:::
+
 ---
 
 ## Read and write data from the CLI
@@ -80,10 +136,10 @@ API by running `homestead resources`.
 
 ## Chat with your data
 
-Chat is a built-in assistant, powered by Gemini, that looks up and changes
-your household data in plain language — "how much is left on my Visa gift
-card?", "add milk to the grocery list", "what events are coming up?". It's
-always installed; find it in the top navigation.
+Chat is a built-in assistant that looks up and changes your household data in
+plain language — "how much is left on my Visa gift card?", "add milk to the
+grocery list", "what events are coming up?". It's always installed; find it in
+the top navigation.
 
 Chat works with **any** app you've added, with no per-app setup. It acts
 with **your** permissions, confirms before deleting, and shows you which
@@ -92,36 +148,12 @@ open tab.
 
 ### Enable Chat
 
-Chat (and the grocery/HSA image features) run through one configurable AI
-provider. Choose the provider and model in the `ai` block of
-`homestead.config.ts`, and supply the API key via the environment:
-
-```ts
-// homestead.config.ts
-const aiApiKey = fromEnv('AI_API_KEY');
-const ai: HomesteadConfig['ai'] = aiApiKey
-  ? {
-      // 'openai' (Codex), 'anthropic' (Claude), or 'google' (Gemini).
-      provider: 'google',
-      // Must be vision-capable for the image features
-      // (e.g. gpt-4o, claude-3-5-sonnet-latest, gemini-2.5-flash).
-      model: 'gemini-2.5-flash',
-      auth: { apiKey: aiApiKey },
-    }
-  : undefined;
-```
-
-```bash
-# .env — get a key from your chosen provider's console.
-AI_API_KEY=your_ai_provider_api_key_here
-```
-
-Restart the server. The Chat screen now answers questions instead of
-reporting that the assistant isn't configured.
-
-Without an `ai` block (no key set), AI features are disabled — those endpoints
-return 503 — and the rest of Homestead works as normal. The key stays
-server-side.
+Chat runs on whichever model you [configure as your AI
+provider](#configure-your-ai-provider) — OpenAI, Anthropic, or Gemini. Set the
+`ai` block in `homestead.config.ts`, supply `AI_API_KEY`, and restart the
+server; the Chat screen then answers questions instead of reporting that the
+assistant isn't configured. Without an `ai` block, Chat reports that it isn't
+configured and the rest of Homestead works as normal.
 
 ---
 
