@@ -53,9 +53,10 @@ vars needed); watch the boot log for `[resources]` errors.
 
 ## Step 4: Enable chat (optional but recommended)
 
-The built-in chat app is Gemini-backed and needs `GEMINI_API_KEY` in the
-server's environment — put it in the project's `.env`. Without it,
-`POST /api/chat` returns an error and the rest of the app works fine.
+The built-in chat app runs through the instance's configured AI provider.
+Set the `ai` block in `homestead.config.ts` (provider, model, auth) and put
+the API key in the project's `.env` as `AI_API_KEY`. Without it,
+`POST /api/chat` returns 503 and the rest of the app works fine.
 
 ## Step 5: Install as a service (optional, Linux + systemd)
 

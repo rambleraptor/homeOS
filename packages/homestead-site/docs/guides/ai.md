@@ -92,18 +92,35 @@ open tab.
 
 ### Enable Chat
 
-Chat needs a Gemini API key. Get one from
-[Google AI Studio](https://makersuite.google.com/app/apikey), then set it on
-the server in your project's `.env`:
+Chat (and the grocery/HSA image features) run through one configurable AI
+provider. Choose the provider and model in the `ai` block of
+`homestead.config.ts`, and supply the API key via the environment:
+
+```ts
+// homestead.config.ts
+const aiApiKey = fromEnv('AI_API_KEY');
+const ai: HomesteadConfig['ai'] = aiApiKey
+  ? {
+      // 'openai' (Codex), 'anthropic' (Claude), or 'google' (Gemini).
+      provider: 'google',
+      // Must be vision-capable for the image features
+      // (e.g. gpt-4o, claude-3-5-sonnet-latest, gemini-2.5-flash).
+      model: 'gemini-2.5-flash',
+      auth: { apiKey: aiApiKey },
+    }
+  : undefined;
+```
 
 ```bash
-GEMINI_API_KEY=your_gemini_api_key_here
+# .env — get a key from your chosen provider's console.
+AI_API_KEY=your_ai_provider_api_key_here
 ```
 
 Restart the server. The Chat screen now answers questions instead of
 reporting that the assistant isn't configured.
 
-Without a key, the rest of Homestead works as normal. The key stays
+Without an `ai` block (no key set), AI features are disabled — those endpoints
+return 503 — and the rest of Homestead works as normal. The key stays
 server-side.
 
 ---

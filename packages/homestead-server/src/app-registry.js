@@ -69,6 +69,11 @@ export function oauthConfig() {
   return config.auth?.oauth ?? null;
 }
 
+/** The `ai` block of homestead.config.ts, or null when AI is unconfigured. */
+export function aiConfig() {
+  return config.ai ?? null;
+}
+
 export {
   getResourceCustomMethod,
   getAllResourceCustomMethods,

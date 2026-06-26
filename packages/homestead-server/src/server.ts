@@ -51,6 +51,12 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const registry = await import('./app-registry');
   const { ensureSuperuser } = await import('./bootstrap');
 
+  // Push the operator's AI config into core before any route handles a request
+  // (core can't import the server's registry — the dependency direction is
+  // server → core — so the server hands it down). null leaves AI disabled.
+  const { setAiConfig } = await import('@rambleraptor/homestead-core/server/ai/config');
+  setAiConfig(registry.aiConfig());
+
   const engine = new Engine({
     dbPath: join(opts.dataDir, 'aepbase.db'),
     filesDir: join(opts.dataDir, 'files'),

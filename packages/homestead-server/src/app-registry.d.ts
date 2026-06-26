@@ -1,10 +1,12 @@
 import type { ResourceCustomMethod } from '@rambleraptor/homestead-core/resources/types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
+import type { AiConfig } from '@rambleraptor/homestead-core/apps/config';
 import type { AppAccessConfig } from './engine/access';
 import type { OAuthConfig } from './engine/oauth';
 
 export function appAccessMap(): AppAccessConfig | null;
 export function oauthConfig(): OAuthConfig | null;
+export function aiConfig(): AiConfig | null;
 
 export function getResourceCustomMethod(
   plural: string,

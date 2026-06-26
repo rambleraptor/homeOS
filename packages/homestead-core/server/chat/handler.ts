@@ -1,15 +1,14 @@
 /**
  * Chat backend: `POST /api/chat` (mounted by the sidecar).
  *
- * Runs a Gemini chat turn with one CRUD tool per registered aepbase
- * resource. Tool calls execute against aepbase with the caller's own
- * token, so they can only do what the user could do directly.
- * Conversations are ephemeral — the client sends the full transcript
- * each turn and nothing is persisted server-side.
+ * Runs a chat turn through the unified AI API with one CRUD tool per
+ * registered aepbase resource. The configured provider/model comes from
+ * homestead.config.ts. Tool calls execute against aepbase with the caller's
+ * own token, so they can only do what the user could do directly.
+ * Conversations are ephemeral — the client sends the full transcript each turn
+ * and nothing is persisted server-side.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { Part } from '@google/generative-ai';
 import { authenticate, type AuthedUser } from '../aepbase';
 import { getAllResourceDefs } from '../../apps/registry';
 import { BUILTIN_RESOURCE_DEFS } from '../../resources/builtins';
@@ -19,10 +18,10 @@ import type {
   ChatResponse,
   ChatToolCall,
 } from '../../chat/types';
+import { isAiConfigured } from '../ai/config';
+import { aiRunAgent, tool, type ModelMessage, type ToolSet } from '../ai/generate';
 import { buildTools } from './tools';
 import { executeToolCall } from './execute';
-
-const GEMINI_MODEL = 'gemini-2.5-flash';
 
 /** Max rounds of tool execution per turn before forcing a text answer. */
 const MAX_TOOL_ROUNDS = 10;
@@ -62,12 +61,11 @@ function isValidMessage(m: unknown): m is ChatMessage {
 }
 
 export async function handleChat(request: Request): Promise<Response> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return Response.json(
       {
         error: 'Service unavailable',
-        message: 'Gemini API is not configured on the server',
+        message: 'AI is not configured on the server',
       },
       { status: 503 },
     );
@@ -97,60 +95,54 @@ export async function handleChat(request: Request): Promise<Response> {
 
   // Same definition union the schema sync applies, so the model sees
   // every collection that exists in aepbase.
-  const { declarations, bindings } = buildTools([
+  const { tools, bindings } = buildTools([
     ...BUILTIN_RESOURCE_DEFS,
     ...getAllResourceDefs(),
   ]);
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_MODEL,
-    tools: [{ functionDeclarations: declarations }],
-    systemInstruction: buildSystemPrompt(auth.user),
-  });
-  const chat = model.startChat({
-    history: messages.slice(0, -1).map((m) => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    })),
-  });
+  // Capture every tool outcome in invocation order. The SDK calls each tool's
+  // `execute`, feeds its return back to the model, and loops; pushing here (vs.
+  // reading the final step record) keeps the reported `toolCalls` ordered and
+  // complete even across multiple tool calls per step.
+  const toolCalls: ChatToolCall[] = [];
+  const toolSet: ToolSet = {};
+  for (const [name, spec] of Object.entries(tools)) {
+    toolSet[name] = tool({
+      description: spec.description,
+      inputSchema: spec.inputSchema,
+      execute: async (args: unknown) => {
+        const outcome = await executeToolCall(
+          { name, args: args as Record<string, unknown> },
+          bindings,
+          auth.token,
+        );
+        toolCalls.push(outcome);
+        return outcome.ok ? { result: outcome.result ?? null } : { error: outcome.error };
+      },
+    });
+  }
+
+  const modelMessages: ModelMessage[] = messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
 
   try {
-    const toolCalls: ChatToolCall[] = [];
-    let result = await chat.sendMessage(messages[messages.length - 1].content);
+    const { text } = await aiRunAgent({
+      system: buildSystemPrompt(auth.user),
+      messages: modelMessages,
+      tools: toolSet,
+      maxRounds: MAX_TOOL_ROUNDS,
+    });
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const calls = result.response.functionCalls();
-      if (!calls || calls.length === 0) break;
-
-      const responses: Part[] = [];
-      for (const call of calls) {
-        const outcome = await executeToolCall(call, bindings, auth.token);
-        toolCalls.push(outcome);
-        responses.push({
-          functionResponse: {
-            name: call.name,
-            response: outcome.ok
-              ? { result: outcome.result ?? null }
-              : { error: outcome.error },
-          },
-        });
-      }
-      result = await chat.sendMessage(responses);
-    }
-
-    const response: ChatResponse = {
-      reply: result.response.text(),
-      toolCalls,
-    };
+    const response: ChatResponse = { reply: text, toolCalls };
     return Response.json(response);
   } catch (err) {
-    logger.error('chat: Gemini request failed', err);
+    logger.error('chat: AI request failed', err);
     return Response.json(
       {
         error: 'Bad gateway',
-        message:
-          err instanceof Error ? err.message : 'The Gemini request failed',
+        message: err instanceof Error ? err.message : 'The AI request failed',
       },
       { status: 502 },
     );

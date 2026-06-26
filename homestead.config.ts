@@ -66,6 +66,20 @@ const auth: HomesteadConfig['auth'] =
       }
     : undefined;
 
+// AI is opt-in: enabled only when an API key is present in the launcher's
+// environment. Pick the provider and model explicitly here, and set the key via
+// AI_API_KEY. Supported providers: 'openai' (Codex), 'anthropic' (Claude),
+// 'google' (Gemini). The model must be vision-capable for the grocery/HSA image
+// features. With no key set, `ai` is undefined and AI endpoints return 503.
+const aiApiKey = fromEnv('AI_API_KEY');
+const ai: HomesteadConfig['ai'] = aiApiKey
+  ? {
+      provider: 'google',
+      model: 'gemini-2.5-flash',
+      auth: { apiKey: aiApiKey },
+    }
+  : undefined;
+
 const config: HomesteadConfig = {
   apps: [
     todosApp,
@@ -79,6 +93,7 @@ const config: HomesteadConfig = {
     gamesApp,
   ],
   auth,
+  ai,
 };
 
 // A running `homestead start` watches this file (and the apps/ tree): edit it

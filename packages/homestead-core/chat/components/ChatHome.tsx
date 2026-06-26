@@ -104,7 +104,8 @@ export function ChatHome() {
             <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-600">Chat isn't configured</p>
             <p className="text-sm text-gray-500 mt-2">
-              Set GEMINI_API_KEY on the server to enable the assistant.
+              Configure the `ai` block in homestead.config.ts to enable the
+              assistant.
             </p>
           </div>
         </Card>

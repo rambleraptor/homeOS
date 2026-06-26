@@ -65,8 +65,8 @@ reachable across the AEP ecosystem and your existing agentic workflows:
 
 - ✅ **typed REST API** — apps declare real resources, so an agent can discover
   the shape of the system and write against the same backend the UI uses.
-- ✅ **chat assistant** — a Gemini-backed chatbot over your structured data,
-  built into the app.
+- ✅ **chat assistant** — an AI chatbot (OpenAI, Anthropic, or Gemini) over your
+  structured data, built into the app.
 - ✅ **agent-friendly CLI** — drive resources from the terminal and existing
   agent tooling.
 - ✅ **resource explorer** — browse and edit through the AEP
