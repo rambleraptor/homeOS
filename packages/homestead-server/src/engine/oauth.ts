@@ -58,6 +58,18 @@ const NO_PASSWORD_SENTINEL = '!';
 const STATE_COOKIE = 'aepbase_oauth_state';
 
 /**
+ * Cookie `Path` for the CSRF state cookie: the directory of the provider's
+ * callback URL. Derived from `redirectUrl` (which carries the full mount
+ * prefix, e.g. `/api/aep/oauth/google/callback`) so the cookie the `/start`
+ * response sets is actually sent back on `/callback`. A hardcoded path breaks
+ * whenever the engine is mounted under a prefix.
+ */
+function stateCookiePath(p: Provider): string {
+  const { pathname } = new URL(p.redirectUrl);
+  return pathname.slice(0, pathname.lastIndexOf('/') + 1);
+}
+
+/**
  * Build validated providers from config. Pure — unit-testable without a
  * server. Returns [] when config is absent or has no providers.
  */
@@ -291,7 +303,7 @@ export class OAuthRoutes {
       status: 302,
       headers: {
         Location: `${provider.authUrl}?${params.toString()}`,
-        'Set-Cookie': `${STATE_COOKIE}=${state}; Path=/oauth/; Max-Age=600; HttpOnly; SameSite=Lax${secure}`,
+        'Set-Cookie': `${STATE_COOKIE}=${state}; Path=${stateCookiePath(provider)}; Max-Age=600; HttpOnly; SameSite=Lax${secure}`,
       },
     });
   }
@@ -361,7 +373,7 @@ export class OAuthRoutes {
       headers: {
         Location: `${provider.successRedirectUrl}#${fragment.toString()}`,
         // Clear the state cookie.
-        'Set-Cookie': `${STATE_COOKIE}=; Path=/oauth/; Max-Age=0`,
+        'Set-Cookie': `${STATE_COOKIE}=; Path=${stateCookiePath(provider)}; Max-Age=0`,
       },
     });
   }
