@@ -48,6 +48,40 @@ export interface AuthConfig {
 }
 
 /**
+ * AI provider to use for this instance. Each maps to a Vercel AI SDK
+ * provider package (`@ai-sdk/openai`, `@ai-sdk/anthropic`, `@ai-sdk/google`).
+ */
+export type AiProvider = 'openai' | 'anthropic' | 'google';
+
+/** Credentials for the configured AI provider. */
+export interface AiAuthConfig {
+  /**
+   * Provider API key. Server-side only — read (typically from an env var) when
+   * the launcher evaluates this config; it must never reach the browser bundle,
+   * exactly like OAuth `clientSecret`.
+   */
+  apiKey: string;
+}
+
+/**
+ * AI/LLM configuration for this instance. Consumed by the server (not the SPA
+ * bundle) to power the chat assistant and the image-extraction custom methods.
+ * Omit it to disable AI features entirely — those endpoints then return 503.
+ */
+export interface AiConfig {
+  /** Which provider package to instantiate. */
+  provider: AiProvider;
+  /**
+   * Model id for the chosen provider, e.g. `gpt-4o`,
+   * `claude-3-5-sonnet-latest`, `gemini-2.5-flash`. Must be vision-capable for
+   * the grocery/HSA image methods to work.
+   */
+  model: string;
+  /** Provider credentials. */
+  auth: AiAuthConfig;
+}
+
+/**
  * Shape of the user-supplied configuration consumed by the registry.
  * Operators declare their instance by exporting a value of this type
  * from `homestead.config.ts` at the repo root.
@@ -71,4 +105,13 @@ export interface HomesteadConfig {
    * when the launcher evaluates this file server-side.
    */
   auth?: AuthConfig;
+
+  /**
+   * Optional AI configuration (provider, model, credentials). Consumed by the
+   * server (not the SPA bundle). Omit to disable AI features — the chat and
+   * image-extraction endpoints then return 503. The API key is read from the
+   * environment when the launcher evaluates this file server-side, so it never
+   * lands in the client bundle.
+   */
+  ai?: AiConfig;
 }

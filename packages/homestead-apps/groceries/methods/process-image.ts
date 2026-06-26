@@ -6,8 +6,12 @@
  * Returns `{ items: [{ name }], message }`.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
+import { isAiConfigured } from '@rambleraptor/homestead-core/server/ai/config';
+import {
+  aiGenerateText,
+  type ModelMessage,
+} from '@rambleraptor/homestead-core/server/ai/generate';
 
 interface ExtractedItem {
   name: string;
@@ -16,10 +20,7 @@ interface ExtractedItem {
 async function extractGroceryItemsFromImage(
   imageBase64: string,
   mimeType: string,
-  genAI: GoogleGenerativeAI,
 ): Promise<ExtractedItem[]> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  const imagePart = { inlineData: { data: imageBase64, mimeType } };
   const prompt = `You are a grocery list reader. Analyze this image of a handwritten or printed grocery list and extract all the grocery items.
 
 Rules:
@@ -41,9 +42,16 @@ Example output format:
 Lettuce
 6 apples`;
 
-  const result = await model.generateContent([prompt, imagePart]);
-  const response = await result.response;
-  const text = response.text().trim();
+  const messages: ModelMessage[] = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'file', data: imageBase64, mediaType: mimeType },
+      ],
+    },
+  ];
+  const text = (await aiGenerateText({ messages })).trim();
 
   return text
     .split('\n')
@@ -55,10 +63,9 @@ Lettuce
 }
 
 const handler: CustomMethodHandler = async ({ request, auth }) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return Response.json(
-      { error: 'Service unavailable', message: 'Gemini API is not configured on the server' },
+      { error: 'Service unavailable', message: 'AI is not configured on the server' },
       { status: 503 },
     );
   }
@@ -79,11 +86,10 @@ const handler: CustomMethodHandler = async ({ request, auth }) => {
     );
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
   console.log(`Processing grocery image for user ${auth.user.id}`);
 
   try {
-    const items = await extractGroceryItemsFromImage(image, mimeType, genAI);
+    const items = await extractGroceryItemsFromImage(image, mimeType);
     if (items.length === 0) {
       return Response.json({ items: [], message: 'No grocery items found in the image' });
     }

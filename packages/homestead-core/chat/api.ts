@@ -7,7 +7,7 @@
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import type { ChatMessage, ChatRequest, ChatResponse } from './types';
 
-/** Thrown when the server has no GEMINI_API_KEY configured (HTTP 503). */
+/** Thrown when the server has no AI provider configured (HTTP 503). */
 export class ChatNotConfiguredError extends Error {
   constructor() {
     super('Chat is not configured on the server');

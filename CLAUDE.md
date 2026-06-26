@@ -8,7 +8,7 @@ the runtime seams are `src/listen.ts`, `src/engine/sqlite.ts`, and
 TypeScript rewrite of aepbase: an AEP-compliant dynamic REST server over
 SQLite, with users/auth, OAuth, file fields, and app-access gating baked in)
 plus the API routes the SPA can't serve itself (test notifications, the
-Gemini-backed chat, the AEP-136 custom-method gateway) and the boot-time
+the AI-backed chat, the AEP-136 custom-method gateway) and the boot-time
 schema sync. The frontend is a **Vite + React SPA** (`react-router-dom`) that
 talks to the engine through same-origin `/api/aep` routes; in dev, Vite runs
 in middleware mode *inside* the server process (single port, HMR included).
@@ -269,7 +269,7 @@ SPA and apps share:
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `AppConfig`/`AppFlagDef` contract types
 - `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
-  apps (`chat` is the Gemini-backed assistant; its server half lives in
+  apps (`chat` is the AI assistant; its server half lives in
   `server/chat/`)
 - `layout/`, `shared/`, `resources/`, `app-flags/`, `user-settings/` —
   shared chrome, components, and schema/sync plumbing
@@ -295,8 +295,9 @@ The whole backend in one Bun process:
   OpenAPI generator (`openapi.ts`). Features are baked in — there is no
   middleware/plugin layer.
 - `src/routes/` — the API routes the SPA can't serve itself:
-  `POST /api/notifications/send-test`, `POST /api/chat` (Gemini chat;
-  requires `GEMINI_API_KEY`), `GET /api/custom-methods`, and the
+  `POST /api/notifications/send-test`, `POST /api/chat` (the AI chat;
+  requires an `ai` block in `homestead.config.ts`), `GET /api/custom-methods`,
+  and the
   `/api/aep` gateway (`aep-gateway.ts`) that dispatches AEP-136 custom
   methods and passes everything else to the engine in-process.
 - `src/server.ts` — `startServer()`: a single listener (SPA + /api/*, with the
@@ -409,7 +410,7 @@ sync by construction.
 2. **Allowed string values go in `enum: [...]`.** aepbase strips
    JSON-schema `enum` on round-trip, so the translator encodes the
    values into the wire `description` (`one of: pending, done`); the
-   chat tool builder passes them to Gemini as a real enum. There is no
+   chat tool builder passes them to the model as a real enum. There is no
    `minimum`/`maximum` support.
 3. **Field names stay snake_case** (e.g. `card_number`,
    `created_by`, `service_date`).

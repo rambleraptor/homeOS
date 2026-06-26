@@ -1,12 +1,11 @@
 /**
- * Executes a Gemini function call against aepbase with the calling
- * user's token, so aepbase's own permissions apply. Never throws —
- * every failure (unknown tool, missing args, aepbase errors) becomes
+ * Executes a model tool call against aepbase with the calling user's
+ * token, so aepbase's own permissions apply. Never throws — every
+ * failure (unknown tool, missing args, aepbase errors) becomes
  * `{ ok: false, error }` and is fed back to the model so it can
  * self-correct.
  */
 
-import type { FunctionCall } from '@google/generative-ai';
 import {
   aepCreate,
   aepGet,
@@ -20,6 +19,12 @@ import { parentIdParam, type ToolBinding } from './tools';
 
 /** Cap on records returned to the model from a list call (context safety). */
 const LIST_CAP = 100;
+
+/** A provider-agnostic tool call: the tool name plus its parsed arguments. */
+export interface ToolCall {
+  name: string;
+  args?: Record<string, unknown>;
+}
 
 function stringArg(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -66,7 +71,7 @@ function buildBody(
 }
 
 export async function executeToolCall(
-  call: FunctionCall,
+  call: ToolCall,
   bindings: Map<string, ToolBinding>,
   token: string,
 ): Promise<ChatToolCall> {

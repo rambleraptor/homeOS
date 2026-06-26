@@ -169,16 +169,19 @@ make test
 
 ## Configuration
 
-### Gemini API Key
+### AI provider
 
-To enable AI receipt parsing, set the Gemini API key:
+Receipt parsing uses the instance's configured AI provider. Set the `ai` block
+in `homestead.config.ts` (provider, model, auth) and supply the key via the
+environment:
 
 ```bash
-# In frontend/.env
-GEMINI_API_KEY=your_api_key_here
+# In the project's .env
+AI_API_KEY=your_ai_provider_api_key_here
 ```
 
-Get an API key at: https://makersuite.google.com/app/apikey
+The model must be vision-capable (e.g. `gpt-4o`, `claude-3-5-sonnet-latest`,
+`gemini-2.5-flash`). See the [AI guide](../../homestead-site/docs/guides/ai.md).
 
 ### aepbase URL
 

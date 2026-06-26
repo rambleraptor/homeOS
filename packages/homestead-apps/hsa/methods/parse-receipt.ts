@@ -6,8 +6,13 @@
  * Returns `{ data: ParsedReceiptData, message }`.
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { z } from 'zod';
 import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
+import { isAiConfigured } from '@rambleraptor/homestead-core/server/ai/config';
+import {
+  aiGenerateObject,
+  type ModelMessage,
+} from '@rambleraptor/homestead-core/server/ai/generate';
 
 interface ParsedReceiptData {
   merchant: string;
@@ -17,13 +22,20 @@ interface ParsedReceiptData {
   patient?: string;
 }
 
+/** Schema the model fills. All optional so a partial read degrades gracefully
+ *  rather than failing validation; defaults are applied below. */
+const receiptSchema = z.object({
+  merchant: z.string().optional(),
+  service_date: z.string().optional(),
+  amount: z.number().optional(),
+  category: z.enum(['Medical', 'Dental', 'Vision', 'Rx']).optional(),
+  patient: z.string().optional(),
+});
+
 async function parseReceiptFromImage(
   imageBase64: string,
   mimeType: string,
-  genAI: GoogleGenerativeAI,
 ): Promise<ParsedReceiptData> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-  const imagePart = { inlineData: { data: imageBase64, mimeType } };
   const prompt = `You are a medical receipt parser. Analyze this receipt image and extract the following information:
 
 1. Merchant/Provider name (e.g., "CVS Pharmacy", "Dr. Smith's Office", "ABC Dental")
@@ -45,16 +57,18 @@ Rules:
   - category: "Medical"
   - patient: "" (empty string)`;
 
-  const result = await model.generateContent([prompt, imagePart]);
-  const response = await result.response;
-  const text = response.text().trim();
+  const messages: ModelMessage[] = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'file', data: imageBase64, mediaType: mimeType },
+      ],
+    },
+  ];
+  const parsed = await aiGenerateObject({ messages, schema: receiptSchema });
 
-  let jsonText = text;
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) jsonText = jsonMatch[0];
-  const parsed = JSON.parse(jsonText);
-
-  if (!parsed || Object.keys(parsed).length === 0) {
+  if (!parsed.merchant && !parsed.service_date && parsed.amount === undefined) {
     throw new Error('No receipt data found in image');
   }
 
@@ -62,18 +76,15 @@ Rules:
     merchant: parsed.merchant || 'Unknown Provider',
     service_date: parsed.service_date || new Date().toISOString().split('T')[0],
     amount: typeof parsed.amount === 'number' ? parsed.amount : 0,
-    category: ['Medical', 'Dental', 'Vision', 'Rx'].includes(parsed.category)
-      ? parsed.category
-      : 'Medical',
+    category: parsed.category ?? 'Medical',
     patient: parsed.patient || '',
   };
 }
 
 const handler: CustomMethodHandler = async ({ request, auth }) => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!isAiConfigured()) {
     return Response.json(
-      { error: 'Service unavailable', message: 'Gemini API is not configured on the server' },
+      { error: 'Service unavailable', message: 'AI is not configured on the server' },
       { status: 503 },
     );
   }
@@ -94,11 +105,10 @@ const handler: CustomMethodHandler = async ({ request, auth }) => {
     );
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
   console.log(`Parsing receipt image for user ${auth.user.id}`);
 
   try {
-    const receiptData = await parseReceiptFromImage(image, mimeType, genAI);
+    const receiptData = await parseReceiptFromImage(image, mimeType);
     return Response.json({ data: receiptData, message: 'Receipt parsed successfully' });
   } catch (error) {
     console.error('Failed to parse receipt from image:', error);
