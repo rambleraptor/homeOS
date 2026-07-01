@@ -29,7 +29,5 @@ whatever doesn't fit, or copy one as the starting point for an app of your own.
 
 ---
 
-**Settings**, **Users**, and **Superuser** come built in — you can't remove
-them. And because every app exposes its data through Homestead's API, your
-agents can use them too: adding a grocery item or logging a recipe the same way
-you would.
+Because every app exposes its data through Homestead's API, your agents can use
+them too: adding a grocery item or logging a recipe the same way you would.

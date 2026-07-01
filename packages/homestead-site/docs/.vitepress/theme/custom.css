@@ -494,6 +494,12 @@ body {
   padding: 2px 0 8px;
 }
 
+.arch-c {
+  /* grid item: allow it to shrink below the intrinsic width of the code
+     blocks so the <pre> overflow-x:auto scrolls internally on narrow screens */
+  min-width: 0;
+}
+
 .arch-c h3 {
   margin: 0 0 8px;
   font-family: var(--serif);
