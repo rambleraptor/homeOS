@@ -44,7 +44,7 @@ export default defineConfig({
     siteTitle: 'Homestead',
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Apps', link: '/apps' },
+      { text: 'Architecture', link: '/architecture' },
       { text: 'Docs', link: '/guides/' },
       { text: 'GitHub', link: 'https://github.com/rambleraptor/homestead' },
     ],
@@ -56,6 +56,7 @@ export default defineConfig({
             { text: 'Installation', link: '/guides/installation' },
             { text: 'Quick Start', link: '/guides/quick-start' },
             { text: 'AI Support', link: '/guides/ai' },
+            { text: 'Example Apps', link: '/guides/apps' },
           ],
         },
         {

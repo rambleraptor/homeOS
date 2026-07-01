@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import DefaultTheme from 'vitepress/theme';
 import { useData } from 'vitepress';
-import Apps from './Apps.vue';
+import Architecture from './Architecture.vue';
 
 const { frontmatter } = useData();
 </script>
 
 <template>
-  <Apps v-if="frontmatter.layout === 'showcase'" />
+  <Architecture v-if="frontmatter.layout === 'architecture'" />
   <DefaultTheme.Layout v-else-if="frontmatter.layout !== 'landing'" />
   <main v-else class="hs">
     <header class="topbar">
@@ -16,8 +16,8 @@ const { frontmatter } = useData();
         <span>Homestead</span>
       </a>
       <nav aria-label="Primary">
-        <a href="#install">Install</a>
-        <a href="/apps">Apps</a>
+        <a href="#install">Home</a>
+        <a href="/architecture">Architecture</a>
         <a href="/guides/">Docs</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
@@ -46,28 +46,13 @@ const { frontmatter } = useData();
           scoped access to your data, and nothing more.
         </p>
       </div>
-      <div class="cta">
-        <a class="button" href="#install">Install Homestead</a>
-        <a class="link" href="/guides/">Read the docs &rarr;</a>
+      <div class="commands" id="install">
+        <pre><code><span class="prompt">$</span> npm install -g @rambleraptor/homestead-cli</code></pre>
+        <pre><code><span class="prompt">$</span> homestead init && homestead start</code></pre>
       </div>
-    </section>
-
-    <section class="deploy" id="install">
-      <div class="deploy-inner">
-        <p class="section-label muted">One-command deploy</p>
-        <h2>Install, init, start.</h2>
-        <p class="deploy-sub">
-          One command installs the CLI from npm. The next runs the whole thing —
-          frontend, backend, and database in a single process — on a machine you
-          already own.
-        </p>
-        <div class="commands">
-          <pre><code><span class="prompt">$</span> npm install -g @rambleraptor/homestead-cli</code></pre>
-          <pre><code><span class="prompt">$</span> homestead init my-home
-<span class="prompt">$</span> cd my-home
-<span class="prompt">$</span> homestead start</code></pre>
-        </div>
-        <a class="button on-dark" href="https://github.com/rambleraptor/homestead">View on GitHub</a>
+      <div class="cta">
+        <a class="button" href="https://github.com/rambleraptor/homestead">View on GitHub</a>
+        <a class="link" href="/guides/">Read the docs &rarr;</a>
       </div>
     </section>
 
@@ -79,7 +64,8 @@ const { frontmatter } = useData();
       <p>Personal apps you actually own.</p>
       <nav aria-label="Footer">
         <a href="#install">Install</a>
-        <a href="/apps">Apps</a>
+        <a href="/architecture">Architecture</a>
+        <a href="/guides/apps">Example Apps</a>
         <a href="/guides/">Docs</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
       </nav>
