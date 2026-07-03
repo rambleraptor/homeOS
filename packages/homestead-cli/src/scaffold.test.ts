@@ -2,7 +2,15 @@ import { test, expect } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { appNames, scaffold, scaffoldApp } from './scaffold.ts';
+import {
+  aiChoiceFor,
+  appNames,
+  inferAiFromEnv,
+  parseAiProvider,
+  parseEnvKeys,
+  scaffold,
+  scaffoldApp,
+} from './scaffold.ts';
 
 test('scaffold writes a project the launcher can resolve', () => {
   const parent = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
@@ -35,14 +43,106 @@ test('scaffold writes a project the launcher can resolve', () => {
   }
 });
 
-test('scaffold refuses a non-empty directory', () => {
+test('scaffold refuses to clobber an existing project', () => {
   const dir = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
   try {
-    writeFileSync(join(dir, 'existing.txt'), 'hi');
-    expect(() => scaffold(dir)).toThrow(/not empty/);
+    writeFileSync(join(dir, 'homestead.config.ts'), '// existing');
+    expect(() => scaffold(dir)).toThrow(/already exists/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('scaffold tolerates unrelated files and keeps an existing .gitignore', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
+  try {
+    writeFileSync(join(dir, '.env'), 'ANTHROPIC_API_KEY=sk-test\n');
+    writeFileSync(join(dir, '.gitignore'), '# mine\ncustom-ignore\n');
+    const root = scaffold(dir);
+    // Generated files land alongside the pre-existing ones.
+    expect(existsSync(join(root, 'homestead.config.ts'))).toBe(true);
+    // The operator's own .gitignore is left untouched.
+    expect(readFileSync(join(root, '.gitignore'), 'utf8')).toBe('# mine\ncustom-ignore\n');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('scaffold wires an ai block into homestead.config.ts when given a choice', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
+  try {
+    const root = scaffold(dir, {
+      ai: { provider: 'anthropic', model: 'claude-3-5-sonnet-latest', keyEnv: 'ANTHROPIC_API_KEY' },
+    });
+    const config = readFileSync(join(root, 'homestead.config.ts'), 'utf8');
+    expect(config).toContain("provider: 'anthropic'");
+    expect(config).toContain("model: 'claude-3-5-sonnet-latest'");
+    expect(config).toContain('process.env.ANTHROPIC_API_KEY');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('scaffold omits the ai block by default', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
+  try {
+    const config = readFileSync(join(scaffold(dir), 'homestead.config.ts'), 'utf8');
+    expect(config).not.toContain('ai: {');
+    expect(config).not.toContain('provider:');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('parseEnvKeys handles comments, export prefixes, and quoted values', () => {
+  const keys = parseEnvKeys(
+    ['# a comment', '', 'OPENAI_API_KEY=plain', 'export FOO="quoted"', "BAR='single'"].join('\n'),
+  );
+  expect(keys.get('OPENAI_API_KEY')).toBe('plain');
+  expect(keys.get('FOO')).toBe('quoted');
+  expect(keys.get('BAR')).toBe('single');
+});
+
+test('inferAiFromEnv maps a known key to its provider', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-env-'));
+  try {
+    expect(inferAiFromEnv(dir)).toBeNull(); // no .env
+    writeFileSync(join(dir, '.env'), 'GEMINI_API_KEY=abc123\n');
+    const ai = inferAiFromEnv(dir);
+    expect(ai?.provider).toBe('google');
+    expect(ai?.keyEnv).toBe('GEMINI_API_KEY');
+    expect(ai?.model).toBe('gemini-2.5-flash');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('inferAiFromEnv ignores an empty key value', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-env-'));
+  try {
+    writeFileSync(join(dir, '.env'), 'ANTHROPIC_API_KEY=\n');
+    expect(inferAiFromEnv(dir)).toBeNull();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('aiChoiceFor applies defaults and honors overrides', () => {
+  expect(aiChoiceFor('openai')).toEqual({
+    provider: 'openai',
+    model: 'gpt-4o',
+    keyEnv: 'OPENAI_API_KEY',
+  });
+  expect(aiChoiceFor('openai', { model: 'gpt-4o-mini', keyEnv: 'MY_KEY' })).toEqual({
+    provider: 'openai',
+    model: 'gpt-4o-mini',
+    keyEnv: 'MY_KEY',
+  });
+});
+
+test('parseAiProvider rejects unknown providers', () => {
+  expect(parseAiProvider('google')).toBe('google');
+  expect(() => parseAiProvider('cohere')).toThrow(/unknown AI provider/);
 });
 
 test('appNames derives every variant from a multi-word name', () => {

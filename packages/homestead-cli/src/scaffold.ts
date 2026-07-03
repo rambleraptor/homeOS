@@ -1,29 +1,145 @@
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+
+/** AI providers the scaffolder can wire into homestead.config.ts. */
+export type AiProvider = 'anthropic' | 'openai' | 'google';
+
+/** A resolved AI choice: which provider, which model, and the env var
+ *  holding the API key (referenced from the generated config, never inlined). */
+export interface AiChoice {
+  provider: AiProvider;
+  model: string;
+  keyEnv: string;
+}
+
+/**
+ * Per-provider defaults. Models are the documented vision-capable examples
+ * (see AiConfig in @rambleraptor/homestead-core/apps/config); the key env var
+ * is the name each provider's SDK conventionally reads.
+ */
+export const AI_PROVIDER_DEFAULTS: Record<AiProvider, { model: string; keyEnv: string }> = {
+  anthropic: { model: 'claude-3-5-sonnet-latest', keyEnv: 'ANTHROPIC_API_KEY' },
+  openai: { model: 'gpt-4o', keyEnv: 'OPENAI_API_KEY' },
+  google: { model: 'gemini-2.5-flash', keyEnv: 'GOOGLE_GENERATIVE_AI_API_KEY' },
+};
+
+/** Narrow a raw string to an AiProvider, or throw with the valid set. */
+export function parseAiProvider(raw: string): AiProvider {
+  if (raw === 'anthropic' || raw === 'openai' || raw === 'google') return raw;
+  throw new Error(`unknown AI provider "${raw}" — expected anthropic, openai, or google`);
+}
+
+/** Build an AiChoice for a provider, applying optional model/key overrides. */
+export function aiChoiceFor(
+  provider: AiProvider,
+  overrides: { model?: string; keyEnv?: string } = {},
+): AiChoice {
+  const d = AI_PROVIDER_DEFAULTS[provider];
+  return {
+    provider,
+    model: overrides.model?.trim() || d.model,
+    keyEnv: overrides.keyEnv?.trim() || d.keyEnv,
+  };
+}
+
+/**
+ * Known API-key env var names, in preference order, mapped to the provider
+ * they imply. Used to infer an AI choice from an existing `.env`.
+ */
+const ENV_KEY_PROVIDERS: ReadonlyArray<readonly [string, AiProvider]> = [
+  ['ANTHROPIC_API_KEY', 'anthropic'],
+  ['OPENAI_API_KEY', 'openai'],
+  ['GOOGLE_GENERATIVE_AI_API_KEY', 'google'],
+  ['GEMINI_API_KEY', 'google'],
+];
+
+/** Parse a `.env` file body into a KEY→value map (comments/blanks skipped). */
+export function parseEnvKeys(contents: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    let key = line.slice(0, eq).trim();
+    if (key.startsWith('export ')) key = key.slice('export '.length).trim();
+    let value = line.slice(eq + 1).trim();
+    if (
+      value.length >= 2 &&
+      ((value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'")))
+    ) {
+      value = value.slice(1, -1);
+    }
+    out.set(key, value);
+  }
+  return out;
+}
+
+/**
+ * Inspect `<dir>/.env` for a known API-key var with a non-empty value and,
+ * if found, return the AI choice it implies. Returns null when there's no
+ * `.env` or nothing recognizable — the caller falls back to "none".
+ */
+export function inferAiFromEnv(dir: string): AiChoice | null {
+  const envPath = resolve(dir, '.env');
+  if (!existsSync(envPath)) return null;
+  const keys = parseEnvKeys(readFileSync(envPath, 'utf8'));
+  for (const [name, provider] of ENV_KEY_PROVIDERS) {
+    if ((keys.get(name) ?? '').length > 0) {
+      return { provider, model: AI_PROVIDER_DEFAULTS[provider].model, keyEnv: name };
+    }
+  }
+  return null;
+}
+
+/** Files whose presence means "existing project" — scaffold refuses to clobber. */
+const CONFLICT_FILES = ['homestead.config.ts', 'package.json'] as const;
+
+export interface ScaffoldOptions {
+  /** When set, wire an `ai` block into the generated homestead.config.ts. */
+  ai?: AiChoice;
+}
 
 /**
  * Scaffold a starter Homestead project: homestead.config.ts, a package.json
  * declaring the homestead packages (the launcher resolves the server, the SPA
  * shell, and vite through the project's node_modules), and an apps/ directory.
- * Refuses to write into a non-empty directory.
+ *
+ * Safe to run in a folder that already holds unrelated files (e.g. a `.env`
+ * or a git checkout): it refuses only when a file it generates
+ * (homestead.config.ts / package.json) already exists, and writes the
+ * ancillary `.gitignore` / `apps/README.md` only when they're absent so an
+ * operator's own versions are never overwritten.
  */
-export function scaffold(dir: string): string {
+export function scaffold(dir: string, opts: ScaffoldOptions = {}): string {
   const root = resolve(dir);
   mkdirSync(root, { recursive: true });
 
-  for (const entry of readdirSync(root)) {
-    if (entry !== '.' && entry !== '..') {
-      throw new Error(`${root} is not empty — pick a fresh directory`);
+  for (const name of CONFLICT_FILES) {
+    if (existsSync(join(root, name))) {
+      throw new Error(
+        `${join(root, name)} already exists — this looks like an existing Homestead project; pick a fresh directory`,
+      );
     }
   }
 
-  const files: Array<[string, string]> = [
-    [join(root, 'homestead.config.ts'), CONFIG_TS],
+  // Always written (guarded above so they can't clobber).
+  const created: Array<[string, string]> = [
+    [join(root, 'homestead.config.ts'), configTs(opts.ai)],
     [join(root, 'package.json'), packageJson(root)],
+  ];
+  // Written only if absent — never overwrite an operator's existing versions.
+  const ifAbsent: Array<[string, string]> = [
     [join(root, 'apps', 'README.md'), APPS_README],
     [join(root, '.gitignore'), GITIGNORE],
   ];
-  for (const [path, body] of files) {
+  for (const [path, body] of created) {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, body);
+  }
+  for (const [path, body] of ifAbsent) {
+    if (existsSync(path)) continue;
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, body);
   }
@@ -63,7 +179,24 @@ function packageJson(root: string): string {
   return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
-const CONFIG_TS = `/**
+/** The `ai` block injected into the generated config when a provider is chosen. */
+function aiBlock(ai: AiChoice): string {
+  return `
+  // AI features (the chat assistant + image-extraction methods). The API key is
+  // read from the environment when the launcher evaluates this file
+  // server-side, so it never reaches the browser bundle. Set ${ai.keyEnv} in
+  // your environment (or a .env file) before running \`homestead start\`.
+  ai: {
+    provider: '${ai.provider}',
+    model: '${ai.model}',
+    auth: { apiKey: process.env.${ai.keyEnv} ?? '' },
+  },
+`;
+}
+
+/** Render homestead.config.ts, optionally with an `ai` block wired in. */
+function configTs(ai?: AiChoice): string {
+  return `/**
  * Homestead instance configuration.
  *
  * A fresh instance ships with no apps. Add them two ways:
@@ -95,7 +228,7 @@ const config: HomesteadConfig = {
     // groceriesApp,
     // recipesApp,
   ],
-};
+${ai ? aiBlock(ai) : ''}};
 
 // Tip: a running \`homestead start\` watches this file and the apps/ tree —
 // edit them and it rebuilds the SPA and reapplies config automatically; open
@@ -103,6 +236,7 @@ const config: HomesteadConfig = {
 
 export default config;
 `;
+}
 
 const APPS_README = `# Custom Apps
 
