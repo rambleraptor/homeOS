@@ -7,13 +7,16 @@
   /* Highlight */
   --clay: #bf5a2c;
   --clay-soft: #d98a52;
+  /* AA-accessible clay for small text on cream (>=4.5:1); --clay stays for
+     fills and large display numerals only */
+  --clay-ink: #9c3f1a;
   /* Ink */
   --ink: #25271f;
   --muted: #5c6354;
   --line: rgba(31, 58, 46, 0.16);
   --line-soft: rgba(31, 58, 46, 0.09);
 
-  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
   --sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --mono: 'SFMono-Regular', 'JetBrains Mono', ui-monospace, Menlo, monospace;
 
@@ -44,14 +47,14 @@ html {
 .vp-doc h1,
 .vp-doc h2,
 .vp-doc h3 {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Newsreader', Georgia, serif;
   font-weight: 560;
   letter-spacing: -0.015em;
   color: #1f3a2e;
 }
 
 .VPNavBarTitle .title {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: 'Newsreader', Georgia, serif;
   font-weight: 580;
 }
 
@@ -106,7 +109,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--clay);
+  color: var(--clay-ink);
   margin-bottom: clamp(28px, 4vw, 44px);
 }
 
@@ -149,7 +152,7 @@ body {
 }
 
 .topbar nav a:hover {
-  color: var(--clay);
+  color: var(--clay-ink);
 }
 
 /* ---- hero (left-justified) ---- */
@@ -217,7 +220,7 @@ body {
   min-height: 52px;
   padding: 0 28px;
   border-radius: 4px;
-  background: var(--clay);
+  background: var(--forest);
   color: var(--cream);
   font-weight: 500;
   font-size: 1rem;
@@ -226,7 +229,7 @@ body {
 }
 
 .button:hover {
-  background: #aa4d23;
+  background: var(--forest-deep);
   transform: translateY(-1px);
 }
 
@@ -248,8 +251,8 @@ body {
 }
 
 .link:hover {
-  color: var(--clay);
-  border-color: var(--clay);
+  color: var(--clay-ink);
+  border-color: var(--clay-ink);
 }
 
 /* ---- apps showcase ---- */
@@ -349,7 +352,7 @@ body {
   margin-top: 6px;
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--clay);
+  color: var(--clay-ink);
 }
 
 .apps-note {
@@ -435,14 +438,18 @@ body {
 }
 
 .footer nav a:hover {
-  color: var(--clay);
+  color: var(--clay-ink);
 }
 
 /* ---- responsive ---- */
 @media (max-width: 720px) {
-  .topbar nav a:first-child,
-  .topbar nav a:nth-child(2) {
+  /* Drop only "Home" (the logo already links home); keep Architecture, Docs,
+     and GitHub reachable. Tighten the row so all three fit on one line. */
+  .topbar nav a:first-child {
     display: none;
+  }
+  .topbar nav {
+    gap: 18px;
   }
 }
 

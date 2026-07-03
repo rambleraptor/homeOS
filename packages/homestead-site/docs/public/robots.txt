@@ -1,0 +1,46 @@
+# Homestead — https://myhomestead.dev
+# We welcome AI/LLM crawlers: we want generative engines to read, cite, and
+# describe Homestead accurately. See /llms.txt and /llms-full.txt.
+
+# General search + AI crawlers
+User-agent: *
+Allow: /
+
+# Named AI crawlers (explicit allow so there is no ambiguity)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+Sitemap: https://myhomestead.dev/sitemap.xml

@@ -1,0 +1,39 @@
+# Homestead
+
+> Homestead is an open-source, self-hosted platform for building and deploying personal apps for you, your family, and your AI agents. You define a data model and get a database, a REST API, a CLI, an AI chatbot, and optional React apps on top.
+
+Building a personal app is normally too hard: app-store reviews, sideloading, and a backend to run. Homestead removes all of that. All an app needs to start is a data model; you can add a React frontend, notifications, offline support, and dashboard widgets later. Homestead handles authentication and authorization (OAuth login, per-user app access), and exposes your data to AI agents through a chatbot, an MCP server, and an agent-friendly CLI with scoped access.
+
+Homestead runs as a single self-hosted process on macOS or Linux. Install it with `npm install -g @rambleraptor/homestead-cli`, then `homestead init && homestead start`.
+
+## Getting Started
+
+- [Installation](https://myhomestead.dev/guides/installation): Install the CLI and run your first self-hosted instance (Node.js 22.13+, macOS or Linux).
+- [Quick Start](https://myhomestead.dev/guides/quick-start): Build a working Grocery List app backed by its own database collection, with no config wiring.
+- [AI Support](https://myhomestead.dev/guides/ai): Give AI tools and agents scoped access to your data via the CLI, Chat, and MCP.
+- [Example Apps](https://myhomestead.dev/guides/apps): Real apps that ship in the repo — groceries, recipes, credit cards, gift cards, events, todos, and more.
+
+## App Development
+
+- [App Config](https://myhomestead.dev/guides/app-config): Field-by-field reference for the AppConfig manifest every app exports.
+- [Defining Resources](https://myhomestead.dev/guides/resources): Declare the data your app stores and get a REST API for it automatically.
+- [State Management](https://myhomestead.dev/guides/state-management): Read and write resources with the built-in data layer.
+- [Offline Support](https://myhomestead.dev/guides/offline): Keep your app working when the network drops.
+
+## App Features
+
+- [Dashboard Widgets](https://myhomestead.dev/guides/widgets): Add a summary card to the home dashboard.
+- [App Flags](https://myhomestead.dev/guides/app-flags): Typed, household-wide settings an app can declare and read.
+- [Notifications](https://myhomestead.dev/guides/notifications): Send push notifications to users.
+- [Bulk Import](https://myhomestead.dev/guides/bulk-import): Add CSV import to an app.
+
+## Running an Instance
+
+- [Creating Users](https://myhomestead.dev/guides/users): Claim a new instance and add accounts.
+- [Access & Tags](https://myhomestead.dev/guides/access): Group users and control which apps each can reach.
+- [Architecture](https://myhomestead.dev/architecture): How Homestead turns resource definitions into a database, REST APIs, a CLI, a chatbot, and React apps.
+
+## Optional
+
+- [Full documentation (single file)](https://myhomestead.dev/llms-full.txt): Every guide concatenated as markdown for ingestion in one fetch.
+- [GitHub repository](https://github.com/rambleraptor/homestead): Source code (MIT licensed).

@@ -19,7 +19,7 @@
       <h1>From a schema to a running app.</h1>
       <p class="lede">
         You describe your data. Homestead hands back a database, an API, a
-        chatbot, and a UI to go with it — all on your own machine. Here's what
+        chatbot, and a UI to go with it, all on your own machine. Here's what
         happens in between.
       </p>
     </section>
@@ -31,7 +31,7 @@
           <div class="arch-c">
             <h3>You define your data</h3>
             <p>
-              Every app begins with a resource definition — the fields for one
+              Every app begins with a resource definition: the fields for one
               kind of thing. A grocery list has grocery items. That's the whole
               job.
             </p>
@@ -51,7 +51,7 @@ fields: {
             <h3>Homestead builds the backend</h3>
             <p>
               On boot it creates a SQLite database on your machine and a REST
-              API for every resource — the usual create, read, update, delete.
+              API for every resource: the usual create, read, update, delete.
               Users and auth come built in.
             </p>
             <pre class="arch-code"><span class="m">POST</span>/api/aep/grocery-items
@@ -67,7 +67,7 @@ fields: {
           <div class="arch-c">
             <h3>Read and write from anywhere</h3>
             <p>
-              Everything goes through that one authenticated API — call it over
+              Everything goes through that one authenticated API: call it over
               REST, drive it from the CLI (handy for agents), or just ask the
               built-in chatbot.
             </p>
@@ -87,7 +87,7 @@ fields: {
             <h3>React apps on top</h3>
             <p>
               Homestead builds and serves the React apps that sit on top of that
-              API — the interface your household actually opens. Change them, or
+              API: the interface your household actually opens. Change them, or
               write your own.
             </p>
           </div>
@@ -97,7 +97,7 @@ fields: {
 
     <section class="apps-note">
       <p>
-        Your apps, your agents, and the chatbot all touch the same records — on
+        Your apps, your agents, and the chatbot all touch the same records, on
         hardware you own, start to finish.
       </p>
       <div class="cta">

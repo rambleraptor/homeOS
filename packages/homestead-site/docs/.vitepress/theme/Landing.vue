@@ -16,7 +16,7 @@ const { frontmatter } = useData();
         <span>Homestead</span>
       </a>
       <nav aria-label="Primary">
-        <a href="#install">Home</a>
+        <a href="/">Home</a>
         <a href="/architecture">Architecture</a>
         <a href="/guides/">Docs</a>
         <a href="https://github.com/rambleraptor/homestead">GitHub</a>
@@ -26,9 +26,11 @@ const { frontmatter } = useData();
     <section class="hero">
       <h1>Build and deploy apps for you, your family, and your agents.</h1>
       <p class="lede">
-        Building a personal app is too difficult. You need app reviews,
-        sideloading, and you still need to run a backend. Homestead lets you
-        build personal apps and share them with only your family easily.
+        <strong>Homestead is an open-source, self-hosted platform for building
+        and deploying personal apps for you, your family, and your AI
+        agents.</strong> Building a personal app is normally too difficult:
+        app reviews, sideloading, and a backend to run. Homestead lets you build
+        personal apps and share them with only your family, easily.
       </p>
       <div class="audience">
         <p>
@@ -42,7 +44,7 @@ const { frontmatter } = useData();
         </p>
         <p>
           <strong>Your agents.</strong> Your data is exposed through a chatbot
-          and an agent-friendly CLI. Point your existing agents at it — they get
+          and an agent-friendly CLI. Point your existing agents at it. They get
           scoped access to your data, and nothing more.
         </p>
       </div>
