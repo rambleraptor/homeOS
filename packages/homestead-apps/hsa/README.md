@@ -89,7 +89,7 @@ Response:
     "merchant": "CVS Pharmacy",
     "service_date": "2024-01-15",
     "amount": 45.99,
-    "category": "Rx",
+    "category": "rx",
     "patient": "John Smith"
   },
   "message": "Receipt parsed successfully"
@@ -115,9 +115,9 @@ Collection: `hsa_receipts`
 | merchant | text | Yes | Provider name (e.g., "CVS Pharmacy") |
 | service_date | date | Yes | Date of service |
 | amount | number | Yes | Amount paid (min: 0) |
-| category | select | Yes | Medical, Dental, Vision, or Rx |
+| category | select | Yes | medical, dental, vision, or rx (shown as Medical, Dental, Vision, Rx) |
 | patient | text | No | Patient name |
-| status | select | Yes | Stored or Reimbursed |
+| status | select | Yes | stored or reimbursed (shown as Stored, Reimbursed) |
 | receipt_file | file | Yes | Image or PDF (max 10MB) |
 | notes | text | No | Additional notes |
 | created_by | relation | No | User who created the record |
@@ -185,10 +185,10 @@ The model must be vision-capable (e.g. `gpt-4o`, `claude-3-5-sonnet-latest`,
 
 ### aepbase URL
 
-The app talks to aepbase via the shared `/api/aep` same-origin
+The app talks to aepbase via the shared `/api/v1/aep` same-origin
 prefix on the one server port. Server-side helpers reach the engine at the
 same prefix; override the target by setting `AEPBASE_URL` if the engine runs
-somewhere other than `http://127.0.0.1:3000/api/aep`.
+somewhere other than `http://127.0.0.1:3000/api/v1/aep`.
 
 ## Tips
 

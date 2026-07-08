@@ -2,7 +2,7 @@
  * Superuser bootstrap. On first boot (empty _users) a *pending* superuser is
  * created with a random, never-revealed password, and the instance is marked
  * unclaimed: the first visit to the SPA shows a "create your admin account"
- * form backed by /api/setup, which sets the email + password and claims the
+ * form backed by /api/v1/setup, which sets the email + password and claims the
  * instance. Recovery goes through `homestead admin reset-password`, which
  * calls resetSuperuserPassword() against the db directly (and also claims).
  * Schema sync and `homestead resources` mint short-lived tokens via
@@ -51,7 +51,7 @@ export function needsSetup(db: Database): boolean {
 
 /**
  * Claim the instance: set the pending superuser's email + password. One-shot —
- * throws when the instance is already claimed (the /api/setup route also
+ * throws when the instance is already claimed (the /api/v1/setup route also
  * guards with a 409, this is the backstop).
  */
 export async function claimSetup(
@@ -92,7 +92,7 @@ export async function createSuperuser(
 /**
  * First-boot bootstrap: when no users exist, create a pending superuser with
  * a random, never-revealed password and mark the instance unclaimed — the
- * first SPA visit claims it via /api/setup. Pre-existing deployments (users
+ * first SPA visit claims it via /api/v1/setup. Pre-existing deployments (users
  * present, no meta row) are treated as claimed.
  */
 export async function ensureSuperuser(db: Database): Promise<'pending' | 'claimed'> {

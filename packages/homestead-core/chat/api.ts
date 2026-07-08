@@ -1,5 +1,5 @@
 /**
- * Client transport for the chat backend (`POST /api/chat`, served by
+ * Client transport for the chat backend (`POST /api/v1/chat`, served by
  * the sidecar). Auth mirrors the other sidecar calls: forward the
  * aepbase bearer token plus the caller's user id.
  */
@@ -16,7 +16,7 @@ export class ChatNotConfiguredError extends Error {
 }
 
 export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
-  const res = await fetch('/api/chat', {
+  const res = await fetch('/api/v1/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

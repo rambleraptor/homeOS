@@ -11,7 +11,7 @@ import type { SpaAssets } from './static';
 export interface ServerOptions {
   /** Dev mode: serve the SPA through Vite middleware with HMR. */
   dev: boolean;
-  /** The only port: SPA + /api/* (incl. the /api/aep engine gateway). */
+  /** The only port: SPA + /api/* (incl. the /api/v1/aep engine gateway). */
   publicPort: number;
   /** Absolute data dir for the sqlite db + uploaded files. */
   dataDir: string;

@@ -140,7 +140,7 @@ describe('oauth flow (mocked provider)', () => {
     expect(res.headers.get('set-cookie')).toContain('aepbase_oauth_state=');
     // The cookie must be scoped to the callback's directory (derived from the
     // redirect URL) so it is sent back on /callback — not a hardcoded path that
-    // breaks under a mount prefix like /api/aep.
+    // breaks under a mount prefix like /api/v1/aep.
     expect(res.headers.get('set-cookie')).toContain('Path=/oauth/fake/');
   });
 

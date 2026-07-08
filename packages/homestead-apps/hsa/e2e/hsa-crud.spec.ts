@@ -45,7 +45,7 @@ test.describe('HSA CRUD', () => {
 
   test('should calculate liquidatable cash correctly', async ({ userToken }) => {
     // Create receipts via API for faster setup
-    const storedReceipts = testHSAReceipts.filter(r => r.status === 'Stored').slice(0, 2);
+    const storedReceipts = testHSAReceipts.filter(r => r.status === 'stored').slice(0, 2);
     for (const receipt of storedReceipts) {
       await createHSAReceipt(userToken, receipt);
     }
@@ -65,7 +65,7 @@ test.describe('HSA CRUD', () => {
     await hsaPage.goto();
 
     // Verify receipt is in list with Stored status
-    await hsaPage.expectReceiptStatus(receiptData.merchant, 'Stored');
+    await hsaPage.expectReceiptStatus(receiptData.merchant, 'stored');
 
     // Mark as reimbursed
     await hsaPage.markReceiptAsReimbursed(receiptData.merchant);
@@ -76,10 +76,10 @@ test.describe('HSA CRUD', () => {
       'hsa-receipts',
       createdReceipt.id,
     );
-    expect(updatedReceipt.status).toBe('Reimbursed');
+    expect(updatedReceipt.status).toBe('reimbursed');
 
     // Verify status changed in UI
-    await hsaPage.expectReceiptStatus(receiptData.merchant, 'Reimbursed');
+    await hsaPage.expectReceiptStatus(receiptData.merchant, 'reimbursed');
   });
 
   test('should filter receipts by status', async ({ userToken }) => {
@@ -93,12 +93,12 @@ test.describe('HSA CRUD', () => {
     await hsaPage.goto();
 
     // Filter to show only Stored
-    await hsaPage.filterByStatus('Stored');
+    await hsaPage.filterByStatus('stored');
     await hsaPage.expectReceiptInList(storedReceipt.merchant);
     await hsaPage.expectReceiptNotInList(reimbursedReceipt.merchant);
 
     // Filter to show only Reimbursed
-    await hsaPage.filterByStatus('Reimbursed');
+    await hsaPage.filterByStatus('reimbursed');
     await hsaPage.expectReceiptNotInList(storedReceipt.merchant);
     await hsaPage.expectReceiptInList(reimbursedReceipt.merchant);
 
@@ -152,7 +152,7 @@ test.describe('HSA CRUD', () => {
       testHSAReceipts[0], // Rx
       testHSAReceipts[1], // Dental
       testHSAReceipts[2], // Vision
-      { ...testHSAReceipts[0], merchant: 'Medical Clinic', category: 'Medical' as const }, // Medical
+      { ...testHSAReceipts[0], merchant: 'Medical Clinic', category: 'medical' as const }, // Medical
     ];
 
     for (const receipt of receipts) {

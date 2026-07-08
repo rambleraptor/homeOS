@@ -5,7 +5,7 @@ import type { Hole } from '../types';
 function hole(partial: Partial<Hole>): Hole {
   return {
     id: partial.id || 'h',
-    path: partial.path || 'games/g/holes/h',
+    path: partial.path || 'minigolf-games/g/minigolf-holes/h',
     hole_number: partial.hole_number ?? 1,
     par: partial.par ?? 3,
     scores: partial.scores ?? [],

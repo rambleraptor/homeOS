@@ -99,7 +99,7 @@ test.describe('Events CRUD', () => {
     const events = await listEvents(userToken);
     const created = events.find((e) => e.name === "Mother's Day");
     expect(created).toBeDefined();
-    expect(created!.recurrence).toBe('yearly-nth-weekday');
+    expect(created!.recurrence).toBe('yearly_nth_weekday');
     expect(created!.recurrence_rule).toBe('2:0');
   });
 

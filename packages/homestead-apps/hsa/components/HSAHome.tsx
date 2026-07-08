@@ -46,7 +46,7 @@ export function HSAHome() {
     try {
       await updateMutation.mutateAsync({
         id,
-        data: { status: 'Reimbursed' },
+        data: { status: 'reimbursed' },
       });
     } catch (err) {
       logger.error('Failed to mark receipt as reimbursed', err);

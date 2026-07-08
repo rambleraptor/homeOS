@@ -29,7 +29,7 @@ export interface OAuthProviderConfig {
 export interface OAuthConfig {
   /**
    * Externally-reachable base URL mapping to the aepbase root, e.g.
-   * `https://home.example.com/api/aep`. Each provider's redirect URL is
+   * `https://home.example.com/api/v1/aep`. Each provider's redirect URL is
    * `{redirectBaseUrl}/oauth/{name}/callback`.
    */
   redirectBaseUrl: string;

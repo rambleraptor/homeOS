@@ -13,14 +13,14 @@ export const KNOWN_EVENT_TAGS: readonly KnownEventTag[] = [
   'anniversary',
 ] as const;
 
-export type EventRecurrence = 'yearly' | 'yearly-nth-weekday';
+export type EventRecurrence = 'yearly' | 'yearly_nth_weekday';
 
 export interface Event {
   id: string;
   name: string;
   /**
    * ISO date string. For fixed-date yearly events (default), only month/day
-   * are honored. For `yearly-nth-weekday` events, only the month is honored
+   * are honored. For `yearly_nth_weekday` events, only the month is honored
    * and the day-of-month is ignored — `recurrence_rule` controls which
    * weekday and occurrence.
    */
@@ -30,7 +30,7 @@ export interface Event {
   people?: string[];
   recurrence?: EventRecurrence;
   /**
-   * For `yearly-nth-weekday`: `<n>:<weekday>` where n is 1..4 or -1 (last)
+   * For `yearly_nth_weekday`: `<n>:<weekday>` where n is 1..4 or -1 (last)
    * and weekday is 0=Sun..6=Sat. Example: `"2:0"` = 2nd Sunday.
    */
   recurrence_rule?: string;

@@ -79,7 +79,7 @@ each other. Set `sourceCollection` to the aepbase plural — `'people'`, not
 
 Use this when the notification comes from your app. App endpoints are resource
 custom methods (AEP-136): you declare them on a resource and the server's
-`/api/aep` gateway serves `POST /api/aep/<plural>:<verb>`, authenticating the
+`/api/v1/aep` gateway serves `POST /api/v1/aep/<plural>:<verb>`, authenticating the
 caller first. Your handler receives the authenticated caller and passes it to
 `sendNotificationForAuth(auth, …)`.
 
@@ -184,7 +184,7 @@ client-side by `source_collection === '<your-collection>'`.
    },
    ```
 
-   On boot, the server serves it at `POST /api/aep/<plural>:<verb>`.
+   On boot, the server serves it at `POST /api/v1/aep/<plural>:<verb>`.
 3. Trigger it from the client with `aepbase.customMethod('<plural>', '<verb>')`
    (see
    [`useSendGroceryNotification.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/groceries/hooks/useSendGroceryNotification.ts)).
@@ -202,6 +202,6 @@ Write a unit test: mock `aepbase` (done globally in
 `sendNotificationForAuth` — with the right payload.
 
 Run a manual smoke test: with the dev stack running, `POST` to
-`/api/notifications/send-test` from the browser DevTools console. (The Settings
+`/api/v1/notifications/send-test` from the browser DevTools console. (The Settings
 page wires this up via `useSendTestNotification`.) You see a push and a new row
 in your inbox.

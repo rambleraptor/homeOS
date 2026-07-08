@@ -3,11 +3,11 @@
  * via tsx; see listen.ts / engine/sqlite.ts for the runtime seams).
  *
  * One listener, one process. Everything is served on the public port:
- * /api/aep/* (the custom-method gateway + the engine, the *only* way to reach
- * aepbase), /api/chat, /api/notifications, /api/custom-methods, /oauth/*, then
+ * /api/v1/aep/* (the custom-method gateway + the engine, the *only* way to reach
+ * aepbase), /api/v1/chat, /api/v1/notifications, /api/v1/custom-methods, /oauth/*, then
  * the SPA (Vite middleware in dev, static assets in prod). Same-box callers
  * (schema sync, server-side helpers, the `homestead resources` CLI) reach the
- * engine over loopback at the same /api/aep prefix — there is no separate
+ * engine over loopback at the same /api/v1/aep prefix — there is no separate
  * engine port.
  */
 
@@ -38,9 +38,9 @@ function accessCacheTtlMs(opts: ServerOptions): number {
 export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // Loopback origin for same-box callers (schema sync, server-side helpers,
   // the `homestead resources` CLI). The engine is reachable only under the
-  // /api/aep prefix on the public port — there is no separate engine port.
+  // /api/v1/aep prefix on the public port — there is no separate engine port.
   const loopbackOrigin = `http://127.0.0.1:${opts.publicPort}`;
-  const engineBase = `${loopbackOrigin}/api/aep`;
+  const engineBase = `${loopbackOrigin}/api/v1/aep`;
 
   // homestead-core/server/aepbase reads AEPBASE_URL at import time, so it
   // must be set before any route module loads (they're imported lazily
@@ -90,11 +90,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // is derived from the served index.html, so a `vite build --watch` rebuild
   // bumps it with no server restart; dev returns '' to disable the check.
   publicApp.get('/api/app-version', (c) => c.json({ buildId: spa?.version() ?? '' }));
-  publicApp.get('/api/custom-methods', () => customMethodsResponse());
-  publicApp.route('/api/setup', makeSetupRoute(engine.db));
-  publicApp.route('/api/notifications', notificationsRoute);
-  publicApp.route('/api/chat', chatRoute);
-  publicApp.route('/api/aep', makeAepGateway(engine, loopbackOrigin));
+  publicApp.get('/api/v1/custom-methods', () => customMethodsResponse());
+  publicApp.route('/api/v1/setup', makeSetupRoute(engine.db));
+  publicApp.route('/api/v1/notifications', notificationsRoute);
+  publicApp.route('/api/v1/chat', chatRoute);
+  publicApp.route('/api/v1/aep', makeAepGateway(engine, loopbackOrigin));
   // OAuth redirects arrive on the public origin; the engine serves them.
   publicApp.all('/oauth/*', (c) => engine.fetch(c.req.raw));
 

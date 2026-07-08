@@ -53,7 +53,7 @@ describe('useChat', () => {
     await act(() => result.current.send('Add milk'));
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/chat',
+      '/api/v1/chat',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({

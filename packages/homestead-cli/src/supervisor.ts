@@ -174,7 +174,7 @@ export async function runStart(
   if (await waitForPort(opts.frontendPort, 60_000)) {
     log('ready');
     log(`  app       http://localhost:${opts.frontendPort}`);
-    log(`  engine    http://localhost:${opts.frontendPort}/api/aep`);
+    log(`  engine    http://localhost:${opts.frontendPort}/api/v1/aep`);
     log('  login     first visit asks you to create the admin account');
     log('            (recover later with `homestead admin reset-password`)');
   } else {

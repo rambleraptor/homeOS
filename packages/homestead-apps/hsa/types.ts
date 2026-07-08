@@ -5,14 +5,45 @@
  */
 
 /**
- * Receipt categories for medical expenses
+ * Receipt categories for medical expenses.
+ *
+ * These lowercase values are the wire/stored form. Use RECEIPT_CATEGORY_LABELS
+ * for user-facing display text.
  */
-export type ReceiptCategory = 'Medical' | 'Dental' | 'Vision' | 'Rx';
+export type ReceiptCategory = 'medical' | 'dental' | 'vision' | 'rx';
 
 /**
- * Receipt status for tracking reimbursement
+ * Receipt status for tracking reimbursement.
+ *
+ * These lowercase values are the wire/stored form. Use RECEIPT_STATUS_LABELS
+ * for user-facing display text.
  */
-export type ReceiptStatus = 'Stored' | 'Reimbursed';
+export type ReceiptStatus = 'stored' | 'reimbursed';
+
+/** Canonical ordering of category values (for building option lists). */
+export const RECEIPT_CATEGORY_VALUES: ReceiptCategory[] = [
+  'medical',
+  'dental',
+  'vision',
+  'rx',
+];
+
+/** Canonical ordering of status values. */
+export const RECEIPT_STATUS_VALUES: ReceiptStatus[] = ['stored', 'reimbursed'];
+
+/** Capitalized display labels for category values (what the user sees). */
+export const RECEIPT_CATEGORY_LABELS: Record<ReceiptCategory, string> = {
+  medical: 'Medical',
+  dental: 'Dental',
+  vision: 'Vision',
+  rx: 'Rx',
+};
+
+/** Capitalized display labels for status values (what the user sees). */
+export const RECEIPT_STATUS_LABELS: Record<ReceiptStatus, string> = {
+  stored: 'Stored',
+  reimbursed: 'Reimbursed',
+};
 
 /**
  * HSA Receipt from aepbase

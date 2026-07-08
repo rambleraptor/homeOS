@@ -17,10 +17,6 @@ export const notificationsResources: ResourceDefinition[] = [
     user_settable_create: true,
     parents: ['user'],
     fields: {
-      person_id: {
-        type: 'string',
-        description: 'deprecated, use source_* fields',
-      },
       title: { type: 'string', required: true },
       message: { type: 'string', required: true },
       notification_type: {

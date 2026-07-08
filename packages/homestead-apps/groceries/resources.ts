@@ -31,8 +31,8 @@ export const groceriesResources: ResourceDefinition[] = [
       created_by: { type: 'string' },
     },
     // AEP-136 custom methods on the grocery collection:
-    //   POST /api/aep/groceries:process-image
-    //   POST /api/aep/groceries:send-notification
+    //   POST /api/v1/aep/groceries:process-image
+    //   POST /api/v1/aep/groceries:send-notification
     customMethods: {
       'process-image': {
         target: 'collection',

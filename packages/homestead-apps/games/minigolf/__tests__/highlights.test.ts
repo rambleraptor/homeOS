@@ -9,7 +9,7 @@ function hole(
 ): Hole {
   return {
     id: `h${holeNumber}`,
-    path: `games/g/holes/h${holeNumber}`,
+    path: `minigolf-games/g/minigolf-holes/h${holeNumber}`,
     hole_number: holeNumber,
     par,
     scores,

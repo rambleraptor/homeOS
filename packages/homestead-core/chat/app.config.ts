@@ -4,7 +4,7 @@
  * Core app (always installed): a Gemini-backed household assistant
  * with one tool per CRUD operation per registered aepbase resource.
  * The backend lives in `core/server/chat/` behind the sidecar's
- * `POST /api/chat`; conversations are ephemeral (client state only).
+ * `POST /api/v1/chat`; conversations are ephemeral (client state only).
  */
 
 import type { AppConfig } from '../apps/types';

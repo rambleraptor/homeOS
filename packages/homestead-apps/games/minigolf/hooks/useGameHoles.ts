@@ -1,5 +1,5 @@
 /**
- * Holes list hook. Holes live at `/games/{gameId}/holes` — parent id is
+ * Holes list hook. Holes live at `/minigolf-games/{gameId}/minigolf-holes` — parent id is
  * part of the URL, not a stored field.
  */
 

@@ -21,8 +21,8 @@ export function useHSAStats() {
   const stats: HSAStats | undefined = useMemo(() => {
     if (!receipts) return undefined;
 
-    const stored = receipts.filter((r) => r.status === 'Stored');
-    const reimbursed = receipts.filter((r) => r.status === 'Reimbursed');
+    const stored = receipts.filter((r) => r.status === 'stored');
+    const reimbursed = receipts.filter((r) => r.status === 'reimbursed');
     const sum = (items: HSAReceipt[]) => items.reduce((acc, r) => acc + r.amount, 0);
 
     const categoryBreakdown: CategoryBreakdown[] = Array.from(

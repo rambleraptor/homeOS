@@ -51,7 +51,7 @@ export class EventsPage {
     if (data.recurrence) {
       await this.page
         .getByTestId('event-form-recurrence')
-        .selectOption('yearly-nth-weekday');
+        .selectOption('yearly_nth_weekday');
       await this.page
         .getByTestId('event-form-recurrence-week')
         .selectOption(data.recurrence.week);

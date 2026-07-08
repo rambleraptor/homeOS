@@ -2,7 +2,7 @@
  * `grocery-items:process-image` custom method (AEP-136).
  *
  * Lives on the grocery collection; dispatched by the sidecar gateway as
- * `POST /api/aep/groceries:process-image`. Body: `{ image: base64, mimeType }`.
+ * `POST /api/v1/aep/groceries:process-image`. Body: `{ image: base64, mimeType }`.
  * Returns `{ items: [{ name }], message }`.
  */
 

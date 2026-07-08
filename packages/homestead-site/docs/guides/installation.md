@@ -53,7 +53,7 @@ homestead start
 ```
 [homestead] ready
 [homestead]   app       http://localhost:3000
-[homestead]   engine    http://localhost:3000/api/aep
+[homestead]   engine    http://localhost:3000/api/v1/aep
 [homestead]   login     first visit asks you to create the admin account
 ```
 

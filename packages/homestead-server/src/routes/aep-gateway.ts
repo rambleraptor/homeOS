@@ -1,5 +1,5 @@
 /**
- * /api/aep gateway — owns the AEP-136 custom-method URLs that live on a
+ * /api/v1/aep gateway — owns the AEP-136 custom-method URLs that live on a
  * resource (`POST /<plural>:<verb>` and `POST /<plural>/<id>:<verb>`),
  * dispatching app-declared handlers and passing everything else (aepbase's
  * own `:login`/`:download`, plain CRUD) to the engine **in-process** — no
@@ -12,7 +12,7 @@ import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/cus
 import { getResourceCustomMethod } from '../app-registry';
 import type { Engine } from '../engine/engine';
 
-const PREFIX = '/api/aep';
+const PREFIX = '/api/v1/aep';
 
 export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
   const gateway = new Hono();
@@ -37,7 +37,7 @@ export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
 
   gateway.all('/*', (c) => {
     const url = new URL(c.req.url);
-    // The engine-relative path (everything after `/api/aep`), query included.
+    // The engine-relative path (everything after `/api/v1/aep`), query included.
     const path = url.pathname.slice(PREFIX.length) + url.search;
     return dispatchCustomMethod({
       request: c.req.raw,

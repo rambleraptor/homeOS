@@ -69,7 +69,7 @@ test.describe('Minigolf CRUD', () => {
       id: string;
       completed?: boolean;
       hole_count: number;
-    }>(userToken, 'games');
+    }>(userToken, 'minigolf-games');
     expect(games).toHaveLength(1);
     expect(games[0].completed).toBe(true);
     expect(games[0].hole_count).toBe(2);

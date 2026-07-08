@@ -11,7 +11,7 @@ export interface EventRecord {
   date: string;
   tag?: string;
   people?: string[];
-  recurrence?: 'yearly' | 'yearly-nth-weekday';
+  recurrence?: 'yearly' | 'yearly_nth_weekday';
   recurrence_rule?: string;
   created_by?: string;
   create_time?: string;
@@ -24,7 +24,7 @@ interface CreateEventInput {
   tag?: string;
   /** Pass bare ids; the `people/` prefix is added here. */
   personIds?: string[];
-  recurrence?: 'yearly' | 'yearly-nth-weekday';
+  recurrence?: 'yearly' | 'yearly_nth_weekday';
   recurrence_rule?: string;
 }
 

@@ -45,7 +45,7 @@ const auth: HomesteadConfig['auth'] =
         oauth: {
           redirectBaseUrl:
             fromEnv('OAUTH_REDIRECT_BASE_URL') ??
-            'http://localhost:3000/api/aep',
+            'http://localhost:3000/api/v1/aep',
           successRedirect:
             fromEnv('OAUTH_SUCCESS_REDIRECT') ??
             'http://localhost:3000/auth/callback',

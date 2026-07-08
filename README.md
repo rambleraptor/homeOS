@@ -46,7 +46,7 @@ homestead start            # boot the whole stack on http://localhost:3000
 ```
 [homestead] ready
 [homestead]   app       http://localhost:3000
-[homestead]   engine    http://localhost:3000/api/aep
+[homestead]   engine    http://localhost:3000/api/v1/aep
 ```
 
 ## Core Concepts
@@ -112,7 +112,7 @@ machine is ready to host Homestead. Run `homestead help` for the full list.
 | `homestead install-service`     | generate + enable the systemd unit (sudo)                           |
 | `homestead admin reset-password`| rotate the superuser password                                       |
 
-There is one port; the engine is reached through the same-origin `/api/aep`
+There is one port; the engine is reached through the same-origin `/api/v1/aep`
 routes on it.
 
 ## Docs

@@ -9,9 +9,9 @@ interface CreateHSAReceiptInput {
   merchant: string;
   service_date: string;
   amount: number;
-  category: 'Medical' | 'Dental' | 'Vision' | 'Rx';
+  category: 'medical' | 'dental' | 'vision' | 'rx';
   patient?: string;
-  status: 'Stored' | 'Reimbursed';
+  status: 'stored' | 'reimbursed';
   notes?: string;
 }
 
@@ -20,8 +20,8 @@ export interface HSAReceiptRecord {
   merchant: string;
   service_date: string;
   amount: number;
-  category: 'Medical' | 'Dental' | 'Vision' | 'Rx';
-  status: 'Stored' | 'Reimbursed';
+  category: 'medical' | 'dental' | 'vision' | 'rx';
+  status: 'stored' | 'reimbursed';
   patient?: string;
   notes?: string;
 }
@@ -76,36 +76,36 @@ export const testHSAReceipts = [
     merchant: 'CVS Pharmacy',
     service_date: '2024-01-15',
     amount: 45.99,
-    category: 'Rx' as const,
+    category: 'rx' as const,
     patient: 'Self',
-    status: 'Stored' as const,
+    status: 'stored' as const,
     notes: 'Prescription refill',
   },
   {
     merchant: 'Dr. Smith Dental',
     service_date: '2024-02-20',
     amount: 250.0,
-    category: 'Dental' as const,
+    category: 'dental' as const,
     patient: 'Child',
-    status: 'Stored' as const,
+    status: 'stored' as const,
     notes: 'Cavity filling',
   },
   {
     merchant: 'Vision Center',
     service_date: '2024-03-10',
     amount: 150.0,
-    category: 'Vision' as const,
+    category: 'vision' as const,
     patient: 'Spouse',
-    status: 'Stored' as const,
+    status: 'stored' as const,
     notes: 'Eye exam and glasses',
   },
   {
     merchant: 'ABC Medical Clinic',
     service_date: '2024-01-05',
     amount: 125.0,
-    category: 'Medical' as const,
+    category: 'medical' as const,
     patient: 'Self',
-    status: 'Reimbursed' as const,
+    status: 'reimbursed' as const,
     notes: 'Annual checkup',
   },
 ];

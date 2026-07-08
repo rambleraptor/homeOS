@@ -3,7 +3,7 @@
  *
  * A single homestead-server process is managed in `globalSetup`, on one port
  * (:5173, kept off the developer's :3000): the SPA via Vite middleware and the
- * engine under /api/aep. The schema is applied in-process on boot.
+ * engine under /api/v1/aep. The schema is applied in-process on boot.
  */
 
 import { defineConfig, devices } from '@playwright/test';

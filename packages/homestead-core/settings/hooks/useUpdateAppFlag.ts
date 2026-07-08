@@ -67,7 +67,7 @@ export function useUpdateAppFlag() {
           throw error;
         }
         await syncAppFlagsSchema({
-          aepbaseUrl: '/api/aep',
+          aepbaseUrl: '/api/v1/aep',
           token: aepbase.authStore.token,
           defs: getAllAppFlagDefs(),
         });

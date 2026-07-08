@@ -2,7 +2,7 @@
  * `grocery-items:send-notification` custom method (AEP-136).
  *
  * Lives on the grocery collection; dispatched by the sidecar gateway as
- * `POST /api/aep/groceries:send-notification`. Sends a push notification to
+ * `POST /api/v1/aep/groceries:send-notification`. Sends a push notification to
  * the calling user advertising that the grocery list has been updated.
  */
 

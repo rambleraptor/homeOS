@@ -485,7 +485,7 @@ export function getAllResourceDefsWithApp(): {
  * Resolve a single AEP-136 custom method by `(plural, verb)`. Scans every
  * declared resource definition (top-level and nested) for one whose plural
  * matches and that declares the verb under `customMethods`. Used by the
- * sidecar's `/api/aep` gateway to dispatch `POST /<plural>:<verb>` calls.
+ * sidecar's `/api/v1/aep` gateway to dispatch `POST /<plural>:<verb>` calls.
  */
 export function getResourceCustomMethod(
   plural: string,

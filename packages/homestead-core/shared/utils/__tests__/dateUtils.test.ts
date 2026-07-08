@@ -287,13 +287,13 @@ describe('getNextEventOccurrence', () => {
     });
   });
 
-  describe('yearly-nth-weekday', () => {
+  describe('yearly_nth_weekday', () => {
     it('uses month from anchor and ignores day-of-month', () => {
       // 2026-05-05 is a Tuesday — May 5. 2nd Sunday of May 2026 is May 10.
       vi.setSystemTime(localDate(2026, 5, 5));
       const next = getNextEventOccurrence(
         parseDateString('1999-05-01'),
-        'yearly-nth-weekday',
+        'yearly_nth_weekday',
         '2:0',
       );
       expect(next.getFullYear()).toBe(2026);
@@ -306,7 +306,7 @@ describe('getNextEventOccurrence', () => {
       vi.setSystemTime(localDate(2026, 6, 1));
       const next = getNextEventOccurrence(
         parseDateString('1999-05-01'),
-        'yearly-nth-weekday',
+        'yearly_nth_weekday',
         '2:0',
       );
       expect(next.getFullYear()).toBe(2027);
@@ -321,7 +321,7 @@ describe('getNextEventOccurrence', () => {
       vi.setSystemTime(localDate(2024, 7, 1));
       let next = getNextEventOccurrence(
         parseDateString('2000-07-01'),
-        'yearly-nth-weekday',
+        'yearly_nth_weekday',
         '-1:6',
       );
       expect(next.getFullYear()).toBe(2024);
@@ -330,7 +330,7 @@ describe('getNextEventOccurrence', () => {
       vi.setSystemTime(localDate(2026, 7, 1));
       next = getNextEventOccurrence(
         parseDateString('2000-07-01'),
-        'yearly-nth-weekday',
+        'yearly_nth_weekday',
         '-1:6',
       );
       expect(next.getFullYear()).toBe(2026);
@@ -341,7 +341,7 @@ describe('getNextEventOccurrence', () => {
       vi.setSystemTime(localDate(2026, 5, 5));
       const next = getNextEventOccurrence(
         parseDateString('2000-08-15'),
-        'yearly-nth-weekday',
+        'yearly_nth_weekday',
         'garbage',
       );
       expect(next.getMonth()).toBe(7);
