@@ -7,11 +7,7 @@
 import { useState } from 'react';
 import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import {
-  RECEIPT_CATEGORY_LABELS,
-  type HSAReceiptFormData,
-  type ReceiptCategory,
-} from '../types';
+import type { HSAReceiptFormData, ReceiptCategory } from '../types';
 
 /** Shape returned by the `hsa-receipts:parse-receipt` custom method. */
 interface ParsedReceiptData {
@@ -81,9 +77,9 @@ export function HSAQuickCaptureForm({
     merchant: '',
     service_date: '',
     amount: 0,
-    category: 'medical',
+    category: 'Medical',
     patient: '',
-    status: 'stored',
+    status: 'Stored',
     notes: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -283,10 +279,10 @@ export function HSAQuickCaptureForm({
             onChange={(e) => setFormData({ ...formData, category: e.target.value as ReceiptCategory })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
           >
-            <option value="medical">{RECEIPT_CATEGORY_LABELS['medical']}</option>
-            <option value="dental">{RECEIPT_CATEGORY_LABELS['dental']}</option>
-            <option value="vision">{RECEIPT_CATEGORY_LABELS['vision']}</option>
-            <option value="rx">{RECEIPT_CATEGORY_LABELS['rx']} (Prescription)</option>
+            <option value="Medical">Medical</option>
+            <option value="Dental">Dental</option>
+            <option value="Vision">Vision</option>
+            <option value="Rx">Rx (Prescription)</option>
           </select>
         </div>
 

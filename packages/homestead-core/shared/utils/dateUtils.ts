@@ -153,7 +153,7 @@ export function nthWeekdayOfMonth(
   return new Date(year, month, 1 + offset + (n - 1) * 7);
 }
 
-export type EventRecurrence = 'yearly' | 'yearly_nth_weekday';
+export type EventRecurrence = 'yearly' | 'yearly-nth-weekday';
 
 // Parse an "<n>:<weekday>" rule string. Returns null if malformed.
 export function parseNthWeekdayRule(
@@ -172,14 +172,14 @@ export function parseNthWeekdayRule(
 // Resolve the next occurrence of an event given its anchor date and optional
 // recurrence rule. For yearly fixed-date events (the default), this returns
 // this year's month/day, or next year's if already past. For
-// `yearly_nth_weekday`, the anchor's month is used and the day-of-month is
+// `yearly-nth-weekday`, the anchor's month is used and the day-of-month is
 // ignored — the rule encodes which weekday and which occurrence.
 export function getNextEventOccurrence(
   anchor: Date,
   recurrence?: EventRecurrence,
   rule?: string,
 ): Date {
-  if (recurrence !== 'yearly_nth_weekday') {
+  if (recurrence !== 'yearly-nth-weekday') {
     return getNextOccurrence(anchor);
   }
   const parsed = parseNthWeekdayRule(rule);

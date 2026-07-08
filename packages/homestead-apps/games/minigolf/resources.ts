@@ -1,11 +1,11 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 
-export const GAMES = 'minigolf-games' as const;
-export const GAME_HOLES = 'minigolf-holes' as const;
+export const GAMES = 'games' as const;
+export const GAME_HOLES = 'holes' as const;
 
 export const minigolfResources: ResourceDefinition[] = [
   {
-    singular: 'minigolf-game',
+    singular: 'game',
     plural: GAMES,
     description: 'A mini golf game session.',
     user_settable_create: true,
@@ -25,11 +25,11 @@ export const minigolfResources: ResourceDefinition[] = [
     },
   },
   {
-    singular: 'minigolf-hole',
+    singular: 'hole',
     plural: GAME_HOLES,
     description: 'A single hole within a mini golf game.',
     user_settable_create: true,
-    parents: ['minigolf-game'],
+    parents: ['game'],
     fields: {
       hole_number: { type: 'number', required: true },
       par: { type: 'number', required: true },

@@ -8,13 +8,7 @@ import { useMemo } from 'react';
 import { CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import { formatDate } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
-import {
-  RECEIPT_CATEGORY_LABELS,
-  RECEIPT_STATUS_LABELS,
-  type HSAStats,
-  type HSAReceipt,
-  type ReceiptStatus,
-} from '../types';
+import type { HSAStats, HSAReceipt, ReceiptStatus } from '../types';
 import { useHSAReceipts } from '../hooks/useHSAReceipts';
 import { useHSAReceiptUrl } from '../hooks/useHSAReceiptUrl';
 
@@ -82,12 +76,8 @@ export function HSAAuditVault({
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
             >
               <option value="All">All ({stats.totalReceipts})</option>
-              <option value="stored">
-                {RECEIPT_STATUS_LABELS['stored']} ({stats.storedReceipts})
-              </option>
-              <option value="reimbursed">
-                {RECEIPT_STATUS_LABELS['reimbursed']} ({stats.reimbursedReceipts})
-              </option>
+              <option value="Stored">Stored ({stats.storedReceipts})</option>
+              <option value="Reimbursed">Reimbursed ({stats.reimbursedReceipts})</option>
             </select>
           </div>
         </div>
@@ -150,7 +140,7 @@ export function HSAAuditVault({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {RECEIPT_CATEGORY_LABELS[receipt.category]}
+                      {receipt.category}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -160,19 +150,19 @@ export function HSAAuditVault({
                     <HSAReceiptLink receipt={receipt} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {receipt.status === 'stored' ? (
+                    {receipt.status === 'Stored' ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        {RECEIPT_STATUS_LABELS['stored']}
+                        Stored
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {RECEIPT_STATUS_LABELS['reimbursed']}
+                        Reimbursed
                       </span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-2">
-                      {receipt.status === 'stored' && (
+                      {receipt.status === 'Stored' && (
                         <button
                           onClick={() => onMarkAsReimbursed(receipt.id)}
                           disabled={isUpdating}

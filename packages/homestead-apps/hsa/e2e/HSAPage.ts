@@ -3,7 +3,6 @@
  */
 
 import { Page, expect } from '@playwright/test';
-import { RECEIPT_STATUS_LABELS, type ReceiptStatus } from '../types';
 
 export class HSAPage {
   constructor(private page: Page) {}
@@ -26,7 +25,7 @@ export class HSAPage {
     merchant: string;
     service_date: string;
     amount: number;
-    category: 'medical' | 'dental' | 'vision' | 'rx';
+    category: 'Medical' | 'Dental' | 'Vision' | 'Rx';
     patient?: string;
     notes?: string;
   }) {
@@ -69,7 +68,7 @@ export class HSAPage {
     merchant: string;
     service_date: string;
     amount: number;
-    category: 'medical' | 'dental' | 'vision' | 'rx';
+    category: 'Medical' | 'Dental' | 'Vision' | 'Rx';
     patient?: string;
     notes?: string;
   }) {
@@ -131,7 +130,7 @@ export class HSAPage {
     await this.page.waitForLoadState('networkidle');
   }
 
-  async filterByStatus(status: 'All' | 'stored' | 'reimbursed') {
+  async filterByStatus(status: 'All' | 'Stored' | 'Reimbursed') {
     const filterSelect = this.page.locator('#status-filter');
     await filterSelect.waitFor({ state: 'visible' });
     await filterSelect.selectOption(status);
@@ -139,11 +138,10 @@ export class HSAPage {
     await this.page.waitForLoadState('networkidle');
   }
 
-  async expectReceiptStatus(merchant: string, status: ReceiptStatus) {
-    // Find the row containing the merchant. The badge shows the capitalized
-    // display label, so assert on that rather than the lowercase stored value.
+  async expectReceiptStatus(merchant: string, status: 'Stored' | 'Reimbursed') {
+    // Find the row containing the merchant
     const row = this.page.locator('tr').filter({ hasText: merchant });
-    await expect(row.getByText(RECEIPT_STATUS_LABELS[status])).toBeVisible();
+    await expect(row.getByText(status)).toBeVisible();
   }
 
   async expectReceiptCount(count: number) {

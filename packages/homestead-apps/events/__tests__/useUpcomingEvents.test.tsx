@@ -119,7 +119,7 @@ describe('useUpcomingEvents', () => {
     expect(result.current.data).toEqual([]);
   });
 
-  it('includes a yearly_nth_weekday event whose computed date falls in the window', async () => {
+  it('includes a yearly-nth-weekday event whose computed date falls in the window', async () => {
     // System time is 2024-06-15. 3rd Sunday of June 2024 = June 16, which is
     // 1 day out — well within the 7-day lookahead.
     vi.mocked(aepbase.list).mockImplementation(async (plural: string) => {
@@ -129,7 +129,7 @@ describe('useUpcomingEvents', () => {
             id: 'e-fathers',
             name: "Father's Day",
             date: '2024-06-01',
-            recurrence: 'yearly_nth_weekday',
+            recurrence: 'yearly-nth-weekday',
             recurrence_rule: '3:0',
             people: [],
           },

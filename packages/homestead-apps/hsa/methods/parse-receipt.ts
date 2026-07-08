@@ -18,7 +18,7 @@ interface ParsedReceiptData {
   merchant: string;
   service_date: string;
   amount: number;
-  category: 'medical' | 'dental' | 'vision' | 'rx';
+  category: 'Medical' | 'Dental' | 'Vision' | 'Rx';
   patient?: string;
 }
 
@@ -28,7 +28,7 @@ const receiptSchema = z.object({
   merchant: z.string().optional(),
   service_date: z.string().optional(),
   amount: z.number().optional(),
-  category: z.enum(['medical', 'dental', 'vision', 'rx']).optional(),
+  category: z.enum(['Medical', 'Dental', 'Vision', 'Rx']).optional(),
   patient: z.string().optional(),
 });
 
@@ -41,20 +41,20 @@ async function parseReceiptFromImage(
 1. Merchant/Provider name (e.g., "CVS Pharmacy", "Dr. Smith's Office", "ABC Dental")
 2. Service date (in YYYY-MM-DD format)
 3. Total amount paid (as a number, do not include currency symbols)
-4. Category (one of: medical, dental, vision, rx)
+4. Category (one of: Medical, Dental, Vision, Rx)
 5. Patient name (if visible, otherwise leave empty)
 
 Rules:
 - Return ONLY a valid JSON object with these exact keys: merchant, service_date, amount, category, patient
 - For service_date, use YYYY-MM-DD format (e.g., "2024-01-15")
 - For amount, return only the number without $ or currency symbols (e.g., 125.50)
-- For category, return EXACTLY one of: medical, dental, vision, rx
+- For category, return EXACTLY one of: Medical, Dental, Vision, Rx
 - If the image is not a medical receipt, return an empty JSON object: {}
 - If a field cannot be determined, use these defaults:
   - merchant: "Unknown Provider"
   - service_date: today's date
   - amount: 0
-  - category: "medical"
+  - category: "Medical"
   - patient: "" (empty string)`;
 
   const messages: ModelMessage[] = [
@@ -76,7 +76,7 @@ Rules:
     merchant: parsed.merchant || 'Unknown Provider',
     service_date: parsed.service_date || new Date().toISOString().split('T')[0],
     amount: typeof parsed.amount === 'number' ? parsed.amount : 0,
-    category: parsed.category ?? 'medical',
+    category: parsed.category ?? 'Medical',
     patient: parsed.patient || '',
   };
 }

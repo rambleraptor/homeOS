@@ -28,7 +28,7 @@ const WEEKDAY_NAMES = [
 ];
 
 function formatRecurrenceRule(event: Event): string | null {
-  if (event.recurrence !== 'yearly_nth_weekday') return null;
+  if (event.recurrence !== 'yearly-nth-weekday') return null;
   const parsed = parseNthWeekdayRule(event.recurrence_rule);
   if (!parsed) return null;
   const month = parseDateString(event.date).toLocaleDateString('en-US', {

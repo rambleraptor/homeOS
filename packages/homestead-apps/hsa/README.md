@@ -89,7 +89,7 @@ Response:
     "merchant": "CVS Pharmacy",
     "service_date": "2024-01-15",
     "amount": 45.99,
-    "category": "rx",
+    "category": "Rx",
     "patient": "John Smith"
   },
   "message": "Receipt parsed successfully"
@@ -115,9 +115,9 @@ Collection: `hsa_receipts`
 | merchant | text | Yes | Provider name (e.g., "CVS Pharmacy") |
 | service_date | date | Yes | Date of service |
 | amount | number | Yes | Amount paid (min: 0) |
-| category | select | Yes | medical, dental, vision, or rx (shown as Medical, Dental, Vision, Rx) |
+| category | select | Yes | Medical, Dental, Vision, or Rx |
 | patient | text | No | Patient name |
-| status | select | Yes | stored or reimbursed (shown as Stored, Reimbursed) |
+| status | select | Yes | Stored or Reimbursed |
 | receipt_file | file | Yes | Image or PDF (max 10MB) |
 | notes | text | No | Additional notes |
 | created_by | relation | No | User who created the record |

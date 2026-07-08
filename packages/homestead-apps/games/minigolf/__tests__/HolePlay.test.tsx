@@ -8,7 +8,7 @@ import type { Game, Hole } from '../types';
 function makeGame(overrides: Partial<Game> = {}): Game {
   return {
     id: 'g1',
-    path: 'minigolf-games/g1',
+    path: 'games/g1',
     players: ['people/a', 'people/b'],
     hole_count: 3,
     completed: false,
@@ -206,7 +206,7 @@ describe('HolePlay', () => {
     const previousHoles: Hole[] = [
       {
         id: 'h1',
-        path: 'minigolf-games/g1/minigolf-holes/h1',
+        path: 'games/g1/holes/h1',
         hole_number: 1,
         par: 3,
         scores: [
@@ -218,7 +218,7 @@ describe('HolePlay', () => {
       },
       {
         id: 'h2',
-        path: 'minigolf-games/g1/minigolf-holes/h2',
+        path: 'games/g1/holes/h2',
         hole_number: 2,
         par: 4,
         scores: [
@@ -265,7 +265,7 @@ describe('HolePlay', () => {
     const previousHoles: Hole[] = [
       {
         id: 'h1',
-        path: 'minigolf-games/g1/minigolf-holes/h1',
+        path: 'games/g1/holes/h1',
         hole_number: 1,
         par: 3,
         scores: [{ player: 'people/a', strokes: 3 }],
@@ -300,7 +300,7 @@ describe('HolePlay', () => {
   it('seeds par and strokes from an existing hole record', () => {
     const existing: Hole = {
       id: 'h1',
-      path: 'minigolf-games/g1/minigolf-holes/h1',
+      path: 'games/g1/holes/h1',
       hole_number: 1,
       par: 5,
       scores: [

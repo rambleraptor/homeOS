@@ -15,13 +15,13 @@ export const hsaResources: ResourceDefinition[] = [
       amount: { type: 'number', required: true },
       category: {
         type: 'string',
-        enum: ['medical', 'dental', 'vision', 'rx'],
+        enum: ['Medical', 'Dental', 'Vision', 'Rx'],
         required: true,
       },
       patient: { type: 'string' },
       status: {
         type: 'string',
-        enum: ['stored', 'reimbursed'],
+        enum: ['Stored', 'Reimbursed'],
         required: true,
       },
       receipt_file: {

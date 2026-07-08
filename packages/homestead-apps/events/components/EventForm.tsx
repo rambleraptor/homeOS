@@ -75,7 +75,7 @@ export function EventForm({
   const initialPeopleIds = (initialData?.people ?? []).map(personIdFromRef);
   const initialTag = knownTagOrCustom(initialData?.tag);
   const initialRule =
-    initialData?.recurrence === 'yearly_nth_weekday'
+    initialData?.recurrence === 'yearly-nth-weekday'
       ? parseNthWeekdayRule(initialData.recurrence_rule)
       : null;
 
@@ -95,8 +95,8 @@ export function EventForm({
     initialPeopleIds,
   );
   const [recurrence, setRecurrence] = useState<EventRecurrence>(
-    initialData?.recurrence === 'yearly_nth_weekday'
-      ? 'yearly_nth_weekday'
+    initialData?.recurrence === 'yearly-nth-weekday'
+      ? 'yearly-nth-weekday'
       : 'yearly',
   );
   const [recurrenceWeek, setRecurrenceWeek] = useState<string>(
@@ -115,9 +115,9 @@ export function EventForm({
   };
 
   const handleRecurrenceChange = (value: string) => {
-    const next = value === 'yearly_nth_weekday' ? 'yearly_nth_weekday' : 'yearly';
+    const next = value === 'yearly-nth-weekday' ? 'yearly-nth-weekday' : 'yearly';
     setRecurrence(next);
-    if (next === 'yearly_nth_weekday' && date && (!recurrenceWeek || !recurrenceWeekday)) {
+    if (next === 'yearly-nth-weekday' && date && (!recurrenceWeek || !recurrenceWeekday)) {
       const derived = deriveNthWeekday(date);
       if (!recurrenceWeek) setRecurrenceWeek(String(derived.n));
       if (!recurrenceWeekday) setRecurrenceWeekday(String(derived.weekday));
@@ -137,8 +137,8 @@ export function EventForm({
       tag: resolvedTag,
       people: selectedPeople.map((id) => `people/${id}`),
     };
-    if (recurrence === 'yearly_nth_weekday' && recurrenceWeek && recurrenceWeekday) {
-      base.recurrence = 'yearly_nth_weekday';
+    if (recurrence === 'yearly-nth-weekday' && recurrenceWeek && recurrenceWeekday) {
+      base.recurrence = 'yearly-nth-weekday';
       base.recurrence_rule = `${recurrenceWeek}:${recurrenceWeekday}`;
     }
     onSubmit(base);
@@ -179,7 +179,7 @@ export function EventForm({
           required
         />
         <p className="text-sm text-gray-500 mt-1">
-          {recurrence === 'yearly_nth_weekday'
+          {recurrence === 'yearly-nth-weekday'
             ? 'Only the month is used — the day-of-month is ignored when the rule below is set.'
             : 'Only the month and day are honored — events repeat yearly.'}
         </p>
@@ -200,11 +200,11 @@ export function EventForm({
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         >
           <option value="yearly">On this date every year</option>
-          <option value="yearly_nth_weekday">
+          <option value="yearly-nth-weekday">
             The Nth weekday of this month every year
           </option>
         </select>
-        {recurrence === 'yearly_nth_weekday' && (
+        {recurrence === 'yearly-nth-weekday' && (
           <div className="mt-3 grid grid-cols-2 gap-3">
             <select
               aria-label="Week of month"

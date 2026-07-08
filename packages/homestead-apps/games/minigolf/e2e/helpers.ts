@@ -27,7 +27,7 @@ export async function createGame(
   token: string,
   data: CreateGameInput,
 ): Promise<GameRecord> {
-  return aepCreate<GameRecord>(token, 'minigolf-games', {
+  return aepCreate<GameRecord>(token, 'games', {
     players: data.players,
     hole_count: data.hole_count,
     location: data.location,
@@ -37,8 +37,8 @@ export async function createGame(
 }
 
 export async function deleteAllGames(token: string) {
-  const items = await aepList<{ id: string }>(token, 'minigolf-games');
+  const items = await aepList<{ id: string }>(token, 'games');
   for (const item of items) {
-    await aepRemove(token, 'minigolf-games', item.id);
+    await aepRemove(token, 'games', item.id);
   }
 }

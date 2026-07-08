@@ -23,13 +23,13 @@ export const eventsResources: ResourceDefinition[] = [
       },
       recurrence: {
         type: 'string',
-        enum: ['yearly', 'yearly_nth_weekday'],
+        enum: ['yearly', 'yearly-nth-weekday'],
         description: 'defaults to yearly',
       },
       recurrence_rule: {
         type: 'string',
         description:
-          "for yearly_nth_weekday: '<n>:<weekday>' where n is 1..4 or -1 (last) and weekday is 0=Sun..6=Sat. Month comes from `date`. Example: '2:0' = 2nd Sunday.",
+          "for yearly-nth-weekday: '<n>:<weekday>' where n is 1..4 or -1 (last) and weekday is 0=Sun..6=Sat. Month comes from `date`. Example: '2:0' = 2nd Sunday.",
       },
       created_by: { type: 'string', description: 'users/{user_id}' },
     },
