@@ -54,11 +54,11 @@ fields: {
               API for every resource: the usual create, read, update, delete.
               Users and auth come built in.
             </p>
-            <pre class="arch-code"><span class="m">POST</span>/api/aep/grocery-items
-<span class="m">GET</span>/api/aep/grocery-items
-<span class="m">GET</span>/api/aep/grocery-items/<span class="c">{id}</span>
-<span class="m">PATCH</span>/api/aep/grocery-items/<span class="c">{id}</span>
-<span class="m">DELETE</span>/api/aep/grocery-items/<span class="c">{id}</span></pre>
+            <pre class="arch-code"><span class="m">POST</span>/api/v1/aep/grocery-items
+<span class="m">GET</span>/api/v1/aep/grocery-items
+<span class="m">GET</span>/api/v1/aep/grocery-items/<span class="c">{id}</span>
+<span class="m">PATCH</span>/api/v1/aep/grocery-items/<span class="c">{id}</span>
+<span class="m">DELETE</span>/api/v1/aep/grocery-items/<span class="c">{id}</span></pre>
           </div>
         </li>
 
@@ -76,7 +76,7 @@ fields: {
 <span class="p">$</span> homestead resources grocery-item list
 
 <span class="c"># REST</span>
-<span class="p">$</span> curl $HOMESTEAD/api/aep/grocery-items \
+<span class="p">$</span> curl $HOMESTEAD/api/v1/aep/grocery-items \
     -H <span class="s">"Authorization: Bearer $TOKEN"</span></pre>
           </div>
         </li>

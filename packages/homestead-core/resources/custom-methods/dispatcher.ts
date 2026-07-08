@@ -1,7 +1,7 @@
 /**
  * Custom-method dispatcher (AEP-136).
  *
- * Pure function consumed by the sidecar's `/api/aep` gateway route. It owns
+ * Pure function consumed by the sidecar's `/api/v1/aep` gateway route. It owns
  * the colon-verb URLs that live on a resource — `POST /<plural>:<verb>` and
  * `POST /<plural>/<id>:<verb>` — resolving each to an app-declared handler.
  *
@@ -25,7 +25,7 @@ import type {
 export interface DispatchOptions {
   request: Request;
   /**
-   * aepbase-relative path (the part after `/api/aep`), e.g.
+   * aepbase-relative path (the part after `/api/v1/aep`), e.g.
    * `/grocery-items:process-image` or `/hsa-receipts/abc123:parse-receipt`.
    */
   path: string;

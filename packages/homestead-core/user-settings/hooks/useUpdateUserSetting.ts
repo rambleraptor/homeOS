@@ -78,7 +78,7 @@ export function useUpdateUserSetting() {
           throw error;
         }
         await syncUserSettingsSchema({
-          aepbaseUrl: '/api/aep',
+          aepbaseUrl: '/api/v1/aep',
           token: aepbase.authStore.token,
           defs: getAllUserSettingDefs(),
         });

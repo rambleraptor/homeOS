@@ -22,7 +22,7 @@ const fakeAuth: CustomMethodAuth = {
 };
 
 function makeRequest(method: string, body?: unknown): Request {
-  return new Request('http://localhost/api/aep/grocery-items:process-image', {
+  return new Request('http://localhost/api/v1/aep/grocery-items:process-image', {
     method,
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -96,7 +96,7 @@ describe('dispatchCustomMethod', () => {
   it('passes the request through to aepbase when no colon verb is present', async () => {
     const passthrough = vi.fn(async () => Response.json({ proxied: true }));
     const res = await dispatchCustomMethod({
-      request: new Request('http://localhost/api/aep/grocery-items'),
+      request: new Request('http://localhost/api/v1/aep/grocery-items'),
       path: '/grocery-items',
       resolveMethod: () => undefined,
       authenticate: vi.fn(),

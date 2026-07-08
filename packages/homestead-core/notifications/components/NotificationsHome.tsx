@@ -32,8 +32,8 @@ export function NotificationsHome() {
   };
 
   const getNotificationIcon = (notification: Notification) => {
-    // Use source_collection for icon selection (with person_id fallback for backward compatibility)
-    if (notification.source_collection === 'people' || notification.person_id) {
+    // Use source_collection for icon selection.
+    if (notification.source_collection === 'people') {
       return <Calendar className="w-5 h-5 text-blue-500" />;
     }
     return <Bell className="w-5 h-5 text-gray-500" />;

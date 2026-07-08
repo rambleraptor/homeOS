@@ -62,7 +62,7 @@ describe('oauth client', () => {
     expect(user.email).toBe('a@b.com');
     expect(user.type).toBe('regular');
     const url = fetchMock.mock.calls[0][0] as string;
-    expect(url).toBe('/api/aep/users/me');
+    expect(url).toBe('/api/v1/aep/users/me');
     const init = fetchMock.mock.calls[0][1] as RequestInit;
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer tok-123');
     expect(actual.aepbase.authStore.token).toBe('tok-123');

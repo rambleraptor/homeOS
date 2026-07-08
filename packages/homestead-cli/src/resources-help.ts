@@ -97,7 +97,7 @@ export function renderResourceHelp(
 
   const methods = customMethodsFor(resource, customMethods);
   if (methods.length > 0) {
-    lines.push('', 'Custom methods (AEP-136, served by the /api/aep gateway):');
+    lines.push('', 'Custom methods (AEP-136, served by the /api/v1/aep gateway):');
     const width = Math.max(...methods.map((m) => m.verb.length), 4);
     for (const m of methods) {
       const scope = m.target === 'item' ? 'per-record (pass <id>)' : 'collection';

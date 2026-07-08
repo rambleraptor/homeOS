@@ -60,7 +60,7 @@ const STATE_COOKIE = 'aepbase_oauth_state';
 /**
  * Cookie `Path` for the CSRF state cookie: the directory of the provider's
  * callback URL. Derived from `redirectUrl` (which carries the full mount
- * prefix, e.g. `/api/aep/oauth/google/callback`) so the cookie the `/start`
+ * prefix, e.g. `/api/v1/aep/oauth/google/callback`) so the cookie the `/start`
  * response sets is actually sent back on `/callback`. A hardcoded path breaks
  * whenever the engine is mounted under a prefix.
  */

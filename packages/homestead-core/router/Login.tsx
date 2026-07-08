@@ -39,7 +39,7 @@ export function Login() {
       .catch(() => {
         // No providers / OAuth disabled — leave the list empty.
       });
-    fetch('/api/setup')
+    fetch('/api/v1/setup')
       .then((res) => (res.ok ? res.json() : null))
       .then((body: { needsSetup?: boolean } | null) => {
         if (active && body?.needsSetup) setNeedsSetup(true);
@@ -69,7 +69,7 @@ export function Login() {
     setLoading(true);
     try {
       if (needsSetup) {
-        const res = await fetch('/api/setup', {
+        const res = await fetch('/api/v1/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),

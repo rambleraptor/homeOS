@@ -2,10 +2,10 @@
  * Server-side aepbase helper.
  *
  * The browser wrapper at `core/api/aepbase` is tuned for client-side use
- * (localStorage, same-origin `/api/aep` proxy). Server code (the server's
+ * (localStorage, same-origin `/api/v1/aep` proxy). Server code (the server's
  * API routes and app workers) needs to talk to the engine over the network
  * with the user's forwarded bearer token, so it uses this tiny helper
- * instead. It addresses the engine through the same `/api/aep` prefix the
+ * instead. It addresses the engine through the same `/api/v1/aep` prefix the
  * browser uses — there is no separate engine port.
  *
  * Runtime-agnostic: takes a Web `Request`, so it works under Next, Bun,
@@ -13,13 +13,13 @@
  */
 
 /**
- * Base URL of the running engine, including the `/api/aep` prefix. The server
- * sets `AEPBASE_URL` at boot to `http://127.0.0.1:<port>/api/aep`; the default
+ * Base URL of the running engine, including the `/api/v1/aep` prefix. The server
+ * sets `AEPBASE_URL` at boot to `http://127.0.0.1:<port>/api/v1/aep`; the default
  * here is the standalone fallback. Helper call sites pass bare engine paths
  * (`/users/me`, `/gift-cards`) that hang off this base.
  */
 export const AEPBASE_URL =
-  process.env.AEPBASE_URL || 'http://127.0.0.1:3000/api/aep';
+  process.env.AEPBASE_URL || 'http://127.0.0.1:3000/api/v1/aep';
 
 export interface AuthedUser {
   id: string;

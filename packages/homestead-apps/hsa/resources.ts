@@ -33,7 +33,7 @@ export const hsaResources: ResourceDefinition[] = [
       created_by: { type: 'string' },
     },
     // AEP-136 custom method on the hsa-receipt collection:
-    //   POST /api/aep/hsa-receipts:parse-receipt
+    //   POST /api/v1/aep/hsa-receipts:parse-receipt
     customMethods: {
       'parse-receipt': {
         target: 'collection',

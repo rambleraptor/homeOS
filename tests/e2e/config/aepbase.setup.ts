@@ -3,9 +3,9 @@
  *
  * One Bun process on a single port (:5173) serves everything the e2e suite
  * needs: the SPA via Vite middleware, and the engine ("aepbase") under the
- * /api/aep prefix. The schema sync runs in-process on boot.
+ * /api/v1/aep prefix. The schema sync runs in-process on boot.
  *
- * A fresh instance boots unclaimed; we claim it via POST /api/setup with
+ * A fresh instance boots unclaimed; we claim it via POST /api/v1/setup with
  * known admin credentials (the same first-visit setup flow the SPA uses),
  * log in, and persist the creds for the fixtures.
  */
@@ -38,9 +38,9 @@ export function getAppUrl(): string {
   return `http://localhost:${APP_PORT}`;
 }
 
-/** The engine base URL — aepbase is reachable only under /api/aep. */
+/** The engine base URL — aepbase is reachable only under /api/v1/aep. */
 export function getAepbaseUrl(): string {
-  return `${getAppUrl()}/api/aep`;
+  return `${getAppUrl()}/api/v1/aep`;
 }
 
 function getTestDirs() {
@@ -170,11 +170,11 @@ export function stopAepbase(): Promise<void> {
 const ADMIN_EMAIL = 'admin@example.com';
 const ADMIN_PASSWORD = 'e2e-admin-password';
 
-/** POST /api/setup — claim the unclaimed instance. 409 means already claimed. */
+/** POST /api/v1/setup — claim the unclaimed instance. 409 means already claimed. */
 async function claimInstance(): Promise<boolean> {
   try {
-    // /api/setup is an app route at the origin root, not under /api/aep.
-    const res = await fetch(`${getAppUrl()}/api/setup`, {
+    // /api/v1/setup is an app route at the origin root, not under /api/v1/aep.
+    const res = await fetch(`${getAppUrl()}/api/v1/setup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD }),

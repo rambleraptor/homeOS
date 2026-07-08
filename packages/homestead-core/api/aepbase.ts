@@ -3,7 +3,7 @@
  *
  * Thin wrapper exposing `getCollection<T>().getFullList/getOne/create/
  * update/delete`-style ergonomics on top of aepbase. Talks to aepbase
- * via the same-origin `/api/aep` Next.js proxy — clients never address
+ * via the same-origin `/api/v1/aep` gateway — clients never address
  * aepbase directly.
  *
  * Behavior worth knowing:
@@ -21,7 +21,7 @@
 
 import type { User, UserType } from '../auth/types';
 
-const AEP_BASE = '/api/aep';
+const AEP_BASE = '/api/v1/aep';
 const AUTH_TOKEN_KEY = 'aepbase_auth_token';
 const AUTH_USER_KEY = 'aepbase_auth_user';
 
@@ -369,7 +369,7 @@ interface CustomMethodOptions {
 /**
  * Invoke an AEP-136 custom method that lives on a resource, e.g.
  * `customMethod('grocery-items', 'process-image', { image, mimeType })` →
- * `POST /api/aep/grocery-items:process-image`. Pass `options.id` to address a
+ * `POST /api/v1/aep/grocery-items:process-image`. Pass `options.id` to address a
  * single record (`/<plural>/<id>:<verb>`).
  *
  * Unlike the CRUD helpers, these are served by the sidecar gateway, which

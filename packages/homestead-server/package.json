@@ -24,7 +24,6 @@
     "test:node": "vitest run"
   },
   "dependencies": {
-    "@rambleraptor/homestead-apps": "^0.1.0",
     "@rambleraptor/homestead-core": "^0.1.0",
     "bcryptjs": "^3.0.2",
     "hono": "^4.6.14",

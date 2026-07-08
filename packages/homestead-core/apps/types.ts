@@ -65,9 +65,9 @@ export interface AppRouteProps {
 }
 
 /**
- * Route definition consumed by the single catch-all renderer at
- * `app/(app)/[[...slug]]/page.tsx`. The component is declared inline so a
- * app is fully self-describing — no per-route page file is needed.
+ * Route definition consumed by the SPA's single catch-all renderer
+ * (`packages/homestead-app/src/apps/AppRoute.tsx`). The component is declared
+ * inline so an app is fully self-describing — no per-route page file is needed.
  */
 export interface AppRoute {
   /**
@@ -94,8 +94,9 @@ export interface AppRoute {
   gates?: Array<'enabled' | 'superuser'>;
 
   /**
-   * True when the path uses dynamic params (`:id`) and should not be
-   * statically prerendered by `generateStaticParams`.
+   * True when the path uses dynamic params (`:id`). Vestigial flag from the
+   * pre-Vite (Next.js) era — the react-router catch-all resolves every route
+   * at runtime, so it has no effect today.
    */
   dynamic?: boolean;
 }
@@ -119,8 +120,8 @@ export interface AppWebConfig {
   basePath: string;
 
   /**
-   * Route definitions for this app
-   * Routes are now defined by the Next.js App Router file structure
+   * Route definitions for this app, declared inline (each `AppRoute` carries
+   * its own lazy `component`). The SPA's react-router catch-all resolves them.
    */
   routes: AppRoute[];
 
@@ -271,8 +272,8 @@ export interface AppConfig {
   /**
    * Optional aepbase resource definitions owned by this app. The
    * registry aggregates them across all apps (including children)
-   * and the Next.js instrumentation hook applies them to aepbase via
-   * `/aep-resource-definitions` on server boot. Each `singular` must
+   * and the server's boot-time schema sync applies them to aepbase via
+   * `/aep-resource-definitions`. Each `singular` must
    * be globally unique.
    */
   resources?: ResourceDefinition[];

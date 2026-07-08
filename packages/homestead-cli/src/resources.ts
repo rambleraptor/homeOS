@@ -99,8 +99,8 @@ export async function resourcesCmd(args: string[]): Promise<number> {
 }
 
 /**
- * Invoke an AEP-136 custom method on `resource` via the /api/aep gateway:
- * `POST /api/aep/<plural>[/<id>]:<verb>`. The body comes from `--@data`.
+ * Invoke an AEP-136 custom method on `resource` via the /api/v1/aep gateway:
+ * `POST /api/v1/aep/<plural>[/<id>]:<verb>`. The body comes from `--@data`.
  */
 async function runCustomMethod(
   model: ResourceContext,
@@ -124,7 +124,7 @@ async function runCustomMethod(
   }
 
   const body = readCustomMethodBody(flags);
-  const url = `${model.sidecarUrl}/api/aep/${resourcePath}:${method.verb}`;
+  const url = `${model.sidecarUrl}/api/v1/aep/${resourcePath}:${method.verb}`;
   const res = await fetch(url, {
     method: method.method || 'POST',
     headers: {

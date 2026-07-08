@@ -2,7 +2,7 @@
  * `hsa-receipts:parse-receipt` custom method (AEP-136).
  *
  * Lives on the hsa-receipt collection; dispatched by the sidecar gateway as
- * `POST /api/aep/hsa-receipts:parse-receipt`. Body: `{ image: base64, mimeType }`.
+ * `POST /api/v1/aep/hsa-receipts:parse-receipt`. Body: `{ image: base64, mimeType }`.
  * Returns `{ data: ParsedReceiptData, message }`.
  */
 

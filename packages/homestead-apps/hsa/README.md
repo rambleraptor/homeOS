@@ -185,10 +185,10 @@ The model must be vision-capable (e.g. `gpt-4o`, `claude-3-5-sonnet-latest`,
 
 ### aepbase URL
 
-The app talks to aepbase via the shared `/api/aep` same-origin
+The app talks to aepbase via the shared `/api/v1/aep` same-origin
 prefix on the one server port. Server-side helpers reach the engine at the
 same prefix; override the target by setting `AEPBASE_URL` if the engine runs
-somewhere other than `http://127.0.0.1:3000/api/aep`.
+somewhere other than `http://127.0.0.1:3000/api/v1/aep`.
 
 ## Tips
 

@@ -146,7 +146,7 @@ export function HSAQuickCaptureForm({
       }
 
       // Call the AEP-136 custom method on the hsa-receipt collection to
-      // parse the receipt: POST /api/aep/hsa-receipts:parse-receipt
+      // parse the receipt: POST /api/v1/aep/hsa-receipts:parse-receipt
       const result = await aepbase.customMethod<{ data: ParsedReceiptData }>(
         'hsa-receipts',
         'parse-receipt',

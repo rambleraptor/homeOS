@@ -1,5 +1,5 @@
 /**
- * Chat backend: `POST /api/chat` (mounted by the sidecar).
+ * Chat backend: `POST /api/v1/chat` (mounted by the sidecar).
  *
  * Runs a chat turn through the unified AI API with one CRUD tool per
  * registered aepbase resource. The configured provider/model comes from

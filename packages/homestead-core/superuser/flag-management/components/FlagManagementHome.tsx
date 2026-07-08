@@ -49,7 +49,7 @@ export function FlagManagementHome() {
     (async () => {
       try {
         await syncAppFlagsSchema({
-          aepbaseUrl: '/api/aep',
+          aepbaseUrl: '/api/v1/aep',
           token: aepbase.authStore.token,
           defs: getAllAppFlagDefs(),
         });

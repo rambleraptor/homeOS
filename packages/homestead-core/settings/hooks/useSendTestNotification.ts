@@ -12,7 +12,7 @@ export function useSendTestNotification() {
     mutationFn: async () => {
       const token = aepbase.authStore.token;
       const userId = aepbase.getCurrentUser()?.id || '';
-      const res = await fetch('/api/notifications/send-test', {
+      const res = await fetch('/api/v1/notifications/send-test', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

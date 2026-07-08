@@ -15,7 +15,7 @@ export interface ConnectOptions {
   /** Project directory holding homestead.config.ts + data/. Defaults to CWD. */
   projectDir?: string;
   /**
-   * App origin or engine base URL. Wins over `port`. A trailing `/api/aep`
+   * App origin or engine base URL. Wins over `port`. A trailing `/api/v1/aep`
    * is optional — it's normalized away to recover the origin.
    */
   serverUrl?: string;
@@ -31,7 +31,7 @@ export interface ConnectOptions {
   password?: string;
 }
 
-/** An AEP-136 custom method advertised by `/api/custom-methods`. */
+/** An AEP-136 custom method advertised by `/api/v1/custom-methods`. */
 export interface CustomMethodInfo {
   /** Plural of the resource the method lives on, e.g. `groceries`. */
   plural: string;
@@ -73,11 +73,11 @@ export class ConnectError extends Error {}
  * schema hasn't been synced yet.
  */
 export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
-  // The engine is reachable only under /api/aep on the app origin; the
-  // custom-method gateway (/api/custom-methods, /api/aep/<plural>:<verb>)
+  // The engine is reachable only under /api/v1/aep on the app origin; the
+  // custom-method gateway (/api/v1/custom-methods, /api/v1/aep/<plural>:<verb>)
   // lives at the origin root.
   const origin = resolveOrigin(opts);
-  const serverUrl = `${origin}/api/aep`;
+  const serverUrl = `${origin}/api/v1/aep`;
   const sidecarUrl = origin;
   await probe(origin);
 
@@ -122,7 +122,7 @@ async function fetchCustomMethods(
   sidecarUrl: string,
 ): Promise<CustomMethodInfo[]> {
   try {
-    const res = await fetch(`${sidecarUrl}/api/custom-methods`, {
+    const res = await fetch(`${sidecarUrl}/api/v1/custom-methods`, {
       signal: AbortSignal.timeout(2_000),
     });
     if (!res.ok) return [];
@@ -155,10 +155,10 @@ function patchCreateMethods(
   }
 }
 
-/** Resolve the app origin, tolerating a `--server-url` that includes /api/aep. */
+/** Resolve the app origin, tolerating a `--server-url` that includes /api/v1/aep. */
 function resolveOrigin(opts: ConnectOptions): string {
   if (opts.serverUrl) {
-    return opts.serverUrl.replace(/\/$/, '').replace(/\/api\/aep$/, '');
+    return opts.serverUrl.replace(/\/$/, '').replace(/\/api\/v1\/aep$/, '');
   }
   const port = opts.port ?? 3000;
   return `http://127.0.0.1:${port}`;

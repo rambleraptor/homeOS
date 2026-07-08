@@ -128,7 +128,7 @@ API by running `homestead resources`.
 | ----------------------------- | -------------------------------------------------------------- |
 | `--token=TOKEN`               | Use an existing bearer token instead of minting one.           |
 | `--email=… --password=…`      | Authenticate with superuser credentials instead of minting.    |
-| `--server-url=URL`            | Target a remote engine (default `http://127.0.0.1:<port>/api/aep`). |
+| `--server-url=URL`            | Target a remote engine (default `http://127.0.0.1:<port>/api/v1/aep`). |
 | `--@data=PATH`                | Supply a JSON body from a file (for create or custom methods). |
 | `--data-dir=PATH`             | Where the SQLite database lives (default `<project>/data`).    |
 
@@ -167,9 +167,9 @@ separately from Homestead.
 
 Point it at your instance with two values:
 
-- **API URL** — your instance's engine, at the `/api/aep` prefix
-  (e.g. `http://your-host:3000/api/aep`). The OpenAPI document is at
-  `/api/aep/openapi.json`.
+- **API URL** — your instance's engine, at the `/api/v1/aep` prefix
+  (e.g. `http://your-host:3000/api/v1/aep`). The OpenAPI document is at
+  `/api/v1/aep/openapi.json`.
 - **Bearer token** — get one by logging in with your superuser credentials
   against the engine's login endpoint, the same way
   `homestead resources --email … --password …` does.
