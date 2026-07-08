@@ -166,7 +166,6 @@ function packageJson(root: string): string {
     type: 'module',
     dependencies: {
       '@rambleraptor/homestead-app': HOMESTEAD_VERSION_RANGE,
-      '@rambleraptor/homestead-apps': HOMESTEAD_VERSION_RANGE,
       '@rambleraptor/homestead-core': HOMESTEAD_VERSION_RANGE,
       '@rambleraptor/homestead-server': HOMESTEAD_VERSION_RANGE,
     },
@@ -201,10 +200,10 @@ function configTs(ai?: AiChoice): string {
  *
  * A fresh instance ships with no apps. Add them two ways:
  *
- *   1. npm-installed example apps — import from
- *      \`@rambleraptor/homestead-apps\` and list them in \`apps\` below.
- *      The example set is already a dependency; uncomment the imports
- *      to use it (only the apps you list are bundled).
+ *   1. npm-installed example apps — install
+ *      \`@rambleraptor/homestead-apps\`, then import from it and list them
+ *      in \`apps\` below; uncomment the imports to use it (only the apps
+ *      you list are bundled).
  *
  *   2. Custom apps — anything under ./apps/<dir>/app.homestead.ts is
  *      discovered automatically; no wiring here needed. Scaffold one

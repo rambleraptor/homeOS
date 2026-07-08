@@ -33,11 +33,13 @@ test('scaffold writes a project the launcher can resolve', () => {
     for (const dep of [
       '@rambleraptor/homestead-server',
       '@rambleraptor/homestead-app',
-      '@rambleraptor/homestead-apps',
       '@rambleraptor/homestead-core',
     ]) {
       expect(pkg.dependencies[dep]).toBeDefined();
     }
+    // The example feature-apps package is optional and operator-installed,
+    // not scaffolded in — the generated config's imports are commented out.
+    expect(pkg.dependencies['@rambleraptor/homestead-apps']).toBeUndefined();
   } finally {
     rmSync(parent, { recursive: true, force: true });
   }
