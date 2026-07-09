@@ -210,6 +210,15 @@ export interface ResourceDefinition {
   description?: string;
   user_settable_create?: boolean;
   /**
+   * When true, only superusers may create, update, or delete records of
+   * this resource; regular users still read within their normal scope
+   * (e.g. a user-parented resource stays readable by its owner). Used to
+   * lock down `account-tag`, which gates app access and so must not be
+   * self-editable. Persisted and enforced by the engine — see
+   * `checkSuperuserWrite` in `homestead-server/src/engine/crud.ts`.
+   */
+  superuser_write?: boolean;
+  /**
    * Singulars of parent resources. The runner topologically sorts by
    * this so parents apply before children. `'user'` is treated as a
    * built-in root (provided by aepbase's EnableUsers).

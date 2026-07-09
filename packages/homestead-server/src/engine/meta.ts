@@ -22,12 +22,13 @@ interface DefinitionRow {
   file_fields_json: string;
   singleton: number;
   user_settable_create: number;
+  superuser_write: number;
   create_time: string;
   update_time: string;
 }
 
 const SELECT_COLS =
-  'id, singular, plural, description, examples_json, schema_json, parents_json, enums_json, file_fields_json, singleton, user_settable_create, create_time, update_time';
+  'id, singular, plural, description, examples_json, schema_json, parents_json, enums_json, file_fields_json, singleton, user_settable_create, superuser_write, create_time, update_time';
 
 function rowToDefinition(row: DefinitionRow): ResourceDefinition {
   const def: ResourceDefinition = {
@@ -50,6 +51,7 @@ function rowToDefinition(row: DefinitionRow): ResourceDefinition {
   if (Array.isArray(fileFields) && fileFields.length > 0) def.file_fields = fileFields;
   if (row.singleton !== 0) def.singleton = true;
   if (row.user_settable_create !== 0) def.user_settable_create = true;
+  if (row.superuser_write !== 0) def.superuser_write = true;
   return def;
 }
 
@@ -95,7 +97,7 @@ export function loadAllDefinitions(db: Database): ResourceDefinition[] {
 
 function insertDefinition(db: Database, def: ResourceDefinition): void {
   db.query(
-    'INSERT INTO _aep_resource_definitions (id, singular, plural, description, examples_json, schema_json, parents_json, enums_json, file_fields_json, singleton, user_settable_create, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO _aep_resource_definitions (id, singular, plural, description, examples_json, schema_json, parents_json, enums_json, file_fields_json, singleton, user_settable_create, superuser_write, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
   ).run(
     def.id!,
     def.singular,
@@ -108,6 +110,7 @@ function insertDefinition(db: Database, def: ResourceDefinition): void {
     JSON.stringify(def.file_fields ?? []),
     def.singleton ? 1 : 0,
     def.user_settable_create ? 1 : 0,
+    def.superuser_write ? 1 : 0,
     def.create_time!,
     def.update_time!,
   );
@@ -115,7 +118,7 @@ function insertDefinition(db: Database, def: ResourceDefinition): void {
 
 function updateDefinitionRow(db: Database, def: ResourceDefinition): void {
   db.query(
-    'UPDATE _aep_resource_definitions SET description = ?, examples_json = ?, schema_json = ?, enums_json = ?, file_fields_json = ?, user_settable_create = ?, update_time = ? WHERE id = ?',
+    'UPDATE _aep_resource_definitions SET description = ?, examples_json = ?, schema_json = ?, enums_json = ?, file_fields_json = ?, user_settable_create = ?, superuser_write = ?, update_time = ? WHERE id = ?',
   ).run(
     def.description ?? '',
     JSON.stringify(def.examples ?? {}),
@@ -123,6 +126,7 @@ function updateDefinitionRow(db: Database, def: ResourceDefinition): void {
     JSON.stringify(def.enums ?? {}),
     JSON.stringify(def.file_fields ?? []),
     def.user_settable_create ? 1 : 0,
+    def.superuser_write ? 1 : 0,
     def.update_time!,
     def.id!,
   );
@@ -333,6 +337,9 @@ export async function handleMetaUpdate(
   }
   if (patch.user_settable_create !== undefined) {
     existing.user_settable_create = patch.user_settable_create;
+  }
+  if (patch.superuser_write !== undefined) {
+    existing.superuser_write = patch.superuser_write;
   }
   const detected = patch.schema ? extractFileFields({ schema: patch.schema } as ResourceDefinition) : [];
   if (detected.length > 0 || patch.file_fields) {

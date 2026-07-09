@@ -35,6 +35,8 @@ export interface RegisteredResource {
   description: string;
   examples: Record<string, unknown>;
   userSettableId: boolean;
+  /** Only superusers may create/update/delete records of this resource. */
+  superuserWrite: boolean;
   /** Built-in resources (user) have no _aep_resource_definitions row. */
   builtin: boolean;
   /**
@@ -98,6 +100,7 @@ export class Registry {
       description: '',
       examples: {},
       userSettableId: false,
+      superuserWrite: false,
       builtin: true,
       patternElems: [USER_PLURAL, `{${paramName(USER_SINGULAR)}}`],
     });
@@ -184,6 +187,7 @@ export class Registry {
       description: def.description ?? '',
       examples: def.examples ?? {},
       userSettableId: def.user_settable_create ?? false,
+      superuserWrite: def.superuser_write ?? false,
       builtin: false,
       patternElems: this.buildPatternElems({
         singular: def.singular,
@@ -244,6 +248,7 @@ export class Registry {
     }
 
     r.schema = withStandardFields(def.schema, r.singleton);
+    r.superuserWrite = def.superuser_write ?? false;
     if (def.description) r.description = def.description;
     if (def.examples && Object.keys(def.examples).length > 0) r.examples = def.examples;
     // Enums and file fields are replaced wholesale on update.
