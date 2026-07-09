@@ -46,6 +46,7 @@ interface AepResourceDefinitionResponse {
   plural?: string;
   description?: string;
   user_settable_create?: boolean;
+  superuser_write?: boolean;
   parents?: string[];
   schema?: unknown;
 }
@@ -220,6 +221,7 @@ async function patchDefinition(
   const body = {
     description: def.description,
     user_settable_create: def.user_settable_create,
+    superuser_write: def.superuser_write,
     parents: def.parents,
     schema,
   };
@@ -252,6 +254,7 @@ function wireDefinition(
     plural: def.plural,
     description: def.description,
     user_settable_create: def.user_settable_create,
+    superuser_write: def.superuser_write,
     parents: def.parents,
     schema,
   };
@@ -267,6 +270,7 @@ function definitionsMatch(
     (existing.description ?? '') === (desired.description ?? '') &&
     (existing.user_settable_create ?? false) ===
       (desired.user_settable_create ?? false) &&
+    (existing.superuser_write ?? false) === (desired.superuser_write ?? false) &&
     jsonEqual(existing.parents ?? [], desired.parents ?? [])
   );
 }

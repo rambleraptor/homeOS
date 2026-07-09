@@ -6,6 +6,7 @@
  */
 
 import {
+  checkSuperuserWrite,
   checkUserScope,
   handleApply,
   handleCreate,
@@ -123,12 +124,18 @@ export async function routeDynamic(
 
   if (match.kind === 'singleton') {
     if (req.method === 'GET') return handleSingletonGet(reg, match);
-    if (req.method === 'PATCH') return handleSingletonUpdate(reg, match, req);
+    if (req.method === 'PATCH') {
+      checkSuperuserWrite(match, caller);
+      return handleSingletonUpdate(reg, match, req);
+    }
     return methodNotAllowed();
   }
 
   if (match.kind === 'collection') {
-    if (req.method === 'POST') return handleCreate(reg, match, req);
+    if (req.method === 'POST') {
+      checkSuperuserWrite(match, caller);
+      return handleCreate(reg, match, req);
+    }
     if (req.method === 'GET') return handleList(reg, match, req);
     return methodNotAllowed();
   }
@@ -158,10 +165,13 @@ export async function routeDynamic(
       }
       return errorResponse(404, `custom method "${match.verb}" not found`);
     case 'PATCH':
+      checkSuperuserWrite(match, caller);
       return handleUpdate(reg, match, req);
     case 'PUT':
+      checkSuperuserWrite(match, caller);
       return handleApply(reg, match, req);
     case 'DELETE':
+      checkSuperuserWrite(match, caller);
       return handleDelete(reg, match);
     default:
       return methodNotAllowed();

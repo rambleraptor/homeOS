@@ -64,6 +64,21 @@ export function checkUserScope(match: RouteMatch, caller: User | null): void {
   }
 }
 
+/**
+ * Superuser-only writes: resources flagged `superuser_write` (e.g.
+ * `account-tag`, which gates app access) may only be created, updated, or
+ * deleted by superusers. Reads are unaffected — a user-parented resource
+ * stays readable by its owner via {@link checkUserScope}. Call only on
+ * mutating requests (create/update/apply/delete). Throws 403 on violation.
+ */
+export function checkSuperuserWrite(match: RouteMatch, caller: User | null): void {
+  if (!caller) return; // no auth context (unit tests); auth middleware enforces presence
+  if (caller.type === TYPE_SUPERUSER) return;
+  if (match.resource.superuserWrite) {
+    throw new HttpError(403, 'only superusers can modify this resource');
+  }
+}
+
 /** Direct-parent FK columns only (grandparent ids live in the path). */
 function directParentIds(
   reg: Registry,

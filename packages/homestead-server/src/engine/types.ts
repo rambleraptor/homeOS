@@ -42,6 +42,8 @@ export interface ResourceDefinition {
   parents?: string[];
   singleton?: boolean;
   user_settable_create?: boolean;
+  /** Only superusers may create/update/delete records of this resource. */
+  superuser_write?: boolean;
   create_time?: string;
   update_time?: string;
 }
