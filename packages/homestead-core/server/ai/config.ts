@@ -17,6 +17,11 @@ import type { AiConfig } from '../../apps/config';
 
 let current: AiConfig | null = null;
 
+/** True when `cfg` carries a usable, non-empty API key. */
+function hasApiKey(cfg: AiConfig | null): cfg is AiConfig {
+  return cfg !== null && cfg.auth.apiKey.trim() !== '';
+}
+
 /**
  * Install the instance's AI config. Called once by the server at startup with
  * `registry.aiConfig()` (which is `null` when the operator omitted the `ai`
@@ -31,9 +36,15 @@ export function getAiConfig(): AiConfig | null {
   return current;
 }
 
-/** True when an AI provider is configured for this instance. */
+/**
+ * True when an AI provider is configured for this instance. Requires a
+ * non-empty `auth.apiKey`: an `ai` block whose key is blank (e.g. the env var
+ * it reads in homestead.config.ts is unset) counts as unconfigured, so callers
+ * return a clean 503 instead of letting the provider SDK fall back to its own
+ * environment variable (`GOOGLE_GENERATIVE_AI_API_KEY`, `OPENAI_API_KEY`, …).
+ */
 export function isAiConfigured(): boolean {
-  return current !== null;
+  return hasApiKey(current);
 }
 
 /** Thrown by {@link getAiModel} when no AI provider is configured. */
@@ -51,7 +62,7 @@ export class AiNotConfiguredError extends Error {
  */
 export function getAiModel(): LanguageModel {
   const cfg = current;
-  if (!cfg) throw new AiNotConfiguredError();
+  if (!hasApiKey(cfg)) throw new AiNotConfiguredError();
 
   const { apiKey } = cfg.auth;
   switch (cfg.provider) {
