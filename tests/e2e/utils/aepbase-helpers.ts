@@ -123,8 +123,10 @@ export async function aepRemove(
   plural: string,
   id: string,
   parent?: ParentPath,
+  force = false,
 ): Promise<void> {
-  const res = await req(`${pathFor(plural, parent)}/${id}`, {
+  const query = force ? '?force=true' : '';
+  const res = await req(`${pathFor(plural, parent)}/${id}${query}`, {
     token,
     method: 'DELETE',
   });
@@ -215,7 +217,8 @@ export async function deleteUsersExcept(
   const keep = new Set(preserveIds);
   for (const u of users) {
     if (keep.has(u.id)) continue;
-    await aepRemove(adminToken, 'users', u.id);
+    // Users own child resources (notifications, preferences); force-cascade.
+    await aepRemove(adminToken, 'users', u.id, undefined, true);
   }
 }
 

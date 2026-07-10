@@ -59,6 +59,105 @@ export function clearTempIdMaps(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Resource metadata registry (drives convention-based nesting)
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal per-resource metadata every registration self-publishes. The
+ * nesting walk consults this to resolve a resource's ancestors at mutation
+ * time — `providers.tsx` registers every resource at boot, so the registry
+ * is complete long before any mutation fires.
+ */
+interface ResourceMeta {
+  appId: string;
+  singular: string;
+  plural: string;
+  parents: string[];
+}
+
+const resourceMetaRegistry = new Map<string, ResourceMeta>();
+
+function metaKey(appId: string, singular: string): string {
+  return `${appId}:${singular}`;
+}
+
+function metaFor(appId: string, singular: string): ResourceMeta | undefined {
+  return resourceMetaRegistry.get(metaKey(appId, singular));
+}
+
+/**
+ * FK field naming a parent on its child record. aepbase paths use kebab-case
+ * singulars (`credit-card`) but stored/injected field names are snake_case
+ * (`credit_card`), so the child's FK is the parent singular with dashes
+ * swapped for underscores.
+ */
+export function parentFkField(parentSingular: string): string {
+  return parentSingular.replace(/-/g, '_');
+}
+
+/** Reset the resource metadata registry. Test-only. */
+export function clearResourceMetaRegistry(): void {
+  resourceMetaRegistry.clear();
+}
+
+/**
+ * Resolve the aepbase URL parent chain for an existing record, reading each
+ * ancestor id from the convention list caches on `qc`. Used by the generic
+ * `useResourceDelete` wrapper to capture the chain up front — before the
+ * optimistic delete removes the record — so it rides in the (persisted)
+ * mutation variables and survives an offline reload. Returns undefined for a
+ * top-level resource or when the chain can't be resolved from cache.
+ */
+export function resolveParentChainFromCache(
+  qc: QueryClient,
+  appId: string,
+  singular: string,
+  id: string,
+): ParentPath | undefined {
+  const findRecord = (
+    forSingular: string,
+    recordId: string,
+  ): Record<string, unknown> | undefined => {
+    const key = queryKeys.app(appId).resource(forSingular).list();
+    const list = qc.getQueryData<Array<{ id: string } & Record<string, unknown>>>(key);
+    if (!list) return undefined;
+    return (
+      list.find((r) => r.id === recordId) ??
+      list.find((r) => r.id === (tempIdMap(appId, forSingular).get(recordId) ?? recordId))
+    );
+  };
+
+  const meta = metaFor(appId, singular);
+  const primaryParent = meta?.parents[0];
+  if (!primaryParent) return undefined;
+  const rec = findRecord(singular, id);
+  let curParentSingular: string | undefined = primaryParent;
+  let curParentId = rec?.[parentFkField(primaryParent)] as string | undefined;
+  if (!curParentId) return undefined;
+
+  const chain: ParentPath = [];
+  while (curParentSingular && curParentId) {
+    const parentMeta = metaFor(appId, curParentSingular);
+    if (!parentMeta) break;
+    chain.unshift(
+      parentMeta.plural,
+      tempIdMap(appId, curParentSingular).get(curParentId) ?? curParentId,
+    );
+    const grandParentSingular = parentMeta.parents[0];
+    if (!grandParentSingular) break;
+    const parentRec = findRecord(curParentSingular, curParentId);
+    curParentId = parentRec?.[parentFkField(grandParentSingular)] as string | undefined;
+    curParentSingular = grandParentSingular;
+  }
+  return chain.length ? chain : undefined;
+}
+
+/** True when a resource declares any parent (i.e. is nested). */
+export function resourceHasParents(appId: string, singular: string): boolean {
+  return (metaFor(appId, singular)?.parents.length ?? 0) > 0;
+}
+
+// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -71,29 +170,21 @@ export interface UpdateVars<U = Record<string, unknown>> {
   data: U;
 }
 
+/**
+ * Delete variables. A bare id is enough for a top-level resource. Nested
+ * resources need the aepbase URL parent chain, which the record's own cache
+ * entry no longer yields once the optimistic delete has removed it — so the
+ * generic `useResourceDelete` wrapper resolves it up front and passes the
+ * object form, which also persists into the offline queue and survives a
+ * reload.
+ */
+export type DeleteVars = string | { id: string; parent?: ParentPath };
+
 export interface ResourceMutationKeys {
   create: readonly unknown[];
   update: readonly unknown[];
   delete: readonly unknown[];
 }
-
-/**
- * Optimistic cascade applied inside the delete `onMutate` (before any
- * network call) and reversed in `onError`. Both callbacks must be pure
- * functions of (id/snapshot, qc) so the snapshot survives serialization
- * into the persisted mutation queue.
- */
-export interface CascadeDelete {
-  apply: (deletedId: string, qc: QueryClient) => unknown;
-  rollback: (snapshot: unknown, qc: QueryClient) => void;
-}
-
-/**
- * A `CascadeDelete`, or a thunk that lazily imports one. App configs
- * declare the lazy form (`() => import('./offline').then(m => m.fooCascade)`)
- * so the config file stays free of eager query-client imports.
- */
-export type CascadeDeleteSpec = CascadeDelete | (() => Promise<CascadeDelete>);
 
 export interface ResourceMutationOpts {
   appId: string;
@@ -101,16 +192,14 @@ export interface ResourceMutationOpts {
   singular: string;
   /** aepbase collection plural (the URL segment). */
   plural: string;
-  /** Build the URL parent chain for nested resources. */
-  parentPath?: (vars: unknown) => ParentPath | undefined;
   /**
-   * Optimistic cascade applied inside the delete `onMutate` (before any
-   * network call) and reversed in `onError`. Use for cross-resource
-   * effects, e.g. "unset a foreign key on related records when their
-   * parent is deleted". Accepts either a `CascadeDelete` directly or a
-   * thunk that lazily imports one (the form app configs use).
+   * Singulars of this resource's parent chain (as declared on the resource
+   * definition, e.g. `['credit-card']` for a perk). The factory derives the
+   * aepbase URL parent path by convention from these — resolving each
+   * ancestor id from the create vars or the cached record — so nested
+   * resources need no bespoke wiring. Empty/omitted for top-level resources.
    */
-  cascadeDelete?: CascadeDeleteSpec;
+  parents?: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -149,25 +238,17 @@ export function registerResourceMutationDefaults<
   C extends CreateVarsBase = CreateVarsBase & Record<string, unknown>,
   U = Record<string, unknown>,
 >(qc: QueryClient, opts: ResourceMutationOpts): ResourceMutationKeys {
-  const { appId, singular, plural, parentPath, cascadeDelete } = opts;
+  const { appId, singular, plural, parents = [] } = opts;
 
-  // Resolve the cascade once and cache it in closure. App configs pass a
-  // lazy thunk (to keep the config free of eager query-client imports);
-  // tests and direct callers may pass the object. Resolution is kicked off
-  // here at registration — which runs at app boot, long before any delete —
-  // and `onMutate` awaits readiness to close the race on an unusually early
-  // delete. `onError` reads the resolved impl from the same closure.
-  let cascadeImpl: CascadeDelete | undefined;
-  let cascadeReady: Promise<void> | undefined;
-  if (cascadeDelete) {
-    const loaded =
-      typeof cascadeDelete === 'function'
-        ? cascadeDelete()
-        : Promise.resolve(cascadeDelete);
-    cascadeReady = loaded.then((impl) => {
-      cascadeImpl = impl;
-    });
-  }
+  // Self-publish this resource's metadata so nested descendants can walk up
+  // to it at mutation time (see `buildParentChain`).
+  resourceMetaRegistry.set(metaKey(appId, singular), {
+    appId,
+    singular,
+    plural,
+    parents,
+  });
+
   const listKey = queryKeys.app(appId).resource(singular).list();
   // Invalidate the whole app on settle — covers list reads, detail
   // reads, and any sibling resources that share computed state.
@@ -177,13 +258,102 @@ export function registerResourceMutationDefaults<
 
   const resolveId = (id: string): string => idMap.get(id) ?? id;
 
+  // Parent-FK fields (e.g. `credit_card` on a perk). They live on the
+  // optimistic/cached record so compute hooks can join by them, but are
+  // path-encoded on the wire and must never be sent in the request body.
+  const parentFkFields = parents.map(parentFkField);
+  const primaryParentSingular: string | undefined = parents[0];
+  const primaryFkField: string | undefined = primaryParentSingular
+    ? parentFkField(primaryParentSingular)
+    : undefined;
+
+  function stripParentFks(body: Record<string, unknown>): Record<string, unknown> {
+    for (const field of parentFkFields) delete body[field];
+    return body;
+  }
+
   function buildBody(vars: C): Record<string, unknown> {
-    const body = stripTempId(vars);
+    const body = stripParentFks(stripTempId(vars));
     const userId = aepbase.getCurrentUser?.()?.id;
     if (userId && !('created_by' in body)) {
       body.created_by = `users/${userId}`;
     }
     return body;
+  }
+
+  // Find a record by id in another resource's convention list cache, tolerating
+  // a temp↔real id mismatch (the cache may hold either during offline replay).
+  function findCachedRecord(
+    forSingular: string,
+    id: string,
+  ): Record<string, unknown> | undefined {
+    const key = queryKeys.app(appId).resource(forSingular).list();
+    const list = qc.getQueryData<Array<{ id: string } & Record<string, unknown>>>(key);
+    if (!list) return undefined;
+    return (
+      list.find((r) => r.id === id) ??
+      list.find((r) => r.id === (tempIdMap(appId, forSingular).get(id) ?? id))
+    );
+  }
+
+  /**
+   * Build the aepbase URL parent chain (`[plural, id, plural, id, ...]`,
+   * root-first) for a record of `childSingular` whose immediate parent id is
+   * `immediateParentId`. Walks up the declared `parents` chain, reading each
+   * ancestor's own parent FK from its cached record. Temp parent ids are
+   * mapped through the parent's temp-id map so a parent created offline (and
+   * since reconciled) still resolves. Returns undefined for a top-level
+   * resource or when the chain can't be resolved.
+   */
+  function buildParentChain(
+    childSingular: string,
+    immediateParentId: string | undefined,
+  ): ParentPath | undefined {
+    const childMeta = metaFor(appId, childSingular);
+    let curParentSingular = childMeta?.parents[0];
+    if (!curParentSingular || !immediateParentId) return undefined;
+
+    const chain: ParentPath = [];
+    let curParentId = immediateParentId;
+    while (curParentSingular) {
+      const parentMeta = metaFor(appId, curParentSingular);
+      if (!parentMeta) break; // unknown ancestor (e.g. built-in `user`) — stop
+      const resolvedId = tempIdMap(appId, curParentSingular).get(curParentId) ?? curParentId;
+      chain.unshift(parentMeta.plural, resolvedId);
+
+      const grandParentSingular = parentMeta.parents[0];
+      if (!grandParentSingular) break;
+      const parentRec = findCachedRecord(curParentSingular, curParentId);
+      const grandParentId = parentRec?.[parentFkField(grandParentSingular)] as
+        | string
+        | undefined;
+      if (!grandParentId) break;
+      curParentSingular = grandParentSingular;
+      curParentId = grandParentId;
+    }
+    return chain.length ? chain : undefined;
+  }
+
+  /** Parent chain for a create, whose immediate parent id rides in the vars. */
+  function parentForCreate(vars: C): ParentPath | undefined {
+    if (!primaryFkField) return undefined;
+    const pid = (vars as unknown as Record<string, unknown>)[primaryFkField] as
+      | string
+      | undefined;
+    return buildParentChain(singular, pid);
+  }
+
+  /**
+   * Parent chain for an update/delete of an existing record — the immediate
+   * parent id is read from the record's own cached FK. Delete callers pass a
+   * chain in their vars instead (resolved before optimistic removal), so this
+   * is the update path and a fallback.
+   */
+  function parentForExisting(id: string): ParentPath | undefined {
+    if (!primaryFkField) return undefined;
+    const rec = findCachedRecord(singular, id);
+    const pid = rec?.[primaryFkField] as string | undefined;
+    return buildParentChain(singular, pid);
   }
 
   function buildOptimistic(vars: C): T {
@@ -215,7 +385,7 @@ export function registerResourceMutationDefaults<
     networkMode: 'online',
     mutationFn: async (vars: C) => {
       const body = buildBody(vars);
-      const parent = parentPath?.(vars);
+      const parent = parentForCreate(vars);
       return parent
         ? aepbase.create<T>(plural, body, { parent })
         : aepbase.create<T>(plural, body);
@@ -266,8 +436,8 @@ export function registerResourceMutationDefaults<
           await matching.continue().catch(() => undefined);
           const resolved = resolveId(vars.id);
           if (!isTempId(resolved)) {
-            const parent = parentPath?.(vars);
-            const body = vars.data as unknown as Record<string, unknown>;
+            const parent = parentForExisting(vars.id);
+            const body = stripParentFks({ ...(vars.data as Record<string, unknown>) });
             return parent
               ? aepbase.update<T>(plural, resolved, body, { parent })
               : aepbase.update<T>(plural, resolved, body);
@@ -277,8 +447,8 @@ export function registerResourceMutationDefaults<
           `Cannot update ${singular} ${vars.id}: backing create has not resolved`,
         );
       }
-      const parent = parentPath?.(vars);
-      const body = vars.data as unknown as Record<string, unknown>;
+      const parent = parentForExisting(vars.id);
+      const body = stripParentFks({ ...(vars.data as Record<string, unknown>) });
       return parent
         ? aepbase.update<T>(plural, realId, body, { parent })
         : aepbase.update<T>(plural, realId, body);
@@ -317,13 +487,23 @@ export function registerResourceMutationDefaults<
   qc.setMutationDefaults(keys.update, updateDef);
 
   // ---- delete -----------------------------------------------------------
-  type DeleteContext = { previous: T[]; cascade?: unknown };
-  const deleteDef: MutationOptions<string, Error, string, DeleteContext> = {
+  type DeleteContext = { previous: T[] };
+  // Parent chains captured in onMutate for bare-id deletes (before the record
+  // is removed from cache). The wrapper's object-form vars are preferred and
+  // reload-safe; this covers direct/test callers within a session.
+  const pendingDeleteParents = new Map<string, ParentPath | undefined>();
+  const deleteId = (vars: DeleteVars): string =>
+    typeof vars === 'string' ? vars : vars.id;
+  const deleteParent = (vars: DeleteVars): ParentPath | undefined =>
+    typeof vars === 'string' ? undefined : vars.parent;
+  const deleteDef: MutationOptions<string, Error, DeleteVars, DeleteContext> = {
     networkMode: 'online',
-    mutationFn: async (id: string) => {
+    mutationFn: async (vars: DeleteVars) => {
+      const id = deleteId(vars);
       const realId = resolveId(id);
       if (isTempId(realId)) {
         // Backing create still pending. Cancel it; nothing on server to delete.
+        pendingDeleteParents.delete(id);
         qc.getMutationCache()
           .getAll()
           .filter(
@@ -333,29 +513,34 @@ export function registerResourceMutationDefaults<
           .forEach((m) => m.destroy());
         return realId;
       }
-      const parent = parentPath?.(id);
+      const parent = deleteParent(vars) ?? pendingDeleteParents.get(id);
+      pendingDeleteParents.delete(id);
+      // force: a "delete" in the UI means delete the whole subtree — the app's
+      // confirm dialogs say as much. Harmless for childless resources (the
+      // server ignores force when there are no children).
       if (parent) {
-        await aepbase.remove(plural, realId, { parent });
+        await aepbase.remove(plural, realId, { parent, force: true });
       } else {
-        await aepbase.remove(plural, realId);
+        await aepbase.remove(plural, realId, { force: true });
       }
       return realId;
     },
-    onMutate: async (id: string) => {
+    onMutate: async (vars: DeleteVars) => {
+      const id = deleteId(vars);
       await qc.cancelQueries({ queryKey: listKey });
       const previous = qc.getQueryData<T[]>(listKey) ?? [];
+      // Resolve the parent chain from the still-present record before removing
+      // it, unless the wrapper already supplied one in the vars.
+      if (deleteParent(vars) === undefined && primaryFkField) {
+        pendingDeleteParents.set(id, parentForExisting(id));
+      }
       qc.setQueryData<T[]>(listKey, previous.filter((r) => r.id !== id));
-      if (cascadeReady) await cascadeReady;
-      const cascade = cascadeImpl ? cascadeImpl.apply(id, qc) : undefined;
-      return { previous, cascade };
+      return { previous };
     },
-    onError: (error, _id, context) => {
+    onError: (error, _vars, context) => {
       logger.error(`Failed to delete ${singular}`, error);
       if (context?.previous !== undefined) {
         qc.setQueryData<T[]>(listKey, context.previous);
-      }
-      if (cascadeImpl && context?.cascade !== undefined) {
-        cascadeImpl.rollback(context.cascade, qc);
       }
     },
     onSettled: () => {

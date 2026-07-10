@@ -250,6 +250,12 @@ interface ListResponse<T> {
 
 interface ItemOptions {
   parent?: ParentPath;
+  /**
+   * AEP-135 cascade delete. When true, a DELETE removes the resource *and*
+   * its child subtree; without it, deleting a resource that still has
+   * children fails with 409. Only meaningful on `remove`.
+   */
+  force?: boolean;
 }
 
 /**
@@ -311,7 +317,10 @@ export async function remove(
   id: string,
   options: ItemOptions = {},
 ): Promise<void> {
-  await request<void>(itemPath(plural, id, options.parent), { method: 'DELETE' });
+  await request<void>(itemPath(plural, id, options.parent), {
+    method: 'DELETE',
+    query: options.force ? { force: 'true' } : undefined,
+  });
 }
 
 /**

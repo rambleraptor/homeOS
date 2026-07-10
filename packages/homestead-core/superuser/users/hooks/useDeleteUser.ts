@@ -7,7 +7,9 @@ export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await aepbase.remove(USERS, id);
+      // A user owns child resources (notifications, preferences,
+      // subscriptions); force-cascade so deletion doesn't 409 on them.
+      await aepbase.remove(USERS, id, { force: true });
       return id;
     },
     onSuccess: () => {

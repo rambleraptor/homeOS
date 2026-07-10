@@ -72,6 +72,6 @@ export async function createPictionaryGame(
 export async function deleteAllPictionaryGames(token: string) {
   const items = await aepList<{ id: string }>(token, 'pictionary-games');
   for (const item of items) {
-    await aepRemove(token, 'pictionary-games', item.id);
+    await aepRemove(token, 'pictionary-games', item.id, undefined, true);
   }
 }

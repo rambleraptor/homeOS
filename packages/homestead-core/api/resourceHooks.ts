@@ -4,11 +4,18 @@
  * domain-specific names (e.g. `useCreateCreditCard`).
  */
 
-import { useMutation, type UseMutationResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 import {
   newTempId,
+  resolveParentChainFromCache,
+  resourceHasParents,
   resourceMutationKeys,
   type CreateVarsBase,
+  type DeleteVars,
   type UpdateVars,
 } from './registerResourceMutationDefaults';
 
@@ -54,13 +61,34 @@ export function useResourceUpdate<T, U = Record<string, unknown>>(
   });
 }
 
-/** Delete-mutation wrapper. Variables: the record id. */
+/**
+ * Delete-mutation wrapper. Public variables are the record id. For a nested
+ * resource the wrapper resolves the aepbase URL parent chain from cache up
+ * front (before the optimistic delete removes the record) and passes it in
+ * the variables, so the chain persists into the offline queue and survives a
+ * reload. Top-level resources pass the bare id unchanged.
+ */
 export function useResourceDelete(
   appId: string,
   singular: string,
 ): UseMutationResult<string, Error, string> {
+  const queryClient = useQueryClient();
   const keys = resourceMutationKeys(appId, singular);
-  return useMutation<string, Error, string>({
+  const mutation = useMutation<string, Error, DeleteVars>({
     mutationKey: keys.delete as unknown as readonly unknown[],
   });
+
+  const toVars = (id: string): DeleteVars => {
+    if (!resourceHasParents(appId, singular)) return id;
+    const parent = resolveParentChainFromCache(queryClient, appId, singular, id);
+    return { id, parent };
+  };
+
+  return {
+    ...mutation,
+    mutate: (id: string, options?: Parameters<typeof mutation.mutate>[1]) =>
+      mutation.mutate(toVars(id), options),
+    mutateAsync: (id: string, options?: Parameters<typeof mutation.mutateAsync>[1]) =>
+      mutation.mutateAsync(toVars(id), options),
+  } as unknown as UseMutationResult<string, Error, string>;
 }

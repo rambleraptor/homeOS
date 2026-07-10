@@ -9,11 +9,10 @@ import {
   clearTempIdMaps,
   newTempId,
 } from '@rambleraptor/homestead-core/api/registerResourceMutationDefaults';
-import type { GroceryItem, Store } from '../../types';
+import type { Store } from '../../types';
 import { makeGroceriesClient, runMutation, storeKeys } from './testUtils';
 
 const STORES_KEY = queryKeys.app('groceries').resource('store').list();
-const ITEMS_KEY = queryKeys.app('groceries').resource('grocery').list();
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -72,7 +71,10 @@ describe('update-store', () => {
 });
 
 describe('delete-store', () => {
-  it('removes the store optimistically and re-homes its items to "no store"', async () => {
+  // The raw factory delete removes the store record only. The item cascade
+  // (deleting the store's items) lives in the `useDeleteStore` hook — see
+  // useDeleteStore.test.tsx.
+  it('removes the store optimistically and rolls back on error', async () => {
     const client = makeGroceriesClient();
     const stores: Store[] = [
       {
@@ -83,35 +85,33 @@ describe('delete-store', () => {
         updated: '2026-04-26T00:00:00Z',
       },
     ];
-    const items: GroceryItem[] = [
+    client.setQueryData<Store[]>(STORES_KEY, stores);
+    vi.mocked(aepbase.remove).mockResolvedValueOnce(undefined);
+
+    await runMutation(client, storeKeys.delete, 'store-1');
+
+    expect(aepbase.remove).toHaveBeenCalledWith('stores', 'store-1', { force: true });
+    expect(client.getQueryData<Store[]>(STORES_KEY) ?? []).toHaveLength(0);
+  });
+
+  it('restores the store when the server rejects', async () => {
+    const client = makeGroceriesClient();
+    const stores: Store[] = [
       {
-        id: 'item-1',
-        name: 'Apples',
-        store: 'store-1',
-        checked: false,
-        created: '2026-04-26T00:00:00Z',
-        updated: '2026-04-26T00:00:00Z',
-      },
-      {
-        id: 'item-2',
-        name: 'Bread',
-        store: '',
-        checked: false,
+        id: 'store-1',
+        name: 'Aldi',
+        sort_order: 0,
         created: '2026-04-26T00:00:00Z',
         updated: '2026-04-26T00:00:00Z',
       },
     ];
     client.setQueryData<Store[]>(STORES_KEY, stores);
-    client.setQueryData<GroceryItem[]>(ITEMS_KEY, items);
-    vi.mocked(aepbase.remove).mockResolvedValueOnce(undefined);
+    vi.mocked(aepbase.remove).mockRejectedValueOnce(new Error('boom'));
 
-    await runMutation(client, storeKeys.delete, 'store-1');
+    await expect(
+      runMutation(client, storeKeys.delete, 'store-1'),
+    ).rejects.toThrow();
 
-    expect(aepbase.remove).toHaveBeenCalledWith('stores', 'store-1');
-    const remainingStores = client.getQueryData<Store[]>(STORES_KEY) ?? [];
-    expect(remainingStores).toHaveLength(0);
-
-    const remainingItems = client.getQueryData<GroceryItem[]>(ITEMS_KEY) ?? [];
-    expect(remainingItems.find((i) => i.id === 'item-1')?.store).toBe('');
+    expect(client.getQueryData<Store[]>(STORES_KEY)).toEqual(stores);
   });
 });

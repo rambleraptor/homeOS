@@ -3,7 +3,6 @@ import {
   registerResourceMutationDefaults,
   resourceMutationKeys,
 } from '@rambleraptor/homestead-core/api/registerResourceMutationDefaults';
-import { storeCascadeDelete } from '../../offline';
 import { GROCERIES, STORES } from '../../resources';
 
 /**
@@ -47,7 +46,6 @@ export function makeGroceriesClient(): QueryClient {
     appId: 'groceries',
     singular: 'store',
     plural: STORES,
-    cascadeDelete: storeCascadeDelete,
   });
   return client;
 }

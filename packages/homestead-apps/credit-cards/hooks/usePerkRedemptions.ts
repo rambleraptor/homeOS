@@ -4,6 +4,10 @@
  * Redemptions are two levels deep (`/credit-cards/{id}/perks/{id}/redemptions`).
  * We walk cards → perks → redemptions and inject the `perk` parent id on
  * each result so the compute hooks can keep joining by it.
+ *
+ * The query lives on the `redemption` resource's convention list key — the
+ * same key the generic offline mutation factory writes to — so redemption
+ * create/update/delete stay in sync offline without bespoke cache wiring.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -14,7 +18,7 @@ import type { CreditCard, CreditCardPerk, PerkRedemption } from '../types';
 
 export function usePerkRedemptions() {
   return useQuery({
-    queryKey: queryKeys.app('credit-cards').list({ type: 'redemptions' }),
+    queryKey: queryKeys.app('credit-cards').resource('redemption').list(),
     queryFn: async (): Promise<PerkRedemption[]> => {
       const cards = await aepbase.list<CreditCard>(CREDIT_CARDS);
       const all: PerkRedemption[] = [];

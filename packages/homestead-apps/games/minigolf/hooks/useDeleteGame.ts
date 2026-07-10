@@ -1,5 +1,6 @@
 /**
- * Delete Game Mutation Hook. Cascade-deletes child holes.
+ * Delete Game Mutation Hook. Force-cascades child holes (a plain delete
+ * would 409 once the game has holes).
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,7 +13,7 @@ export function useDeleteGame() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await aepbase.remove(GAMES, id);
+      await aepbase.remove(GAMES, id, { force: true });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

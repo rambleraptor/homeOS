@@ -103,7 +103,6 @@ Everything about how the app surfaces in the browser. Lives under the required
 | `filters`          | `AppFilterDecl[]`                           | —           | Client-side, in-memory list filters.                               |
 | `settingsWidget`   | `LazyComponent`                             | —           | Custom settings-page UI in place of the auto-generated form.       |
 | `widgets`          | `DashboardWidget[]`                         | —           | Dashboard summary cards ([below](#adding-dashboard-widgets)).      |
-| `offlineOverrides` | `Record<string, ResourceOverride \| false>` | —           | Override auto-derived mutation defaults; `false` opts out entirely. |
 
 `*` = required.
 

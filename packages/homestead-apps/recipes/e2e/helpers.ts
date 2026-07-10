@@ -60,7 +60,7 @@ export async function createRecipe(
 export async function deleteAllRecipes(token: string) {
   const items = await aepList<{ id: string }>(token, 'recipes');
   for (const item of items) {
-    await aepRemove(token, 'recipes', item.id);
+    await aepRemove(token, 'recipes', item.id, undefined, true);
   }
 }
 

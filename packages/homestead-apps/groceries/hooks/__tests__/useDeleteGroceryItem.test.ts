@@ -36,7 +36,7 @@ describe('delete-grocery mutation', () => {
 
     await runMutation(client, groceryKeys.delete, 'srv-1');
 
-    expect(aepbase.remove).toHaveBeenCalledWith('groceries', 'srv-1');
+    expect(aepbase.remove).toHaveBeenCalledWith('groceries', 'srv-1', { force: true });
     const list = client.getQueryData<GroceryItem[]>(ITEMS_KEY) ?? [];
     expect(list.map((i) => i.id)).toEqual(['srv-2']);
   });

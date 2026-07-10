@@ -21,7 +21,8 @@ export function useUpdateGiftCard() {
       logger.debug('Gift card update mutation called', { id, data });
 
       if (data.amount === 0) {
-        await aepbase.remove(GIFT_CARDS, id);
+        // The card may have transaction children; force-cascade the delete.
+        await aepbase.remove(GIFT_CARDS, id, { force: true });
         return null;
       }
 

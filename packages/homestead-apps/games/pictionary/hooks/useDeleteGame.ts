@@ -1,6 +1,6 @@
 /**
- * Delete a Pictionary game. aepbase cascades child teams when the
- * parent is deleted.
+ * Delete a Pictionary game and its child teams (force-cascade — a game
+ * always has teams, so a plain delete would 409).
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,7 +13,7 @@ export function useDeleteGame() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await aepbase.remove(PICTIONARY_GAMES, id);
+      await aepbase.remove(PICTIONARY_GAMES, id, { force: true });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

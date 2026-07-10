@@ -1,32 +1,9 @@
 /**
- * Delete Redemption Mutation Hook.
+ * Delete Redemption Mutation Hook. See `useCreateRedemption.ts`.
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { findRedemptionParents } from './_aepLookup';
+import { useResourceDelete } from '@rambleraptor/homestead-core/api/resourceHooks';
 
 export function useDeleteRedemption() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { creditCardId, perkId } = findRedemptionParents(queryClient, id);
-      await aepbase.remove(PERK_REDEMPTIONS, id, {
-        parent: [
-          CREDIT_CARDS, creditCardId,
-          CREDIT_CARD_PERKS, perkId,
-        ],
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      await queryClient.refetchQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      logger.info('Redemption deleted successfully');
-    },
-    onError: (error) => logger.error('Failed to delete redemption', error),
-  });
+  return useResourceDelete('credit-cards', 'redemption');
 }
