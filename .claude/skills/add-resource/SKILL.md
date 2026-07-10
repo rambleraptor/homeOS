@@ -86,8 +86,11 @@ Mirror the change in the app's `types.ts` (record interface +
 
 - Hooks/forms/components that create or render the resource.
 - For new resources: list/create/update/delete hooks following the
-  app's existing pattern, and `offlineOverrides` on the app config if
-  the resource needs `parentPath` or `cascadeDelete`.
+  app's existing pattern (the `useResource*` wrappers give offline CRUD
+  for free — nested resources work automatically from the definition's
+  `parents`). For a cross-resource delete cascade, compose the standard
+  hooks in a hand-written hook (see groceries' `useDeleteStore`) so each
+  related write stays optimistic and offline-queued.
 - E2E seed helpers in the app's `e2e/helpers.ts` if specs touch the
   new fields.
 

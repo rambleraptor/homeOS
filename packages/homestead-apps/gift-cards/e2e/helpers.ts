@@ -51,7 +51,7 @@ export async function createMultipleGiftCards(
 export async function deleteAllGiftCards(token: string) {
   const items = await aepList<{ id: string }>(token, 'gift-cards');
   for (const item of items) {
-    await aepRemove(token, 'gift-cards', item.id);
+    await aepRemove(token, 'gift-cards', item.id, undefined, true);
   }
 }
 

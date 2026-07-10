@@ -39,6 +39,6 @@ export async function createGame(
 export async function deleteAllGames(token: string) {
   const items = await aepList<{ id: string }>(token, 'games');
   for (const item of items) {
-    await aepRemove(token, 'games', item.id);
+    await aepRemove(token, 'games', item.id, undefined, true);
   }
 }

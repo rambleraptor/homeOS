@@ -349,7 +349,6 @@ export const ${n.camel}App: AppConfig = {
       singular: '${n.singular}',
       plural: '${n.slug}',
       description: 'TODO: describe this resource.',
-      user_settable_create: true,
       fields: {
         name: { type: 'string', description: 'Display name.', required: true },
         created_by: { type: 'string', description: 'users/{user_id}' },

@@ -1,41 +1,16 @@
 /**
- * Update Perk Mutation Hook.
- * Parent credit-card id is recovered from the React Query cache.
+ * Update Perk Mutation Hook. See `useCreatePerk.ts`.
+ *
+ * The factory recovers the parent credit-card id from the perk's cached
+ * record, so no explicit parent wiring is needed.
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { CREDIT_CARDS, CREDIT_CARD_PERKS } from '../resources';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { useResourceUpdate } from '@rambleraptor/homestead-core/api/resourceHooks';
 import type { CreditCardPerk, PerkFormData } from '../types';
-import { findPerkParentCardId } from './_aepLookup';
-
-interface UpdatePerkParams {
-  id: string;
-  data: Partial<PerkFormData>;
-}
 
 export function useUpdatePerk() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, data }: UpdatePerkParams): Promise<CreditCardPerk> => {
-      const cardId = findPerkParentCardId(queryClient, id);
-      const { credit_card: _ignore, ...body } = data;
-      const updated = await aepbase.update<CreditCardPerk>(
-        CREDIT_CARD_PERKS,
-        id,
-        body,
-        { parent: [CREDIT_CARDS, cardId] },
-      );
-      return { ...updated, credit_card: cardId };
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      await queryClient.refetchQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      logger.info('Perk updated successfully');
-    },
-    onError: (error) => logger.error('Failed to update perk', error),
-  });
+  return useResourceUpdate<CreditCardPerk, Partial<PerkFormData>>(
+    'credit-cards',
+    'perk',
+  );
 }

@@ -5,6 +5,10 @@
  * cards first, then list each card's perks, and inject the parent
  * `credit_card` id so `useCreditCardStats` / `useUpcomingPerks` keep
  * working with their existing per-card joins.
+ *
+ * The query lives on the `perk` resource's convention list key — the same
+ * key the generic offline mutation factory writes optimistic perks to — so
+ * create/update/delete stay in sync offline without bespoke cache wiring.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -15,7 +19,7 @@ import type { CreditCard, CreditCardPerk } from '../types';
 
 export function useCreditCardPerks() {
   return useQuery({
-    queryKey: queryKeys.app('credit-cards').list({ type: 'perks' }),
+    queryKey: queryKeys.app('credit-cards').resource('perk').list(),
     queryFn: async (): Promise<CreditCardPerk[]> => {
       const cards = await aepbase.list<CreditCard>(CREDIT_CARDS);
       const all: CreditCardPerk[] = [];

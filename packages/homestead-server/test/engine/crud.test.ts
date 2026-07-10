@@ -386,6 +386,96 @@ describe('nested resources', () => {
   });
 });
 
+describe('delete cascade (AEP-135 force)', () => {
+  beforeEach(async () => {
+    // book -> chapter -> section, three levels deep.
+    expect(
+      (
+        await defineResource(t, {
+          singular: 'chapter',
+          plural: 'chapters',
+          parents: ['book'],
+          user_settable_create: true,
+          schema: { type: 'object', properties: { heading: { type: 'string' } } },
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await defineResource(t, {
+          singular: 'section',
+          plural: 'sections',
+          parents: ['chapter'],
+          user_settable_create: true,
+          schema: { type: 'object', properties: { body: { type: 'string' } } },
+        })
+      ).status,
+    ).toBe(200);
+    await call(t.engine, 'POST', '/books?id=b1', {
+      token: t.adminToken,
+      body: { title: 'B1' },
+    });
+    await call(t.engine, 'POST', '/books/b1/chapters?id=c1', {
+      token: t.adminToken,
+      body: { heading: 'One' },
+    });
+    await call(t.engine, 'POST', '/books/b1/chapters/c1/sections?id=s1', {
+      token: t.adminToken,
+      body: { body: 'Text' },
+    });
+  });
+
+  test('refuses to delete a parent with children without force (409)', async () => {
+    const res = await call(t.engine, 'DELETE', '/books/b1', { token: t.adminToken });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.message).toContain('child resources');
+    // Nothing was deleted.
+    expect(
+      (await call(t.engine, 'GET', '/books/b1', { token: t.adminToken })).status,
+    ).toBe(200);
+    expect(
+      (await call(t.engine, 'GET', '/books/b1/chapters/c1', { token: t.adminToken }))
+        .status,
+    ).toBe(200);
+  });
+
+  test('force=true cascades through the whole subtree', async () => {
+    const res = await call(t.engine, 'DELETE', '/books/b1?force=true', {
+      token: t.adminToken,
+    });
+    expect(res.status).toBe(204);
+    expect(
+      (await call(t.engine, 'GET', '/books/b1', { token: t.adminToken })).status,
+    ).toBe(404);
+    expect(
+      (await call(t.engine, 'GET', '/books/b1/chapters/c1', { token: t.adminToken }))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await call(t.engine, 'GET', '/books/b1/chapters/c1/sections/s1', {
+          token: t.adminToken,
+        })
+      ).status,
+    ).toBe(404);
+  });
+
+  test('a childless resource deletes without force', async () => {
+    // Leaf section deletes directly; the now-childless chapter then deletes too.
+    expect(
+      (
+        await call(t.engine, 'DELETE', '/books/b1/chapters/c1/sections/s1', {
+          token: t.adminToken,
+        })
+      ).status,
+    ).toBe(204);
+    expect(
+      (await call(t.engine, 'DELETE', '/books/b1/chapters/c1', { token: t.adminToken }))
+        .status,
+    ).toBe(204);
+  });
+});
+
 describe('user-parented scoping', () => {
   beforeEach(async () => {
     const res = await defineResource(t, {

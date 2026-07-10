@@ -172,7 +172,7 @@ export async function routeDynamic(
       return handleApply(reg, match, req);
     case 'DELETE':
       checkSuperuserWrite(match, caller);
-      return handleDelete(reg, match);
+      return handleDelete(reg, match, req);
     default:
       return methodNotAllowed();
   }

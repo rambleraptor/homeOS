@@ -10,7 +10,6 @@ import type { LucideIcon } from 'lucide-react';
 import type { AppFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
 import type { AppVisibility } from '../settings/visibility';
-import type { ResourceMutationOpts } from '../api/registerResourceMutationDefaults';
 
 /**
  * A lazily-loaded React component. The thunk resolves to either a module
@@ -196,17 +195,6 @@ export interface AppWebConfig {
    * fetching and presentation.
    */
   widgets?: DashboardWidget[];
-
-  /**
-   * Per-resource overrides applied when the offline mutation factory
-   * auto-registers create/update/delete defaults. Key is the resource
-   * `singular`. `false` skips auto-registration entirely (escape hatch
-   * for apps with bespoke mutation logic). An object merges into
-   * `ResourceMutationOpts` — useful for non-standard cache keys,
-   * cascade deletes, custom optimistic shapes, or legacy mutation-key
-   * aliases during migrations.
-   */
-  offlineOverrides?: Record<string, ResourceOverride | false>;
 }
 
 /**
@@ -311,19 +299,6 @@ export interface AppConfig {
    */
   web?: AppWebConfig;
 }
-
-/**
- * Per-resource overrides for the offline mutation factory.
- *
- * The factory derives almost everything from convention — list cache key,
- * mutation keys, optimistic shape, request body. Apps only need an
- * override when they have something the convention can't express:
- * `parentPath` for nested resources, `cascadeDelete` for cross-resource
- * effects on delete.
- */
-export type ResourceOverride = Partial<
-  Pick<ResourceMutationOpts, 'parentPath' | 'cascadeDelete'>
->;
 
 /**
  * Runtime value a flag can hold. Matches `AppFlagDef.type`

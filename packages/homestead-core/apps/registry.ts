@@ -458,9 +458,8 @@ export function getAllResourceDefs(): ResourceDefinition[] {
 
 /**
  * Same traversal as {@link getAllResourceDefs}, but pairs each
- * definition with the owning app so callers can read
- * `app.web.offlineOverrides` and `app.id` while iterating. Used by
- * the offline mutation factory's auto-registration loop.
+ * definition with the owning app so callers can read `app.id` while
+ * iterating. Used by the offline mutation factory's auto-registration loop.
  */
 export function getAllResourceDefsWithApp(): {
   app: AppConfig;

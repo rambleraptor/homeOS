@@ -1,17 +1,21 @@
 /**
  * Redeem Perk Mutation Hook.
  *
- * Creates a redemption record for the current period. Caller passes the
- * perk and card, so parent URL is fully resolvable.
+ * Records a redemption for the perk's *current* period. The period boundaries
+ * are domain logic (derived from the perk frequency and the card's reset
+ * mode / anniversary), so this hook pre-computes them and then delegates the
+ * create to the generic offline factory via `useResourceCreate` — inheriting
+ * optimistic insertion, offline queueing, and nested-URL resolution for free.
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { useResourceCreate } from '@rambleraptor/homestead-core/api/resourceHooks';
 import { getCurrentPeriod, toLocalISODate } from '../utils/periodUtils';
-import type { PerkRedemption, CreditCardPerk, CreditCard } from '../types';
+import type {
+  PerkRedemption,
+  RedemptionFormData,
+  CreditCardPerk,
+  CreditCard,
+} from '../types';
 
 interface RedeemPerkParams {
   perk: CreditCardPerk;
@@ -21,36 +25,34 @@ interface RedeemPerkParams {
 }
 
 export function useRedeemPerk() {
-  const queryClient = useQueryClient();
+  const create = useResourceCreate<PerkRedemption, RedemptionFormData>(
+    'credit-cards',
+    'redemption',
+  );
 
-  return useMutation({
-    mutationFn: async ({ perk, card, amount, notes }: RedeemPerkParams): Promise<PerkRedemption> => {
-      const period = getCurrentPeriod(perk.frequency, card.reset_mode, card.anniversary_date);
+  const toVars = ({
+    perk,
+    card,
+    amount,
+    notes,
+  }: RedeemPerkParams): RedemptionFormData => {
+    const period = getCurrentPeriod(
+      perk.frequency,
+      card.reset_mode,
+      card.anniversary_date,
+    );
+    return {
+      perk: perk.id,
+      period_start: toLocalISODate(period.start),
+      period_end: toLocalISODate(period.end),
+      amount,
+      notes,
+    };
+  };
 
-      const userId = aepbase.getCurrentUser()?.id;
-      const created = await aepbase.create<PerkRedemption>(
-        PERK_REDEMPTIONS,
-        {
-          period_start: toLocalISODate(period.start),
-          period_end: toLocalISODate(period.end),
-          amount,
-          notes,
-          created_by: userId ? `users/${userId}` : undefined,
-        },
-        {
-          parent: [
-            CREDIT_CARDS, card.id,
-            CREDIT_CARD_PERKS, perk.id,
-          ],
-        },
-      );
-      return { ...created, perk: perk.id };
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      await queryClient.refetchQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      logger.info('Perk redeemed successfully');
-    },
-    onError: (error) => logger.error('Failed to redeem perk', error),
-  });
+  return {
+    ...create,
+    mutate: (params: RedeemPerkParams) => create.mutate(toVars(params)),
+    mutateAsync: (params: RedeemPerkParams) => create.mutateAsync(toVars(params)),
+  };
 }

@@ -1,29 +1,13 @@
 /**
- * Delete Perk Mutation Hook.
+ * Delete Perk Mutation Hook. See `useCreatePerk.ts`.
+ *
+ * `useResourceDelete` resolves the perk's `/credit-cards/{id}/perks` parent
+ * chain from cache before the optimistic removal and bakes it into the
+ * (persisted) mutation variables, so an offline delete survives a reload.
  */
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { CREDIT_CARDS, CREDIT_CARD_PERKS } from '../resources';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { findPerkParentCardId } from './_aepLookup';
+import { useResourceDelete } from '@rambleraptor/homestead-core/api/resourceHooks';
 
 export function useDeletePerk() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const cardId = findPerkParentCardId(queryClient, id);
-      await aepbase.remove(CREDIT_CARD_PERKS, id, {
-        parent: [CREDIT_CARDS, cardId],
-      });
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      await queryClient.refetchQueries({ queryKey: queryKeys.app('credit-cards').all() });
-      logger.info('Perk deleted successfully');
-    },
-    onError: (error) => logger.error('Failed to delete perk', error),
-  });
+  return useResourceDelete('credit-cards', 'perk');
 }

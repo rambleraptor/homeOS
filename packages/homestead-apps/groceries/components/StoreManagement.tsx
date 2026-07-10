@@ -46,7 +46,7 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
   };
 
   const handleDeleteStore = (id: string) => {
-    if (!confirm('Are you sure you want to delete this store? Items assigned to this store will be moved to "No Store".')) {
+    if (!confirm('Are you sure you want to delete this store? Items assigned to this store will also be deleted.')) {
       return;
     }
     deleteMutation.mutate(id);

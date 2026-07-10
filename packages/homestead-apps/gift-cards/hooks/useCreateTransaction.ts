@@ -52,7 +52,8 @@ export function useCreateTransaction() {
       );
 
       if (newAmount === 0) {
-        await aepbase.remove(GIFT_CARDS, giftCardId);
+        // The card has transaction children; force-cascade the delete.
+        await aepbase.remove(GIFT_CARDS, giftCardId, { force: true });
         return { transaction, updatedCard: null };
       }
       const updatedCard = await aepbase.update<GiftCard>(

@@ -479,15 +479,97 @@ export async function handleApply(
   return jsonResponse(storedToMap(reg, r, stored));
 }
 
-export function handleDelete(reg: Registry, match: RouteMatch): Response {
+/** The FK column naming a child row's direct parent (e.g. `credit_card_id`). */
+function parentFkColumn(parentSingular: string): string {
+  return `${parentSingular.replaceAll('-', '_')}_id`;
+}
+
+/** True if the resource has at least one direct child row of any child type. */
+function hasChildRows(reg: Registry, r: RegisteredResource, id: string): boolean {
+  const fkCol = parentFkColumn(r.singular);
+  for (const child of reg.children(r.singular)) {
+    const { results } = listResources(
+      reg.db,
+      child.plural,
+      { [fkCol]: id },
+      child.schema,
+      1,
+      '',
+      0,
+      '',
+    );
+    if (results.length > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Recursively delete a resource row and its entire descendant subtree. DB
+ * rows are removed here (call inside a transaction); paths of rows that
+ * declare file fields are collected into `filePaths` for best-effort on-disk
+ * cleanup after the transaction commits.
+ */
+function deleteSubtree(
+  reg: Registry,
+  r: RegisteredResource,
+  path: string,
+  id: string,
+  filePaths: string[],
+): void {
+  const fkCol = parentFkColumn(r.singular);
+  for (const child of reg.children(r.singular)) {
+    let token = '';
+    for (;;) {
+      const { results, nextPageToken } = listResources(
+        reg.db,
+        child.plural,
+        { [fkCol]: id },
+        child.schema,
+        1000,
+        token,
+        0,
+        '',
+      );
+      for (const row of results) {
+        deleteSubtree(reg, child, row.path, row.id, filePaths);
+      }
+      if (nextPageToken === '') break;
+      token = nextPageToken;
+    }
+  }
+  deleteResource(reg.db, r.plural, path);
+  if (r.fileFields.size > 0) filePaths.push(path);
+}
+
+/**
+ * AEP-135 delete. A `?force=true` query param cascades: the resource and its
+ * entire child subtree are removed. Without it, deleting a resource that
+ * still has children fails with FAILED_PRECONDITION (409) rather than
+ * orphaning them.
+ */
+export function handleDelete(reg: Registry, match: RouteMatch, req: Request): Response {
   const r = match.resource;
   const path = buildResourcePath(r, match.parentIds, match.id);
-  const deleted = deleteResource(reg.db, r.plural, path);
-  if (!deleted) return errorResponse(404, `resource "${path}" not found`);
 
-  if (r.fileFields.size > 0) {
+  const existing = getResource(reg.db, r.plural, path, r.schema);
+  if (!existing) return errorResponse(404, `resource "${path}" not found`);
+
+  const force = new URL(req.url).searchParams.get('force') === 'true';
+  if (!force && hasChildRows(reg, r, match.id)) {
+    return errorResponse(
+      409,
+      `resource "${path}" has child resources; pass force=true to delete it and its children`,
+    );
+  }
+
+  const filePaths: string[] = [];
+  reg.db.transaction(() => {
+    deleteSubtree(reg, r, path, match.id, filePaths);
+  })();
+
+  for (const fp of filePaths) {
     try {
-      deleteAllFileFields(reg.filesDir, path);
+      deleteAllFileFields(reg.filesDir, fp);
     } catch {
       // best-effort cleanup
     }

@@ -35,15 +35,6 @@ export const groceriesApp: AppConfig = {
     section: 'Food',
     showInNav: true,
     navOrder: 2,
-    // Deleting a store re-homes its items under "No Store". Everything
-    // else (optimistic shape, body projection, list cache key) is derived
-    // from the resource singular by the offline mutation factory.
-    offlineOverrides: {
-      store: {
-        cascadeDelete: () =>
-          import('./offline').then((m) => m.storeCascadeDelete),
-      },
-    },
     widgets: [
       {
         id: 'groceries-remaining',

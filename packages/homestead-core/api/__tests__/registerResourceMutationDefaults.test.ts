@@ -11,6 +11,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MutationObserver, QueryClient } from '@tanstack/react-query';
 import { aepbase } from '../aepbase';
 import {
+  clearResourceMetaRegistry,
   clearTempIdMaps,
   newTempId,
   registerResourceMutationDefaults,
@@ -60,6 +61,7 @@ async function run<TData = unknown, TVars = unknown>(
 beforeEach(() => {
   vi.clearAllMocks();
   clearTempIdMaps();
+  clearResourceMetaRegistry();
 });
 
 describe('create', () => {
@@ -136,38 +138,111 @@ describe('delete tempId reconciliation', () => {
   });
 });
 
-describe('cascadeDelete', () => {
-  it('runs the optimistic cascade on delete and reverses it on error', async () => {
+describe('nested resources (convention-driven from `parents`)', () => {
+  const CC = 'credit-cards';
+
+  function makeNestedClient(): QueryClient {
     const client = new QueryClient({
       defaultOptions: {
         queries: { retry: false, gcTime: Infinity },
         mutations: { retry: false },
       },
     });
-    const otherKey = ['app', 'test-mod', 'detail', 'others'] as const;
-    registerResourceMutationDefaults<Thingy, { name: string; tempId: string }>(client, {
-      appId: 'test-mod',
-      singular: 'thingy',
-      plural: 'thingies',
-      cascadeDelete: {
-        apply(_id, qc) {
-          const snap = qc.getQueryData<string[]>(otherKey) ?? [];
-          qc.setQueryData<string[]>(otherKey, []);
-          return snap;
-        },
-        rollback(snap, qc) {
-          qc.setQueryData<string[]>(otherKey, snap as string[]);
-        },
-      },
+    // Order is irrelevant — the walk consults the shared registry at mutate
+    // time, by which point every resource has self-published its metadata.
+    registerResourceMutationDefaults(client, {
+      appId: CC,
+      singular: 'credit-card',
+      plural: 'credit-cards',
+    });
+    registerResourceMutationDefaults(client, {
+      appId: CC,
+      singular: 'perk',
+      plural: 'perks',
+      parents: ['credit-card'],
+    });
+    registerResourceMutationDefaults(client, {
+      appId: CC,
+      singular: 'redemption',
+      plural: 'redemptions',
+      parents: ['perk'],
+    });
+    return client;
+  }
+
+  it('creates a one-level child under its parent, stripping the FK from the body but keeping it on the optimistic record', async () => {
+    const client = makeNestedClient();
+    const perkList = queryKeys.app(CC).resource('perk').list();
+    client.setQueryData(perkList, []);
+
+    // Defer the server response so we can inspect the optimistic record while
+    // the create is still in flight (before reconciliation replaces it).
+    let resolveCreate!: () => void;
+    vi.mocked(aepbase.create).mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveCreate = () => res({ id: 'perk-1', name: 'Dining' });
+        }),
+    );
+
+    const createPromise = run(client, resourceMutationKeys(CC, 'perk').create, {
+      credit_card: 'card-1',
+      name: 'Dining',
+      tempId: newTempId(),
     });
 
-    client.setQueryData<Thingy[]>(LIST_KEY, [{ id: 's-1', name: 'Foo' }]);
-    client.setQueryData<string[]>(otherKey, ['x', 'y']);
-    vi.mocked(aepbase.remove).mockRejectedValueOnce(new Error('forbidden'));
+    // The optimistic record carries the FK for the compute-hook joins...
+    await vi.waitFor(() => {
+      const cached = client.getQueryData<Array<{ credit_card?: string }>>(perkList);
+      expect(cached?.[0]?.credit_card).toBe('card-1');
+    });
 
-    await expect(run(client, KEYS.delete, 's-1')).rejects.toThrow();
+    // ...but the wire body has it stripped (it's path-encoded instead).
+    expect(aepbase.create).toHaveBeenCalledWith(
+      'perks',
+      expect.objectContaining({ name: 'Dining' }),
+      { parent: ['credit-cards', 'card-1'] },
+    );
+    expect(vi.mocked(aepbase.create).mock.calls[0][1]).not.toHaveProperty('credit_card');
 
-    expect(client.getQueryData<Thingy[]>(LIST_KEY)).toEqual([{ id: 's-1', name: 'Foo' }]);
-    expect(client.getQueryData<string[]>(otherKey)).toEqual(['x', 'y']);
+    resolveCreate();
+    await createPromise;
+  });
+
+  it('creates a two-level grandchild by walking the parent cache for the grandparent id', async () => {
+    const client = makeNestedClient();
+    client.setQueryData(queryKeys.app(CC).resource('perk').list(), [
+      { id: 'perk-1', credit_card: 'card-1', name: 'Dining' },
+    ]);
+    client.setQueryData(queryKeys.app(CC).resource('redemption').list(), []);
+    vi.mocked(aepbase.create).mockResolvedValueOnce({ id: 'red-1', amount: 10 });
+
+    await run(client, resourceMutationKeys(CC, 'redemption').create, {
+      perk: 'perk-1',
+      amount: 10,
+      tempId: newTempId(),
+    });
+
+    expect(aepbase.create).toHaveBeenCalledWith(
+      'redemptions',
+      expect.objectContaining({ amount: 10 }),
+      { parent: ['credit-cards', 'card-1', 'perks', 'perk-1'] },
+    );
+    expect(vi.mocked(aepbase.create).mock.calls[0][1]).not.toHaveProperty('perk');
+  });
+
+  it('deletes a child using the parent chain resolved before optimistic removal', async () => {
+    const client = makeNestedClient();
+    client.setQueryData(queryKeys.app(CC).resource('perk').list(), [
+      { id: 'perk-1', credit_card: 'card-1', name: 'Dining' },
+    ]);
+    vi.mocked(aepbase.remove).mockResolvedValueOnce(undefined);
+
+    await run(client, resourceMutationKeys(CC, 'perk').delete, 'perk-1');
+
+    expect(aepbase.remove).toHaveBeenCalledWith('perks', 'perk-1', {
+      parent: ['credit-cards', 'card-1'],
+      force: true,
+    });
   });
 });

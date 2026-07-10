@@ -133,41 +133,44 @@ file-carrying write is online-only.
 
 ## Customize per resource
 
-The default offline behavior fits standard CRUD. When a resource needs
-something different, declare it in your app's `app.config.ts` under
-`web.offlineOverrides`, keyed by the resource's `singular`.
+The default offline behavior fits standard CRUD, and the factory derives
+everything it needs — list cache key, mutation keys, optimistic shape, request
+body, and the nested-resource URL parent chain — from the resource definition.
+There are no per-resource config overrides.
 
-**Cascade a delete.** When deleting one record should also fix up related
-records offline (for example, deleting a store clears the `store` field on its
-items), point the resource at a `cascadeDelete` handler:
-
-```ts
-// packages/homestead-apps/groceries/app.config.ts
-web: {
-  // ...icon, basePath, routes...
-  offlineOverrides: {
-    store: {
-      cascadeDelete: () => import('./offline').then((m) => m.storeCascadeDelete),
-    },
-  },
-}
-```
-
-**Opt a resource out.** If a resource has bespoke write logic that the default
-offline queue shouldn't touch, set it to `false`:
+**Cascade a delete.** When deleting one record should also delete or fix up
+related records, compose the standard hooks in a hand-written hook rather than
+issuing the related writes directly, so each one stays optimistic and
+offline-queued. `useDeleteStore` (groceries) reads the store's items from the
+cache and fires a normal grocery-delete for each before deleting the store:
 
 ```ts
-web: {
-  // ...icon, basePath, routes...
-  offlineOverrides: {
-    perk: false,
-    redemption: false,
-  },
+// packages/homestead-apps/groceries/hooks/useDeleteStore.ts
+const deleteStore = useResourceDelete('groceries', 'store');
+const deleteItem = useDeleteGroceryItem();
+
+// inside the wrapped mutate(storeId):
+const items = queryClient.getQueryData<GroceryItem[]>(ITEMS_KEY) ?? [];
+for (const it of items) {
+  if (it.store === storeId) deleteItem.mutate(it.id); // optimistic + queued
 }
+deleteStore.mutate(storeId);
 ```
 
-An opted-out resource has no automatic offline queue — its writes need the
-network unless you wire your own.
+Reading the member list from the cache (not the network) keeps the cascade
+working offline; each `deleteItem.mutate` inherits the grocery resource's
+optimistic removal, temp-id handling, and offline queueing.
+
+**Nested resources need no wiring.** A resource with `parents` declared on
+its definition (e.g. a `perk` parented by `credit-card`, or a `redemption`
+two levels deep) gets full offline CRUD automatically: the factory builds the
+`/credit-cards/{id}/perks/{id}/redemptions` URL from the `parents` chain,
+resolving each ancestor id from the create variables or the cached record, and
+strips the parent foreign-key fields from the request body. Point your read
+hook at the resource's convention list key
+(`queryKeys.app(appId).resource(singular).list()`) so it reads from the same
+place the factory writes, and use the plain `useResource*` wrappers for
+writes — no per-resource wiring.
 
 ---
 
@@ -179,7 +182,6 @@ network unless you wire your own.
 | `resourceMutationKeys(appId, singular)` | `@rambleraptor/homestead-core/api/registerResourceMutationDefaults` | Mutation keys for a hand-written `useMutation` |
 | `useOnlineStatus()` | `@rambleraptor/homestead-core/shared/hooks/useOnlineStatus` | `{ isOnline, isOffline }`, reactive |
 | `<OfflineBanner />` | (in the app shell) | Global offline banner — already mounted |
-| `web.offlineOverrides` | `app.config.ts` | Per-resource `cascadeDelete` or `false` to opt out |
 
 **Offline behavior at a glance:**
 
