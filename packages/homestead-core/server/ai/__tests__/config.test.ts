@@ -35,6 +35,19 @@ describe('AI config', () => {
     }
   });
 
+  it('treats a blank apiKey as unconfigured (no SDK env fallback)', () => {
+    // An `ai` block whose key resolves to '' (e.g. its env var is unset in
+    // homestead.config.ts) must report unconfigured, so callers 503 rather
+    // than letting the provider SDK reach for its own env var.
+    setAiConfig({ provider: 'google', model: 'gemini-2.5-flash', auth: { apiKey: '' } });
+    expect(isAiConfigured()).toBe(false);
+    expect(() => getAiModel()).toThrow(AiNotConfiguredError);
+
+    setAiConfig({ provider: 'google', model: 'gemini-2.5-flash', auth: { apiKey: '   ' } });
+    expect(isAiConfigured()).toBe(false);
+    expect(() => getAiModel()).toThrow(AiNotConfiguredError);
+  });
+
   it('round-trips the active config', () => {
     const cfg = {
       provider: 'anthropic' as const,
