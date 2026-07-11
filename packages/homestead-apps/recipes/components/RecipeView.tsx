@@ -16,12 +16,15 @@ import {
   ExternalLink,
   Loader2,
   Pencil,
+  ShoppingCart,
   Users,
 } from 'lucide-react';
 import { useRecipe } from '../hooks/useRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
+import { useAddIngredientsToGroceryList } from '../hooks/useAddIngredientsToGroceryList';
 import { RecipeForm } from './RecipeForm';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { decimalToFraction } from '@rambleraptor/homestead-core/shared/utils/fractionUtils';
 import type { RecipeFormData, RecipeIngredient } from '../types';
@@ -34,6 +37,9 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const { data: recipe, isLoading, isError, error } = useRecipe(recipeId);
   const updateMutation = useUpdateRecipe();
+  const { addIngredients, isPending: isAddingToGroceries } =
+    useAddIngredientsToGroceryList();
+  const toast = useToast();
 
   const handleSubmit = async (data: RecipeFormData) => {
     try {
@@ -108,6 +114,17 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
   const sourceHref = toHref(recipe.source_pointer);
   const hasMeta = Boolean(recipe.prep_time || recipe.cook_time || recipe.servings);
 
+  const handleAddToGroceries = () => {
+    const { added, skipped } = addIngredients(ingredients);
+    if (added === 0) {
+      toast.info('All ingredients are already on your grocery list');
+      return;
+    }
+    const noun = added === 1 ? 'ingredient' : 'ingredients';
+    const skippedSuffix = skipped > 0 ? `, skipped ${skipped} already on the list` : '';
+    toast.success(`Added ${added} ${noun} to grocery list${skippedSuffix}`);
+  };
+
   return (
     <div className="space-y-6">
       <Link
@@ -137,14 +154,25 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
           )
         }
         actions={
-          <button
-            onClick={() => setIsEditing(true)}
-            data-testid="recipe-view-edit"
-            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200"
-          >
-            <Pencil className="w-4 h-4" />
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAddToGroceries}
+              disabled={ingredients.length === 0 || isAddingToGroceries}
+              data-testid="recipe-view-add-to-groceries"
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Add to grocery list
+            </button>
+            <button
+              onClick={() => setIsEditing(true)}
+              data-testid="recipe-view-edit"
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit
+            </button>
+          </div>
         }
       />
 
