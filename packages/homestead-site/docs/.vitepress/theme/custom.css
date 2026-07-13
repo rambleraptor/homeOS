@@ -96,6 +96,7 @@ body {
 /* ---- shared rhythm ---- */
 .topbar,
 .hero,
+.bento-section,
 .footer {
   max-width: var(--wrap);
   margin: 0 auto;
@@ -185,23 +186,77 @@ body {
   color: var(--muted);
 }
 
-.hero .audience {
-  margin-top: clamp(26px, 3.4vw, 38px);
-  display: flex;
-  flex-direction: column;
-  gap: clamp(16px, 2vw, 22px);
-  max-width: 62ch;
+/* ---- hero video (click-to-play YouTube facade) ---- */
+.hero-video {
+  position: relative;
+  width: 100%;
+  margin-top: clamp(30px, 4vw, 44px);
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--forest-deep);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(31, 58, 46, 0.14);
 }
 
-.hero .audience p {
-  font-size: clamp(1.02rem, 1.4vw, 1.16rem);
-  line-height: 1.6;
-  color: var(--muted);
+.hero-video iframe,
+.hero-video .video-facade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
-.hero .audience strong {
-  font-weight: 600;
-  color: var(--forest);
+.hero-video .video-facade {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: var(--forest-deep);
+  cursor: pointer;
+}
+
+.hero-video .video-facade img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 320ms ease, opacity 320ms ease;
+}
+
+.hero-video .video-facade:hover img {
+  transform: scale(1.02);
+  opacity: 0.9;
+}
+
+.hero-video .play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(60px, 7vw, 78px);
+  height: clamp(60px, 7vw, 78px);
+  border-radius: 50%;
+  background: var(--clay);
+  color: var(--cream);
+  box-shadow: 0 8px 24px rgba(31, 58, 46, 0.34);
+  transition: transform 200ms ease, background 200ms ease;
+}
+
+.hero-video .video-facade:hover .play {
+  transform: scale(1.07);
+  background: var(--clay-soft);
+}
+
+.hero-video .play svg {
+  width: 42%;
+  height: 42%;
+  margin-left: 8%;
+}
+
+.hero-video .video-facade:focus-visible {
+  outline: 3px solid var(--clay-ink);
+  outline-offset: -3px;
 }
 
 .cta {
@@ -213,36 +268,65 @@ body {
   flex-wrap: wrap;
 }
 
-.button {
+/* Scoped under .hs so these win over `.hs a { color: inherit }` (0,1,1) —
+   an unscoped `.button` (0,1,0) loses, and the label renders ink-on-forest. */
+.hs .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   min-height: 52px;
   padding: 0 28px;
+  border: 1px solid var(--forest);
   border-radius: 4px;
   background: var(--forest);
   color: var(--cream);
   font-weight: 500;
   font-size: 1rem;
   letter-spacing: 0.01em;
-  transition: background 180ms ease, transform 180ms ease;
+  transition: background 180ms ease, transform 180ms ease,
+    border-color 180ms ease, color 180ms ease;
 }
 
-.button:hover {
+.hs .button:hover {
   background: var(--forest-deep);
+  border-color: var(--forest-deep);
+  color: var(--cream);
   transform: translateY(-1px);
 }
 
-.button.on-dark {
-  background: var(--cream);
+.hs .button svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* outlined secondary — forest label on cream */
+.hs .button.ghost {
+  background: transparent;
+  color: var(--forest);
+  border-color: var(--line);
+}
+
+.hs .button.ghost:hover {
+  background: rgba(31, 58, 46, 0.05);
+  border-color: var(--forest);
   color: var(--forest-deep);
 }
 
-.button.on-dark:hover {
-  background: #fff7e9;
+.hs .button.on-dark {
+  background: var(--cream);
+  border-color: var(--cream);
+  color: var(--forest-deep);
 }
 
-.link {
+.hs .button.on-dark:hover {
+  background: #fff7e9;
+  border-color: #fff7e9;
+  color: var(--forest-deep);
+}
+
+.hs .link {
   font-weight: 500;
   color: var(--forest);
   border-bottom: 1px solid var(--line);
@@ -250,7 +334,7 @@ body {
   transition: color 160ms ease, border-color 160ms ease;
 }
 
-.link:hover {
+.hs .link:hover {
   color: var(--clay-ink);
   border-color: var(--clay-ink);
 }
@@ -376,16 +460,94 @@ body {
   margin-top: clamp(26px, 3.4vw, 36px);
 }
 
-/* ---- hero commands (terminal chips) ---- */
-.hero .commands {
+/* ---- bento grid ---- */
+.bento-section {
+  padding-top: clamp(8px, 1.5vw, 16px);
+  padding-bottom: clamp(20px, 3vw, 32px);
+}
+
+.bento {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(12px, 1.4vw, 18px);
+}
+
+.bento-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: clamp(20px, 2.2vw, 28px);
+  background: #fbf6ec;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  transition: border-color 180ms ease, transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.bento-box:hover {
+  border-color: var(--clay);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(31, 58, 46, 0.1);
+}
+
+.bento-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: var(--cream-deep);
+  color: var(--clay-ink);
+}
+
+.bento-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.bento-box h3 {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-weight: 560;
+  font-size: clamp(1.16rem, 1.7vw, 1.34rem);
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+  color: var(--forest);
+  text-wrap: balance;
+}
+
+.bento-box p {
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+
+/* ---- get started: commands + CTAs as one cluster in the hero ---- */
+.get-started {
   margin-top: clamp(30px, 4vw, 42px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(18px, 2.4vw, 26px);
+  scroll-margin-top: 24px;
+}
+
+.get-started .cta {
+  margin-top: 0;
+}
+
+/* ---- terminal chips ---- */
+.hs .commands {
   width: 100%;
   max-width: 540px;
   display: grid;
   gap: 12px;
 }
 
-.hero .commands pre {
+.hs .commands pre {
   margin: 0;
   background: var(--forest-deep);
   border-radius: 10px;
@@ -393,7 +555,7 @@ body {
   overflow-x: auto;
 }
 
-.hero .commands code {
+.hs .commands code {
   font-family: var(--mono);
   font-size: 0.92rem;
   line-height: 1.6;
@@ -401,7 +563,7 @@ body {
   white-space: pre;
 }
 
-.hero .commands .prompt {
+.hs .commands .prompt {
   color: var(--clay-soft);
   user-select: none;
   margin-right: 10px;
@@ -442,6 +604,12 @@ body {
 }
 
 /* ---- responsive ---- */
+@media (max-width: 900px) {
+  .bento {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 720px) {
   /* Drop only "Home" (the logo already links home); keep Architecture, Docs,
      and GitHub reachable. Tighten the row so all three fit on one line. */
@@ -450,6 +618,18 @@ body {
   }
   .topbar nav {
     gap: 18px;
+  }
+  .hs .cta {
+    gap: 16px;
+  }
+  .hs .button {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .bento {
+    grid-template-columns: 1fr;
   }
 }
 
