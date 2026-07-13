@@ -1,6 +1,6 @@
 {
   "name": "@rambleraptor/homestead-server",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "type": "module",
   "license": "MIT",
   "homepage": "https://github.com/rambleraptor/homestead#readme",
@@ -24,8 +24,8 @@
     "test:node": "vitest run"
   },
   "dependencies": {
-    "@rambleraptor/homestead-apps": "^0.1.0",
-    "@rambleraptor/homestead-core": "^0.1.0",
+    "@rambleraptor/homestead-apps": "^0.2.0",
+    "@rambleraptor/homestead-core": "^0.2.0",
     "bcryptjs": "^3.0.2",
     "hono": "^4.6.14",
     "tsx": "^4.20.0",

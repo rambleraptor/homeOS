@@ -150,7 +150,7 @@ export function scaffold(dir: string, opts: ScaffoldOptions = {}): string {
  * Version range for the scaffolded homestead packages. Tracks the published
  * homestead release line; bump the minor here when cutting a new release.
  */
-const HOMESTEAD_VERSION_RANGE = '^0.1.0';
+const HOMESTEAD_VERSION_RANGE = '^0.2.0';
 
 function packageJson(root: string): string {
   // npm package-name rules: lowercase, no spaces; fall back when the
