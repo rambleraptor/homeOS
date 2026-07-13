@@ -42,7 +42,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # >=22 to match homestead-server's engines field, and because npm@12
+          # (pulled in below for OIDC publishing) refuses to install on Node 20.
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: package-lock.json
           registry-url: 'https://registry.npmjs.org'
