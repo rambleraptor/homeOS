@@ -1,6 +1,37 @@
-import { useResourceUpdate } from '@rambleraptor/homestead-core/api/resourceHooks';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { RECIPES } from '../resources';
+import { buildRecipeBody } from '../utils/recipeBody';
 import type { Recipe, RecipeFormData } from '../types';
 
+/**
+ * Update a recipe. A new photo goes over multipart; plain edits use
+ * merge-patch JSON. aepbase PATCH merges, so omitting `image` (no new photo
+ * chosen) leaves the existing photo untouched.
+ */
 export function useUpdateRecipe() {
-  return useResourceUpdate<Recipe, RecipeFormData>('recipes', 'recipe');
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: RecipeFormData;
+    }): Promise<Recipe> => {
+      return aepbase.update<Recipe>(RECIPES, id, buildRecipeBody(data));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.app('recipes').all(),
+      });
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.app('recipes').all(),
+      });
+    },
+    onError: (error) => logger.error('Recipe update mutation error', error),
+  });
 }

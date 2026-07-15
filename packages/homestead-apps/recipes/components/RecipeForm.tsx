@@ -6,9 +6,10 @@
  * rows without leaving the form.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Save, Trash2, X } from 'lucide-react';
 import { splitSteps } from '../importers/textImporter';
+import { RecipeImage } from './RecipeImage';
 import type { Recipe, RecipeFormData, RecipeIngredient } from '../types';
 
 interface RecipeFormProps {
@@ -50,6 +51,20 @@ export function RecipeForm({
       ? initialData.parsed_ingredients
       : [emptyIngredient()],
   );
+  // A newly picked photo. null = no new selection (keep any existing photo on
+  // edit; no photo on create). Preview it via an object URL.
+  const [image, setImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!image) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(image);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [image]);
 
   const handleIngredientChange = (
     index: number,
@@ -106,6 +121,7 @@ export function RecipeForm({
       cook_time: cookTime.trim() || undefined,
       servings: servings.trim() || undefined,
       tags: tags.length > 0 ? tags : undefined,
+      image: image ?? undefined,
     });
   };
 
@@ -147,6 +163,50 @@ export function RecipeForm({
           placeholder="https://... or 'Book: Food Lab pg 124'"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
         />
+      </div>
+
+      <div>
+        <label htmlFor="image" className="block text-sm font-medium text-brand-navy mb-1">
+          Photo
+        </label>
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Selected recipe photo"
+            className="w-full max-h-64 object-cover rounded-md border border-gray-200 mb-2"
+          />
+        ) : initialData?.image ? (
+          <RecipeImage
+            recipe={initialData}
+            alt={initialData.title}
+            className="w-full max-h-64 object-cover rounded-md border border-gray-200 mb-2"
+          />
+        ) : null}
+        <div className="flex items-center gap-3">
+          <input
+            id="image"
+            name="image"
+            type="file"
+            accept="image/*"
+            data-testid="recipe-form-image"
+            onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-accent-terracotta file:text-white file:font-medium hover:file:bg-accent-terracotta-hover"
+          />
+          {image && (
+            <button
+              type="button"
+              onClick={() => setImage(null)}
+              className="text-sm text-text-muted hover:text-red-600 whitespace-nowrap"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+        {initialData?.image && !image && (
+          <p className="mt-1 text-xs text-text-muted">
+            Uploading a new photo replaces the current one.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

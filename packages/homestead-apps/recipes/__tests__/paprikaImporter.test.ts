@@ -124,6 +124,40 @@ describe('paprikaJsonToRecipe', () => {
     expect(r.title).toBe('Untitled Recipe');
   });
 
+  it('decodes embedded photo_data into an image File', () => {
+    const r = paprikaJsonToRecipe({
+      ...SAMPLE,
+      photo: '89492392-abc.jpg',
+      photo_data: btoa('fake-jpeg-bytes'),
+    });
+    expect(r.image).toBeInstanceOf(File);
+    expect(r.image?.name).toBe('89492392-abc.jpg');
+    expect(r.image?.type).toBe('image/jpeg');
+    expect(r.image?.size).toBe('fake-jpeg-bytes'.length);
+  });
+
+  it('infers the image mime type from the photo filename extension', () => {
+    const r = paprikaJsonToRecipe({
+      ...SAMPLE,
+      photo: 'shot.png',
+      photo_data: btoa('x'),
+    });
+    expect(r.image?.type).toBe('image/png');
+  });
+
+  it('leaves image undefined when there is no embedded photo_data', () => {
+    const r = paprikaJsonToRecipe(SAMPLE);
+    expect(r.image).toBeUndefined();
+  });
+
+  it('does not import the remote image_url as an image', () => {
+    const r = paprikaJsonToRecipe({
+      ...SAMPLE,
+      image_url: 'https://example.com/photo.jpg',
+    });
+    expect(r.image).toBeUndefined();
+  });
+
   it('returns no method/steps when every source is empty', () => {
     const r = paprikaJsonToRecipe({ name: 'Bare' });
     expect(r.method).toBeUndefined();

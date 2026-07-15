@@ -77,6 +77,10 @@ export const recipesResources: ResourceDefinition[] = [
         description:
           'Categorical tags for filtering and menu generation.',
       },
+      image: {
+        type: 'file',
+        description: 'Recipe photo (jpeg/png/webp/gif, <=5MB).',
+      },
       created_by: { type: 'string', description: 'users/{user_id}' },
     },
   },
