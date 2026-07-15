@@ -21,6 +21,7 @@ import {
 import { useRecipe } from '../hooks/useRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
 import { RecipeForm } from './RecipeForm';
+import { RecipeImage } from './RecipeImage';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { decimalToFraction } from '@rambleraptor/homestead-core/shared/utils/fractionUtils';
@@ -147,6 +148,14 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
           </button>
         }
       />
+
+      {recipe.image && (
+        <RecipeImage
+          recipe={recipe}
+          alt={recipe.title}
+          className="w-full max-h-96 object-cover rounded-lg border border-gray-200"
+        />
+      )}
 
       {hasMeta && (
         <div

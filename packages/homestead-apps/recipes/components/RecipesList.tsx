@@ -8,6 +8,7 @@
 import { Link } from 'react-router-dom';
 import { ChefHat, Clock, Pencil, Trash2 } from 'lucide-react';
 import type { Recipe } from '../types';
+import { RecipeImage } from './RecipeImage';
 
 interface RecipesListProps {
   recipes: Recipe[];
@@ -39,6 +40,13 @@ export function RecipesList({ recipes, onEdit, onDelete }: RecipesListProps) {
           data-testid={`recipe-row-${recipe.title}`}
           className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col relative focus-within:ring-2 focus-within:ring-accent-terracotta hover:shadow-md transition-shadow"
         >
+          {recipe.image && (
+            <RecipeImage
+              recipe={recipe}
+              alt={recipe.title}
+              className="w-full h-40 object-cover rounded-t-lg pointer-events-none"
+            />
+          )}
           <Link
             to={`/recipes/${recipe.id}`}
             aria-label={`View ${recipe.title}`}

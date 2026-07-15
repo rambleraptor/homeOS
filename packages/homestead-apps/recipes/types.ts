@@ -27,6 +27,11 @@ export interface Recipe {
   cook_time?: string;
   servings?: string;
   tags?: string[];
+  /**
+   * File-field pointer for the recipe photo. On read, aepbase echoes back a
+   * `:download` URL string; the bytes are fetched via `useRecipeImageUrl`.
+   */
+  image?: string;
   created_by?: string;
   create_time: string;
   update_time: string;
@@ -45,4 +50,6 @@ export interface RecipeFormData {
   cook_time?: string;
   servings?: string;
   tags?: string[];
+  /** Recipe photo to upload. Sent as a multipart file field on create. */
+  image?: File | null;
 }

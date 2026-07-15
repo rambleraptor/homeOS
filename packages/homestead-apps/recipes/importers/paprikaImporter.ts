@@ -123,6 +123,47 @@ export interface PaprikaRecipeJson {
   difficulty?: string;
   categories?: string[];
   rating?: number;
+  /** Base64-encoded photo bytes embedded in the export (usually a JPEG). */
+  photo_data?: string;
+  /** Original photo filename, e.g. `89492392-....jpg`. */
+  photo?: string;
+  /** Remote photo URL (not imported — we prefer the embedded `photo_data`). */
+  image_url?: string;
+}
+
+const MIME_BY_EXT: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  gif: 'image/gif',
+};
+
+/**
+ * Decode a Paprika `photo_data` base64 blob into a `File` suitable for a
+ * multipart upload. Returns undefined when there's no photo or the base64
+ * can't be decoded. The mime type is inferred from the `photo` filename
+ * extension, defaulting to JPEG (Paprika's usual format).
+ */
+function extractPhoto(json: PaprikaRecipeJson): File | undefined {
+  const b64 = json.photo_data?.trim();
+  if (!b64) return undefined;
+
+  let buffer: ArrayBuffer;
+  try {
+    const binary = atob(b64);
+    buffer = new ArrayBuffer(binary.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) view[i] = binary.charCodeAt(i);
+  } catch {
+    return undefined;
+  }
+  if (buffer.byteLength === 0) return undefined;
+
+  const filename = json.photo?.trim() || 'recipe-photo.jpg';
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  const type = MIME_BY_EXT[ext] ?? 'image/jpeg';
+  return new File([buffer], filename, { type });
 }
 
 function splitLines(text: string | undefined): string[] {
@@ -189,6 +230,7 @@ export function paprikaJsonToRecipe(json: PaprikaRecipeJson): RecipeFormData {
     cook_time: json.cook_time?.trim() || undefined,
     servings: json.servings?.trim() || undefined,
     tags: tags.length > 0 ? tags : undefined,
+    image: extractPhoto(json),
   };
 }
 
