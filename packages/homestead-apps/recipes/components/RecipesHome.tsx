@@ -81,10 +81,12 @@ export function RecipesHome() {
     setEditingRecipe(null);
   };
 
+  // Imports one recipe at a time; the modal drives the loop for bulk /
+  // multi-file imports and closes itself once the whole batch is done. A
+  // single failure is logged but doesn't abort the rest of the batch.
   const handleImport = async (data: RecipeFormData) => {
     try {
       await createMutation.mutateAsync(data);
-      setImportOpen(false);
     } catch (err) {
       logger.error('Failed to import recipe', err);
     }

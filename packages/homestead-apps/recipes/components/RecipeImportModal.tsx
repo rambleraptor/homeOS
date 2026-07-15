@@ -7,8 +7,10 @@
  *
  * Importers declare `inputType: 'text' | 'file'` so the modal can render
  * the appropriate input (textarea vs file picker) and await async
- * parsing when needed. Multi-recipe results (e.g. a Paprika archive of
- * dozens of recipes) are imported sequentially.
+ * parsing when needed. File importers accept multiple files at once —
+ * the modal parses each and aggregates the results. Multi-recipe results
+ * (e.g. several Paprika archives, each holding dozens of recipes) are
+ * imported sequentially with progress shown on the submit button.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -28,8 +30,66 @@ import {
   getImporter,
   RECIPE_IMPORTERS,
 } from '../importers';
-import type { RecipeImportResult } from '../importers/types';
+import type {
+  FileRecipeImporter,
+  RecipeImportResult,
+} from '../importers/types';
 import type { RecipeFormData } from '../types';
+
+/**
+ * Parse several uploaded files through a file importer and merge the
+ * results into one aggregate. Recipes from every file are flattened into a
+ * single list (first → `data`, rest → `additional`) so the modal's existing
+ * sequential-submit path imports them all in one go.
+ *
+ * Per-file failures don't abort the batch: when more than one file was
+ * selected, a file's fatal errors are demoted to per-file warnings so the
+ * good files still import. Warnings/errors are prefixed with the filename
+ * when multiple files are in play.
+ */
+export async function parseImportFiles(
+  importer: FileRecipeImporter,
+  files: File[],
+): Promise<RecipeImportResult> {
+  const recipes: RecipeFormData[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const multi = files.length > 1;
+
+  for (const file of files) {
+    const prefix = multi ? `${file.name}: ` : '';
+    let res: RecipeImportResult;
+    try {
+      res = await importer.parseFile(file);
+    } catch (err) {
+      warnings.push(
+        `${prefix}${err instanceof Error ? err.message : 'parse error'}`,
+      );
+      continue;
+    }
+    for (const w of res.warnings) warnings.push(`${prefix}${w}`);
+    if (res.data) recipes.push(res.data, ...(res.additional ?? []));
+    for (const e of res.errors) {
+      if (multi) warnings.push(`${prefix}${e}`);
+      else errors.push(e);
+    }
+  }
+
+  if (recipes.length === 0) {
+    if (errors.length === 0) {
+      errors.push('No recipes found in the selected files.');
+    }
+    return { warnings, errors };
+  }
+
+  const [first, ...rest] = recipes;
+  return {
+    data: first,
+    additional: rest.length > 0 ? rest : undefined,
+    warnings,
+    errors,
+  };
+}
 
 interface RecipeImportModalProps {
   isOpen: boolean;
@@ -46,17 +106,22 @@ export function RecipeImportModal({
 }: RecipeImportModalProps) {
   const [importerId, setImporterId] = useState(DEFAULT_IMPORTER_ID);
   const [input, setInput] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [asyncResult, setAsyncResult] = useState<RecipeImportResult | null>(null);
   const [isParsing, setIsParsing] = useState(false);
+  const [importProgress, setImportProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   const importer = getImporter(importerId) ?? RECIPE_IMPORTERS[0];
 
   const reset = () => {
     setInput('');
-    setFile(null);
+    setFiles([]);
     setAsyncResult(null);
     setIsParsing(false);
+    setImportProgress(null);
   };
 
   const handleImporterChange = (id: string) => {
@@ -64,10 +129,10 @@ export function RecipeImportModal({
     setImporterId(id);
   };
 
-  const handleFileChange = (f: File | null) => {
+  const handleFilesChange = (fs: File[]) => {
     setAsyncResult(null);
-    setIsParsing(Boolean(f));
-    setFile(f);
+    setIsParsing(fs.length > 0);
+    setFiles(fs);
   };
 
   // Text-mode parsing is pure and synchronous — handle it via useMemo so
@@ -81,10 +146,9 @@ export function RecipeImportModal({
   // File-mode parsing is async. Run it when a file is chosen, and write
   // results back through the completion callbacks only.
   useEffect(() => {
-    if (importer.inputType !== 'file' || !file) return;
+    if (importer.inputType !== 'file' || files.length === 0) return;
     let cancelled = false;
-    importer
-      .parseFile(file)
+    parseImportFiles(importer, files)
       .then((res) => {
         if (!cancelled) {
           setAsyncResult(res);
@@ -96,7 +160,7 @@ export function RecipeImportModal({
         setAsyncResult({
           warnings: [],
           errors: [
-            `Failed to parse file: ${err instanceof Error ? err.message : 'unknown error'}`,
+            `Failed to parse files: ${err instanceof Error ? err.message : 'unknown error'}`,
           ],
         });
         setIsParsing(false);
@@ -104,7 +168,7 @@ export function RecipeImportModal({
     return () => {
       cancelled = true;
     };
-  }, [importer, file]);
+  }, [importer, files]);
 
   const result = importer.inputType === 'text' ? textResult : asyncResult;
 
@@ -117,12 +181,19 @@ export function RecipeImportModal({
 
   const handleImport = async () => {
     if (!result?.data) return;
-    await onImport(result.data);
-    for (const extra of result.additional ?? []) {
-      await onImport(extra);
+    const recipes = [result.data, ...(result.additional ?? [])];
+    setImportProgress({ done: 0, total: recipes.length });
+    try {
+      for (let i = 0; i < recipes.length; i++) {
+        await onImport(recipes[i]);
+        setImportProgress({ done: i + 1, total: recipes.length });
+      }
+    } finally {
+      setImportProgress(null);
     }
     reset();
     setImporterId(DEFAULT_IMPORTER_ID);
+    onClose();
   };
 
   const canImport = Boolean(result?.data) && !isSubmitting && !isParsing;
@@ -189,21 +260,28 @@ export function RecipeImportModal({
               htmlFor="recipe-import-file"
               className="block text-sm font-medium text-brand-navy mb-1"
             >
-              Recipe file
+              Recipe {'file(s)'}
             </label>
             <input
               id="recipe-import-file"
               data-testid="recipe-import-file"
               type="file"
+              multiple
               accept={importer.accept}
               disabled={isSubmitting}
-              onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+              onChange={(e) =>
+                handleFilesChange(Array.from(e.target.files ?? []))
+              }
               className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-accent-terracotta file:text-white file:font-medium hover:file:bg-accent-terracotta-hover disabled:opacity-50"
             />
-            {file && (
+            {files.length > 0 && (
               <p className="mt-2 text-xs text-text-muted flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5" />
-                {file.name} · {(file.size / 1024).toFixed(1)} KB
+                <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                {files.length === 1
+                  ? `${files[0].name} · ${(files[0].size / 1024).toFixed(1)} KB`
+                  : `${files.length} files · ${(
+                      files.reduce((sum, f) => sum + f.size, 0) / 1024
+                    ).toFixed(1)} KB total`}
               </p>
             )}
             {isParsing && (
@@ -241,11 +319,13 @@ export function RecipeImportModal({
             ) : (
               <Download className="w-4 h-4" />
             )}
-            {isSubmitting
-              ? 'Importing...'
-              : totalRecipes > 1
-                ? `Import ${totalRecipes} Recipes`
-                : 'Import Recipe'}
+            {importProgress
+              ? `Importing ${importProgress.done}/${importProgress.total}...`
+              : isSubmitting
+                ? 'Importing...'
+                : totalRecipes > 1
+                  ? `Import ${totalRecipes} Recipes`
+                  : 'Import Recipe'}
           </button>
         </div>
       </div>

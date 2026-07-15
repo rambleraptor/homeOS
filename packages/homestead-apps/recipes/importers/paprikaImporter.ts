@@ -311,6 +311,6 @@ export const paprikaImporter: FileRecipeImporter = {
   inputType: 'file',
   accept: '.paprikarecipe,.paprikarecipes',
   description:
-    'Upload a Paprika 3 export (.paprikarecipe or .paprikarecipes). Multi-recipe archives are imported in bulk.',
+    'Upload one or more Paprika 3 exports (.paprikarecipe or .paprikarecipes). Select multiple files to import them all at once; multi-recipe archives are imported in bulk.',
   parseFile: parsePaprikaFile,
 };
