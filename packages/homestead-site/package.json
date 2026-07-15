@@ -11,6 +11,7 @@
     "cf:deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
+    "posthog-js": "^1.400.1",
     "vitepress": "^1.6.4"
   },
   "devDependencies": {
