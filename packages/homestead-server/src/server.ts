@@ -79,6 +79,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const { chatRoute } = await import('./routes/chat');
   const { notificationsRoute } = await import('./routes/notifications');
   const { makeSetupRoute } = await import('./routes/setup');
+  const { bulkImportTemplateRoute } = await import('./routes/bulk-import-template');
 
   // In prod the SPA is served from disk; resolve it up front so /api/app-version
   // can report its current output hash. Dev serves via Vite middleware (no hash).
@@ -91,6 +92,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // bumps it with no server restart; dev returns '' to disable the check.
   publicApp.get('/api/app-version', (c) => c.json({ buildId: spa?.version() ?? '' }));
   publicApp.get('/api/custom-methods', () => customMethodsResponse());
+  publicApp.route('/api/bulk-import', bulkImportTemplateRoute);
   publicApp.route('/api/setup', makeSetupRoute(engine.db));
   publicApp.route('/api/notifications', notificationsRoute);
   publicApp.route('/api/chat', chatRoute);

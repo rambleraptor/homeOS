@@ -1,366 +1,449 @@
 /**
- * Reusable Bulk Import Framework - Container Component
+ * The standardized bulk-import page.
+ *
+ * Every app that supports bulk import renders this and nothing else — the
+ * formats, the parsing, the validation, and the writes all come from the
+ * server's `bulkImport` declaration for the resource. An app supplies its
+ * plural, some display names, and optionally a preview row.
+ *
+ * Flow: pick a format → upload/paste → the server parses (dry run) → review and
+ * deselect → import the selection.
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Upload,
+  ArrowLeft,
+  CheckCircle2,
   Download,
   FileText,
-  CheckCircle2,
+  Upload,
   XCircle,
-  ArrowLeft,
 } from 'lucide-react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
-import { parseCSV, downloadCSVTemplate } from './csvParser';
+import type {
+  BulkImportColumnInfo,
+  BulkImportFormatInfo,
+  ParsedItem,
+} from '@rambleraptor/homestead-core/resources/bulk-import/types';
+import {
+  useBulkImportFormats,
+  useBulkImportPreview,
+  useBulkImportRun,
+} from './useBulkImport';
 import { DefaultItemPreview } from './DefaultItemPreview';
-import type { BulkImportConfig, ParsedItem } from './types';
+import type { BulkImportPageConfig } from './types';
 
 interface BulkImportContainerProps<T> {
-  config: BulkImportConfig<T>;
+  config: BulkImportPageConfig<T>;
 }
 
 export function BulkImportContainer<T>({ config }: BulkImportContainerProps<T>) {
   const navigate = useNavigate();
   const toast = useToast();
-  const [file, setFile] = useState<File | null>(null);
-  const [parsedItems, setParsedItems] = useState<ParsedItem<T>[]>([]);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
-  const [parseError, setParseError] = useState<string | null>(null);
+  const { plural, appName, appNamePlural, backRoute } = config;
 
-  const PreviewComponent = config.schema.PreviewComponent || DefaultItemPreview;
+  const formatsQuery = useBulkImportFormats(plural);
+  const preview = useBulkImportPreview(plural);
+  const run = useBulkImportRun(plural, config.queryKey);
 
-  const handleFileChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFile = event.target.files?.[0];
-      if (!selectedFile) return;
+  const [formatId, setFormatId] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [text, setText] = useState('');
+  const [items, setItems] = useState<ParsedItem<T>[] | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
-      if (!selectedFile.name.endsWith('.csv')) {
-        setParseError('Please upload a CSV file');
+  const formats = useMemo(() => formatsQuery.data ?? [], [formatsQuery.data]);
+  const format = formats.find((f) => f.id === formatId) ?? null;
+
+  // Default to the first format once discovery lands.
+  useEffect(() => {
+    if (!formatId && formats.length > 0) setFormatId(formats[0].id);
+  }, [formats, formatId]);
+
+  const PreviewRow = config.preview ?? DefaultItemPreview;
+
+  const reset = useCallback(() => {
+    setFiles([]);
+    setText('');
+    setItems(null);
+    setSelected(new Set());
+    setError(null);
+  }, []);
+
+  const handleFormatChange = useCallback(
+    (id: string) => {
+      setFormatId(id);
+      reset();
+    },
+    [reset],
+  );
+
+  const handleParse = useCallback(async () => {
+    if (!format) return;
+    setError(null);
+    try {
+      const result = await preview.mutateAsync(
+        format.inputType === 'text'
+          ? { format: format.id, text }
+          : { format: format.id, files },
+      );
+      // Leave `items` null on an empty parse: the upload form only renders
+      // while it's null, so setting it to [] would strand the user on an error
+      // with nothing to retry from.
+      if (result.summary.total === 0) {
+        setError(`No ${appNamePlural} found in that input`);
         return;
       }
 
-      setFile(selectedFile);
-      setParseError(null);
+      setItems(result.items as ParsedItem<T>[]);
+      // Pre-select everything importable — the common case is "import it all".
+      setSelected(
+        new Set(result.items.filter((i) => i.errors.length === 0).map((i) => i.index)),
+      );
 
-      // Parse the file
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target?.result as string;
-          const result = parseCSV(content, config.schema);
-
-          if (result.items.length === 0) {
-            setParseError(`No ${config.appNamePlural} found in the CSV file`);
-            return;
-          }
-
-          setParsedItems(result.items);
-
-          // Select all valid items by default
-          const validItemIndices = result.items
-            .map((item, index) => (item.isValid ? index : -1))
-            .filter((index) => index !== -1);
-
-          setSelectedItemIds(new Set(validItemIndices));
-
-          toast.success(
-            `Parsed ${result.validCount} valid ${config.appNamePlural} from CSV`
-          );
-
-          if (result.invalidCount > 0) {
-            toast.warning(
-              `${result.invalidCount} ${config.appNamePlural} have errors and cannot be imported`
-            );
-          }
-        } catch (error) {
-          const errorMessage =
-            error instanceof Error ? error.message : 'Failed to parse CSV';
-          setParseError(errorMessage);
-          toast.error(errorMessage);
-        }
-      };
-
-      reader.onerror = () => {
-        setParseError('Failed to read file');
-        toast.error('Failed to read file');
-      };
-
-      reader.readAsText(selectedFile);
-    },
-    [config.schema, config.appNamePlural, toast]
-  );
-
-  const handleToggleItem = useCallback((index: number) => {
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
+      if (result.summary.invalid > 0) {
+        toast.warning(
+          `${result.summary.invalid} of ${result.summary.total} ${appNamePlural} have errors and can't be imported`,
+        );
       }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not read that input';
+      setError(message);
+      toast.error(message);
+    }
+  }, [format, files, text, preview, appNamePlural, toast]);
+
+  const handleImport = useCallback(async () => {
+    if (!format || !items) return;
+    const allValid = items.filter((i) => i.errors.length === 0);
+    const selectedIndices =
+      selected.size === allValid.length ? '*' : [...selected].sort((a, b) => a - b);
+
+    try {
+      const result = await run.mutateAsync({
+        format: format.id,
+        ...(format.inputType === 'text' ? { text } : { files }),
+        selectedIndices,
+      });
+
+      if (result.created > 0) {
+        toast.success(`Imported ${result.created} ${appNamePlural}`);
+      }
+      if (result.failed.length > 0) {
+        // Partial success is the interesting case: say how many and why, and
+        // stay on the page so the failures are still readable.
+        toast.error(
+          `${result.failed.length} ${appNamePlural} failed to import: ${result.failed[0].error}`,
+        );
+        return;
+      }
+      navigate(backRoute);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : `Could not import ${appNamePlural}`;
+      toast.error(message);
+    }
+  }, [format, items, selected, text, files, run, toast, appNamePlural, navigate, backRoute]);
+
+  const handleDownloadTemplate = useCallback(() => {
+    if (!format) return;
+    window.location.href = `/api/bulk-import/${plural}/template?format=${format.id}`;
+  }, [format, plural]);
+
+  const toggleItem = useCallback((index: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
       return next;
     });
   }, []);
 
-  const handleToggleAll = useCallback(() => {
-    const validItemIndices = parsedItems
-      .map((item, index) => (item.isValid ? index : -1))
-      .filter((index) => index !== -1);
+  const validItems = items?.filter((i) => i.errors.length === 0) ?? [];
+  const invalidCount = (items?.length ?? 0) - validItems.length;
 
-    if (selectedItemIds.size === validItemIndices.length) {
-      // Deselect all
-      setSelectedItemIds(new Set());
-    } else {
-      // Select all valid items
-      setSelectedItemIds(new Set(validItemIndices));
-    }
-  }, [parsedItems, selectedItemIds.size]);
-
-  const handleImport = useCallback(async () => {
-    const itemsToImport = parsedItems.filter((_, index) =>
-      selectedItemIds.has(index)
+  const toggleAll = useCallback(() => {
+    setSelected((prev) =>
+      prev.size === validItems.length
+        ? new Set()
+        : new Set(validItems.map((i) => i.index)),
     );
+  }, [validItems]);
 
-    if (itemsToImport.length === 0) {
-      toast.error(`Please select at least one ${config.appName.toLowerCase()} to import`);
-      return;
-    }
-
-    try {
-      await config.onImport(itemsToImport);
-      toast.success(
-        `Successfully imported ${itemsToImport.length} ${config.appNamePlural}`
-      );
-      navigate(config.backRoute);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : `Failed to import ${config.appNamePlural}`;
-      toast.error(errorMessage);
-    }
-  }, [parsedItems, selectedItemIds, config, navigate, toast]);
-
-  const handleDownloadTemplate = useCallback(() => {
-    const template = config.schema.generateTemplate();
-    const filename = `${config.appNamePlural.replace(/\s+/g, '_')}_import_template.csv`;
-    downloadCSVTemplate(template, filename);
-  }, [config.schema, config.appNamePlural]);
-
-  const validItems = parsedItems.filter((i) => i.isValid);
-  const invalidItems = parsedItems.filter((i) => !i.isValid);
-  const selectedCount = selectedItemIds.size;
+  const hasInput = format?.inputType === 'text' ? text.trim() !== '' : files.length > 0;
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8">
-      {/* Header */}
       <div className="mb-6">
-        <Button
-          variant="secondary"
-          onClick={() => navigate(config.backRoute)}
-          className="mb-4"
-        >
+        <Button variant="secondary" onClick={() => navigate(backRoute)} className="mb-4">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to {config.appName}
+          Back to {appName}
         </Button>
-        <h1 className="text-3xl font-bold">Bulk Import {config.appName}</h1>
-        <p className="text-muted-foreground mt-2">
-          Import multiple {config.appNamePlural} from a CSV file
-        </p>
+        <h1 className="text-3xl font-bold">Bulk Import {appName}</h1>
+        <p className="text-muted-foreground mt-2">Import multiple {appNamePlural} at once</p>
       </div>
 
-      {/* CSV Schema Documentation */}
-      {!file && (
-        <Card className="mb-6 p-6">
-          <div className="flex items-start gap-4">
-            <FileText className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
-            <div className="flex-1">
-              <h2 className="text-xl font-semibold mb-4">CSV File Format</h2>
-
-              <div className="space-y-4">
-                {/* Required Fields */}
-                <div>
-                  <h3 className="font-medium mb-2">Required Headers:</h3>
-                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                    {config.schema.requiredFields.map((field) => (
-                      <li key={field.name}>
-                        <code className="bg-muted px-1 py-0.5 rounded">
-                          {field.name}
-                        </code>
-                        {field.description && ` - ${field.description}`}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Optional Fields */}
-                {config.schema.optionalFields.length > 0 && (
-                  <div>
-                    <h3 className="font-medium mb-2">Optional Headers:</h3>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                      {config.schema.optionalFields.map((field) => (
-                        <li key={field.name}>
-                          <code className="bg-muted px-1 py-0.5 rounded">
-                            {field.name}
-                          </code>
-                          {field.description && ` - ${field.description}`}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                <div className="pt-4 border-t">
-                  <Button
-                    variant="secondary"
-                    onClick={handleDownloadTemplate}
-                    className="w-full sm:w-auto"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Template
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
+      {formatsQuery.isLoading && (
+        <Card className="p-6 text-muted-foreground">Loading import formats…</Card>
       )}
 
-      {/* Upload Section */}
-      {!file && (
+      {!formatsQuery.isLoading && formats.length === 0 && (
         <Card className="p-6">
-          <div className="flex flex-col items-center justify-center py-12">
-            <Upload className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Upload CSV File</h3>
-            <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-              Select a CSV file containing your {config.appNamePlural}. Make
-              sure it follows the format described above.
-            </p>
-            <input
-              type="file"
-              accept=".csv"
-              onChange={handleFileChange}
-              className="hidden"
-              id="csv-upload"
-              data-testid="csv-upload-input"
+          <p className="text-muted-foreground">
+            {appName} doesn't support bulk import.
+          </p>
+        </Card>
+      )}
+
+      {!items && format && (
+        <Card className="p-6">
+          {formats.length > 1 && (
+            <FormatPicker
+              formats={formats}
+              selected={format}
+              onSelect={handleFormatChange}
             />
-            <label
-              htmlFor="csv-upload"
-              className="inline-flex items-center justify-center font-medium transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 px-4 py-2 text-base cursor-pointer"
-            >
-              Choose File
-            </label>
-          </div>
-        </Card>
-      )}
+          )}
 
-      {/* Parse Error */}
-      {parseError && (
-        <Card className="p-6 border-destructive bg-destructive/10">
-          <div className="flex items-start gap-4">
-            <XCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-1" />
-            <div>
-              <h3 className="font-semibold text-destructive mb-2">Parse Error</h3>
-              <p className="text-sm">{parseError}</p>
+          {format.columns && format.columns.length > 0 && (
+            <ColumnReference columns={format.columns} label={format.label} />
+          )}
+
+          {format.inputType === 'text' ? (
+            <div className="space-y-4">
+              <label htmlFor="import-text" className="block font-medium">
+                Paste your {appNamePlural}
+              </label>
+              <textarea
+                id="import-text"
+                data-testid="import-text-input"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                rows={14}
+                className="w-full rounded-lg border bg-background p-3 font-mono text-sm"
+              />
             </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Preview Section */}
-      {file && parsedItems.length > 0 && (
-        <>
-          {/* Summary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total {config.appName}</p>
-                  <p className="text-2xl font-bold">{parsedItems.length}</p>
-                </div>
-                <FileText className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Valid {config.appName}</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {validItems.length}
-                  </p>
-                </div>
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Invalid {config.appName}</p>
-                  <p className="text-2xl font-bold text-destructive">
-                    {invalidItems.length}
-                  </p>
-                </div>
-                <XCircle className="h-8 w-8 text-destructive" />
-              </div>
-            </Card>
-          </div>
-
-          {/* Action Bar */}
-          <div className="flex items-center justify-between mb-4 gap-4">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setFile(null);
-                  setParsedItems([]);
-                  setSelectedItemIds(new Set());
-                  setParseError(null);
-                }}
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10">
+              <Upload className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Upload {format.label} {format.multiple ? 'file(s)' : 'file'}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
+                {files.length > 0
+                  ? files.map((f) => f.name).join(', ')
+                  : `Select a ${format.label} file containing your ${appNamePlural}.`}
+              </p>
+              <input
+                type="file"
+                accept={format.accept}
+                multiple={format.multiple}
+                onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                className="hidden"
+                id="bulk-import-upload"
+                data-testid="bulk-import-file-input"
+              />
+              <label
+                htmlFor="bulk-import-upload"
+                className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-base font-medium text-white transition-colors hover:bg-blue-700"
               >
-                Choose Different File
-              </Button>
-              {validItems.length > 0 && (
-                <Button variant="secondary" onClick={handleToggleAll}>
-                  {selectedItemIds.size === validItems.length
-                    ? 'Deselect All'
-                    : 'Select All'}
+                Choose File
+              </label>
+              {format.hasTemplate && (
+                <Button variant="secondary" onClick={handleDownloadTemplate} className="mt-6">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Template
                 </Button>
               )}
             </div>
+          )}
 
+          <div className="mt-6 flex justify-end border-t pt-4">
+            <Button
+              onClick={handleParse}
+              disabled={!hasInput || preview.isPending}
+              data-testid="bulk-import-preview-button"
+            >
+              {preview.isPending ? 'Reading…' : 'Preview Import'}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {error && (
+        <Card className="border-destructive bg-destructive/10 mt-6 p-6">
+          <div className="flex items-start gap-4">
+            <XCircle className="text-destructive h-6 w-6 flex-shrink-0" />
+            <div>
+              <h3 className="text-destructive mb-1 font-semibold">Import Error</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {items && items.length > 0 && (
+        <>
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <StatCard label={`Total ${appName}`} value={items.length} icon={FileText} />
+            <StatCard
+              label={`Valid ${appName}`}
+              value={validItems.length}
+              icon={CheckCircle2}
+              tone="text-green-600"
+            />
+            <StatCard
+              label={`Invalid ${appName}`}
+              value={invalidCount}
+              icon={XCircle}
+              tone="text-destructive"
+            />
+          </div>
+
+          <div className="mb-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
-                {selectedCount} of {validItems.length} selected
+              <Button variant="secondary" onClick={reset}>
+                Start Over
+              </Button>
+              {validItems.length > 0 && (
+                <Button variant="secondary" onClick={toggleAll}>
+                  {selected.size === validItems.length ? 'Deselect All' : 'Select All'}
+                </Button>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-muted-foreground text-sm">
+                {selected.size} of {validItems.length} selected
               </span>
               <Button
                 onClick={handleImport}
-                disabled={selectedCount === 0 || config.isImporting}
+                disabled={selected.size === 0 || run.isPending}
                 data-testid="import-button"
               >
-                {config.isImporting
-                  ? 'Importing...'
-                  : `Import ${selectedCount} ${selectedCount === 1 ? config.appName : config.appName + '(s)'}`}
+                {run.isPending ? 'Importing…' : `Import ${selected.size} ${appName}`}
               </Button>
             </div>
           </div>
 
-          {/* Item List */}
           <div className="space-y-4">
-            {parsedItems.map((item, index) => (
-              <PreviewComponent
-                key={index}
+            {items.map((item) => (
+              <PreviewRow
+                key={item.index}
                 item={item}
-                isSelected={selectedItemIds.has(index)}
-                onToggle={() => handleToggleItem(index)}
+                isSelected={selected.has(item.index)}
+                onToggle={() => toggleItem(item.index)}
               />
             ))}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * What the file should contain, from the parser's declared columns. The server
+ * is the source of truth here — an app describes a column once, next to the
+ * validator that enforces it.
+ */
+function ColumnReference({
+  columns,
+  label,
+}: {
+  columns: BulkImportColumnInfo[];
+  label: string;
+}) {
+  const required = columns.filter((c) => c.required);
+  const optional = columns.filter((c) => !c.required);
+
+  return (
+    <div className="mb-6 border-b pb-6">
+      <div className="flex items-start gap-4">
+        <FileText className="text-primary mt-1 h-6 w-6 flex-shrink-0" />
+        <div className="flex-1 space-y-4">
+          <h2 className="text-xl font-semibold">{label} Format</h2>
+          {required.length > 0 && <ColumnList title="Required" columns={required} />}
+          {optional.length > 0 && <ColumnList title="Optional" columns={optional} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ColumnList({ title, columns }: { title: string; columns: BulkImportColumnInfo[] }) {
+  return (
+    <div>
+      <h3 className="mb-2 font-medium">{title}:</h3>
+      <ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
+        {columns.map((column) => (
+          <li key={column.name}>
+            <code className="bg-muted rounded px-1 py-0.5">{column.name}</code>
+            {column.description && ` — ${column.description}`}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function FormatPicker({
+  formats,
+  selected,
+  onSelect,
+}: {
+  formats: BulkImportFormatInfo[];
+  selected: BulkImportFormatInfo;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="mb-6 border-b pb-6">
+      <h2 className="mb-3 font-medium">Import from</h2>
+      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Import format">
+        {formats.map((format) => (
+          <button
+            key={format.id}
+            type="button"
+            role="radio"
+            aria-checked={format.id === selected.id}
+            onClick={() => onSelect(format.id)}
+            data-testid={`import-format-${format.id}`}
+            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+              format.id === selected.id
+                ? 'border-primary bg-primary/5 font-medium'
+                : 'hover:border-primary/50'
+            }`}
+          >
+            {format.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  icon: typeof FileText;
+  tone?: string;
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-muted-foreground text-sm">{label}</p>
+          <p className={`text-2xl font-bold ${tone ?? ''}`}>{value}</p>
+        </div>
+        <Icon className={`h-8 w-8 ${tone ?? 'text-muted-foreground'}`} />
+      </div>
+    </Card>
   );
 }

@@ -9,6 +9,8 @@
  * translation and `sync.ts` for the runner.
  */
 
+import type { BulkImportDef } from './bulk-import/types';
+
 // ----------------------------------------------------------------------------
 // Authoring format — what apps write in `resources.ts`
 // ----------------------------------------------------------------------------
@@ -287,4 +289,12 @@ export interface ResourceDefinition {
    * gateway instead. See `core/resources/custom-methods/dispatcher.ts`.
    */
   customMethods?: Record<string, ResourceCustomMethod>;
+  /**
+   * Opt this resource into bulk import. The registry synthesizes a
+   * `<plural>:bulk-import` custom method from the declaration, so it needs no
+   * entry in `customMethods` and no per-app handler or page. Server-only, and
+   * stripped from the schema-sync payload alongside `customMethods`. See
+   * `core/resources/bulk-import/types.ts`.
+   */
+  bulkImport?: BulkImportDef<any>;
 }

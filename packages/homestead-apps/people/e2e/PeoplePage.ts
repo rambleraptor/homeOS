@@ -139,23 +139,25 @@ export class PeoplePage {
     await expect(this.page).toHaveURL(/\/people\/import/);
   }
 
+  /**
+   * Upload a CSV and preview it. Parsing runs server-side now, so the preview
+   * is an explicit step: pick the file, ask for the preview, wait for the
+   * parsed rows to land.
+   */
   async uploadCSVContent(csvContent: string) {
-    // Create a file from CSV content and upload it
-    const buffer = Buffer.from(csvContent);
-
-    // Wait for file input to be present
-    const fileInput = this.page.locator('input[type="file"][accept=".csv"]');
+    const fileInput = this.page.getByTestId('bulk-import-file-input');
     await fileInput.waitFor({ state: 'attached' });
 
-    // Upload the file
     await fileInput.setInputFiles({
       name: 'test_import.csv',
       mimeType: 'text/csv',
-      buffer,
+      buffer: Buffer.from(csvContent),
     });
 
-    // Wait for parsing to complete
-    await this.page.waitForLoadState('networkidle');
+    await this.page.getByTestId('bulk-import-preview-button').click();
+    // The preview arrives via an operation poll, so wait for the result rather
+    // than the request.
+    await this.page.getByTestId('import-button').waitFor({ state: 'visible' });
   }
 
   async expectParsedPeopleCount(validCount: number, invalidCount?: number) {

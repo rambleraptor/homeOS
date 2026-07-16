@@ -6,23 +6,19 @@ import { CreditCard, CheckCircle2, XCircle, AlertCircle, Archive } from 'lucide-
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
-import type { ParsedItem } from '@rambleraptor/homestead-core/shared/bulk-import';
-import type { GiftCardImportData } from './schema';
-
-interface GiftCardPreviewProps {
-  item: ParsedItem<GiftCardImportData>;
-  isSelected: boolean;
-  onToggle: () => void;
-}
+import type { ItemPreviewProps } from '@rambleraptor/homestead-core/shared/bulk-import';
+// Type-only: the parser itself is server-only and stubbed out of this bundle.
+import type { GiftCardImportData } from '../methods/bulk-import-csv';
 
 export function GiftCardPreview({
   item,
   isSelected,
   onToggle,
-}: GiftCardPreviewProps) {
+}: ItemPreviewProps<GiftCardImportData>) {
   const giftCard = item.data;
+  const isValid = item.errors.length === 0;
 
-  const statusIcon = item.isValid ? (
+  const statusIcon = isValid ? (
     <CheckCircle2 className="h-5 w-5 text-green-600" />
   ) : (
     <XCircle className="h-5 w-5 text-destructive" />
@@ -36,7 +32,7 @@ export function GiftCardPreview({
   return (
     <Card
       className={`p-4 transition-colors ${
-        item.isValid
+        isValid
           ? isSelected
             ? 'border-primary bg-primary/5'
             : 'hover:border-primary/50'
@@ -46,7 +42,7 @@ export function GiftCardPreview({
       <div className="flex items-start gap-4">
         {/* Checkbox (only for valid gift cards) */}
         <div className="flex items-center pt-1">
-          {item.isValid ? (
+          {isValid ? (
             <Checkbox
               checked={isSelected}
               onCheckedChange={onToggle}
@@ -99,20 +95,20 @@ export function GiftCardPreview({
           </div>
 
           {/* Notes */}
-          {giftCard.notes && item.isValid && (
+          {giftCard.notes && isValid && (
             <p className="text-sm text-muted-foreground mb-2 italic">
               "{giftCard.notes}"
             </p>
           )}
 
           {/* Error Messages */}
-          {!item.isValid && item.errors.length > 0 && (
+          {!isValid && (
             <div className="mt-3 p-3 bg-destructive/10 rounded-md border border-destructive/20">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-destructive mb-1">
-                    Row {item.rowNumber} - Cannot import this gift card:
+                    Row {item.index + 1} - Cannot import this gift card:
                   </p>
                   <ul className="list-disc list-inside space-y-1">
                     {item.errors.map((error, idx) => (

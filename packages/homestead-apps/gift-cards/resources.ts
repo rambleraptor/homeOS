@@ -26,6 +26,18 @@ export const giftCardsResources: ResourceDefinition[] = [
       },
       created_by: { type: 'string', description: 'users/{user_id}' },
     },
+    bulkImport: {
+      formats: [
+        {
+          id: 'csv',
+          label: 'CSV',
+          inputType: 'file',
+          accept: '.csv',
+          hasTemplate: true,
+          load: () => import('./methods/bulk-import-csv'),
+        },
+      ],
+    },
   },
   {
     singular: 'transaction',

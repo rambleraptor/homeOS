@@ -15,6 +15,22 @@ export const peopleResources: ResourceDefinition[] = [
       name: { type: 'string', required: true },
       created_by: { type: 'string' },
     },
+    bulkImport: {
+      formats: [
+        {
+          id: 'csv',
+          label: 'CSV',
+          inputType: 'file',
+          accept: '.csv',
+          hasTemplate: true,
+          load: () => import('./methods/bulk-import-csv'),
+        },
+      ],
+      // A person's address and partner live in sibling resources, and partners
+      // can reference someone created later in the same file — so people needs
+      // the whole selection at once, not a row-at-a-time create.
+      save: () => import('./methods/bulk-import-csv'),
+    },
   },
   {
     singular: 'person-shared-data',

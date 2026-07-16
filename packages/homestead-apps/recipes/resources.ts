@@ -9,6 +9,26 @@ export const recipesResources: ResourceDefinition[] = [
     plural: RECIPES,
     description: 'A culinary recipe with parsed ingredients for scaling.',
     user_settable_create: true,
+    // No `save`: an imported recipe is one plain record, and importers never
+    // produce an image, so the default one-create-per-item saver is enough.
+    bulkImport: {
+      formats: [
+        {
+          id: 'text',
+          label: 'Plain Text',
+          inputType: 'text',
+          load: () => import('./methods/bulk-import-text'),
+        },
+        {
+          id: 'paprika',
+          label: 'Paprika',
+          inputType: 'file',
+          accept: '.paprikarecipe,.paprikarecipes',
+          multiple: true,
+          load: () => import('./methods/bulk-import-paprika'),
+        },
+      ],
+    },
     fields: {
       title: {
         type: 'string',
