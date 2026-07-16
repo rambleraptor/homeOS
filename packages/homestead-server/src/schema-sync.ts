@@ -14,6 +14,7 @@ import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import { syncUserSettingsSchema } from '@rambleraptor/homestead-core/user-settings/sync';
+import { sweepStaleOperations } from '@rambleraptor/homestead-core/server/operations';
 import {
   getAllAppFlagDefs,
   getAllResourceDefs,
@@ -42,6 +43,17 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
       }
     } catch (error) {
       console.error('[resources] schema sync failed', error);
+    }
+
+    // Fail operations orphaned by a restart (must run after the `operations`
+    // table exists, i.e. after the resource sync above).
+    try {
+      const swept = await sweepStaleOperations({ aepbaseUrl, token });
+      if (swept > 0) {
+        console.info(`[operations] marked ${swept} interrupted operation(s) as failed`);
+      }
+    } catch (error) {
+      console.error('[operations] stale-operation sweep failed', error);
     }
 
     try {

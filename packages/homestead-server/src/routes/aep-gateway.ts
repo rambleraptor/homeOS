@@ -8,6 +8,7 @@
 
 import { Hono } from 'hono';
 import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
+import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/custom-methods/dispatcher';
 import { getResourceCustomMethod } from '../app-registry';
 import type { Engine } from '../engine/engine';
@@ -45,6 +46,7 @@ export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
       resolveMethod: getResourceCustomMethod,
       authenticate,
       passthrough,
+      operations: operationStore,
     });
   });
 

@@ -174,6 +174,36 @@ export type CustomMethodHandler = (
 ) => Promise<Response>;
 
 /**
+ * Handler for an **async** (AEP-151) custom method. Unlike a sync handler it
+ * doesn't return a `Response`: the dispatcher has already replied `202` with a
+ * pending Operation. Instead it runs the real work in the background — the
+ * value it resolves to becomes the operation's `response`, and anything it
+ * throws becomes the operation's `error`.
+ */
+export type AsyncCustomMethodHandler = (
+  ctx: CustomMethodContext,
+) => Promise<unknown>;
+
+/** Either handler shape — resolved from a method's lazy `load()`. */
+export type AnyCustomMethodHandler =
+  | CustomMethodHandler
+  | AsyncCustomMethodHandler;
+
+/**
+ * Optional pre-flight check for an **async** method, exported as `validate`
+ * alongside the handler.
+ *
+ * AEP-151: errors that stop the operation from *starting* must surface as
+ * ordinary error responses, not as a `202` followed by a failed operation.
+ * Return a `Response` to reject the call outright (no operation is created);
+ * return nothing to let it proceed. Use it for preconditions and request
+ * validation (missing config → 503, bad body → 400).
+ */
+export type AsyncCustomMethodValidator = (
+  ctx: CustomMethodContext,
+) => Promise<Response | void>;
+
+/**
  * Declarative definition of a single custom method living on a resource.
  *
  * The handler is referenced via a lazy `import()` so the server-only runtime
@@ -196,10 +226,30 @@ export interface ResourceCustomMethod {
   /** HTTP method this custom method accepts. Defaults to `'POST'`. */
   method?: CustomMethodHttpMethod;
   /**
-   * Lazy import of the handler app. The dispatcher awaits this on demand
-   * and invokes the default export.
+   * When true, this is an AEP-151 **long-running** method: the dispatcher
+   * creates an Operation, replies `202` with it immediately, and runs the
+   * handler in the background (its resolved value → `response`, a throw →
+   * `error`). The handler's default export must be an
+   * {@link AsyncCustomMethodHandler}. Defaults to `false` (synchronous).
    */
-  load: () => Promise<{ default: CustomMethodHandler }>;
+  async?: boolean;
+  /**
+   * Human-readable label for the operation this method spawns, shown in the
+   * notifications app's Operations tab (e.g. `'Parse receipt'`). Async methods
+   * only; defaults to the `plural:verb` method name.
+   */
+  title?: string;
+  /**
+   * Lazy import of the handler app. The dispatcher awaits this on demand
+   * and invokes the default export — a {@link CustomMethodHandler} for sync
+   * methods, or an {@link AsyncCustomMethodHandler} when `async` is true.
+   * Async modules may additionally export a {@link AsyncCustomMethodValidator}
+   * as `validate` to reject bad calls before an operation is created.
+   */
+  load: () => Promise<{
+    default: AnyCustomMethodHandler;
+    validate?: AsyncCustomMethodValidator;
+  }>;
 }
 
 export interface ResourceDefinition {

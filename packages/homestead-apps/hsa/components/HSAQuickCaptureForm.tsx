@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { awaitOperation } from '@rambleraptor/homestead-core/api/operations';
 import type { HSAReceiptFormData, ReceiptCategory } from '../types';
 
 /** Shape returned by the `hsa-receipts:parse-receipt` custom method. */
@@ -145,12 +146,17 @@ export function HSAQuickCaptureForm({
         mimeType = selectedFile.type;
       }
 
-      // Call the AEP-136 custom method on the hsa-receipt collection to
-      // parse the receipt: POST /api/aep/hsa-receipts:parse-receipt
-      const result = await aepbase.customMethod<{ data: ParsedReceiptData }>(
+      // Parsing is long-running (AEP-151): the custom method answers with 202
+      // + an operation, which we poll to completion. The operation also shows
+      // up in the notifications app while it runs.
+      // POST /api/aep/hsa-receipts:parse-receipt
+      const operation = await aepbase.customMethod<{ id: string }>(
         'hsa-receipts',
         'parse-receipt',
         { image: base64Data, mimeType },
+      );
+      const result = await awaitOperation<{ data: ParsedReceiptData }>(
+        operation.id,
       );
 
       // Auto-fill form with parsed data

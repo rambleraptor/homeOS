@@ -16,6 +16,7 @@ import { mkdir, rm, writeFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
 import { get as httpGet } from 'http';
+import { startAiStub, stopAiStub } from './ai-stub';
 
 const APP_PORT = 5173;
 const READY_TIMEOUT_MS = 120000;
@@ -80,6 +81,10 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
     'index.ts',
   );
 
+  // Point AI at a local stub so AI-backed methods (hsa-receipts:parse-receipt)
+  // run for real in e2e without calling a paid model.
+  const aiBaseUrl = await startAiStub();
+
   let stdout = '';
   serverProcess = spawn(
     bunBin(),
@@ -101,6 +106,11 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
         // specs (which poll) see changes quickly, long enough that a
         // page-load burst shares one app_flags read.
         AEPBASE_ACCESS_CACHE_TTL_MS: '1000',
+        // Stub AI provider (see ./ai-stub.ts) — homestead.config.ts reads these.
+        AI_API_KEY: 'e2e-stub-key',
+        AI_PROVIDER: 'openai',
+        AI_MODEL: 'stub-model',
+        AI_BASE_URL: aiBaseUrl,
         // E2E_DISABLE_APP_ACCESS passes through to the server (escape hatch
         // for debugging with backend enforcement off).
       },
@@ -155,8 +165,8 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
   return creds;
 }
 
-export function stopAepbase(): Promise<void> {
-  return new Promise((resolve) => {
+export async function stopAepbase(): Promise<void> {
+  await new Promise<void>((resolve) => {
     if (!serverProcess) {
       resolve();
       return;
@@ -165,6 +175,7 @@ export function stopAepbase(): Promise<void> {
     serverProcess.kill();
     setTimeout(() => resolve(), 5000);
   });
+  await stopAiStub();
 }
 
 const ADMIN_EMAIL = 'admin@example.com';

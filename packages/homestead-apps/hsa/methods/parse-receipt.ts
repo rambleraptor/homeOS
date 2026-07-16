@@ -1,13 +1,25 @@
 /**
- * `hsa-receipts:parse-receipt` custom method (AEP-136).
+ * `hsa-receipts:parse-receipt` async custom method (AEP-136 + AEP-151).
  *
- * Lives on the hsa-receipt collection; dispatched by the sidecar gateway as
+ * Lives on the hsa-receipt collection; dispatched by the gateway as
  * `POST /api/aep/hsa-receipts:parse-receipt`. Body: `{ image: base64, mimeType }`.
- * Returns `{ data: ParsedReceiptData, message }`.
+ *
+ * Long-running: reading a receipt is a slow AI call, so the call returns `202`
+ * with an Operation and the parse runs in the background. The resolved value
+ * (`{ data: ParsedReceiptData, message }`) becomes the operation's `response`;
+ * a throw becomes its `error`. Clients poll the operation (see
+ * `awaitOperation` in core/api/operations).
+ *
+ * Preconditions (AI configured, well-formed body) are checked in `validate`,
+ * which runs *before* an operation exists so bad calls still get a plain
+ * 503/400 rather than a 202 + failed operation.
  */
 
 import { z } from 'zod';
-import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
+import type {
+  AsyncCustomMethodHandler,
+  AsyncCustomMethodValidator,
+} from '@rambleraptor/homestead-core/resources/types';
 import { isAiConfigured } from '@rambleraptor/homestead-core/server/ai/config';
 import {
   aiGenerateObject,
@@ -81,7 +93,16 @@ Rules:
   };
 }
 
-const handler: CustomMethodHandler = async ({ request, auth }) => {
+interface ParseReceiptBody {
+  image?: unknown;
+  mimeType?: unknown;
+}
+
+/**
+ * Reject calls that can't start: AI unconfigured, or a missing/invalid body.
+ * Runs before the operation is created, so these stay ordinary HTTP errors.
+ */
+export const validate: AsyncCustomMethodValidator = async ({ request }) => {
   if (!isAiConfigured()) {
     return Response.json(
       { error: 'Service unavailable', message: 'AI is not configured on the server' },
@@ -89,7 +110,7 @@ const handler: CustomMethodHandler = async ({ request, auth }) => {
     );
   }
 
-  const data = await request.json().catch(() => null);
+  const data = (await request.json().catch(() => null)) as ParseReceiptBody | null;
   if (!data || !data.image || !data.mimeType) {
     return Response.json(
       { error: 'Bad request', message: 'Missing required fields: image, mimeType' },
@@ -97,32 +118,28 @@ const handler: CustomMethodHandler = async ({ request, auth }) => {
     );
   }
 
-  const { image, mimeType } = data;
-  if (typeof mimeType !== 'string' || !mimeType.startsWith('image/')) {
+  if (typeof data.mimeType !== 'string' || !data.mimeType.startsWith('image/')) {
     return Response.json(
       { error: 'Bad request', message: 'Invalid file type. Must be an image.' },
       { status: 400 },
     );
   }
+};
+
+/**
+ * The long-running half: `validate` has already vetted the body, so a throw
+ * here is a genuine parse failure and lands on the operation's `error`.
+ */
+const handler: AsyncCustomMethodHandler = async ({ request, auth }) => {
+  const { image, mimeType } = (await request.json()) as {
+    image: string;
+    mimeType: string;
+  };
 
   console.log(`Parsing receipt image for user ${auth.user.id}`);
 
-  try {
-    const receiptData = await parseReceiptFromImage(image, mimeType);
-    return Response.json({ data: receiptData, message: 'Receipt parsed successfully' });
-  } catch (error) {
-    console.error('Failed to parse receipt from image:', error);
-    return Response.json(
-      {
-        error: 'Parsing failed',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Failed to parse receipt. Please try again.',
-      },
-      { status: 500 },
-    );
-  }
+  const receiptData = await parseReceiptFromImage(image, mimeType);
+  return { data: receiptData, message: 'Receipt parsed successfully' };
 };
 
 export default handler;

@@ -118,6 +118,20 @@ export async function aepCreateMultipart<T>(
   return (await res.json()) as T;
 }
 
+/**
+ * Invoke an AEP-136/151 custom method, e.g.
+ * `postCustomMethod(token, '/hsa-receipts:parse-receipt', { image, mimeType })`.
+ * Returns the raw Response so callers can assert on status (a 202 carrying an
+ * operation for async methods, or a pre-flight rejection).
+ */
+export async function postCustomMethod(
+  token: string,
+  path: string,
+  body?: unknown,
+): Promise<Response> {
+  return req(path, { token, method: 'POST', body: body ?? {} });
+}
+
 export async function aepRemove(
   token: string,
   plural: string,

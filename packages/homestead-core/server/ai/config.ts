@@ -65,12 +65,15 @@ export function getAiModel(): LanguageModel {
   if (!hasApiKey(cfg)) throw new AiNotConfiguredError();
 
   const { apiKey } = cfg.auth;
+  // `baseURL: undefined` is the SDKs' own default, so passing it through
+  // unconditionally keeps the cloud endpoints intact.
+  const { baseURL } = cfg;
   switch (cfg.provider) {
     case 'openai':
-      return createOpenAI({ apiKey })(cfg.model);
+      return createOpenAI({ apiKey, baseURL })(cfg.model);
     case 'anthropic':
-      return createAnthropic({ apiKey })(cfg.model);
+      return createAnthropic({ apiKey, baseURL })(cfg.model);
     case 'google':
-      return createGoogleGenerativeAI({ apiKey })(cfg.model);
+      return createGoogleGenerativeAI({ apiKey, baseURL })(cfg.model);
   }
 }
