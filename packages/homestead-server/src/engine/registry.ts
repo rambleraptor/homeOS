@@ -11,6 +11,7 @@ import type { Database } from './sqlite';
 import {
   addColumn,
   createResourceTable,
+  derivedColumnsFromSchema,
   dropResourceTable,
   removeColumns,
   schemaTypeToSQLite,
@@ -239,11 +240,41 @@ export class Registry {
       if (!(name in newProps)) removed.push(name);
     }
 
+    // Tagged-union variant fields live inside an object property, so the
+    // top-level diff above never sees them: adding a variant field leaves
+    // `metadata`'s type untouched while requiring a new derived column. Diff
+    // them separately, or `filter` would resolve a path whose column was never
+    // created and fail at the SQL layer.
+    const oldDerived = new Map(
+      derivedColumnsFromSchema(oldDef.schema).map((c) => [c.name, c]),
+    );
+    const newDerived = new Map(
+      derivedColumnsFromSchema(def.schema).map((c) => [c.name, c]),
+    );
+    // A redefined or dropped derived column can't be ALTERed in place; the
+    // recreate below rebuilds every column from the new schema. The source blob
+    // is copied verbatim, so redefining one is non-destructive.
+    let rebuildDerived = false;
+    for (const [name, col] of newDerived) {
+      const prior = oldDerived.get(name);
+      if (!prior) added.push(col);
+      else if (
+        prior.generatedFrom !== col.generatedFrom ||
+        prior.sqlType !== col.sqlType
+      ) {
+        rebuildDerived = true;
+      }
+    }
+    for (const name of oldDerived.keys()) {
+      if (!newDerived.has(name)) rebuildDerived = true;
+    }
+
     for (const col of added) {
       if (STANDARD_FIELDS.has(col.name)) continue;
+      if (rebuildDerived && col.generatedFrom) continue; // the recreate covers it
       addColumn(this.db, def.plural, col);
     }
-    if (removed.length > 0) {
+    if (removed.length > 0 || rebuildDerived) {
       removeColumns(this.db, def.plural, def.parents ?? [], userColumnsFromSchema(def.schema));
     }
 

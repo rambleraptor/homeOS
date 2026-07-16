@@ -7,6 +7,7 @@
 
 import type { Schema } from './types';
 import { STANDARD_FIELDS } from './types';
+import { derivedColumnsFromSchema } from './db';
 
 export interface CompiledFilter {
   sql: string;
@@ -61,7 +62,11 @@ function tokenize(input: string): Token[] {
       continue;
     }
     if (/[A-Za-z_]/.test(c)) {
-      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(input.slice(i))!;
+      // Dotted paths (`metadata.box_1_interest`) tokenize as one identifier;
+      // parseOperand resolves them against a union field's derived columns.
+      const m = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*/.exec(
+        input.slice(i),
+      )!;
       const word = m[0];
       if (word === 'true' || word === 'false') {
         tokens.push({ kind: 'bool', value: word === 'true' });
@@ -96,6 +101,11 @@ export function compileFilter(filter: string, schema: Schema): CompiledFilter {
     const fields = new Set(
       Object.keys(schema.properties ?? {}).filter((n) => !STANDARD_FIELDS.has(n)),
     );
+    // Union paths (`metadata.doc_type`) resolve to the derived column the DDL
+    // generated for them, so a filter seeks an index instead of scanning.
+    const derived = new Map(
+      derivedColumnsFromSchema(schema).map((c) => [c.path, c.name]),
+    );
     let pos = 0;
 
     const peek = () => tokens[pos];
@@ -113,11 +123,13 @@ export function compileFilter(filter: string, schema: Schema): CompiledFilter {
       const t = next();
       if (!t) throw new FilterError('unexpected end of filter');
       switch (t.kind) {
-        case 'ident':
-          if (!fields.has(t.value)) {
+        case 'ident': {
+          const column = fields.has(t.value) ? t.value : derived.get(t.value);
+          if (!column) {
             throw new FilterError(`unknown field ${JSON.stringify(t.value)}`);
           }
-          return { sql: t.value, isField: true };
+          return { sql: column, isField: true };
+        }
         case 'string':
           params.push(t.value);
           return { sql: '?', isField: false };

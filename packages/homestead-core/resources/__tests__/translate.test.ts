@@ -4,8 +4,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { toWireSchema, validateResourceDefinition } from '../translate';
-import type { ResourceDefinition } from '../types';
+import {
+  toWireSchema,
+  validateResourceDefinition,
+  variantSchemaName,
+} from '../translate';
+import type { FieldDef, ResourceDefinition } from '../types';
 
 describe('toWireSchema', () => {
   it('wraps fields in a JSON-schema object and collects required', () => {
@@ -14,7 +18,7 @@ describe('toWireSchema', () => {
         merchant: { type: 'string', required: true },
         amount: { type: 'number', required: true },
         notes: { type: 'string' },
-      }),
+      }, 'gift-card'),
     ).toEqual({
       type: 'object',
       properties: {
@@ -27,7 +31,7 @@ describe('toWireSchema', () => {
   });
 
   it('omits the required array when no field is required', () => {
-    expect(toWireSchema({ notes: { type: 'string' } })).toEqual({
+    expect(toWireSchema({ notes: { type: 'string' } }, 'gift-card')).toEqual({
       type: 'object',
       properties: { notes: { type: 'string' } },
     });
@@ -37,7 +41,7 @@ describe('toWireSchema', () => {
     expect(
       toWireSchema({
         receipt: { type: 'file', description: 'Receipt image' },
-      }).properties.receipt,
+      }, 'gift-card').properties.receipt,
     ).toEqual({
       type: 'binary',
       description: 'Receipt image',
@@ -53,7 +57,7 @@ describe('toWireSchema', () => {
         description: 'defaults to fast',
         enum: ['fast', 'slow'],
       },
-    });
+    }, 'gift-card');
     expect(properties.status).toEqual({
       type: 'string',
       description: 'one of: pending, done',
@@ -72,7 +76,7 @@ describe('toWireSchema', () => {
           singular_name: 'player',
           plural_name: 'players',
         },
-      }).properties.player,
+      }, 'game').properties.player,
     ).toEqual({ type: 'string' });
   });
 
@@ -89,7 +93,7 @@ describe('toWireSchema', () => {
             },
           },
         },
-      }).properties.scores,
+      }, 'game').properties.scores,
     ).toEqual({
       type: 'array',
       items: {
@@ -107,7 +111,7 @@ describe('toWireSchema', () => {
     expect(
       toWireSchema({
         due_at: { type: 'string', format: 'date-time' },
-      }).properties.due_at,
+      }, 'todo').properties.due_at,
     ).toEqual({ type: 'string', format: 'date-time' });
   });
 
@@ -115,9 +119,188 @@ describe('toWireSchema', () => {
     const { properties } = toWireSchema({
       checked: { type: 'boolean', default: false },
       count: { type: 'integer', default: 0 },
-    });
+    }, 'grocery');
     expect(properties.checked).toEqual({ type: 'boolean', default: false });
     expect(properties.count).toEqual({ type: 'integer', default: 0 });
+  });
+});
+
+describe('toWireSchema — tagged unions', () => {
+  const docFields = {
+    metadata: {
+      type: 'object' as const,
+      discriminator: 'doc_type',
+      variants: {
+        'form-1099-int': {
+          payer_name: { type: 'string' as const, required: true },
+          box_1_interest: { type: 'number' as const },
+        },
+        'form-w2': { employer: { type: 'string' as const } },
+      },
+    },
+  };
+
+  it('translates variants to oneOf with an injected required tag', () => {
+    const { properties } = toWireSchema(docFields, 'document');
+    expect(properties.metadata.oneOf).toEqual([
+      {
+        type: 'object',
+        properties: {
+          doc_type: { type: 'string', enum: ['form-1099-int'] },
+          payer_name: { type: 'string' },
+          box_1_interest: { type: 'number' },
+        },
+        required: ['doc_type', 'payer_name'],
+      },
+      {
+        type: 'object',
+        properties: {
+          doc_type: { type: 'string', enum: ['form-w2'] },
+          employer: { type: 'string' },
+        },
+        required: ['doc_type'],
+      },
+    ]);
+  });
+
+  it('maps each tag value to a namespaced component schema', () => {
+    const { properties } = toWireSchema(docFields, 'document');
+    expect(properties.metadata.discriminator).toEqual({
+      propertyName: 'doc_type',
+      mapping: {
+        'form-1099-int': '#/components/schemas/DocumentMetadataForm1099Int',
+        'form-w2': '#/components/schemas/DocumentMetadataFormW2',
+      },
+    });
+  });
+
+  it('namespaces by resource + field so a variant cannot collide with a resource', () => {
+    expect(variantSchemaName('document', 'metadata', 'form-1099-int')).toBe(
+      'DocumentMetadataForm1099Int',
+    );
+    // A resource whose singular is `form-1099-int` occupies the bare
+    // `Form1099Int`-shaped key; the namespaced variant must not collide.
+    expect(variantSchemaName('document', 'metadata', 'form-1099-int')).not.toBe(
+      'Form1099Int',
+    );
+  });
+});
+
+describe('validateResourceDefinition — tagged unions', () => {
+  const def = (fields: ResourceDefinition['fields']): ResourceDefinition => ({
+    singular: 'document',
+    plural: 'documents',
+    fields,
+  });
+
+  const union = (
+    variants: Record<string, Record<string, FieldDef>>,
+    discriminator: string | undefined = 'doc_type',
+  ) => def({ metadata: { type: 'object', discriminator, variants } });
+
+  it('accepts a well-formed union', () => {
+    expect(() =>
+      validateResourceDefinition(
+        union({
+          'form-1099-int': { payer_name: { type: 'string' } },
+          'form-w2': { employer: { type: 'string' } },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects a field whose type disagrees across variants', () => {
+    expect(() =>
+      validateResourceDefinition(
+        union({
+          'form-1099-int': { amount: { type: 'number' } },
+          'form-w2': { amount: { type: 'string' } },
+        }),
+      ),
+    ).toThrow(/declares "amount" as number in variant .* but string in .* types must agree/s);
+  });
+
+  it('accepts a field shared across variants when the types agree', () => {
+    expect(() =>
+      validateResourceDefinition(
+        union({
+          'form-1099-int': { amount: { type: 'number' } },
+          'form-w2': { amount: { type: 'number' } },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects variants without a discriminator, and vice versa', () => {
+    // Built inline: passing `undefined` to `union` would hit its default.
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          metadata: {
+            type: 'object',
+            variants: { 'form-w2': { employer: { type: 'string' } } },
+          },
+        }),
+      ),
+    ).toThrow(/declares variants but no discriminator/);
+    expect(() =>
+      validateResourceDefinition(
+        def({ metadata: { type: 'object', discriminator: 'doc_type' } }),
+      ),
+    ).toThrow(/declares a discriminator but no variants/);
+  });
+
+  it('rejects a variant that declares the discriminator itself', () => {
+    expect(() =>
+      validateResourceDefinition(
+        union({ 'form-w2': { doc_type: { type: 'string' } } }),
+      ),
+    ).toThrow(/must not declare the discriminator "doc_type"/);
+  });
+
+  it('rejects non-kebab-case variant ids and non-snake_case tags', () => {
+    expect(() =>
+      validateResourceDefinition(union({ formW2: { employer: { type: 'string' } } })),
+    ).toThrow(/variant "formW2" must be kebab-case/);
+    expect(() =>
+      validateResourceDefinition(
+        union({ 'form-w2': { employer: { type: 'string' } } }, 'docType'),
+      ),
+    ).toThrow(/discriminator "docType" must be snake_case/);
+  });
+
+  it('rejects variants on a non-object field, and properties alongside variants', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          metadata: {
+            type: 'string',
+            discriminator: 'doc_type',
+            variants: { 'form-w2': {} },
+          },
+        }),
+      ),
+    ).toThrow(/declares variants but is not an object/);
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          metadata: {
+            type: 'object',
+            discriminator: 'doc_type',
+            variants: { 'form-w2': {} },
+            properties: { other: { type: 'string' } },
+          },
+        }),
+      ),
+    ).toThrow(/cannot declare both properties and variants/);
+  });
+
+  it('validates field names inside variants', () => {
+    expect(() =>
+      validateResourceDefinition(
+        union({ 'form-w2': { employerName: { type: 'string' } } }),
+      ),
+    ).toThrow(/"metadata.form-w2.employerName" must be snake_case/);
   });
 });
 

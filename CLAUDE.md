@@ -313,9 +313,14 @@ The whole backend in one Bun process:
 - `src/app-registry.js` — JS indirection that initializes the app registry
   from the repo-root `homestead.config.ts` (incl. `auth.oauth` and the
   app-access map) without dragging the React app graph into `tsc`.
-- `test/` — `bun test` suite, including Go-parity behavioral tests and an
-  OpenAPI snapshot/round-trip check against
-  `test/fixtures/openapi-go-snapshot.json`.
+- `test/` — `bun test` suite, including an OpenAPI wire-contract check against
+  the frozen baseline `test/fixtures/openapi-baseline.json` plus a round-trip
+  through `@aep_dev/aep-lib-ts` (the fidelity bar for `homestead resources`).
+  The baseline was captured from the Go server this engine replaced; that
+  server is gone, so it's a golden reference for the AEP contract, not a
+  parity target. Some tests and comments still cite Go behavior to explain
+  *why* an odd rule exists (bcrypt `$2a$` rows, `200 {}` on user delete) —
+  those are historical rationale, not a live constraint.
 
 ### Launcher (`packages/homestead-cli/`)
 

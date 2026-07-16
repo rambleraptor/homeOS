@@ -576,6 +576,40 @@ function buildPaths(doc: ResourceDoc, schemaExample: Json | undefined): Record<s
   return paths;
 }
 
+/**
+ * Hoist a tagged union's inline variants into `components.schemas`, replacing
+ * each with a `$ref` to the name its `discriminator.mapping` already points at.
+ *
+ * OpenAPI requires every `mapping` value resolve to a real schema, so emitting
+ * the variants inline while the mapping names components would leave dangling
+ * refs. Unions without a mapping stay inline, which is still valid — there's
+ * just no name to hoist them under.
+ */
+function hoistUnionVariants(schema: Json, schemas: Record<string, Json>): void {
+  const properties = schema.properties as Record<string, Json> | undefined;
+  for (const prop of Object.values(properties ?? {})) {
+    const oneOf = prop.oneOf as Json[] | undefined;
+    const discriminator = prop.discriminator as
+      | { propertyName: string; mapping?: Record<string, string> }
+      | undefined;
+    if (!oneOf || !discriminator?.mapping) continue;
+
+    const tag = discriminator.propertyName;
+    // A new array: `componentSchema` shallow-copies each property, so mutating
+    // the original would reach through into the registry's stored schema.
+    prop.oneOf = oneOf.map((variant) => {
+      const variantProps = variant.properties as Record<string, Json> | undefined;
+      const tagValues = variantProps?.[tag]?.enum as string[] | undefined;
+      const ref = tagValues?.[0] ? discriminator.mapping![tagValues[0]] : undefined;
+      const name = ref?.split('/').pop();
+      // Never clobber a resource's own component schema.
+      if (!ref || !name || name in schemas) return variant;
+      schemas[name] = variant;
+      return { $ref: ref };
+    });
+  }
+}
+
 export function buildOpenApi(reg: Registry): Json {
   const docs: ResourceDoc[] = [
     metaResourceDoc(),
@@ -589,6 +623,7 @@ export function buildOpenApi(reg: Registry): Json {
   for (const doc of docs) {
     const schema = componentSchema(doc);
     schemas[doc.singular] = schema;
+    hoistUnionVariants(schema, schemas);
     const schemaExample = (schema.example as Json | undefined) ?? undefined;
     Object.assign(paths, buildPaths(doc, schemaExample));
     const tag: Json = { name: doc.singular };

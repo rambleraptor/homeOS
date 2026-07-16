@@ -1,8 +1,11 @@
 /**
  * Validates the generated OpenAPI doc two ways:
- * 1. Structural invariants against a snapshot captured from the real Go
- *    server (test/fixtures/openapi-go-snapshot.json) for the same resource
- *    set.
+ * 1. Structural invariants against a frozen baseline
+ *    (test/fixtures/openapi-baseline.json) for a fixed resource set — a
+ *    regression guard on the AEP wire contract: path shapes, operationIds,
+ *    skip/filter parameter names, the `results` envelope. (Originally captured
+ *    from the Go server this engine replaced; that server is long gone, so the
+ *    file is a golden reference, not a parity target.)
  * 2. A consumer round-trip through @aep_dev/aep-lib-ts `APIClient.fromOpenAPI`
  *    plus the CLI's patchCreateMethods logic — the actual fidelity bar for
  *    `homestead resources`.
@@ -10,14 +13,14 @@
 
 import { beforeAll, describe, expect, test } from 'vitest';
 import { APIClient } from '@aep_dev/aep-lib-ts';
-import goSnapshot from '../fixtures/openapi-go-snapshot.json';
+import baseline from '../fixtures/openapi-baseline.json';
 import { call, defineResource, makeEngine, type TestEngine } from './helpers';
 
 let t: TestEngine;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let doc: any;
 
-/** Recreate the resource set the Go snapshot was captured with. */
+/** Recreate the fixed resource set the baseline covers. */
 beforeAll(async () => {
   t = await makeEngine();
   await defineResource(t, {
@@ -69,13 +72,13 @@ beforeAll(async () => {
   doc = await res.json();
 });
 
-describe('snapshot invariants vs the Go server', () => {
+describe('AEP wire-contract invariants vs the baseline', () => {
   test('same path set', () => {
-    expect(Object.keys(doc.paths).sort()).toEqual(Object.keys(goSnapshot.paths).sort());
+    expect(Object.keys(doc.paths).sort()).toEqual(Object.keys(baseline.paths).sort());
   });
 
   test('same operations per path', () => {
-    for (const [path, ops] of Object.entries(goSnapshot.paths)) {
+    for (const [path, ops] of Object.entries(baseline.paths)) {
       expect(Object.keys(doc.paths[path]).sort()).toEqual(
         Object.keys(ops as object).sort(),
       );
@@ -83,32 +86,32 @@ describe('snapshot invariants vs the Go server', () => {
   });
 
   test('same operationIds and parameter names', () => {
-    for (const [path, ops] of Object.entries(goSnapshot.paths) as [string, Record<string, any>][]) {
+    for (const [path, ops] of Object.entries(baseline.paths) as [string, Record<string, any>][]) {
       for (const [method, op] of Object.entries(ops) as [string, any][]) {
         const ours = doc.paths[path][method];
         expect(ours.operationId).toBe(op['operationId']);
-        const goParams = ((op['parameters'] ?? []) as { name: string }[]).map((p) => p.name);
+        const baselineParams = ((op['parameters'] ?? []) as { name: string }[]).map((p) => p.name);
         const ourParams = ((ours.parameters ?? []) as { name: string }[]).map((p) => p.name);
-        expect(ourParams.sort()).toEqual(goParams.sort());
+        expect(ourParams.sort()).toEqual(baselineParams.sort());
       }
     }
   });
 
   test('same component schemas with matching x-aep-resource', () => {
-    const goSchemas = goSnapshot.components.schemas as unknown as Record<string, any>;
-    expect(Object.keys(doc.components.schemas).sort()).toEqual(Object.keys(goSchemas).sort());
-    for (const [name, goSchema] of Object.entries(goSchemas)) {
+    const baselineSchemas = baseline.components.schemas as unknown as Record<string, any>;
+    expect(Object.keys(doc.components.schemas).sort()).toEqual(Object.keys(baselineSchemas).sort());
+    for (const [name, baselineSchema] of Object.entries(baselineSchemas)) {
       const ours = doc.components.schemas[name];
-      expect(ours['x-aep-resource']).toEqual(goSchema['x-aep-resource']);
+      expect(ours['x-aep-resource']).toEqual(baselineSchema['x-aep-resource']);
       expect(Object.keys(ours.properties).sort()).toEqual(
-        Object.keys(goSchema['properties']).sort(),
+        Object.keys(baselineSchema['properties']).sort(),
       );
-      expect(ours.required ?? []).toEqual(goSchema['required'] ?? []);
+      expect(ours.required ?? []).toEqual(baselineSchema['required'] ?? []);
     }
   });
 
   test('same response status codes per operation', () => {
-    for (const [path, ops] of Object.entries(goSnapshot.paths) as [string, Record<string, any>][]) {
+    for (const [path, ops] of Object.entries(baseline.paths) as [string, Record<string, any>][]) {
       for (const [method, op] of Object.entries(ops) as [string, any][]) {
         expect(Object.keys(doc.paths[path][method].responses).sort()).toEqual(
           Object.keys(op['responses']).sort(),
@@ -146,14 +149,14 @@ describe('aep-lib-ts consumer round-trip', () => {
       };
     }
 
-    // Parity bar: the same resource set aep-lib-ts derives from the Go doc.
+    // Fidelity bar: the same resource set aep-lib-ts derives from the baseline.
     // (Singletons like `profile` are invisible to fromOpenAPI for both —
     // their GET response isn't a list envelope — so neither doc surfaces it.)
-    const goClient = await APIClient.fromOpenAPI(
-      goSnapshot as never,
+    const baselineClient = await APIClient.fromOpenAPI(
+      baseline as never,
       'http://localhost:8090',
     );
-    expect(Object.keys(resources).sort()).toEqual(Object.keys(goClient.resources()).sort());
+    expect(Object.keys(resources).sort()).toEqual(Object.keys(baselineClient.resources()).sort());
 
     const giftCard = resources['gift-card'] as {
       plural: string;

@@ -4,6 +4,15 @@
  * table without mapping layers — same shapes the Go server used.
  */
 
+/**
+ * OpenAPI discriminator object. `propertyName` names the tag property every
+ * `oneOf` variant defines and requires.
+ */
+export interface SchemaDiscriminator {
+  propertyName: string;
+  mapping?: Record<string, string>;
+}
+
 /** OpenAPI-style schema property (subset the engine understands). */
 export interface SchemaProperty {
   type?: string; // string | integer | number | boolean | object | array | binary
@@ -16,6 +25,15 @@ export interface SchemaProperty {
   example?: unknown;
   /** Default applied on create when the field is absent from the body. */
   default?: unknown;
+  /** Allowed values. Preserved on `oneOf` variants' discriminator tags. */
+  enum?: readonly string[];
+  /**
+   * Tagged-union variants for an object property. Paired with
+   * {@link discriminator}; each variant's fields are projected into derived
+   * columns so `filter` can reach them (see `userColumnsFromSchema`).
+   */
+  oneOf?: SchemaProperty[];
+  discriminator?: SchemaDiscriminator;
   [extension: string]: unknown; // x-aepbase-file-field and friends
 }
 
