@@ -278,7 +278,7 @@ describe('dispatchCustomMethod', () => {
 
       const res = await dispatchCustomMethod({
         request: makeRequest('POST'),
-        path: '/grocery-items:demo-slow',
+        path: '/grocery-items:long-task',
         resolveMethod: () => makeMethod(handler, { async: true }),
         authenticate: async () => fakeAuth,
         passthrough: neverPassthrough,
@@ -290,7 +290,7 @@ describe('dispatchCustomMethod', () => {
       expect(operations.create).toHaveBeenCalledWith(
         expect.objectContaining({
           token: 'tok',
-          method: 'grocery-items:demo-slow',
+          method: 'grocery-items:long-task',
           createdBy: 'u1',
         }),
       );
@@ -314,7 +314,7 @@ describe('dispatchCustomMethod', () => {
 
       const res = await dispatchCustomMethod({
         request: makeRequest('POST'),
-        path: '/grocery-items:demo-slow',
+        path: '/grocery-items:long-task',
         resolveMethod: () => makeMethod(handler, { async: true }),
         authenticate: async () => fakeAuth,
         passthrough: neverPassthrough,
@@ -328,11 +328,96 @@ describe('dispatchCustomMethod', () => {
       );
     });
 
+    it('lets the background handler read the request body after the 202', async () => {
+      const { operations, completed } = makeOperationStore({
+        id: 'op-body',
+        path: 'operations/op-body',
+        done: false,
+      });
+      // The 202 is sent before the handler runs, so the body must be buffered.
+      const handler = vi.fn(async ({ request }) => await request.json());
+
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST', { hello: 'world' }),
+        path: '/grocery-items:long-task',
+        resolveMethod: () => makeMethod(handler, { async: true }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(res.status).toBe(202);
+      await completed;
+      expect(operations.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ response: { hello: 'world' } }),
+      );
+    });
+
+    it('rejects pre-flight without creating an operation', async () => {
+      const { operations } = makeOperationStore({
+        id: 'op-preflight',
+        path: 'operations/op-preflight',
+        done: false,
+      });
+      const handler = vi.fn(async () => ({}));
+      const validate = vi.fn(async () =>
+        Response.json({ error: 'Service unavailable' }, { status: 503 }),
+      );
+
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST', { image: 'x' }),
+        path: '/hsa-receipts:parse-receipt',
+        resolveMethod: () => ({
+          target: 'collection',
+          async: true,
+          load: async () => ({ default: handler, validate }),
+        }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(res.status).toBe(503);
+      expect(operations.create).not.toHaveBeenCalled();
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('creates the operation with the declared title once validate passes', async () => {
+      const { operations, completed } = makeOperationStore({
+        id: 'op-title',
+        path: 'operations/op-title',
+        done: false,
+      });
+      const handler = vi.fn(async () => ({ ok: true }));
+      const validate = vi.fn(async () => undefined);
+
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST', { image: 'x' }),
+        path: '/hsa-receipts:parse-receipt',
+        resolveMethod: () => ({
+          target: 'collection',
+          async: true,
+          title: 'Parse receipt',
+          load: async () => ({ default: handler, validate }),
+        }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(res.status).toBe(202);
+      expect(validate).toHaveBeenCalledOnce();
+      expect(operations.create).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Parse receipt' }),
+      );
+      await completed;
+    });
+
     it('returns 500 when an async method is dispatched without an operation store', async () => {
       const handler = vi.fn(async () => ({}));
       const res = await dispatchCustomMethod({
         request: makeRequest('POST'),
-        path: '/grocery-items:demo-slow',
+        path: '/grocery-items:long-task',
         resolveMethod: () => makeMethod(handler, { async: true }),
         authenticate: async () => fakeAuth,
         passthrough: neverPassthrough,

@@ -17,6 +17,7 @@
 
 import type {
   AsyncCustomMethodHandler,
+  AsyncCustomMethodValidator,
   CustomMethodAuth,
   CustomMethodHandler,
   CustomMethodContext,
@@ -143,9 +144,11 @@ export async function dispatchCustomMethod({
   }
 
   let handler: CustomMethodHandler | AsyncCustomMethodHandler;
+  let validate: AsyncCustomMethodValidator | undefined;
   try {
     const mod = await method.load();
     handler = mod.default;
+    validate = mod.validate;
   } catch (error) {
     console.error(
       `Failed to load custom method ${parsed.plural}:${parsed.verb}:`,
@@ -180,7 +183,10 @@ export async function dispatchCustomMethod({
         { status: 500 },
       );
     }
-    return dispatchAsync(ctx, handler as AsyncCustomMethodHandler, operations);
+    return dispatchAsync(ctx, handler as AsyncCustomMethodHandler, operations, {
+      title: method.title,
+      validate,
+    });
   }
 
   try {
@@ -201,21 +207,57 @@ export async function dispatchCustomMethod({
 }
 
 /**
- * Kick off an async method: create a pending operation, return `202` with it,
- * and let the handler run detached. On settle, record the result (or error)
- * against the operation so pollers see `done: true`.
+ * Kick off an async method: run the optional pre-flight check, create a
+ * pending operation, return `202` with it, and let the handler run detached.
+ * On settle, record the result (or error) against the operation so pollers see
+ * `done: true`.
  */
 async function dispatchAsync(
   ctx: CustomMethodContext,
   handler: AsyncCustomMethodHandler,
   operations: OperationStore,
+  { title, validate }: { title?: string; validate?: AsyncCustomMethodValidator },
 ): Promise<Response> {
   const methodName = `${ctx.plural}:${ctx.verb}`;
+
+  // The handler runs after we've answered with 202, by which point the original
+  // body stream may be gone — and `validate` needs to read the body too. Buffer
+  // the bytes once and hand each stage its own replayable Request.
+  let replay: () => Request;
+  try {
+    replay = await bufferBody(ctx.request);
+  } catch (error) {
+    console.error(`Failed to read body for ${methodName}:`, error);
+    return Response.json(
+      { error: 'Bad request', message: 'Could not read request body' },
+      { status: 400 },
+    );
+  }
+
+  // Pre-flight: reject before any operation exists (AEP-151 — errors that stop
+  // the operation from starting are ordinary error responses, not a 202).
+  if (validate) {
+    try {
+      const rejection = await validate({ ...ctx, request: replay() });
+      if (rejection) return rejection;
+    } catch (error) {
+      console.error(`Pre-flight check for ${methodName} threw:`, error);
+      return Response.json(
+        {
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   let operation;
   try {
     operation = await operations.create({
       token: ctx.auth.token,
       method: methodName,
+      title,
       createdBy: ctx.auth.user.id,
     });
   } catch (error) {
@@ -226,10 +268,7 @@ async function dispatchAsync(
     );
   }
 
-  // The handler runs after we've answered with 202, so the original request
-  // body stream may no longer be readable. Buffer it into a fresh Request the
-  // background handler can safely consume.
-  const bgCtx: CustomMethodContext = { ...ctx, request: await bufferRequest(ctx.request) };
+  const bgCtx: CustomMethodContext = { ...ctx, request: replay() };
 
   // Fire-and-forget: the request has already been answered with 202.
   void (async () => {
@@ -250,17 +289,19 @@ async function dispatchAsync(
 }
 
 /**
- * Buffer a request's body into a fresh, replayable Request. An async handler
- * runs after the 202 response is sent, by which point the original streaming
- * body may be gone — reading the bytes eagerly here keeps `request.json()`
- * working inside the handler. Bodyless methods are returned untouched.
+ * Read a request's body once and return a factory that mints a fresh, readable
+ * Request per call — a body stream can only be consumed once, but the
+ * pre-flight check and the background handler each need their own.
  */
-async function bufferRequest(request: Request): Promise<Request> {
-  if (request.method === 'GET' || request.method === 'HEAD') return request;
+async function bufferBody(request: Request): Promise<() => Request> {
+  if (request.method === 'GET' || request.method === 'HEAD') {
+    return () => request;
+  }
   const body = await request.arrayBuffer();
-  return new Request(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body,
-  });
+  return () =>
+    new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body,
+    });
 }

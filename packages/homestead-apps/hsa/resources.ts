@@ -32,11 +32,15 @@ export const hsaResources: ResourceDefinition[] = [
       notes: { type: 'string' },
       created_by: { type: 'string' },
     },
-    // AEP-136 custom method on the hsa-receipt collection:
+    // AEP-136 custom method on the hsa-receipt collection. Long-running
+    // (AEP-151): returns 202 + a pollable operation rather than blocking on
+    // the AI parse.
     //   POST /api/aep/hsa-receipts:parse-receipt
     customMethods: {
       'parse-receipt': {
         target: 'collection',
+        async: true,
+        title: 'Parse receipt',
         load: () => import('./methods/parse-receipt'),
       },
     },
