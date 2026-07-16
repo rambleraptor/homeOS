@@ -1,14 +1,11 @@
 /**
  * E2E: AEP-151 long-running operations.
  *
- * Covers the surfaces unit tests can't: the notifications app's Operations tab
- * and the top-bar bell that spins while work is in flight.
- *
- * Operations are seeded over REST rather than by driving a real async method —
- * the only one (`hsa-receipts:parse-receipt`) needs an AI key the e2e server
- * doesn't have, and seeding keeps the test deterministic and fast. The
- * dispatcher's async path is covered by unit tests; the last test here pins the
- * pre-flight behaviour that needs no AI.
+ * Drives the real async method — `hsa-receipts:parse-receipt` — end to end:
+ * the call returns 202 + an operation, the AI parse runs in the background,
+ * and the notifications app tracks it. The AI provider is a local stub (see
+ * config/ai-stub.ts) so no paid model is called; the stub's deliberate delay is
+ * what keeps the operation observably `running`.
  *
  * Operations are a top-level, household-shared collection (not user-scoped), so
  * each test cleans up the records it creates.
@@ -16,86 +13,100 @@
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { NotificationsPage } from '../../pages/NotificationsPage';
-import {
-  aepCreate,
-  aepList,
-  aepRemove,
-  aepUpdate,
-  postCustomMethod,
-} from '../../utils/aepbase-helpers';
+import { aepList, aepRemove, postCustomMethod } from '../../utils/aepbase-helpers';
+import { FAIL_IMAGE, OK_IMAGE } from '../../config/ai-stub';
 
 interface OperationRecord {
   id: string;
+  done: boolean;
+  status?: string;
+  title?: string;
+  response?: { data?: { merchant?: string } };
 }
 
 const OPERATIONS = 'operations';
+const PARSE_RECEIPT = '/hsa-receipts:parse-receipt';
 
 test.describe('Operations (AEP-151)', () => {
   const createdIds: string[] = [];
 
-  // Never leave a "running" operation behind — the bell would spin for
-  // every later test.
+  // Never leave an operation behind — a stray "running" one would spin the
+  // bell for every later test.
   test.afterEach(async ({ adminToken }) => {
     for (const id of createdIds.splice(0)) {
       await aepRemove(adminToken, OPERATIONS, id).catch(() => {});
     }
   });
 
-  async function seedOperation(
-    token: string,
-    fields: Record<string, unknown>,
-  ): Promise<OperationRecord> {
-    const operation = await aepCreate<OperationRecord>(token, OPERATIONS, {
-      method: 'hsa-receipts:parse-receipt',
-      title: 'Parse receipt',
-      ...fields,
+  /** Invoke the real async method; returns the 202 operation it spawned. */
+  async function startParse(token: string, image: string): Promise<OperationRecord> {
+    const res = await postCustomMethod(token, PARSE_RECEIPT, {
+      image,
+      mimeType: 'image/png',
     });
+    expect(res.status).toBe(202);
+    const operation = (await res.json()) as OperationRecord;
+    expect(operation.done).toBe(false);
     createdIds.push(operation.id);
     return operation;
   }
 
-  test('bell spins and the Operations tab tracks a running operation to completion', async ({
+  test('bell spins and the Operations tab tracks a real parse to completion', async ({
     authenticatedPage,
     userToken,
   }) => {
-    const operation = await seedOperation(userToken, {
-      done: false,
-      status: 'running',
-    });
+    const operation = await startParse(userToken, OK_IMAGE);
 
     const notifications = new NotificationsPage(authenticatedPage);
     await notifications.goto();
 
-    // The bell wears a spinner while the operation runs.
+    // The bell wears a spinner while the parse runs.
     await expect(notifications.bellSpinner).toBeVisible({ timeout: 30_000 });
 
-    // The Operations tab lists it as running.
+    // The Operations tab lists it under the method's declared title.
     await notifications.openOperationsTab();
     const row = notifications.operationRow(operation.id);
     await expect(row).toBeVisible();
     await expect(row).toContainText('Parse receipt');
     await expect(row).toContainText(/running/i);
 
-    // Finish it server-side; the polling query should pick the change up.
-    await aepUpdate(userToken, OPERATIONS, operation.id, {
-      done: true,
-      status: 'succeeded',
-      response: { message: 'Receipt parsed successfully' },
-    });
-
+    // The background parse finishes; the polling UI notices and the bell clears.
     await expect(row).toContainText(/completed/i, { timeout: 20_000 });
     await expect(notifications.bellSpinner).toBeHidden();
   });
 
-  test('a failed operation shows its error and does not spin the bell', async ({
+  test('a completed operation carries the parsed receipt as its response', async ({
+    userToken,
+  }) => {
+    const operation = await startParse(userToken, OK_IMAGE);
+
+    // Poll the operation the way a client does, until it settles.
+    await expect
+      .poll(
+        async () => {
+          const [record] = (await aepList<OperationRecord>(userToken, OPERATIONS)).filter(
+            (o) => o.id === operation.id,
+          );
+          return record?.done ?? false;
+        },
+        { timeout: 20_000 },
+      )
+      .toBe(true);
+
+    const [settled] = (await aepList<OperationRecord>(userToken, OPERATIONS)).filter(
+      (o) => o.id === operation.id,
+    );
+    expect(settled.status).toBe('succeeded');
+    expect(settled.response?.data?.merchant).toBe('CVS Pharmacy');
+  });
+
+  test('a parse that finds nothing fails the operation and shows the error', async ({
     authenticatedPage,
     userToken,
   }) => {
-    const operation = await seedOperation(userToken, {
-      done: true,
-      status: 'failed',
-      error: { message: 'No receipt data found in image' },
-    });
+    // The stub returns an empty object for this image, so the real handler
+    // throws and the failure lands on the operation.
+    const operation = await startParse(userToken, FAIL_IMAGE);
 
     const notifications = new NotificationsPage(authenticatedPage);
     await notifications.goto();
@@ -103,7 +114,7 @@ test.describe('Operations (AEP-151)', () => {
 
     const row = notifications.operationRow(operation.id);
     await expect(row).toBeVisible();
-    await expect(row).toContainText(/failed/i);
+    await expect(row).toContainText(/failed/i, { timeout: 20_000 });
     await expect(row).toContainText('No receipt data found in image');
     await expect(notifications.bellSpinner).toBeHidden();
   });
@@ -111,16 +122,15 @@ test.describe('Operations (AEP-151)', () => {
   test('an async method rejected pre-flight returns an error, not an operation', async ({
     userToken,
   }) => {
-    // The e2e server runs without an AI key, so parse-receipt's `validate`
-    // must reject with a plain 503 before any operation exists — AEP-151:
-    // errors that stop the operation starting are ordinary error responses.
+    // AEP-151: errors that stop the operation starting are ordinary error
+    // responses. A non-image mimeType fails `validate` before anything exists.
     const before = await aepList<OperationRecord>(userToken, OPERATIONS);
 
-    const res = await postCustomMethod(userToken, '/hsa-receipts:parse-receipt', {
-      image: 'ZmFrZQ==',
-      mimeType: 'image/png',
+    const res = await postCustomMethod(userToken, PARSE_RECEIPT, {
+      image: OK_IMAGE,
+      mimeType: 'application/zip',
     });
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(400);
 
     const after = await aepList<OperationRecord>(userToken, OPERATIONS);
     expect(after.length).toBe(before.length);

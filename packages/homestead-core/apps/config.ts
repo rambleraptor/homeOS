@@ -79,6 +79,13 @@ export interface AiConfig {
   model: string;
   /** Provider credentials. */
   auth: AiAuthConfig;
+  /**
+   * Override the provider's API endpoint. Point this at any host speaking the
+   * chosen provider's wire format — a self-hosted or proxied model (Ollama,
+   * vLLM, LiteLLM) or a gateway. Omit to use the provider's default cloud
+   * endpoint.
+   */
+  baseURL?: string;
 }
 
 /**
