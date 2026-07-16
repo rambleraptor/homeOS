@@ -5,21 +5,21 @@
 import { User, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
-import type { ParsedItem } from '@rambleraptor/homestead-core/shared/bulk-import';
-import type { PersonCSVData } from '../types';
+import type { ItemPreviewProps } from '@rambleraptor/homestead-core/shared/bulk-import';
+// Type-only: the parser itself is server-only and stubbed out of this bundle.
+import type { PersonCsvData } from '../methods/bulk-import-csv';
 
-interface PersonPreviewProps {
-  item: ParsedItem<PersonCSVData>;
-  isSelected: boolean;
-  onToggle: () => void;
-}
-
-export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps) {
+export function PersonPreview({
+  item,
+  isSelected,
+  onToggle,
+}: ItemPreviewProps<PersonCsvData>) {
   const person = item.data;
+  const isValid = item.errors.length === 0;
 
   const icon = <User className="h-5 w-5" />;
 
-  const statusIcon = item.isValid ? (
+  const statusIcon = isValid ? (
     <CheckCircle2 className="h-5 w-5 text-green-600" />
   ) : (
     <XCircle className="h-5 w-5 text-destructive" />
@@ -27,7 +27,7 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
 
   return (
     <Card
-      className={`p-4 transition-colors ${item.isValid
+      className={`p-4 transition-colors ${isValid
         ? isSelected
           ? 'border-primary bg-primary/5'
           : 'hover:border-primary/50'
@@ -37,7 +37,7 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
       <div className="flex items-start gap-4">
         {/* Checkbox (only for valid people) */}
         <div className="flex items-center pt-1">
-          {item.isValid ? (
+          {isValid ? (
             <Checkbox
               checked={isSelected}
               onCheckedChange={onToggle}
@@ -72,7 +72,7 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
           </div>
 
           {/* Partner Name */}
-          {person.partner_name && item.isValid && (
+          {person.partner_name && isValid && (
             <div className="flex flex-wrap gap-1 mb-2">
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                 💑 Partner: {person.partner_name}
@@ -81,7 +81,7 @@ export function PersonPreview({ item, isSelected, onToggle }: PersonPreviewProps
           )}
 
           {/* WiFi Info */}
-          {person.wifi_network && item.isValid && (
+          {person.wifi_network && isValid && (
             <div className="flex flex-wrap gap-1 mb-2">
               <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
                 📶 WiFi: {person.wifi_network}

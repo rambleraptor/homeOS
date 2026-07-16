@@ -45,10 +45,10 @@ test.describe('People Bulk Import', () => {
         await expect(authenticatedPage.getByText('Valid People', { exact: true })).toBeVisible({ timeout: 10000 });
         await expect(authenticatedPage.getByText('3', { exact: true }).first()).toBeVisible();
 
-        // Items are auto-selected on upload, so we can import directly
+        // Importable items are pre-selected by the preview.
         // Wait for the import button to be enabled with the correct count
         await expect(authenticatedPage.getByTestId('import-button')).toBeEnabled({ timeout: 5000 });
-        await expect(authenticatedPage.getByTestId('import-button')).toContainText('Import 3 People(s)');
+        await expect(authenticatedPage.getByTestId('import-button')).toContainText('Import 3 People');
 
         // Click the import button (which shows selected count)
         await authenticatedPage.getByTestId('import-button').click();

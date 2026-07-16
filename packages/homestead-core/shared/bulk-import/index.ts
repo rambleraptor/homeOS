@@ -1,51 +1,47 @@
 /**
- * Reusable Bulk Import Framework
+ * Bulk import — client half.
  *
- * This library provides a generic bulk import system that can be used
- * across different apps to import data from CSV files.
+ * Parsing and writing live on the server, behind the `<plural>:bulk-import`
+ * custom method the registry synthesizes from a resource's `bulkImport`
+ * declaration. That makes bulk import reachable from the CLI
+ * (`homestead resources gift-cards bulk-import --@data …`) and any REST caller,
+ * not just this page.
  *
- * Usage:
- * 1. Define your import schema with field validators
- * 2. Create a custom preview component (optional)
- * 3. Use BulkImportContainer with your configuration
+ * An app's whole import UI is the standardized page:
  *
- * Example:
  * ```tsx
- * import { BulkImportContainer, useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
- *
- * export function MyAppBulkImport() {
- *   const bulkImport = useBulkImport({
- *     collection: Collections.MY_APP,
- *     queryKey: queryKeys.app('my-app').list(),
- *   });
- *
+ * // gift-cards/bulk-import/index.tsx — wired via an `import` route in app.config.ts
+ * export function GiftCardBulkImport() {
  *   return (
  *     <BulkImportContainer
  *       config={{
- *         appName: 'My App',
- *         appNamePlural: 'my apps',
- *         backRoute: '/my-app',
- *         schema: myAppSchema,
- *         onImport: bulkImport.mutateAsync,
- *         isImporting: bulkImport.isPending,
+ *         plural: 'gift-cards',
+ *         appName: 'Gift Card',
+ *         appNamePlural: 'gift cards',
+ *         backRoute: '/gift-cards',
+ *         preview: GiftCardPreview,
  *       }}
  *     />
  *   );
  * }
  * ```
+ *
+ * The formats it offers come from the server at runtime, so adding a file type
+ * to an app changes no UI code. To add one, see
+ * `core/resources/bulk-import/types.ts`.
  */
 
 export { BulkImportContainer } from './BulkImportContainer';
 export { DefaultItemPreview } from './DefaultItemPreview';
-export { parseCSV, downloadCSVTemplate } from './csvParser';
-export { useBulkImport } from './useBulkImport';
+export {
+  useBulkImportFormats,
+  useBulkImportPreview,
+  useBulkImportRun,
+} from './useBulkImport';
 
 export type {
-  FieldValidator,
-  FieldConfig,
-  BulkImportSchema,
+  BulkImportPageConfig,
+  ItemPreviewComponent,
+  ItemPreviewProps,
   ParsedItem,
-  CSVParseResult,
-  BulkImportResult,
-  BulkImportConfig,
 } from './types';

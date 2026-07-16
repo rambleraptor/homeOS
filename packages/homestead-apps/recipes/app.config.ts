@@ -24,6 +24,11 @@ export const recipesApp: AppConfig = {
         index: true,
         component: () => import('./components/RecipesHome').then((m) => m.RecipesHome),
       },
+      // Before `:id`, which would otherwise match "import" as a recipe id.
+      {
+        path: 'import',
+        component: () => import('./bulk-import').then((m) => m.RecipesBulkImport),
+      },
       {
         path: ':id',
         component: () =>

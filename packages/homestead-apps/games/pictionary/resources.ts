@@ -28,6 +28,20 @@ export const pictionaryResources: ResourceDefinition[] = [
       notes: { type: 'string' },
       created_by: { type: 'string', description: 'users/{user_id}' },
     },
+    bulkImport: {
+      formats: [
+        {
+          id: 'csv',
+          label: 'CSV',
+          inputType: 'file',
+          accept: '.csv',
+          hasTemplate: true,
+          load: () => import('./methods/bulk-import-csv'),
+        },
+      ],
+      // One row becomes a game plus a team child per populated team column.
+      save: () => import('./methods/bulk-import-csv'),
+    },
   },
   {
     singular: 'pictionary-team',

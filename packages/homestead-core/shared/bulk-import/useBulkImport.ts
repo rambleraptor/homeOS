@@ -1,103 +1,145 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+/**
+ * Client hooks for the bulk-import API.
+ *
+ * The browser is a thin client here: it uploads the file, the server parses it,
+ * and the preview the user sees is the server's own parse. Both the preview and
+ * the import run as AEP-151 operations, so each call is a `202` + a poll.
+ *
+ * Nothing in here is app-specific — the standardized page drives any resource
+ * that declares `bulkImport`.
+ */
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { ParsedItem, BulkImportResult } from './types';
+import { awaitOperation } from '@rambleraptor/homestead-core/api/operations';
+import type { Operation } from '@rambleraptor/homestead-core/resources/operations';
+import type {
+  BulkImportFormatInfo,
+  BulkImportPreview,
+  BulkImportRequest,
+  BulkImportResult,
+} from '@rambleraptor/homestead-core/resources/bulk-import/types';
 
-export interface SaveItemHelpers<C> {
-  ctx: C;
-  createdBy: string | undefined;
+const BULK_IMPORT_VERB = 'bulk-import';
+
+/**
+ * A preview is work the user is actively waiting on, so poll faster than the
+ * 1.5s default — a snappy parse shouldn't feel like a second and a half.
+ */
+const PREVIEW_POLL_MS = 300;
+
+interface CustomMethodInfo {
+  plural: string;
+  verb: string;
+  bulkImport?: { formats: BulkImportFormatInfo[] };
 }
 
-interface BaseOptions<C> {
-  queryKey: readonly unknown[];
-  /**
-   * Loaded once before the first row is saved. Useful for fetching
-   * lookup data the per-row save needs (e.g. an existing-records map
-   * for name → id resolution). Result is passed to every saveItem call.
-   */
-  prepare?: () => Promise<C>;
+/**
+ * The formats a resource accepts, from the server's discovery endpoint.
+ *
+ * Fetched rather than bundled: parsers are server-only (stubbed out of the
+ * browser build), so the client learns what it can upload at runtime. That's
+ * what lets one page serve every app with no per-app UI code.
+ */
+export function useBulkImportFormats(plural: string) {
+  return useQuery({
+    queryKey: ['bulk-import', 'formats', plural],
+    // Formats only change on deploy.
+    staleTime: Infinity,
+    queryFn: async (): Promise<BulkImportFormatInfo[]> => {
+      const res = await fetch('/api/custom-methods');
+      if (!res.ok) throw new Error('Could not load import formats');
+      const { methods } = (await res.json()) as { methods: CustomMethodInfo[] };
+      const method = methods.find(
+        (m) => m.plural === plural && m.verb === BULK_IMPORT_VERB,
+      );
+      return method?.bulkImport?.formats ?? [];
+    },
+  });
 }
 
-interface SimpleOptions<T> extends BaseOptions<undefined> {
-  /** Kebab-case plural URL segment, e.g. "gift-cards". */
-  collection: string;
-  transformData?: (data: T) => Record<string, unknown>;
-  saveItem?: never;
+/** Base64-encode a file for the JSON request body. */
+async function encodeFile(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let binary = '';
+  // Chunked: spreading a multi-MB array into fromCharCode blows the argument
+  // limit.
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
 }
 
-interface CustomOptions<T, C> extends BaseOptions<C> {
-  /**
-   * Translate a single CSV row into one or more aepbase writes. Throw to
-   * mark the row as failed; the framework records the error against the
-   * row number and continues with the next item.
-   */
-  saveItem: (data: T, helpers: SaveItemHelpers<C>) => Promise<void>;
-  collection?: never;
-  transformData?: never;
+export interface BulkImportInputPayload {
+  format: string;
+  files?: File[];
+  text?: string;
 }
 
-export type UseBulkImportOptions<T, C = undefined> =
-  | SimpleOptions<T>
-  | CustomOptions<T, C>;
+async function buildRequest(
+  input: BulkImportInputPayload,
+  extra: Partial<BulkImportRequest>,
+): Promise<BulkImportRequest> {
+  const base: BulkImportRequest = { format: input.format, ...extra };
+  if (input.text !== undefined) return { ...base, text: input.text };
+  const files = input.files ?? [];
+  return {
+    ...base,
+    data: await Promise.all(files.map(encodeFile)),
+    filenames: files.map((f) => f.name),
+  };
+}
 
-export function useBulkImport<T, C = undefined>(
-  options: UseBulkImportOptions<T, C>,
-) {
-  const queryClient = useQueryClient();
-
+/** Parse without writing, returning the server's candidate items. */
+export function useBulkImportPreview(plural: string) {
   return useMutation({
-    mutationFn: async (
-      items: ParsedItem<T>[],
-    ): Promise<BulkImportResult> => {
-      const userId = aepbase.getCurrentUser()?.id;
-      if (!userId) {
-        throw new Error('You must be logged in to import items');
-      }
-      const createdBy = `users/${userId}`;
+    mutationFn: async (input: BulkImportInputPayload): Promise<BulkImportPreview> => {
+      const body = await buildRequest(input, { dryRun: true });
+      const operation = await aepbase.customMethod<Operation>(
+        plural,
+        BULK_IMPORT_VERB,
+        body,
+      );
+      return awaitOperation<BulkImportPreview>(operation.id, {
+        intervalMs: PREVIEW_POLL_MS,
+      });
+    },
+  });
+}
 
-      const ctx = (options.prepare ? await options.prepare() : undefined) as C;
+export interface RunBulkImportInput extends BulkImportInputPayload {
+  /**
+   * Indices from the preview, or `'*'` for everything importable. The server
+   * re-parses the same input rather than trusting client-supplied records, so
+   * these address its parse, not ours.
+   */
+  selectedIndices: number[] | '*';
+}
 
-      const results: BulkImportResult = {
-        successful: 0,
-        failed: 0,
-        errors: [],
-      };
-
-      const validItems = items.filter((item) => item.isValid);
-
-      for (const item of validItems) {
-        try {
-          if (options.saveItem) {
-            await options.saveItem(item.data, { ctx, createdBy });
-          } else {
-            const data = options.transformData
-              ? options.transformData(item.data)
-              : item.data;
-            await aepbase.create(options.collection, {
-              ...(data as Record<string, unknown>),
-              created_by: createdBy,
-            });
-          }
-          results.successful++;
-        } catch (error) {
-          results.failed++;
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error';
-          results.errors.push({
-            rowNumber: item.rowNumber,
-            error: errorMessage,
-          });
-        }
-      }
-
-      if (results.failed > 0) {
-        logger.error('Bulk import errors', { errors: results.errors });
-      }
-
-      return results;
+/**
+ * Write the selected items. Invalidates `queryKey` on success so the app's list
+ * reflects the import without a reload.
+ */
+export function useBulkImportRun(plural: string, queryKey: readonly unknown[]) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: RunBulkImportInput): Promise<BulkImportResult> => {
+      const body = await buildRequest(input, {
+        selectedIndices: input.selectedIndices,
+      });
+      const operation = await aepbase.customMethod<Operation>(
+        plural,
+        BULK_IMPORT_VERB,
+        body,
+      );
+      // No intervalMs override: a real import is background work, and the
+      // operation stays visible in the notifications app if the user navigates
+      // away mid-import.
+      return awaitOperation<BulkImportResult>(operation.id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: options.queryKey });
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 }

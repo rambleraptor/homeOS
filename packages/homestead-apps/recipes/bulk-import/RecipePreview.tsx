@@ -1,19 +1,37 @@
 /**
- * Generic preview row — a key/value dump of the parsed record. Apps that want
- * something readable pass their own `preview` component instead.
+ * Recipes bulk import — preview row.
+ *
+ * One parsed recipe: title, timings, and a count of what was found. The generic
+ * preview would dump `parsed_ingredients` as raw JSON, which tells you nothing
+ * about whether the parse was any good.
  */
 
-import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertCircle, ChefHat, CheckCircle2, XCircle } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
-import type { ItemPreviewProps } from './types';
+import type { ItemPreviewProps } from '@rambleraptor/homestead-core/shared/bulk-import';
+// Type-only: the parser itself is server-only and stubbed out of this bundle.
+import type { RecipeImportData } from '../methods/recipe-import-adapter';
 
-export function DefaultItemPreview<T>({
+export function RecipePreview({
   item,
   isSelected,
   onToggle,
-}: ItemPreviewProps<T>) {
+}: ItemPreviewProps<RecipeImportData>) {
+  const recipe = item.data;
   const isValid = item.errors.length === 0;
+
+  const facts = [
+    recipe.parsed_ingredients?.length
+      ? `${recipe.parsed_ingredients.length} ingredient${recipe.parsed_ingredients.length === 1 ? '' : 's'}`
+      : null,
+    recipe.steps?.length
+      ? `${recipe.steps.length} step${recipe.steps.length === 1 ? '' : 's'}`
+      : null,
+    recipe.prep_time ? `prep ${recipe.prep_time}` : null,
+    recipe.cook_time ? `cook ${recipe.cook_time}` : null,
+    recipe.servings ? `serves ${recipe.servings}` : null,
+  ].filter(Boolean);
 
   return (
     <Card
@@ -24,7 +42,7 @@ export function DefaultItemPreview<T>({
             : 'hover:border-primary/50'
           : 'border-destructive/50 bg-destructive/5 opacity-75'
       }`}
-      data-testid="bulk-import-preview-row"
+      data-testid="recipe-import-preview-row"
     >
       <div className="flex items-start gap-4">
         <div className="flex items-center pt-1">
@@ -32,30 +50,40 @@ export function DefaultItemPreview<T>({
             <Checkbox
               checked={isSelected}
               onCheckedChange={onToggle}
-              aria-label={`Select ${item.label ?? `row ${item.index + 1}`}`}
+              aria-label={`Select ${recipe.title}`}
             />
           ) : (
-            // Spacer, so invalid rows line up with selectable ones.
             <div className="h-4 w-4" />
           )}
+        </div>
+
+        <div className="flex-shrink-0 pt-1">
+          <ChefHat className="h-5 w-5" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              {item.label && <p className="mb-1 font-medium">{item.label}</p>}
-              <div className="space-y-1">
-                {Object.entries(item.data as Record<string, unknown>).map(
-                  ([key, value]) => (
-                    <div key={key} className="text-sm">
-                      <span className="font-medium">{key}:</span>{' '}
-                      <span className="text-muted-foreground">
-                        {formatValue(value)}
-                      </span>
-                    </div>
-                  ),
+              <h3 className="mb-1 text-lg font-semibold break-words">
+                {recipe.title || (
+                  <span className="text-muted-foreground italic">Untitled recipe</span>
                 )}
-              </div>
+              </h3>
+              {facts.length > 0 && (
+                <p className="text-muted-foreground text-sm">{facts.join(' · ')}</p>
+              )}
+              {recipe.tags && recipe.tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {recipe.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex-shrink-0">
               {isValid ? (
@@ -67,14 +95,10 @@ export function DefaultItemPreview<T>({
           </div>
 
           {!isValid && (
-            <Messages
-              tone="destructive"
-              title={`${item.label ?? `Row ${item.index + 1}`} — cannot import this item:`}
-              messages={item.errors}
-            />
+            <Notes tone="destructive" title="Cannot import:" messages={item.errors} />
           )}
           {item.warnings.length > 0 && (
-            <Messages tone="warning" title="Warnings:" messages={item.warnings} />
+            <Notes tone="warning" title="Warnings:" messages={item.warnings} />
           )}
         </div>
       </div>
@@ -82,7 +106,7 @@ export function DefaultItemPreview<T>({
   );
 }
 
-function Messages({
+function Notes({
   tone,
   title,
   messages,
@@ -113,11 +137,4 @@ function Messages({
       </div>
     </div>
   );
-}
-
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  if (Array.isArray(value)) return value.map(formatValue).join(', ');
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
 }

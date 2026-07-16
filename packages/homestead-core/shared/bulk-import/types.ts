@@ -1,114 +1,47 @@
 /**
- * Reusable Bulk Import Framework - Type Definitions
+ * Client-side bulk-import types.
+ *
+ * The parse contract (formats, parsers, savers, the wire shapes) lives in
+ * `core/resources/bulk-import/types.ts` — it's shared with the server. What's
+ * left here is what the standardized page needs and the server doesn't: how an
+ * app renders a preview row.
  */
 
-/**
- * Validator function for a field value
- */
-export type FieldValidator<T = unknown> = (
-  value: string,
-  row: Record<string, string>
-) => {
-  value: T;
-  error?: string;
-};
+import type { ParsedItem } from '@rambleraptor/homestead-core/resources/bulk-import/types';
 
-/**
- * Field configuration for CSV parsing
- */
-export interface FieldConfig<T = unknown> {
-  /** Field name in CSV header */
-  name: string;
-  /** Whether field is required */
-  required: boolean;
-  /** Validator function */
-  validator: FieldValidator<T>;
-  /** Default value if not provided */
-  defaultValue?: T;
-  /** Description for documentation */
-  description?: string;
+export type { ParsedItem };
+
+/** Props every preview component receives. */
+export interface ItemPreviewProps<T = unknown> {
+  item: ParsedItem<T>;
+  isSelected: boolean;
+  onToggle: () => void;
 }
 
-/**
- * Schema configuration for an app's bulk import
- */
-export interface BulkImportSchema<T> {
-  /** Required fields */
-  requiredFields: FieldConfig[];
-  /** Optional fields */
-  optionalFields: FieldConfig[];
-  /** Generate CSV template content */
-  generateTemplate: () => string;
+/** An app's custom preview row. Optional — {@link DefaultItemPreview} covers the rest. */
+export type ItemPreviewComponent<T = unknown> = React.ComponentType<ItemPreviewProps<T>>;
+
+/** Everything the standardized import page needs from an app. */
+export interface BulkImportPageConfig<T = unknown> {
   /**
-   * Optional reshape step. Runs after every field validator on a row has
-   * passed; receives the per-field validated values keyed by column name
-   * and returns the clean `T` the save layer wants. Useful when several
-   * CSV columns collapse into a single nested field (e.g. team_1..team_6
-   * → teams[]). Skipped on invalid rows.
+   * Kebab-case plural of the resource to import into, e.g. `gift-cards`.
+   * Everything else — formats, validation, writes — is resolved from the
+   * server's declaration for this resource.
    */
-  transformParsed?: (raw: Record<string, unknown>) => T;
-  /** Custom preview component (optional) */
-  PreviewComponent?: React.ComponentType<{
-    item: ParsedItem<T>;
-    isSelected: boolean;
-    onToggle: () => void;
-  }>;
-}
-
-/**
- * Parsed item from CSV with validation results
- */
-export interface ParsedItem<T> {
-  /** The parsed data matching the app's form type */
-  data: T;
-  /** Row number in CSV (1-indexed, excluding header) */
-  rowNumber: number;
-  /** Whether the item passed all validations */
-  isValid: boolean;
-  /** Validation error messages */
-  errors: string[];
-}
-
-/**
- * Result from parsing a CSV file
- */
-export interface CSVParseResult<T> {
-  /** All parsed items */
-  items: ParsedItem<T>[];
-  /** Total number of items */
-  totalCount: number;
-  /** Number of valid items */
-  validCount: number;
-  /** Number of invalid items */
-  invalidCount: number;
-}
-
-/**
- * Result from bulk import operation
- */
-export interface BulkImportResult {
-  /** Number of successfully imported items */
-  successful: number;
-  /** Number of failed imports */
-  failed: number;
-  /** Specific errors that occurred */
-  errors: Array<{ rowNumber: number; error: string }>;
-}
-
-/**
- * Configuration for bulk import container
- */
-export interface BulkImportConfig<T> {
-  /** App name (e.g., "Events", "Gift Cards") */
+  plural: string;
+  /** Singular display name, e.g. `Gift Card`. */
   appName: string;
-  /** Plural app name (e.g., "events", "gift cards") */
+  /** Plural display name, e.g. `gift cards`. */
   appNamePlural: string;
-  /** Route to navigate back to */
+  /** Where the back button and post-import redirect go, e.g. `/gift-cards`. */
   backRoute: string;
-  /** Import schema configuration */
-  schema: BulkImportSchema<T>;
-  /** Function to perform the bulk import */
-  onImport: (items: ParsedItem<T>[]) => Promise<BulkImportResult>;
-  /** Whether import is in progress */
-  isImporting?: boolean;
+  /**
+   * Query key invalidated once the import lands, so the app's list reflects it
+   * without a reload — e.g. `queryKeys.app('gift-cards').all()`. Explicit
+   * because keys are app-scoped (`['app', appId, …]`), not derivable from the
+   * resource plural.
+   */
+  queryKey: readonly unknown[];
+  /** Custom preview row. Falls back to a generic key/value renderer. */
+  preview?: ItemPreviewComponent<T>;
 }

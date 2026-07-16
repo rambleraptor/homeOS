@@ -198,9 +198,10 @@ async function createDefinition(
         'Content-Type': 'application/json',
       },
       // Only the wire fields aepbase understands — never the server-only
-      // `customMethods` (whose lazy `load` thunks JSON.stringify drops, but
-      // whose `target`/`method` metadata would otherwise leak through), and
-      // the translated JSON schema, never the authored `fields`.
+      // `customMethods` / `bulkImport` (whose lazy `load` thunks
+      // JSON.stringify drops, but whose surrounding metadata would otherwise
+      // leak through), and the translated JSON schema, never the authored
+      // `fields`.
       body: JSON.stringify(wireDefinition(def, schema)),
     },
   );

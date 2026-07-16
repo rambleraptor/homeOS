@@ -9,12 +9,16 @@ const METHOD_STUB_ID = '\0homestead-custom-method-stub';
 
 /**
  * Resource custom-method handlers (ResourceDefinition.customMethods[].load)
- * are server-only — they run in homestead-server, never the browser — but
+ * and bulk-import parsers (ResourceDefinition.bulkImport.formats[].load) are
+ * server-only — they run in homestead-server, never the browser — but
  * `resources.ts` is reachable from the client registry, so their
  * `() => import('./methods/x')` thunks would otherwise be code-split into
  * dead client chunks (pulling in web-push and friends). Stub those imports in
  * the production build so they never ship. The server bundle is built
  * separately and is unaffected.
+ *
+ * Both kinds live under an app's `methods/` dir, which is what this matches —
+ * a parser that strays outside it silently ships to the browser.
  */
 function stubCustomMethods(): Plugin {
   const METHOD_RE = /homestead-apps[/\\].*[/\\]methods[/\\][^/\\]+$/;

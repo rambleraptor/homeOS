@@ -10,8 +10,17 @@ import { Hono } from 'hono';
 import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/custom-methods/dispatcher';
+import { bulkImportCustomMethod } from '@rambleraptor/homestead-core/server/bulk-import/method';
 import { getResourceCustomMethod } from '../app-registry';
 import type { Engine } from '../engine/engine';
+
+/**
+ * An explicit `customMethods` entry wins over the synthesized `:bulk-import`,
+ * so a resource with unusual needs can still hand-write the verb.
+ */
+function resolveMethod(plural: string, verb: string) {
+  return getResourceCustomMethod(plural, verb) ?? bulkImportCustomMethod(plural, verb);
+}
 
 const PREFIX = '/api/aep';
 
@@ -43,7 +52,7 @@ export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
     return dispatchCustomMethod({
       request: c.req.raw,
       path,
-      resolveMethod: getResourceCustomMethod,
+      resolveMethod,
       authenticate,
       passthrough,
       operations: operationStore,

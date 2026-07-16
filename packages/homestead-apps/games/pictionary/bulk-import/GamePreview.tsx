@@ -15,14 +15,9 @@ import {
 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
-import type { ParsedItem } from '@rambleraptor/homestead-core/shared/bulk-import';
-import type { PictionaryGameCSVData } from './types';
-
-interface GamePreviewProps {
-  item: ParsedItem<PictionaryGameCSVData>;
-  isSelected: boolean;
-  onToggle: () => void;
-}
+import type { ItemPreviewProps } from '@rambleraptor/homestead-core/shared/bulk-import';
+// Type-only: the parser itself is server-only and stubbed out of this bundle.
+import type { PictionaryGameCsvData } from '../methods/bulk-import-csv';
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return '';
@@ -35,9 +30,14 @@ function formatDate(iso: string | undefined): string {
   });
 }
 
-export function GamePreview({ item, isSelected, onToggle }: GamePreviewProps) {
+export function GamePreview({
+  item,
+  isSelected,
+  onToggle,
+}: ItemPreviewProps<PictionaryGameCsvData>) {
   const game = item.data;
-  const statusIcon = item.isValid ? (
+  const isValid = item.errors.length === 0;
+  const statusIcon = isValid ? (
     <CheckCircle2 className="h-5 w-5 text-green-600" />
   ) : (
     <XCircle className="h-5 w-5 text-destructive" />
@@ -46,7 +46,7 @@ export function GamePreview({ item, isSelected, onToggle }: GamePreviewProps) {
   return (
     <Card
       className={`p-4 transition-colors ${
-        item.isValid
+        isValid
           ? isSelected
             ? 'border-primary bg-primary/5'
             : 'hover:border-primary/50'
@@ -55,7 +55,7 @@ export function GamePreview({ item, isSelected, onToggle }: GamePreviewProps) {
     >
       <div className="flex items-start gap-4">
         <div className="flex items-center pt-1">
-          {item.isValid ? (
+          {isValid ? (
             <Checkbox
               checked={isSelected}
               onCheckedChange={onToggle}
@@ -94,7 +94,7 @@ export function GamePreview({ item, isSelected, onToggle }: GamePreviewProps) {
             <div className="flex-shrink-0">{statusIcon}</div>
           </div>
 
-          {item.isValid && game.teams.length > 0 && (
+          {isValid && game.teams.length > 0 && (
             <div className="mt-3 space-y-1">
               {game.teams.map((team) => (
                 <div

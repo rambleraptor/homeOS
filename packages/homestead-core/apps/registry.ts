@@ -34,6 +34,7 @@ import type {
   ResourceCustomMethod,
   ResourceDefinition,
 } from '../resources/types';
+import type { BulkImportDef } from '../resources/bulk-import/types';
 import {
   BUILTIN_ENABLED_TAGS_FLAG_KEY,
   DEFAULT_APP_VISIBILITY,
@@ -510,6 +511,34 @@ export function getAllResourceCustomMethods(): Record<string, ResourceCustomMeth
     for (const [verb, method] of Object.entries(def.customMethods ?? {})) {
       out[`${def.plural}:${verb}`] = method;
     }
+  }
+  return out;
+}
+
+/**
+ * Resolve a resource's bulk-import declaration by plural, if it has one.
+ *
+ * Kept here (rather than beside the synthesized custom method in
+ * `core/server/bulk-import`) because it's a pure registry read: the discovery
+ * endpoint needs the format metadata, and tests need it without a server.
+ */
+export function getResourceBulkImport(
+  plural: string,
+): BulkImportDef | undefined {
+  for (const def of getAllResourceDefs()) {
+    if (def.plural === plural && def.bulkImport) return def.bulkImport;
+  }
+  return undefined;
+}
+
+/**
+ * Every resource that opts into bulk import, keyed by plural. Backs the
+ * discovery endpoint's format listing and the CLI's help output.
+ */
+export function getAllResourceBulkImports(): Record<string, BulkImportDef> {
+  const out: Record<string, BulkImportDef> = {};
+  for (const def of getAllResourceDefs()) {
+    if (def.bulkImport) out[def.plural] = def.bulkImport;
   }
   return out;
 }

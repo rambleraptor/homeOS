@@ -1,33 +1,27 @@
 /**
- * Gift Cards Bulk Import Component
+ * Gift cards bulk import — the standardized page.
+ *
+ * The CSV columns, their validation, and the writes are all declared
+ * server-side on the gift-card resource (`bulkImport` in `../resources.ts`,
+ * parser in `../methods/bulk-import-csv.ts`). All that's left here is how a
+ * parsed row looks.
  */
 
-import { BulkImportContainer, useBulkImport } from '@rambleraptor/homestead-core/shared/bulk-import';
-import { GIFT_CARDS } from '../resources';
+import { BulkImportContainer } from '@rambleraptor/homestead-core/shared/bulk-import';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { giftCardsImportSchema } from './schema';
+import { GIFT_CARDS } from '../resources';
+import { GiftCardPreview } from './GiftCardPreview';
 
 export function GiftCardsBulkImport() {
-  const bulkImport = useBulkImport({
-    collection: GIFT_CARDS,
-    queryKey: queryKeys.app('gift-cards').resource('gift-card').list(),
-    // Transform data to add null for file fields
-    transformData: (data) => ({
-      ...(data as Record<string, unknown>),
-      front_image: null,
-      back_image: null,
-    }),
-  });
-
   return (
     <BulkImportContainer
       config={{
+        plural: GIFT_CARDS,
         appName: 'Gift Cards',
         appNamePlural: 'gift cards',
         backRoute: '/gift-cards',
-        schema: giftCardsImportSchema,
-        onImport: bulkImport.mutateAsync,
-        isImporting: bulkImport.isPending,
+        queryKey: queryKeys.app('gift-cards').all(),
+        preview: GiftCardPreview,
       }}
     />
   );

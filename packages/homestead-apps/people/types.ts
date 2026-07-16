@@ -57,17 +57,6 @@ export interface PersonFormData {
   partner_id?: string; // Used in form to select partner
 }
 
-/**
- * CSV import data - flat structure matching CSV columns
- */
-export interface PersonCSVData {
-  name: string;
-  address?: string;
-  wifi_network?: string;
-  wifi_password?: string;
-  partner_name?: string; // Partner name for matching
-}
-
 export interface PeopleStats {
   totalPeople: number;
 }
