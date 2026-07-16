@@ -14,6 +14,7 @@ export function customMethodsResponse(): Response {
       verb,
       target: def.target ?? 'collection',
       method: def.method ?? 'POST',
+      async: def.async ?? false,
     };
   });
   return Response.json({ methods });

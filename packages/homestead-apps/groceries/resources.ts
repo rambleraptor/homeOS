@@ -42,6 +42,13 @@ export const groceriesResources: ResourceDefinition[] = [
         target: 'collection',
         load: () => import('./methods/send-notification'),
       },
+      // AEP-151 async method — returns 202 + a pollable operation:
+      //   POST /api/aep/groceries:demo-slow
+      'demo-slow': {
+        target: 'collection',
+        async: true,
+        load: () => import('./methods/demo-slow'),
+      },
     },
   },
 ];

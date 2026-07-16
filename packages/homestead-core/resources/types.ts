@@ -174,6 +174,22 @@ export type CustomMethodHandler = (
 ) => Promise<Response>;
 
 /**
+ * Handler for an **async** (AEP-151) custom method. Unlike a sync handler it
+ * doesn't return a `Response`: the dispatcher has already replied `202` with a
+ * pending Operation. Instead it runs the real work in the background — the
+ * value it resolves to becomes the operation's `response`, and anything it
+ * throws becomes the operation's `error`.
+ */
+export type AsyncCustomMethodHandler = (
+  ctx: CustomMethodContext,
+) => Promise<unknown>;
+
+/** Either handler shape — resolved from a method's lazy `load()`. */
+export type AnyCustomMethodHandler =
+  | CustomMethodHandler
+  | AsyncCustomMethodHandler;
+
+/**
  * Declarative definition of a single custom method living on a resource.
  *
  * The handler is referenced via a lazy `import()` so the server-only runtime
@@ -196,10 +212,19 @@ export interface ResourceCustomMethod {
   /** HTTP method this custom method accepts. Defaults to `'POST'`. */
   method?: CustomMethodHttpMethod;
   /**
-   * Lazy import of the handler app. The dispatcher awaits this on demand
-   * and invokes the default export.
+   * When true, this is an AEP-151 **long-running** method: the dispatcher
+   * creates an Operation, replies `202` with it immediately, and runs the
+   * handler in the background (its resolved value → `response`, a throw →
+   * `error`). The handler's default export must be an
+   * {@link AsyncCustomMethodHandler}. Defaults to `false` (synchronous).
    */
-  load: () => Promise<{ default: CustomMethodHandler }>;
+  async?: boolean;
+  /**
+   * Lazy import of the handler app. The dispatcher awaits this on demand
+   * and invokes the default export — a {@link CustomMethodHandler} for sync
+   * methods, or an {@link AsyncCustomMethodHandler} when `async` is true.
+   */
+  load: () => Promise<{ default: AnyCustomMethodHandler }>;
 }
 
 export interface ResourceDefinition {

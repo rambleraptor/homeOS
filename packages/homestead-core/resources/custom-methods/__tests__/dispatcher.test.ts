@@ -251,4 +251,94 @@ describe('dispatchCustomMethod', () => {
       message: 'handler exploded',
     });
   });
+
+  describe('async (AEP-151) methods', () => {
+    /** A fake OperationStore whose `complete` resolves a promise the test awaits. */
+    function makeOperationStore(op: { id: string; path: string; done: boolean }) {
+      let resolveComplete: () => void = () => {};
+      const completed = new Promise<void>((r) => {
+        resolveComplete = r;
+      });
+      const operations = {
+        create: vi.fn(async () => op),
+        complete: vi.fn(async () => {
+          resolveComplete();
+        }),
+      };
+      return { operations, completed };
+    }
+
+    it('returns 202 with the pending operation and records the response on success', async () => {
+      const { operations, completed } = makeOperationStore({
+        id: 'op1',
+        path: 'operations/op1',
+        done: false,
+      });
+      const handler = vi.fn(async () => ({ ok: true }));
+
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST'),
+        path: '/grocery-items:demo-slow',
+        resolveMethod: () => makeMethod(handler, { async: true }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(res.status).toBe(202);
+      expect(await res.json()).toMatchObject({ id: 'op1', done: false });
+      expect(operations.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: 'tok',
+          method: 'grocery-items:demo-slow',
+          createdBy: 'u1',
+        }),
+      );
+
+      await completed;
+      expect(handler).toHaveBeenCalledOnce();
+      expect(operations.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'op1', response: { ok: true } }),
+      );
+    });
+
+    it('records the error when the async handler throws', async () => {
+      const { operations, completed } = makeOperationStore({
+        id: 'op2',
+        path: 'operations/op2',
+        done: false,
+      });
+      const handler = vi.fn(async () => {
+        throw new Error('async boom');
+      });
+
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST'),
+        path: '/grocery-items:demo-slow',
+        resolveMethod: () => makeMethod(handler, { async: true }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(res.status).toBe(202);
+      await completed;
+      expect(operations.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'op2', error: expect.any(Error) }),
+      );
+    });
+
+    it('returns 500 when an async method is dispatched without an operation store', async () => {
+      const handler = vi.fn(async () => ({}));
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST'),
+        path: '/grocery-items:demo-slow',
+        resolveMethod: () => makeMethod(handler, { async: true }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+      });
+      expect(res.status).toBe(500);
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
 });

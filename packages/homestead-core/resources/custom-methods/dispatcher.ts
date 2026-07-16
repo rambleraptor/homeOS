@@ -16,11 +16,14 @@
  */
 
 import type {
+  AsyncCustomMethodHandler,
   CustomMethodAuth,
   CustomMethodHandler,
+  CustomMethodContext,
   CustomMethodTarget,
   ResourceCustomMethod,
 } from '../types';
+import type { OperationStore } from '../operations';
 
 export interface DispatchOptions {
   request: Request;
@@ -39,6 +42,12 @@ export interface DispatchOptions {
    * `:download`, …) so they keep working through the gateway.
    */
   passthrough: (request: Request, path: string) => Promise<Response>;
+  /**
+   * AEP-151 operation store. Required only to dispatch `async: true` methods
+   * (the gateway always injects it); omit it in tests that exercise only sync
+   * methods.
+   */
+  operations?: OperationStore;
 }
 
 /** A colon URL split into its resource path and trailing custom verb. */
@@ -105,6 +114,7 @@ export async function dispatchCustomMethod({
   resolveMethod,
   authenticate,
   passthrough,
+  operations,
 }: DispatchOptions): Promise<Response> {
   const parsed = parseCustomMethodPath(path);
   if (!parsed) return passthrough(request, path);
@@ -132,7 +142,7 @@ export async function dispatchCustomMethod({
     );
   }
 
-  let handler: CustomMethodHandler;
+  let handler: CustomMethodHandler | AsyncCustomMethodHandler;
   try {
     const mod = await method.load();
     handler = mod.default;
@@ -147,16 +157,34 @@ export async function dispatchCustomMethod({
     );
   }
 
+  const ctx: CustomMethodContext = {
+    request,
+    auth,
+    plural: parsed.plural,
+    verb: parsed.verb,
+    target: parsed.target,
+    id: parsed.id,
+    parent: parsed.parent,
+  };
+
+  // AEP-151 async method: create the operation, reply 202 immediately, and run
+  // the handler in the background — its result becomes `response`, a throw
+  // becomes `error`.
+  if (method.async) {
+    if (!operations) {
+      console.error(
+        `Async custom method ${parsed.plural}:${parsed.verb} dispatched without an operation store`,
+      );
+      return Response.json(
+        { error: 'Internal server error', message: 'Async methods are not configured' },
+        { status: 500 },
+      );
+    }
+    return dispatchAsync(ctx, handler as AsyncCustomMethodHandler, operations);
+  }
+
   try {
-    return await handler({
-      request,
-      auth,
-      plural: parsed.plural,
-      verb: parsed.verb,
-      target: parsed.target,
-      id: parsed.id,
-      parent: parsed.parent,
-    });
+    return await (handler as CustomMethodHandler)(ctx);
   } catch (error) {
     console.error(
       `Custom method ${parsed.plural}:${parsed.verb} threw:`,
@@ -170,4 +198,69 @@ export async function dispatchCustomMethod({
       { status: 500 },
     );
   }
+}
+
+/**
+ * Kick off an async method: create a pending operation, return `202` with it,
+ * and let the handler run detached. On settle, record the result (or error)
+ * against the operation so pollers see `done: true`.
+ */
+async function dispatchAsync(
+  ctx: CustomMethodContext,
+  handler: AsyncCustomMethodHandler,
+  operations: OperationStore,
+): Promise<Response> {
+  const methodName = `${ctx.plural}:${ctx.verb}`;
+  let operation;
+  try {
+    operation = await operations.create({
+      token: ctx.auth.token,
+      method: methodName,
+      createdBy: ctx.auth.user.id,
+    });
+  } catch (error) {
+    console.error(`Failed to create operation for ${methodName}:`, error);
+    return Response.json(
+      { error: 'Internal server error', message: 'Failed to start operation' },
+      { status: 500 },
+    );
+  }
+
+  // The handler runs after we've answered with 202, so the original request
+  // body stream may no longer be readable. Buffer it into a fresh Request the
+  // background handler can safely consume.
+  const bgCtx: CustomMethodContext = { ...ctx, request: await bufferRequest(ctx.request) };
+
+  // Fire-and-forget: the request has already been answered with 202.
+  void (async () => {
+    try {
+      const response = await handler(bgCtx);
+      await operations.complete({ token: ctx.auth.token, id: operation.id, response });
+    } catch (error) {
+      console.error(`Async custom method ${methodName} threw:`, error);
+      try {
+        await operations.complete({ token: ctx.auth.token, id: operation.id, error });
+      } catch (recordError) {
+        console.error(`Failed to record failure for operation ${operation.id}:`, recordError);
+      }
+    }
+  })();
+
+  return Response.json(operation, { status: 202 });
+}
+
+/**
+ * Buffer a request's body into a fresh, replayable Request. An async handler
+ * runs after the 202 response is sent, by which point the original streaming
+ * body may be gone — reading the bytes eagerly here keeps `request.json()`
+ * working inside the handler. Bodyless methods are returned untouched.
+ */
+async function bufferRequest(request: Request): Promise<Request> {
+  if (request.method === 'GET' || request.method === 'HEAD') return request;
+  const body = await request.arrayBuffer();
+  return new Request(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body,
+  });
 }

@@ -118,6 +118,23 @@ export async function aepCreateMultipart<T>(
   return (await res.json()) as T;
 }
 
+/**
+ * Invoke an AEP-136/151 custom method, e.g.
+ * `postCustomMethod(token, '/groceries:demo-slow', { delay_ms: 12000 })`.
+ * Returns the parsed JSON body (a 202 operation for async methods).
+ */
+export async function postCustomMethod<T>(
+  token: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await req(path, { token, method: 'POST', body: body ?? {} });
+  if (!res.ok) {
+    throw new Error(`custom method ${path} failed: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as T;
+}
+
 export async function aepRemove(
   token: string,
   plural: string,
