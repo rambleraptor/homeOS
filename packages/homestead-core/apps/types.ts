@@ -198,6 +198,29 @@ export interface AppWebConfig {
 }
 
 /**
+ * One-time boot hooks for an app (see {@link AppConfig.boot}).
+ *
+ * The two run in different processes with different capabilities, so they're
+ * split — and the split dictates how each must be written:
+ *
+ * - `client` runs in the SPA. It must be **synchronous**, because the boot shim
+ *   runs it before the registry's schema is first read and cannot pause to
+ *   await. Load already-bundled assets (an eager `import.meta.glob`), not the
+ *   network. The app config may import its client-boot module directly — a
+ *   `import.meta.glob` inside a function is inert until called, so importing the
+ *   client-boot module is harmless on the server, which never invokes `client`.
+ *
+ * - `server` runs in homestead-server and may be async (read files, hit the
+ *   engine). It **must** be reached through a lazy `() => import('…​.server')`,
+ *   never a static import: that keeps its node-only code (`node:fs`, etc.) out
+ *   of the client bundle, where the build stubs the `.server` module away.
+ */
+export interface AppBoot {
+  client?: () => void;
+  server?: () => void | Promise<void>;
+}
+
+/**
  * Core App Configuration
  * Every app must export a config object that implements this interface
  */
@@ -263,7 +286,26 @@ export interface AppConfig {
    * `/aep-resource-definitions` on server boot. Each `singular` must
    * be globally unique.
    */
-  resources?: ResourceDefinition[];
+  /**
+   * A thunk defers construction until {@link getAllResourceDefs} is called —
+   * after boot — instead of at module import. Use it when a schema depends on
+   * something loaded at boot (the documents app builds its `metadata` variants
+   * from doc-type YAML); a plain array would be built at import time and race
+   * that load. Resolved once per read, so it must stay cheap and pure.
+   */
+  resources?: ResourceDefinition[] | (() => ResourceDefinition[]);
+
+  /**
+   * Optional one-time boot hooks, run before the registry's schema is read —
+   * the seam for an app that loads assets or primes a singleton at startup
+   * (e.g. the documents app compiles its `metadata` variants from doc-type
+   * YAML, which its `resources` thunk then reads).
+   *
+   * Runs for every app the same way — bundled, npm-published, or auto-discovered
+   * in the project's `apps/` dir — because the shell iterates the registry, not
+   * a hard-coded list. See {@link AppBoot} for the client/server split.
+   */
+  boot?: AppBoot;
 
   /**
    * Server-side endpoints are declared as AEP-136 custom methods on the

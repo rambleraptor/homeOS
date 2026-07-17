@@ -35,6 +35,63 @@ export const STUB_RECEIPT = {
   patient: 'Alex',
 };
 
+/**
+ * Document classify markers.
+ *
+ * The `documents:classify` method reads the *stored* file and base64s it into
+ * the request, so a document spec uploads a file whose bytes are one of these
+ * markers and the stub keys on the base64 appearing in the body. Marker-first
+ * routing means the stub needs no knowledge of the classify prompt's wording —
+ * a request with no marker falls through to the receipt behaviour untouched.
+ */
+export const DOC_MARKERS = {
+  match: 'e2e-document-form-1099-int',
+  unknown: 'e2e-document-unrecognised',
+  fail: 'e2e-document-parse-failure',
+} as const;
+
+/** Fields the stub "reads" from a 1099-INT document — a realistic subset. */
+export const STUB_DOCUMENT_1099 = {
+  full_text: 'Form 1099-INT  Interest Income  Ally Bank  Box 1 412.55',
+  confidence: 0.95,
+  metadata: {
+    doc_type: 'form-1099-int',
+    payer_name: 'Ally Bank',
+    payer_tin: 'XX-XXX6789',
+    recipient_name: 'Alex Stephen',
+    box_1_interest: 412.55,
+    box_4_federal_tax_withheld: 0,
+  },
+};
+
+/** A genuine "not a known type" read: low confidence, only the unknown tag. */
+export const STUB_DOCUMENT_UNKNOWN = {
+  full_text: 'Dear customer, thank you for your recent visit.',
+  confidence: 0.15,
+  metadata: { doc_type: 'unknown' },
+};
+
+/**
+ * A schema-violating payload: `doc_type` names no known variant, so
+ * `generateObject` fails validation and throws — driving the handler's failure
+ * path (parse_status → failed) for real, the document analogue of FAIL_IMAGE.
+ */
+export const STUB_DOCUMENT_FAIL = {
+  full_text: 'x',
+  confidence: 0.5,
+  metadata: { doc_type: 'not-a-real-document-type' },
+};
+
+/** Pick the model payload for a request body, marker-first. */
+function payloadForBody(body: string): unknown {
+  const has = (marker: string) => body.includes(Buffer.from(marker).toString('base64'));
+  if (has(DOC_MARKERS.unknown)) return STUB_DOCUMENT_UNKNOWN;
+  if (has(DOC_MARKERS.fail)) return STUB_DOCUMENT_FAIL;
+  if (has(DOC_MARKERS.match)) return STUB_DOCUMENT_1099;
+  // No document marker: the original receipt behaviour, unchanged.
+  return body.includes(FAIL_IMAGE) ? {} : STUB_RECEIPT;
+}
+
 let server: Server | null = null;
 
 /**
@@ -71,8 +128,7 @@ export async function startAiStub(): Promise<string> {
       body += chunk;
     });
     req.on('end', () => {
-      // An empty object fails the handler's "did we read anything?" check.
-      const payload = body.includes(FAIL_IMAGE) ? {} : STUB_RECEIPT;
+      const payload = payloadForBody(body);
       setTimeout(() => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(responsesReply(payload)));

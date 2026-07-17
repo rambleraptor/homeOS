@@ -12,6 +12,7 @@
 
 import {
   creditCardsApp,
+  documentsApp,
   eventsApp,
   gamesApp,
   giftCardsApp,
@@ -88,6 +89,7 @@ const ai: HomesteadConfig['ai'] = aiApiKey
 const config: HomesteadConfig = {
   apps: [
     todosApp,
+    documentsApp,
     giftCardsApp,
     groceriesApp,
     recipesApp,
