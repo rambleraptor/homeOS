@@ -12,7 +12,8 @@
     "directory": "packages/homestead-apps"
   },
   "dependencies": {
-    "@rambleraptor/homestead-core": "^0.2.0"
+    "@rambleraptor/homestead-core": "^0.2.0",
+    "yaml": "^2.9.0"
   },
   "publishConfig": {
     "access": "public"

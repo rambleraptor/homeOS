@@ -9,6 +9,7 @@
  */
 
 export { creditCardsApp } from './credit-cards';
+export { documentsApp } from './documents';
 export { eventsApp } from './events';
 export { gamesApp } from './games';
 export { giftCardsApp } from './gift-cards';

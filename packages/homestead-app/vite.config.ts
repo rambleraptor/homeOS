@@ -5,25 +5,28 @@ import { execSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const METHOD_STUB_ID = '\0homestead-custom-method-stub';
+const SERVER_STUB_ID = '\0homestead-server-only-stub';
 
 /**
- * Resource custom-method handlers (ResourceDefinition.customMethods[].load)
- * and bulk-import parsers (ResourceDefinition.bulkImport.formats[].load) are
- * server-only — they run in homestead-server, never the browser — but
- * `resources.ts` is reachable from the client registry, so their
- * `() => import('./methods/x')` thunks would otherwise be code-split into
- * dead client chunks (pulling in web-push and friends). Stub those imports in
- * the production build so they never ship. The server bundle is built
- * separately and is unaffected.
+ * Stub server-only app modules out of the production client bundle. Two kinds,
+ * both reachable from the client registry via lazy `() => import(...)` thunks
+ * that would otherwise code-split into dead browser chunks (pulling in web-push,
+ * `node:fs`, and friends):
  *
- * Both kinds live under an app's `methods/` dir, which is what this matches —
- * a parser that strays outside it silently ships to the browser.
+ *  - custom-method handlers + bulk-import parsers, under an app's `methods/` dir
+ *    (ResourceDefinition.customMethods[].load / bulkImport.formats[].load);
+ *  - server boot modules, named `*.server.ts` (AppConfig.boot.server).
+ *
+ * Both are invoked only in homestead-server, whose bundle is built separately
+ * and is unaffected. A handler that strays outside these naming conventions
+ * silently ships to the browser, so keep server-only code under `methods/` or
+ * in a `.server` module.
  */
-function stubCustomMethods(): Plugin {
-  const METHOD_RE = /homestead-apps[/\\].*[/\\]methods[/\\][^/\\]+$/;
+function stubServerOnlyModules(): Plugin {
+  const SERVER_ONLY_RE =
+    /homestead-apps[/\\].*(?:[/\\]methods[/\\][^/\\]+|\.server\.[jt]sx?)$/;
   return {
-    name: 'homestead:stub-custom-methods',
+    name: 'homestead:stub-server-only',
     enforce: 'pre',
     apply: 'build',
     async resolveId(source, importer, options) {
@@ -32,12 +35,12 @@ function stubCustomMethods(): Plugin {
         ...options,
         skipSelf: true,
       });
-      if (resolved && METHOD_RE.test(resolved.id)) return METHOD_STUB_ID;
+      if (resolved && SERVER_ONLY_RE.test(resolved.id)) return SERVER_STUB_ID;
       return null;
     },
     load(id) {
-      if (id === METHOD_STUB_ID) {
-        return 'export default function customMethodStub() {\n  throw new Error("custom method handler invoked in the browser bundle");\n}\n';
+      if (id === SERVER_STUB_ID) {
+        return 'export default function serverOnlyStub() {\n  throw new Error("server-only module invoked in the browser bundle");\n}\n';
       }
       return null;
     },
@@ -66,8 +69,9 @@ const configPath =
   process.env.HOMESTEAD_CONFIG ??
   fileURLToPath(new URL('../../homestead.config.ts', import.meta.url));
 const projectRoot = dirname(configPath);
-// Auto-discovered apps: the boot shim globs
-// `@homestead-project/apps/*/app.homestead.ts` through this alias.
+// `@homestead-project` aliases the operator's project root, so the boot shim
+// and apps can glob project-relative paths (`@homestead-project/apps/*/…`,
+// `@homestead-project/documents/types/*.yaml`) without any app-specific alias.
 const projectAppsDir = join(projectRoot, 'apps');
 
 /**
@@ -86,12 +90,12 @@ function watchProjectApps(): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [stubCustomMethods(), watchProjectApps(), react(), tailwindcss()],
+  plugins: [stubServerOnlyModules(), watchProjectApps(), react(), tailwindcss()],
   resolve: {
     alias: {
       '@': srcDir,
       '@homestead/config': configPath,
-      '@homestead-project/apps': projectAppsDir,
+      '@homestead-project': projectRoot,
     },
   },
   server: {
