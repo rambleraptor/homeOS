@@ -71,6 +71,35 @@ export interface FieldDef {
   items?: FieldDef;
   /** Nested fields for `object` fields. */
   properties?: Record<string, FieldDef>;
+  /**
+   * Name of the discriminator property for a tagged-union `object` field.
+   * Required whenever `variants` is declared, and vice versa.
+   *
+   * OpenAPI requires the discriminator property be **defined in, and required
+   * by, each variant** — it cannot reference a sibling field. The translator
+   * injects it into every variant automatically, so variants must not declare
+   * it themselves.
+   */
+  discriminator?: string;
+  /**
+   * Tagged-union variants for an `object` field, keyed by discriminator value
+   * (kebab-case). Translated to OpenAPI `oneOf` + `discriminator` + `mapping`.
+   *
+   * Because every variant's fields are flattened into one generated column per
+   * distinct field name, a field name used by more than one variant must
+   * declare the same `type` in each — the translator fails the build otherwise.
+   *
+   * @example
+   *   metadata: {
+   *     type: 'object',
+   *     discriminator: 'doc_type',
+   *     variants: {
+   *       'form-1099-int': { payer_name: { type: 'string' } },
+   *       'form-w2':       { employer:   { type: 'string' } },
+   *     },
+   *   }
+   */
+  variants?: Record<string, Record<string, FieldDef>>;
 }
 
 // ----------------------------------------------------------------------------
@@ -86,6 +115,16 @@ export type JsonSchemaPrimitive =
   | 'array'
   | 'binary';
 
+/**
+ * OpenAPI discriminator object. `propertyName` must name a property that every
+ * variant defines and requires; `mapping` points each tag value at the
+ * `components.schemas` entry the OpenAPI generator hoists that variant into.
+ */
+export interface JsonSchemaDiscriminator {
+  propertyName: string;
+  mapping?: Record<string, string>;
+}
+
 export interface JsonSchemaProperty {
   type: JsonSchemaPrimitive;
   description?: string;
@@ -95,6 +134,16 @@ export interface JsonSchemaProperty {
   required?: string[];
   /** Default applied by the engine when the field is omitted on create. */
   default?: unknown;
+  /**
+   * Allowed values. Only emitted for a variant's discriminator tag, where a
+   * single-value enum pins the variant — aepbase strips `enum` from *top-level*
+   * properties (hence the `one of: a, b` description encoding), but preserves
+   * it inside `oneOf` variants, which is what makes the tag work.
+   */
+  enum?: readonly string[];
+  /** Tagged-union variants. Always paired with {@link discriminator}. */
+  oneOf?: JsonSchemaProperty[];
+  discriminator?: JsonSchemaDiscriminator;
   /**
    * aepbase experimental marker for binary fields backed by uploaded
    * files. Produced by the translator from `type: 'file'` fields. See

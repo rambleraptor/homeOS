@@ -69,7 +69,7 @@ export async function syncResourceDefinitions(
 
   for (const def of ordered) {
     try {
-      const schema = toWireSchema(def.fields);
+      const schema = toWireSchema(def.fields, def.singular);
       if (!existingIds.has(def.singular)) {
         await createDefinition(aepbaseUrl, token, def, schema);
         result.created.push(def.singular);

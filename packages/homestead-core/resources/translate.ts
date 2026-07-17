@@ -14,6 +14,7 @@
 
 import type {
   FieldDef,
+  FieldType,
   JsonSchemaProperty,
   ResourceDefinition,
   ResourceSchema,
@@ -78,6 +79,7 @@ function validateField(
   if (field.properties && field.type !== 'object') {
     fail(`field "${path}" declares properties but is not an object`);
   }
+  validateVariants(field, path, fail);
   if (field.default !== undefined) {
     if (field.type === 'file') {
       fail(`field "${path}" is a file field and cannot declare a default`);
@@ -90,6 +92,93 @@ function validateField(
   }
   if (field.properties) validateFields(field.properties, path, fail);
   if (field.items) validateField(field.items, `${path}[]`, fail);
+}
+
+/**
+ * Validate a tagged-union object field.
+ *
+ * The type-consistency rule is the load-bearing one: every variant's fields are
+ * flattened into one generated column per *distinct field name*, so a name
+ * shared across variants must agree on type. OpenAPI permits the mismatch; our
+ * storage cannot, so it fails at boot rather than at query time.
+ */
+function validateVariants(
+  field: FieldDef,
+  path: string,
+  fail: (message: string) => never,
+): void {
+  if (field.variants && field.type !== 'object') {
+    fail(`field "${path}" declares variants but is not an object`);
+  }
+  if (field.discriminator && !field.variants) {
+    fail(`field "${path}" declares a discriminator but no variants`);
+  }
+  if (!field.variants) return;
+  if (!field.discriminator) {
+    fail(`field "${path}" declares variants but no discriminator`);
+  }
+
+  const tag = field.discriminator;
+  if (!SNAKE_RE.test(tag)) {
+    fail(`field "${path}" discriminator "${tag}" must be snake_case`);
+  }
+  if (field.properties) {
+    fail(`field "${path}" cannot declare both properties and variants`);
+  }
+  if (!Object.keys(field.variants).length) {
+    fail(`field "${path}" declares variants but the map is empty`);
+  }
+
+  // field name -> the type the first variant declaring it used
+  const seen = new Map<string, { type: FieldType; variant: string }>();
+  for (const [variantId, fields] of Object.entries(field.variants)) {
+    if (!KEBAB_RE.test(variantId)) {
+      fail(`field "${path}" variant "${variantId}" must be kebab-case`);
+    }
+    if (tag in fields) {
+      fail(
+        `field "${path}" variant "${variantId}" must not declare the ` +
+          `discriminator "${tag}" — the translator injects it`,
+      );
+    }
+    validateFields(fields, `${path}.${variantId}`, fail);
+
+    for (const [name, sub] of Object.entries(fields)) {
+      const prior = seen.get(name);
+      if (prior && prior.type !== sub.type) {
+        fail(
+          `field "${path}" declares "${name}" as ${prior.type} in variant ` +
+            `"${prior.variant}" but ${sub.type} in "${variantId}" — variants ` +
+            `share one column per field name, so types must agree`,
+        );
+      }
+      if (!prior) seen.set(name, { type: sub.type, variant: variantId });
+    }
+  }
+}
+
+/** `form-1099-int` -> `Form1099Int`; `metadata` -> `Metadata`. */
+function pascalCase(value: string): string {
+  return value
+    .split(/[-_]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+}
+
+/**
+ * Name of the `components.schemas` entry a variant is hoisted into, e.g.
+ * `document` + `metadata` + `form-1099-int` -> `DocumentMetadataForm1099Int`.
+ *
+ * Namespaced by resource + field so a variant id can never collide with a real
+ * resource's schema entry (which is keyed by bare singular).
+ */
+export function variantSchemaName(
+  singular: string,
+  field: string,
+  variantId: string,
+): string {
+  return `${pascalCase(singular)}${pascalCase(field)}${pascalCase(variantId)}`;
 }
 
 /** Verify a declared default matches the field's declared type. */
@@ -116,11 +205,16 @@ function checkDefaultType(type: FieldDef['type'], value: unknown): string | null
   }
 }
 
-/** Translate a definition's fields into the aepbase wire schema. */
+/**
+ * Translate a definition's fields into the aepbase wire schema. `singular`
+ * namespaces the `components.schemas` entries that tagged-union variants are
+ * hoisted into by the OpenAPI generator.
+ */
 export function toWireSchema(
   fields: Record<string, FieldDef>,
+  singular: string,
 ): ResourceSchema {
-  const { properties, required } = toWireProperties(fields);
+  const { properties, required } = toWireProperties(fields, singular);
   return {
     type: 'object',
     properties,
@@ -128,20 +222,63 @@ export function toWireSchema(
   };
 }
 
-function toWireProperties(fields: Record<string, FieldDef>): {
+function toWireProperties(
+  fields: Record<string, FieldDef>,
+  singular: string,
+): {
   properties: Record<string, JsonSchemaProperty>;
   required: string[];
 } {
   const properties: Record<string, JsonSchemaProperty> = {};
   const required: string[] = [];
   for (const [name, field] of Object.entries(fields)) {
-    properties[name] = toWireProperty(field);
+    properties[name] = toWireProperty(field, singular, name);
     if (field.required) required.push(name);
   }
   return { properties, required };
 }
 
-function toWireProperty(field: FieldDef): JsonSchemaProperty {
+/**
+ * Translate a tagged union into OpenAPI `oneOf` + `discriminator` + `mapping`.
+ *
+ * Each variant gets the discriminator injected as a required, single-value-enum
+ * property — that's what makes the union unambiguous (a payload matches exactly
+ * one variant) and is why OpenAPI requires the tag live inside each variant.
+ */
+function toWireVariants(
+  field: FieldDef,
+  singular: string,
+  fieldName: string,
+): Pick<JsonSchemaProperty, 'oneOf' | 'discriminator'> {
+  const tag = field.discriminator!;
+  const oneOf: JsonSchemaProperty[] = [];
+  const mapping: Record<string, string> = {};
+
+  for (const [variantId, fields] of Object.entries(field.variants!)) {
+    const { properties, required } = toWireProperties(fields, singular);
+    oneOf.push({
+      type: 'object',
+      properties: {
+        [tag]: { type: 'string', enum: [variantId] },
+        ...properties,
+      },
+      required: [tag, ...required],
+    });
+    mapping[variantId] = `#/components/schemas/${variantSchemaName(
+      singular,
+      fieldName,
+      variantId,
+    )}`;
+  }
+
+  return { oneOf, discriminator: { propertyName: tag, mapping } };
+}
+
+function toWireProperty(
+  field: FieldDef,
+  singular: string,
+  fieldName: string,
+): JsonSchemaProperty {
   const description = wireDescription(field);
   const prop: JsonSchemaProperty = {
     type: field.type === 'file' ? 'binary' : field.type,
@@ -150,12 +287,13 @@ function toWireProperty(field: FieldDef): JsonSchemaProperty {
     ...(field.default !== undefined ? { default: field.default } : {}),
     ...(field.type === 'file' ? { 'x-aepbase-file-field': true } : {}),
   };
-  if (field.items) prop.items = toWireProperty(field.items);
+  if (field.items) prop.items = toWireProperty(field.items, singular, fieldName);
   if (field.properties) {
-    const { properties, required } = toWireProperties(field.properties);
+    const { properties, required } = toWireProperties(field.properties, singular);
     prop.properties = properties;
     if (required.length) prop.required = required;
   }
+  if (field.variants) Object.assign(prop, toWireVariants(field, singular, fieldName));
   return prop;
 }
 
