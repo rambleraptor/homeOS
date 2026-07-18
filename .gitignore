@@ -57,3 +57,6 @@ homestead-site-*.png
 
 # homestead-cli build artifacts (compiled sidecar/aepbase, etc.)
 packages/homestead-cli/.build/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

@@ -1,0 +1,80 @@
+# Medical receipt — a store/pharmacy/clinic receipt for a health expense.
+#
+# See form-1099-int.yaml for the authoring notes; the same rules apply. Every
+# `description` is handed to the model verbatim, so they name where the value
+# sits on the receipt and how to distinguish it from a neighbouring one.
+#
+# This type is the documents-app successor to the standalone HSA Receipts app:
+# `category` and `patient` carry over the HSA-specific fields worth extracting.
+# (The HSA app's reimbursement `status` and free-form `notes` are workflow/user
+# state, not receipt content, so they aren't extraction fields here.)
+id: medical-receipt
+label: Medical receipt
+description: >-
+  An itemized receipt for a health-related purchase — from a pharmacy, doctor's
+  office, dentist, optometrist, hospital, or medical-supply store. Shows a
+  merchant, a purchase date, one or more line items, and a total paid. Use this
+  type for receipts of medical/dental/vision/prescription expenses, the kind
+  kept for an HSA/FSA or a tax deduction; do not use it for a general retail
+  receipt with no health-related items.
+
+fields:
+  merchant:
+    label: Merchant
+    type: string
+    description: >-
+      The store, pharmacy, clinic, or business that issued the receipt —
+      usually printed at the top. Take the business name only, not its address
+      or phone number.
+  purchase_date:
+    label: Date
+    type: string
+    description: >-
+      The date the purchase was made, as printed on the receipt. Prefer an
+      ISO date (YYYY-MM-DD) when the parts are unambiguous; otherwise record the
+      date exactly as shown. Not the print time or any "valid until" date.
+  items:
+    label: Items / description
+    type: string
+    description: >-
+      What was purchased — the line-item descriptions. List them separated by
+      commas (e.g. "Amoxicillin 500mg, dispensing fee"). Omit per-line prices
+      and quantities; those belong to the total, not this summary.
+  amount_paid:
+    label: Amount paid
+    type: number
+    description: >-
+      The total amount actually paid, including tax — the grand total at the
+      bottom of the receipt. A plain number, no currency symbol. If a copay or
+      patient-responsibility amount is shown, that is the amount paid, not the
+      full billed charge.
+  payment_method:
+    label: Payment method
+    type: string
+    description: >-
+      How the purchase was paid for: "card" (credit/debit — include the last
+      four digits or card brand if shown), "cash", or "other". Taken from the
+      tender/payment line near the total.
+  tax:
+    label: Tax
+    type: number
+    description: >-
+      The sales tax charged, when the receipt itemizes it as its own line. A
+      plain number, no currency symbol. Leave blank if no separate tax line is
+      shown (many prescriptions and medical services are untaxed).
+  category:
+    label: Category
+    type: string
+    description: >-
+      The kind of health expense this receipt is for, as one of: "Medical",
+      "Dental", "Vision", or "Rx" (prescriptions/pharmacy). Infer it from the
+      merchant and the items — a pharmacy filling a prescription is "Rx", an
+      optometrist or eyewear is "Vision", a dentist is "Dental", everything
+      else health-related is "Medical".
+  patient:
+    label: Patient
+    type: string
+    description: >-
+      The person the care or item was for, when the receipt names them (for
+      example on a pharmacy label or an itemized statement). The patient, not
+      the paying/account holder if they differ. Leave blank if not shown.
