@@ -36,7 +36,7 @@ test.describe('Documents', () => {
     await deleteAllOperations(userToken);
   });
 
-  test('uploading in the UI classifies a 1099 and renders its fields from the YAML', async ({
+  test('uploading in the UI classifies a 1099, titles it, and renders its fields on the detail page', async ({
     authenticatedPage,
   }) => {
     const documents = new DocumentsPage(authenticatedPage);
@@ -46,22 +46,57 @@ test.describe('Documents', () => {
     // A file whose bytes are the "match" marker: the stub reads it as a 1099-INT.
     await documents.uploadFile('form-1099.pdf', 'application/pdf', DOC_MARKERS.match);
 
-    // The card appears immediately (pending) and the polling list resolves it.
-    const card = documents.card('form-1099');
+    // The row appears immediately (pending) and the polling list resolves it.
+    const card = documents.onlyCard();
     await expect(card).toBeVisible();
-    await expect(documents.status('form-1099')).toContainText(/parsed/i, { timeout: 30_000 });
+    await expect(card.getByTestId('document-status')).toContainText(/parsed/i, {
+      timeout: 30_000,
+    });
 
-    // The type label comes from the doc type's YAML `label`.
-    await expect(documents.type('form-1099')).toContainText('Form 1099-INT');
+    // The index shows only name + type. The title is now AI-inferred (it was the
+    // filename while pending); the type label comes from the YAML `label`.
+    await expect(card.getByTestId('document-title')).toContainText('2025 Ally Bank 1099-INT');
+    await expect(card.getByTestId('document-type')).toContainText('Form 1099-INT');
+
+    // The parsed fields live on the detail page, not the index row.
+    await card.click();
+    await expect(documents.detail()).toBeVisible();
+    await expect(documents.detailType()).toContainText('Form 1099-INT');
 
     // Fields are rendered from the YAML declaration — label from `label`, value
     // from the parsed metadata. No component hardcodes what a 1099 is.
-    await expect(documents.field('form-1099', 'payer_name')).toContainText('Payer name');
-    await expect(documents.field('form-1099', 'payer_name')).toContainText('Ally Bank');
-    await expect(documents.field('form-1099', 'box_1_interest')).toContainText(
+    await expect(documents.detailField('payer_name')).toContainText('Payer name');
+    await expect(documents.detailField('payer_name')).toContainText('Ally Bank');
+    await expect(documents.detailField('box_1_interest')).toContainText(
       'Box 1: Interest income',
     );
-    await expect(documents.field('form-1099', 'box_1_interest')).toContainText('412.55');
+    await expect(documents.detailField('box_1_interest')).toContainText('412.55');
+  });
+
+  test('a document can be edited by hand from its detail page', async ({
+    userToken,
+    authenticatedPage,
+  }) => {
+    // Seed a parsed 1099 via REST, then correct a field and the title in the UI.
+    const doc = await uploadAndClassify(userToken, 'match', { title: 'ally-1099' });
+    expect(doc.parse_status).toBe('parsed');
+
+    const documents = new DocumentsPage(authenticatedPage);
+    await documents.goto();
+    await documents.open('ally-1099');
+    await expect(documents.detail()).toBeVisible();
+
+    await documents.edit();
+    await documents.setTitle('Ally Bank interest 2025');
+    await documents.editField('payer_name').fill('Ally Financial');
+    await documents.save();
+
+    // The edit form closes and the corrected values are shown.
+    await expect(documents.detailField('payer_name')).toContainText('Ally Financial');
+
+    // The manual title persists across a reload (it was saved, not just local).
+    await documents.goto();
+    await expect(documents.card('Ally Bank interest 2025')).toBeVisible();
   });
 
   test('a document matching no known type is shown as unmatched, not failed', async ({

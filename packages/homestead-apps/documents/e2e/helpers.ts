@@ -52,6 +52,9 @@ export async function uploadDocument(
 
   const resource: Record<string, unknown> = {
     title: opts.title ?? `${kind} document`,
+    // Pin the fixture's title so classify's AI-inferred title doesn't replace it
+    // — these specs locate documents by the title they seed.
+    title_edited: true,
     mime_type: mimeType,
     parse_status: 'pending',
   };

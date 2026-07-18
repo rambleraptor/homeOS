@@ -41,6 +41,12 @@ export const documentsApp: AppConfig = {
         component: () =>
           import('./components/DocumentsHome').then((m) => m.DocumentsHome),
       },
+      {
+        path: ':id',
+        component: () =>
+          import('./components/DocumentDetailRoute').then((m) => m.DocumentDetailRoute),
+        dynamic: true,
+      },
     ],
     section: 'Home',
     showInNav: true,

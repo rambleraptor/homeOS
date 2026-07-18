@@ -27,7 +27,22 @@ export const documentsResources = (): ResourceDefinition[] => [
     user_settable_create: true,
     fields: {
       file: { type: 'file', required: true, description: 'pdf/jpeg/png' },
-      title: { type: 'string', description: 'Defaults to the uploaded filename.' },
+      title: {
+        type: 'string',
+        description:
+          'Defaults to the uploaded filename, then replaced by an AI-inferred ' +
+          'title on classify — unless a human has edited it (see title_edited).',
+      },
+      /**
+       * Set once a human renames the document by hand. Classify infers a title
+       * from the document, but only writes it while this is false, so a manual
+       * rename survives a later "Read again".
+       */
+      title_edited: {
+        type: 'boolean',
+        default: false,
+        description: 'True once a human has edited the title; stops AI from overwriting it.',
+      },
       /**
        * Recorded at upload because `:download` serves every file as
        * `application/octet-stream` — the classify handler can't recover the

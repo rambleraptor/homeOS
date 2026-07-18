@@ -1,9 +1,10 @@
 /**
  * Documents Page Object Model.
  *
- * Encapsulates the documents home: the upload dropzone and the document cards.
- * A card is located by its title, since that's what a user reads; its status
- * and type are asserted on `data-testid`s.
+ * Covers the two screens: the index (upload dropzone + one row per document,
+ * showing just name + type) and a document's detail page (its parsed fields,
+ * full text, and the edit form). A row is located by its title, since that's
+ * what a user reads; fields and status are asserted on `data-testid`s.
  */
 
 import { Page, Locator, expect } from '@playwright/test';
@@ -22,11 +23,18 @@ export class DocumentsPage {
       .setInputFiles({ name, mimeType, buffer: Buffer.from(contents) });
   }
 
-  /** The card whose title matches, regardless of its position in the list. */
+  // --- Index rows -----------------------------------------------------------
+
+  /** The row whose title matches, regardless of its position in the list. */
   card(title: string): Locator {
     return this.page
       .getByTestId('document-card')
       .filter({ has: this.page.getByTestId('document-title').filter({ hasText: title }) });
+  }
+
+  /** The single row, when a test has created exactly one document. */
+  onlyCard(): Locator {
+    return this.page.getByTestId('document-card');
   }
 
   status(title: string): Locator {
@@ -37,11 +45,47 @@ export class DocumentsPage {
     return this.card(title).getByTestId('document-type');
   }
 
-  field(title: string, fieldName: string): Locator {
-    return this.card(title).getByTestId(`document-field-${fieldName}`);
+  /** Open a document's detail page by clicking its row. */
+  async open(title: string): Promise<void> {
+    await this.card(title).click();
   }
 
   async expectEmpty(): Promise<void> {
     await expect(this.page.getByTestId('documents-empty')).toBeVisible();
+  }
+
+  // --- Detail page ----------------------------------------------------------
+
+  detail(): Locator {
+    return this.page.getByTestId('document-detail');
+  }
+
+  detailType(): Locator {
+    return this.detail().getByTestId('document-type');
+  }
+
+  detailStatus(): Locator {
+    return this.detail().getByTestId('document-status');
+  }
+
+  /** A parsed metadata field, rendered from the doc type's YAML. */
+  detailField(fieldName: string): Locator {
+    return this.detail().getByTestId(`document-field-${fieldName}`);
+  }
+
+  async edit(): Promise<void> {
+    await this.detail().getByTestId('document-edit').click();
+  }
+
+  async setTitle(title: string): Promise<void> {
+    await this.page.getByTestId('document-edit-title').fill(title);
+  }
+
+  editField(fieldName: string): Locator {
+    return this.page.getByTestId(`document-edit-field-${fieldName}`).locator('input');
+  }
+
+  async save(): Promise<void> {
+    await this.page.getByTestId('document-edit-save').click();
   }
 }
