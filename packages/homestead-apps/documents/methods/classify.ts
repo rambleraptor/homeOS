@@ -50,13 +50,19 @@ function classifyPrompt(types: DocType[]): string {
     .map((t) => `- ${t.id}: ${t.label} — ${t.description}`)
     .join('\n');
 
-  return `You are reading a scanned or digital household document. Do three things.
+  return `You are reading a scanned or digital household document. Do four things.
 
 1. Transcribe the document's full text into "full_text". Include every page, in
    reading order. Preserve line breaks and box labels; do not summarise, correct,
    or reorder anything.
 
-2. Decide whether it is one of these known document types:
+2. Write a short, human-readable "title" for the document — what a person would
+   name this file so they could find it later. Prefer concrete specifics from the
+   document (issuer, form name, date, or subject) over generic words, e.g.
+   "2024 Ally Bank 1099-INT" or "March PG&E electricity bill". Keep it under about
+   eight words, with no file extension and no surrounding quotes.
+
+3. Decide whether it is one of these known document types:
 
 ${catalogue || '(no known document types are configured)'}
 
@@ -65,7 +71,7 @@ ${catalogue || '(no known document types are configured)'}
    match nothing — "${UNKNOWN_DOC_TYPE}" is a normal answer, not a failure, and is
    far better than forcing a wrong match.
 
-3. If it matched a type, fill that type's fields from the document. Rules:
+4. If it matched a type, fill that type's fields from the document. Rules:
    - Copy values exactly as printed. Do not reformat, round, or unmask them.
    - Omit any field you cannot find. Never guess, and never carry a value over
      from a different field just because it looks similar.
@@ -144,6 +150,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
 
   const schema = z.object({
     full_text: z.string().describe("The document's full text, verbatim."),
+    title: z.string().describe('A short, human-readable title for the document.'),
     confidence: z.number().describe('Confidence in the type match, 0 to 1.'),
     metadata: toZodUnion(types),
   });
@@ -166,10 +173,16 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   // text (always useful) and drop the metadata claim.
   const metadata = matched ? parsed.metadata : { doc_type: UNKNOWN_DOC_TYPE };
 
+  // Only adopt the inferred title when a human hasn't renamed the document.
+  // A blank model title never clobbers the existing (filename) default.
+  const inferredTitle = parsed.title?.trim();
+  const setTitle = !doc.title_edited && inferredTitle ? { title: inferredTitle } : {};
+
   await aepUpdate<Document>(
     DOCUMENTS,
     docId,
     {
+      ...setTitle,
       full_text: parsed.full_text,
       confidence,
       metadata,

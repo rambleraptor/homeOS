@@ -19,6 +19,8 @@ export interface Document {
   id: string;
   path: string;
   title?: string;
+  /** True once a human edits the title; stops classify from overwriting it. */
+  title_edited?: boolean;
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
   mime_type?: string;

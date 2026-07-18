@@ -53,6 +53,7 @@ export const DOC_MARKERS = {
 /** Fields the stub "reads" from a 1099-INT document — a realistic subset. */
 export const STUB_DOCUMENT_1099 = {
   full_text: 'Form 1099-INT  Interest Income  Ally Bank  Box 1 412.55',
+  title: '2025 Ally Bank 1099-INT',
   confidence: 0.95,
   metadata: {
     doc_type: 'form-1099-int',
@@ -67,6 +68,7 @@ export const STUB_DOCUMENT_1099 = {
 /** A genuine "not a known type" read: low confidence, only the unknown tag. */
 export const STUB_DOCUMENT_UNKNOWN = {
   full_text: 'Dear customer, thank you for your recent visit.',
+  title: 'Customer letter',
   confidence: 0.15,
   metadata: { doc_type: 'unknown' },
 };

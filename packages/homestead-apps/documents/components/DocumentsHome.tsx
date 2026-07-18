@@ -6,8 +6,8 @@ import { useRef, useState } from 'react';
 import { Loader2, Upload, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
-import { useClassifyDocument, useUploadDocument } from '../hooks/useUploadDocument';
-import { DocumentCard } from './DocumentCard';
+import { useUploadDocument } from '../hooks/useUploadDocument';
+import { DocumentListItem } from './DocumentListItem';
 
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
 
@@ -17,7 +17,6 @@ export function DocumentsHome() {
 
   const { data: documents, isLoading, isError, error } = useDocuments();
   const upload = useUploadDocument();
-  const classify = useClassifyDocument();
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -98,14 +97,9 @@ export function DocumentsHome() {
       )}
 
       {documents && documents.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-testid="documents-list">
+        <div className="space-y-2" data-testid="documents-list">
           {documents.map((doc) => (
-            <DocumentCard
-              key={doc.id}
-              document={doc}
-              onReclassify={(id) => classify.mutate(id)}
-              isReclassifying={classify.isPending && classify.variables === doc.id}
-            />
+            <DocumentListItem key={doc.id} document={doc} />
           ))}
         </div>
       )}
