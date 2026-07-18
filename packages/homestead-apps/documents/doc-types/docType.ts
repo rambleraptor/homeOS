@@ -4,7 +4,7 @@
  *
  * One YAML file is the single source of truth for a document type. It drives:
  *   - the resource schema  (`toVariants`  → FieldDef variants → OpenAPI oneOf)
- *   - the AI extraction    (`toZodUnion`  → a discriminated union)
+ *   - the AI extraction    (`toZodUnion`  → a Zod union)
  *   - the UI labels        (`DocType.fields[].label`)
  *
  * Runtime-agnostic on purpose: no fs, no import.meta.glob. The server reads the
@@ -173,12 +173,19 @@ export function toVariants(types: DocType[]): Record<string, Record<string, Fiel
 }
 
 /**
- * Doc types → the Zod discriminated union the model fills.
+ * Doc types → the Zod union the model fills.
  *
  * Every field is optional: a partial read should degrade to missing fields
  * rather than fail validation outright and lose the whole extraction. The
- * discriminator is the one required key, which is what keeps the union
- * unambiguous even when everything else is absent.
+ * `doc_type` literal is the one required key, which keeps the branches
+ * distinguishable even when everything else is absent.
+ *
+ * Deliberately `z.union`, not `z.discriminatedUnion`: the AI SDK serialises a
+ * discriminated union as JSON-Schema `oneOf`, and Gemini's structured-output
+ * schema silently drops `oneOf` — taking every field definition with it, so the
+ * model classifies but extracts nothing. `z.union` serialises as `anyOf`, which
+ * Gemini honours. Validation is unaffected: the `doc_type` literals keep the
+ * branches unambiguous.
  */
 export function toZodUnion(types: DocType[]) {
   const variant = (type: DocType) => {
@@ -196,8 +203,8 @@ export function toZodUnion(types: DocType[]) {
     doc_type: z.literal(UNKNOWN_DOC_TYPE),
   });
 
-  return z.discriminatedUnion('doc_type', [
+  return z.union([
     ...types.map(variant),
     unknown,
-  ] as unknown as [z.ZodObject<{ doc_type: z.ZodLiteral<string> }>]);
+  ] as unknown as [z.ZodObject<{ doc_type: z.ZodLiteral<string> }>, z.ZodObject<{ doc_type: z.ZodLiteral<string> }>]);
 }
