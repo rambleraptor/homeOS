@@ -175,7 +175,7 @@ describe('toZodUnion', () => {
 describe('the built-in doc types', () => {
   it('parse cleanly from disk', () => {
     const types = readDocTypesDir(BUILTIN_DIR);
-    expect(types.map((t) => t.id)).toEqual(['form-1099-int', 'form-w2']);
+    expect(types.map((t) => t.id)).toEqual(['form-1099-int', 'form-w2', 'medical-receipt']);
   });
 
   it('compile to variants without a field-type conflict', () => {
