@@ -159,14 +159,14 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
             )}
           </div>
 
-          {doc.full_text && (
+          {(doc.file_text ?? doc.full_text) && (
             <div className="rounded-lg border border-gray-200 bg-white p-5">
               <h2 className="mb-3 text-sm font-medium text-gray-900">Extracted text</h2>
               <pre
                 className="max-h-96 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs text-gray-700"
                 data-testid="document-full-text"
               >
-                {doc.full_text}
+                {doc.file_text ?? doc.full_text}
               </pre>
             </div>
           )}

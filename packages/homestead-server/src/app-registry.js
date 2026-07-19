@@ -74,6 +74,11 @@ export function aiConfig() {
   return config.ai ?? null;
 }
 
+/** The `embedding` block of homestead.config.ts, or null when unconfigured. */
+export function embeddingConfig() {
+  return config.embedding ?? null;
+}
+
 export {
   getResourceCustomMethod,
   getAllResourceCustomMethods,

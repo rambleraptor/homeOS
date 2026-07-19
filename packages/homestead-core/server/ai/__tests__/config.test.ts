@@ -10,11 +10,17 @@ import {
   isAiConfigured,
   getAiModel,
   AiNotConfiguredError,
+  setEmbeddingConfig,
+  getEmbeddingConfig,
+  isEmbeddingConfigured,
+  getEmbeddingModel,
+  EmbeddingNotConfiguredError,
 } from '../config';
-import type { AiProvider } from '../../../apps/config';
+import type { AiProvider, EmbeddingProvider } from '../../../apps/config';
 
 afterEach(() => {
   setAiConfig(null);
+  setEmbeddingConfig(null);
 });
 
 describe('AI config', () => {
@@ -56,5 +62,37 @@ describe('AI config', () => {
     };
     setAiConfig(cfg);
     expect(getAiConfig()).toEqual(cfg);
+  });
+});
+
+describe('embedding config', () => {
+  it('is independent of the chat config and unconfigured by default', () => {
+    setAiConfig({ provider: 'anthropic', model: 'claude', auth: { apiKey: 'k' } });
+    // Chat configured, but embedding is a separate block — still off.
+    expect(isAiConfigured()).toBe(true);
+    expect(isEmbeddingConfigured()).toBe(false);
+    expect(getEmbeddingConfig()).toBeNull();
+    expect(() => getEmbeddingModel()).toThrow(EmbeddingNotConfiguredError);
+  });
+
+  it('instantiates an embedding model for each embedding provider', () => {
+    const providers: EmbeddingProvider[] = ['openai', 'google'];
+    for (const provider of providers) {
+      setEmbeddingConfig({ provider, model: 'test-embed', auth: { apiKey: 'fake-key' } });
+      expect(isEmbeddingConfigured()).toBe(true);
+      expect(getEmbeddingModel()).toBeTruthy();
+    }
+  });
+
+  it('honors a per-field model override', () => {
+    setEmbeddingConfig({ provider: 'openai', model: 'text-embedding-3-small', auth: { apiKey: 'k' } });
+    // Override resolves without throwing (same provider, different model id).
+    expect(getEmbeddingModel('text-embedding-3-large')).toBeTruthy();
+  });
+
+  it('treats a blank apiKey as unconfigured', () => {
+    setEmbeddingConfig({ provider: 'openai', model: 'text-embedding-3-small', auth: { apiKey: '  ' } });
+    expect(isEmbeddingConfigured()).toBe(false);
+    expect(() => getEmbeddingModel()).toThrow(EmbeddingNotConfiguredError);
   });
 });

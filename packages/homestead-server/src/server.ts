@@ -54,8 +54,21 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // Push the operator's AI config into core before any route handles a request
   // (core can't import the server's registry — the dependency direction is
   // server → core — so the server hands it down). null leaves AI disabled.
-  const { setAiConfig } = await import('@rambleraptor/homestead-core/server/ai/config');
+  const { setAiConfig, setEmbeddingConfig } = await import(
+    '@rambleraptor/homestead-core/server/ai/config'
+  );
   setAiConfig(registry.aiConfig());
+  setEmbeddingConfig(registry.embeddingConfig());
+
+  // Vector store for semantic search over ai.embed file fields. Core can't open
+  // a SQLite db itself (server → core dependency direction), so the server
+  // constructs the store and hands it down, like the AI config above.
+  const { createSqliteVectorStore } = await import('./vectors/sqlite-store');
+  const { setVectorStore } = await import(
+    '@rambleraptor/homestead-core/server/vectors/store'
+  );
+  const vectorStore = createSqliteVectorStore(join(opts.dataDir, 'vectors.db'));
+  setVectorStore(vectorStore);
 
   // Run each app's server boot before anything reads the schema — some apps
   // build their resources from assets loaded here (the documents app's
@@ -147,6 +160,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     stop: async () => {
       await stopPublic();
       engine.db.close();
+      vectorStore.close();
     },
   };
 }

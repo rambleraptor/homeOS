@@ -12,6 +12,7 @@ import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/custom-methods/dispatcher';
 import { bulkImportCustomMethod } from '@rambleraptor/homestead-core/server/bulk-import/method';
 import { getResourceCustomMethod } from '../app-registry';
+import { handleCrudWithIndexing } from './file-index-trigger';
 import type { Engine } from '../engine/engine';
 
 /**
@@ -45,10 +46,16 @@ export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
     return engine.fetch(new Request(`${engineOrigin}${path}`, init));
   }
 
-  gateway.all('/*', (c) => {
+  gateway.all('/*', async (c) => {
     const url = new URL(c.req.url);
     // The engine-relative path (everything after `/api/aep`), query included.
     const path = url.pathname.slice(PREFIX.length) + url.search;
+
+    // Auto-index uploads to `ai`-enabled file fields. Returns null for anything
+    // it doesn't own (custom methods, non-file writes) so dispatch proceeds.
+    const indexed = await handleCrudWithIndexing(c.req.raw, path, passthrough);
+    if (indexed) return indexed;
+
     return dispatchCustomMethod({
       request: c.req.raw,
       path,

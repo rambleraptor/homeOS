@@ -24,6 +24,9 @@ export interface Document {
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
   mime_type?: string;
+  /** Extracted text, filled by the platform index pipeline. */
+  file_text?: string;
+  /** @deprecated Legacy field; read only during the file_text backfill. */
   full_text?: string;
   parse_status?: ParseStatus;
   confidence?: number;

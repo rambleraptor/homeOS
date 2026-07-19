@@ -22,11 +22,12 @@ import { isAiConfigured } from '../ai/config';
 import { aiRunAgent, tool, type ModelMessage, type ToolSet } from '../ai/generate';
 import { buildTools } from './tools';
 import { executeToolCall } from './execute';
+import { makeSearchTool, SEARCH_TOOL_NAME } from './search-tool';
 
 /** Max rounds of tool execution per turn before forcing a text answer. */
 const MAX_TOOL_ROUNDS = 10;
 
-function buildSystemPrompt(user: AuthedUser): string {
+function buildSystemPrompt(user: AuthedUser, hasDocSearch: boolean): string {
   return [
     'You are the Homestead household assistant. You help members of the',
     'household look up and manage their data (todos, groceries, recipes,',
@@ -43,6 +44,13 @@ function buildSystemPrompt(user: AuthedUser): string {
     '  can only act on data the signed-in user can access.',
     '- Record ids are server-assigned. When you are not sure of an id, read',
     '  (list) the collection first instead of guessing.',
+    ...(hasDocSearch
+      ? [
+          `- To answer questions about the contents of uploaded files, use the`,
+          `  "${SEARCH_TOOL_NAME}" tool — it searches document text by meaning.`,
+          '  Cite the resource type and record id of any passage you rely on.',
+        ]
+      : []),
     '- Updates are merge patches: send only the fields to change.',
     '- Deletes cannot be undone. Before deleting, confirm with the user',
     '  unless they have already clearly identified the exact record.',
@@ -95,10 +103,8 @@ export async function handleChat(request: Request): Promise<Response> {
 
   // Same definition union the schema sync applies, so the model sees
   // every collection that exists in aepbase.
-  const { tools, bindings } = buildTools([
-    ...BUILTIN_RESOURCE_DEFS,
-    ...getAllResourceDefs(),
-  ]);
+  const defs = [...BUILTIN_RESOURCE_DEFS, ...getAllResourceDefs()];
+  const { tools, bindings } = buildTools(defs);
 
   // Capture every tool outcome in invocation order. The SDK calls each tool's
   // `execute`, feeds its return back to the model, and loops; pushing here (vs.
@@ -122,6 +128,15 @@ export async function handleChat(request: Request): Promise<Response> {
     });
   }
 
+  // Semantic search over embedded file fields. Auto-registered only when some
+  // resource embeds a file field and embedding is configured; null otherwise.
+  const searchTool = makeSearchTool({
+    defs,
+    token: auth.token,
+    record: (call) => toolCalls.push(call),
+  });
+  if (searchTool) toolSet[SEARCH_TOOL_NAME] = searchTool;
+
   const modelMessages: ModelMessage[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
@@ -129,7 +144,7 @@ export async function handleChat(request: Request): Promise<Response> {
 
   try {
     const { text } = await aiRunAgent({
-      system: buildSystemPrompt(auth.user),
+      system: buildSystemPrompt(auth.user, searchTool !== null),
       messages: modelMessages,
       tools: toolSet,
       maxRounds: MAX_TOOL_ROUNDS,

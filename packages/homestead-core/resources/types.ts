@@ -30,6 +30,41 @@ export type FieldType =
   | 'file';
 
 /**
+ * Chunking / embedding tuning for a file field's `embed`. Pass `embed: true`
+ * for the instance defaults, or this object to override them per field.
+ */
+export interface EmbedOptions {
+  /** Approx. characters per chunk before embedding. */
+  chunk_size?: number;
+  /** Characters of overlap between consecutive chunks. */
+  overlap?: number;
+  /** Override the instance-wide embedding model for this field. */
+  embedding_model?: string;
+}
+
+/**
+ * AI-driven processing for a `type: 'file'` field. Authoring-side metadata
+ * only — stripped from the wire schema; the server reads it from the app
+ * registry to drive the behind-the-scenes index pipeline on upload. Both
+ * options require a configured AI provider (see `server/ai/config`).
+ */
+export interface FileAiOptions {
+  /**
+   * Extract the file's full text (vision/OCR model) into an auto-synthesized
+   * companion string field named `<field>_text`. The companion exists only in
+   * the wire schema — it is not a writable field apps or the chat model set.
+   */
+  extract_text?: boolean;
+  /**
+   * Chunk the extracted text and store vector embeddings so the AI chat can
+   * answer semantic questions across records. Implies `extract_text` (you
+   * can't embed text you haven't extracted). `true` uses the instance
+   * defaults; an object tunes chunking / the embedding model.
+   */
+  embed?: boolean | EmbedOptions;
+}
+
+/**
  * A single field on a resource. Translated to a JSON-schema property
  * (`JsonSchemaProperty`) by `translate.ts` before being sent to aepbase.
  */
@@ -100,6 +135,11 @@ export interface FieldDef {
    *   }
    */
   variants?: Record<string, Record<string, FieldDef>>;
+  /**
+   * AI processing for a `file` field: extract its text and/or embed it for
+   * semantic search. Only valid on `type: 'file'`. See {@link FileAiOptions}.
+   */
+  ai?: FileAiOptions;
 }
 
 // ----------------------------------------------------------------------------
