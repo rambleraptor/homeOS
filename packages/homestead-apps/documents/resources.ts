@@ -1,6 +1,6 @@
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import { toVariants, UNKNOWN_DOC_TYPE } from './doc-types/docType';
-import { getDocTypes } from './doc-types/registry';
+import { BUILTIN_DOC_TYPES } from './doc-types/builtins';
 
 export const DOCUMENTS = 'documents' as const;
 
@@ -12,12 +12,11 @@ export const PARSE_STATUSES = ['pending', 'parsed', 'unmatched', 'failed'] as co
 export type ParseStatus = (typeof PARSE_STATUSES)[number];
 
 /**
- * A thunk, not an array: `metadata`'s variants come from the doc-type YAML,
- * which is loaded into the registry at boot. `getAllResourceDefs()` calls this
- * after that install, whereas a module-level array would be built at import
- * time and race it. See `doc-types/registry.ts`.
+ * A plain array: `metadata`'s variants are compiled from the static built-in
+ * doc types (`BUILTIN_DOC_TYPES`), so the whole schema is known at import time —
+ * no registry, no boot step.
  */
-export const documentsResources = (): ResourceDefinition[] => [
+export const documentsResources: ResourceDefinition[] = [
   {
     singular: 'document',
     plural: DOCUMENTS,
@@ -84,7 +83,7 @@ export const documentsResources = (): ResourceDefinition[] => [
       metadata: {
         type: 'object',
         discriminator: DOC_TYPE_FIELD,
-        variants: toVariants(getDocTypes()),
+        variants: toVariants(BUILTIN_DOC_TYPES),
         description:
           'Fields parsed from the document, shaped by its matched type. ' +
           `Tagged "${UNKNOWN_DOC_TYPE}" when it matches none.`,

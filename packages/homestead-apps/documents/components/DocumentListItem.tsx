@@ -6,6 +6,7 @@
 
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { getDocType } from '../doc-types/registry';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import type { Document } from '../types';
@@ -15,6 +16,11 @@ export function DocumentListItem({ document }: { document: Document }) {
   const docType = document.metadata?.doc_type
     ? getDocType(document.metadata.doc_type)
     : undefined;
+
+  // A parsed document that matched a type shows that type's icon in place of the
+  // generic "Parsed" badge; every other state keeps its status badge (Reading…,
+  // No matching type, Failed) since there's no type icon to stand in for it.
+  const showTypeIcon = status === 'parsed' && docType;
 
   return (
     <Link
@@ -31,7 +37,18 @@ export function DocumentListItem({ document }: { document: Document }) {
           {docType?.label ?? 'Unrecognised document'}
         </p>
       </div>
-      <DocumentStatusBadge status={status} />
+      {showTypeIcon ? (
+        <span
+          className="inline-flex shrink-0 items-center justify-center text-gray-500"
+          title={docType.label}
+          aria-label={docType.label}
+          data-testid="document-type-icon"
+        >
+          <AppIcon icon={docType.icon} className="h-5 w-5" />
+        </span>
+      ) : (
+        <DocumentStatusBadge status={status} />
+      )}
       <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
     </Link>
   );

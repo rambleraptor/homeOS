@@ -70,14 +70,6 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const vectorStore = createSqliteVectorStore(join(opts.dataDir, 'vectors.db'));
   setVectorStore(vectorStore);
 
-  // Run each app's server boot before anything reads the schema — some apps
-  // build their resources from assets loaded here (the documents app's
-  // `metadata` variants come from doc-type YAML, and its `resources` is a thunk
-  // so the build happens at the schema sync below). Generic over every
-  // registered app; the shell names none. The SPA mirror runs boot.client.
-  const { getAllAppsDeep } = await import('@rambleraptor/homestead-core/apps/registry');
-  for (const app of getAllAppsDeep()) await app.boot?.server?.();
-
   const engine = new Engine({
     dbPath: join(opts.dataDir, 'aepbase.db'),
     filesDir: join(opts.dataDir, 'files'),

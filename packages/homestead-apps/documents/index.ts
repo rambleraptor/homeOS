@@ -3,16 +3,11 @@ export { documentsResources, DOCUMENTS, DOC_TYPE_FIELD, PARSE_STATUSES } from '.
 export type { ParseStatus } from './resources';
 export type { Document, DocumentMetadata, ClassifyResult } from './types';
 export {
-  mergeDocTypes,
-  parseDocType,
+  validateDocType,
   toVariants,
   toZodUnion,
   UNKNOWN_DOC_TYPE,
 } from './doc-types/docType';
+export { BUILTIN_DOC_TYPES } from './doc-types/builtins';
 export type { DocType, DocField, DocFieldType } from './doc-types/docType';
-export {
-  getDocType,
-  getDocTypes,
-  initializeDocTypes,
-  resetDocTypes,
-} from './doc-types/registry';
+export { getDocType, getDocTypes } from './doc-types/registry';

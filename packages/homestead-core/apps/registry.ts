@@ -446,23 +446,6 @@ export function resolveResources(mod: AppConfig): ResourceDefinition[] {
   return typeof mod.resources === 'function' ? mod.resources() : (mod.resources ?? []);
 }
 
-/**
- * Every registered app flattened depth-first (children included), in
- * registration order — distinct from {@link getAllApps}, which returns only the
- * top-level apps. Used to run each app's {@link AppConfig.boot} hook, so boot
- * reaches bundled, npm-published, auto-discovered, and nested child apps
- * identically; the caller names no app.
- */
-export function getAllAppsDeep(): AppConfig[] {
-  const out: AppConfig[] = [];
-  const visit = (mod: AppConfig): void => {
-    out.push(mod);
-    for (const child of mod.children ?? []) visit(child);
-  };
-  for (const mod of getAppRegistry().apps) visit(mod);
-  return out;
-}
-
 export function getAllResourceDefs(): ResourceDefinition[] {
   const out: ResourceDefinition[] = [];
   const visit = (mod: AppConfig): void => {

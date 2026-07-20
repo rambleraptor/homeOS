@@ -71,7 +71,7 @@ const configPath =
 const projectRoot = dirname(configPath);
 // `@homestead-project` aliases the operator's project root, so the boot shim
 // and apps can glob project-relative paths (`@homestead-project/apps/*/…`,
-// `@homestead-project/documents/types/*.yaml`) without any app-specific alias.
+// `@homestead-project/documents/types/*.ts`) without any app-specific alias.
 const projectAppsDir = join(projectRoot, 'apps');
 
 /**

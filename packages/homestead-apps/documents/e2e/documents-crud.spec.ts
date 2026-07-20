@@ -47,14 +47,16 @@ test.describe('Documents', () => {
     await documents.uploadFile('form-1099.pdf', 'application/pdf', DOC_MARKERS.match);
 
     // The row appears immediately (pending) and the polling list resolves it.
+    // Once parsed, the row swaps the "Reading…" badge for the matched type's
+    // icon, so its presence is the signal that classification finished.
     const card = documents.onlyCard();
     await expect(card).toBeVisible();
-    await expect(card.getByTestId('document-status')).toContainText(/parsed/i, {
+    await expect(card.getByTestId('document-type-icon')).toBeVisible({
       timeout: 30_000,
     });
 
     // The index shows only name + type. The title is now AI-inferred (it was the
-    // filename while pending); the type label comes from the YAML `label`.
+    // filename while pending); the type label comes from the doc type's `label`.
     await expect(card.getByTestId('document-title')).toContainText('2025 Ally Bank 1099-INT');
     await expect(card.getByTestId('document-type')).toContainText('Form 1099-INT');
 
@@ -63,8 +65,8 @@ test.describe('Documents', () => {
     await expect(documents.detail()).toBeVisible();
     await expect(documents.detailType()).toContainText('Form 1099-INT');
 
-    // Fields are rendered from the YAML declaration — label from `label`, value
-    // from the parsed metadata. No component hardcodes what a 1099 is.
+    // Fields are rendered from the doc type's declaration — label from `label`,
+    // value from the parsed metadata. No component hardcodes what a 1099 is.
     await expect(documents.detailField('payer_name')).toContainText('Payer name');
     await expect(documents.detailField('payer_name')).toContainText('Ally Bank');
     await expect(documents.detailField('box_1_interest')).toContainText(

@@ -1,112 +1,102 @@
 /**
- * Doc-type parsing, merging, and compilation into schema variants + Zod.
+ * Doc-type validation, merging, and compilation into schema variants + Zod.
  *
- * The built-in YAML is read from disk here rather than fixtured, so a typo in a
- * shipped doc type fails this suite rather than surfacing at boot.
- *
- * `readDocTypesDir` is given an explicit path rather than going through
- * `builtinDocTypesDir()`: that helper resolves `import.meta.url`, which Vite
- * rewrites to a non-file URL under this (jsdom) suite. It resolves correctly on
- * the server, which runs the module untransformed.
+ * The built-in types are imported here (not fixtured), so a typo in a shipped
+ * doc type — a non-kebab id, a mistyped field, a missing icon — fails this suite
+ * rather than surfacing at boot.
  */
 
 import { describe, expect, it } from 'vitest';
+import { FileText } from 'lucide-react';
 import {
-  mergeDocTypes,
-  parseDocType,
+  validateDocType,
   toVariants,
   toZodUnion,
   UNKNOWN_DOC_TYPE,
   type DocType,
 } from '../doc-types/docType';
-import { join } from 'node:path';
-import { readDocTypesDir } from '../doc-types/loadDocTypes.server';
+import { BUILTIN_DOC_TYPES } from '../doc-types/builtins';
+import type { LazyIcon } from '@rambleraptor/homestead-core/apps/types';
 
-/** The shipped YAML, addressed from the vitest cwd (packages/homestead-app). */
-const BUILTIN_DIR = join(process.cwd(), '..', 'homestead-apps', 'documents', 'doc-types');
+/** A stand-in lazy icon for the test doc types below. */
+const stubIcon: LazyIcon = () => Promise.resolve(FileText);
 
-const yaml = (body: string) => `id: form-x\nlabel: Form X\ndescription: A form.\n${body}`;
+/** A minimal well-formed doc type, spread over in the invalid-input cases. */
+const wellFormed = {
+  id: 'form-x',
+  label: 'Form X',
+  description: 'A form.',
+  icon: stubIcon,
+  fields: { payer_name: { label: 'Payer name', type: 'string', description: 'Who paid.' } },
+};
 
 const type = (id: string, fields: DocType['fields']): DocType => ({
   id,
   label: id,
   description: `the ${id}`,
+  icon: stubIcon,
   fields,
 });
 
-describe('parseDocType', () => {
-  it('parses a well-formed doc type', () => {
-    const parsed = parseDocType(
-      yaml('fields:\n  payer_name:\n    label: Payer name\n    type: string\n    description: Who paid.\n'),
-      'form-x.yaml',
-    );
-    expect(parsed).toEqual({
-      id: 'form-x',
-      label: 'Form X',
-      description: 'A form.',
-      fields: {
-        payer_name: { label: 'Payer name', type: 'string', description: 'Who paid.' },
-      },
-    });
+describe('validateDocType', () => {
+  it('accepts a well-formed doc type', () => {
+    expect(validateDocType(wellFormed, 'form-x.ts')).toEqual(wellFormed);
   });
 
   it('names the offending file in every error', () => {
-    expect(() => parseDocType('id: Form_X', 'bad.yaml')).toThrow(/"bad\.yaml"/);
+    expect(() => validateDocType({ id: 'Form_X' }, 'bad.ts')).toThrow(/"bad\.ts"/);
+  });
+
+  it('rejects a non-object module export', () => {
+    expect(() => validateDocType(undefined, 'x.ts')).toThrow(/must default-export/);
   });
 
   it('rejects a non-kebab-case id', () => {
-    expect(() => parseDocType('id: formX\nlabel: X\ndescription: d\nfields: {}', 'x.yaml')).toThrow(
+    expect(() => validateDocType({ ...wellFormed, id: 'formX' }, 'x.ts')).toThrow(
       /must be kebab-case/,
     );
   });
 
   it('reserves the unknown id', () => {
     expect(() =>
-      parseDocType(`id: ${UNKNOWN_DOC_TYPE}\nlabel: X\ndescription: d\nfields: {}`, 'x.yaml'),
+      validateDocType({ ...wellFormed, id: UNKNOWN_DOC_TYPE }, 'x.ts'),
     ).toThrow(/reserved for unmatched documents/);
   });
 
   it('requires a description — it is what the model classifies on', () => {
-    expect(() => parseDocType('id: form-x\nlabel: X\nfields: {}', 'x.yaml')).toThrow(
-      /description is required/,
+    expect(() =>
+      validateDocType({ ...wellFormed, description: undefined }, 'x.ts'),
+    ).toThrow(/description is required/);
+  });
+
+  it('requires an icon', () => {
+    expect(() => validateDocType({ ...wellFormed, icon: undefined }, 'x.ts')).toThrow(
+      /icon is required/,
     );
   });
 
   it('rejects non-snake_case field names', () => {
     expect(() =>
-      parseDocType(yaml('fields:\n  payerName:\n    label: P\n    type: string\n'), 'x.yaml'),
+      validateDocType(
+        { ...wellFormed, fields: { payerName: { label: 'P', type: 'string' } } },
+        'x.ts',
+      ),
     ).toThrow(/"payerName" must be snake_case/);
   });
 
   it('rejects unsupported field types', () => {
     expect(() =>
-      parseDocType(yaml('fields:\n  paid:\n    label: P\n    type: boolean\n'), 'x.yaml'),
+      validateDocType(
+        { ...wellFormed, fields: { paid: { label: 'P', type: 'boolean' } } },
+        'x.ts',
+      ),
     ).toThrow(/type must be "string" or "number"/);
   });
 
   it('rejects a doc type with no fields', () => {
-    expect(() => parseDocType(yaml('fields: {}'), 'x.yaml')).toThrow(/declares no fields/);
-  });
-
-  it('reports malformed YAML rather than throwing raw', () => {
-    expect(() => parseDocType('id: [unclosed', 'x.yaml')).toThrow(/YAML did not parse/);
-  });
-});
-
-describe('mergeDocTypes', () => {
-  it('lets the project override a built-in by id, and sorts by id', () => {
-    const merged = mergeDocTypes(
-      [type('form-w2', { a: { label: 'A', type: 'string' } }), type('form-1099-int', {})],
-      [type('form-w2', { b: { label: 'B', type: 'string' } })],
+    expect(() => validateDocType({ ...wellFormed, fields: {} }, 'x.ts')).toThrow(
+      /declares no fields/,
     );
-    expect(merged.map((t) => t.id)).toEqual(['form-1099-int', 'form-w2']);
-    // Wholesale replacement, not a field-level merge.
-    expect(Object.keys(merged[1]!.fields)).toEqual(['b']);
-  });
-
-  it('keeps project-only types', () => {
-    const merged = mergeDocTypes([], [type('form-1098', {})]);
-    expect(merged.map((t) => t.id)).toEqual(['form-1098']);
   });
 });
 
@@ -180,25 +170,36 @@ describe('toZodUnion', () => {
 });
 
 describe('the built-in doc types', () => {
-  it('parse cleanly from disk', () => {
-    const types = readDocTypesDir(BUILTIN_DIR);
-    expect(types.map((t) => t.id)).toEqual(['form-1099-int', 'form-w2', 'medical-receipt']);
+  it('expose the expected ids', () => {
+    expect(BUILTIN_DOC_TYPES.map((t) => t.id).sort()).toEqual([
+      'form-1099-int',
+      'form-w2',
+      'medical-receipt',
+    ]);
+  });
+
+  it('validate cleanly', () => {
+    for (const t of BUILTIN_DOC_TYPES) {
+      expect(() => validateDocType(t, `${t.id}.ts`)).not.toThrow();
+    }
   });
 
   it('compile to variants without a field-type conflict', () => {
-    // The two share no field names today; this guards the next type added.
-    expect(() => toVariants(readDocTypesDir(BUILTIN_DIR))).not.toThrow();
+    // The types share no field names today; this guards the next one added.
+    expect(() => toVariants(BUILTIN_DOC_TYPES)).not.toThrow();
   });
 
   it('carry a description on every field — the lever on extraction quality', () => {
-    for (const type of readDocTypesDir(BUILTIN_DIR)) {
-      for (const [name, field] of Object.entries(type.fields)) {
-        expect(field.description, `${type.id}.${name}`).toBeTruthy();
+    for (const t of BUILTIN_DOC_TYPES) {
+      for (const [name, field] of Object.entries(t.fields)) {
+        expect(field.description, `${t.id}.${name}`).toBeTruthy();
       }
     }
   });
 
-  it('tolerate a missing doc-types directory', () => {
-    expect(readDocTypesDir('/nonexistent/documents/types')).toEqual([]);
+  it('carry an icon', () => {
+    for (const t of BUILTIN_DOC_TYPES) {
+      expect(typeof t.icon, t.id).toBe('function');
+    }
   });
 });

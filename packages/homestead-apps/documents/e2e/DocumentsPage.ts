@@ -45,6 +45,11 @@ export class DocumentsPage {
     return this.card(title).getByTestId('document-type');
   }
 
+  /** The matched type's icon, shown on the row once a document is parsed. */
+  typeIcon(title: string): Locator {
+    return this.card(title).getByTestId('document-type-icon');
+  }
+
   /** Open a document's detail page by clicking its row. */
   async open(title: string): Promise<void> {
     await this.card(title).click();
@@ -68,7 +73,7 @@ export class DocumentsPage {
     return this.detail().getByTestId('document-status');
   }
 
-  /** A parsed metadata field, rendered from the doc type's YAML. */
+  /** A parsed metadata field, rendered from the doc type's declaration. */
   detailField(fieldName: string): Locator {
     return this.detail().getByTestId(`document-field-${fieldName}`);
   }
