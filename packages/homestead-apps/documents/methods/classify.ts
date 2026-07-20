@@ -42,6 +42,21 @@ import type { Document } from '../types';
  */
 const MIN_CONFIDENCE = 0.5;
 
+/**
+ * Room for the answer: a full-document transcription plus the extracted fields.
+ * Generous on purpose — the alternative to over-provisioning is a truncated
+ * `full_text`, which is worse than spending a few extra tokens.
+ */
+const MAX_OUTPUT_TOKENS = 16384;
+
+/**
+ * Cap on Gemini's reasoning tokens. Bounded so the model can't think itself out
+ * of ever answering (see the classify call below), but ample for deciding a
+ * document type. Must leave headroom under {@link MAX_OUTPUT_TOKENS} for the
+ * actual output, which counts toward the same budget.
+ */
+const THINKING_BUDGET = 4096;
+
 /** What the model may be handed. Gemini reads PDFs natively, multi-page. */
 const SUPPORTED_MIME = /^(application\/pdf|image\/(jpeg|png|webp|gif))$/;
 
@@ -134,7 +149,8 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   if (!res.ok) {
     throw new Error(`could not read the document's file: ${res.status}`);
   }
-  const base64 = Buffer.from(await res.arrayBuffer()).toString('base64');
+  const bytes = Buffer.from(await res.arrayBuffer());
+  const base64 = bytes.toString('base64');
 
   const messages: ModelMessage[] = [
     {
@@ -157,8 +173,30 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
 
   let parsed: z.infer<typeof schema>;
   try {
-    parsed = await aiGenerateObject({ messages, schema });
+    parsed = await aiGenerateObject({
+      messages,
+      schema,
+      // Gemini 2.5 Flash is a thinking model. Left unbounded on a heavy task
+      // (transcribe the whole document verbatim + fill a union schema) it can
+      // spend its entire output allowance on reasoning and stop before emitting
+      // a single answer token — finishReason "OTHER", textTokens 0. Cap the
+      // thinking budget so it must yield to the answer, and give the answer
+      // plenty of room (a full transcription is legitimately long).
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      providerOptions: {
+        google: {
+          thinkingConfig: { thinkingBudget: THINKING_BUDGET, includeThoughts: false },
+        },
+      },
+    });
   } catch (err) {
+    // Pin the failure to the concrete input: which document, what shape, and how
+    // many type branches the schema carried. `aiGenerateObject` already logs the
+    // provider's raw response; this says which classify call it belongs to.
+    console.error(
+      `[documents] classify failed for ${docId} ` +
+        `(mime=${doc.mime_type ?? 'unknown'}, bytes=${bytes.length}, doc_types=${types.length})`,
+    );
     // Record the failure on the document too — the operation carries the detail,
     // but the list view reads parse_status.
     await aepUpdate<Document>(DOCUMENTS, docId, { parse_status: 'failed' }, auth.token);

@@ -16,13 +16,55 @@
 import {
   generateText,
   generateObject,
+  NoObjectGeneratedError,
   stepCountIs,
+  type JSONValue,
   type ModelMessage,
   type StepResult,
   type ToolSet,
 } from 'ai';
 import type { z } from 'zod';
 import { getAiModel } from './config';
+
+/**
+ * Per-provider generation options, keyed by provider name (e.g.
+ * `{ google: { thinkingConfig: … } }`). Mirrors the AI SDK's `ProviderOptions`
+ * (`Record<string, Record<string, JSONValue>>`), aliased locally because `ai`
+ * uses that type internally without re-exporting it.
+ */
+type ProviderOptions = Record<string, Record<string, JSONValue>>;
+
+/** JSON.stringify that can't throw on a circular/odd value — logging must not fail. */
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * When structured generation yields no object, the model *did* respond — the
+ * why (a malformed function call, a safety block, a truncated body) lives in the
+ * provider's raw response, which the default error dump collapses to
+ * `body: [Object ...]`. Surface the fields that actually explain the failure so
+ * the next occurrence is diagnosable from the logs alone.
+ */
+function logNoObjectGenerated(err: unknown): void {
+  if (!NoObjectGeneratedError.isInstance(err)) return;
+  console.error(
+    '[ai] generateObject produced no object:\n' +
+      safeJson({
+        finishReason: err.finishReason,
+        usage: err.usage,
+        // The partial text the model did return (often empty on "other").
+        text: err.text,
+        // The gold: the provider's raw response — real finishReason,
+        // safetyRatings, promptFeedback, any partial candidate content.
+        responseBody: err.response?.body,
+      }),
+  );
+}
 
 // Re-exported so call sites build messages/tools from a single import surface.
 export type { ModelMessage, ToolSet } from 'ai';
@@ -59,20 +101,35 @@ export async function aiGenerateText(opts: {
  * Structured generation validated against a Zod schema. Returns the parsed
  * object, typed to the schema. Image parts (for vision extraction) go in
  * `messages`.
+ *
+ * `maxOutputTokens` and `providerOptions` are passed straight through for
+ * callers that need to shape the generation — e.g. capping a thinking model's
+ * reasoning budget so it reserves tokens for the actual answer instead of
+ * terminating mid-thought. `providerOptions` is keyed by provider name, so a
+ * `{ google: … }` block is simply ignored under a different configured provider.
  */
 export async function aiGenerateObject<T>(opts: {
   system?: string;
   prompt?: string;
   messages?: ModelMessage[];
   schema: z.ZodType<T>;
+  maxOutputTokens?: number;
+  providerOptions?: ProviderOptions;
 }): Promise<T> {
-  const { object } = await generateObject({
-    model: getAiModel(),
-    schema: opts.schema,
-    system: opts.system,
-    ...promptInput(opts),
-  });
-  return object;
+  try {
+    const { object } = await generateObject({
+      model: getAiModel(),
+      schema: opts.schema,
+      system: opts.system,
+      maxOutputTokens: opts.maxOutputTokens,
+      providerOptions: opts.providerOptions,
+      ...promptInput(opts),
+    });
+    return object;
+  } catch (err) {
+    logNoObjectGenerated(err);
+    throw err;
+  }
 }
 
 /**
