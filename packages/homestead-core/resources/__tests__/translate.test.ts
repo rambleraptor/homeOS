@@ -414,3 +414,108 @@ describe('validateResourceDefinition', () => {
     ).toThrow(/declares items but is not an array/);
   });
 });
+
+describe('toWireSchema — ai file fields', () => {
+  it('synthesizes a companion <field>_text string field when extracting text', () => {
+    const { properties, required } = toWireSchema(
+      { file: { type: 'file', required: true, ai: { extract_text: true } } },
+      'document',
+    );
+    expect(properties.file).toEqual({
+      type: 'binary',
+      'x-aepbase-file-field': true,
+    });
+    expect(properties.file_text).toEqual({
+      type: 'string',
+      description: 'Full text extracted from file by the AI pipeline.',
+    });
+    // Companion is stored but not required.
+    expect(required).toEqual(['file']);
+  });
+
+  it('synthesizes the companion for embed too (embed implies extract_text)', () => {
+    const { properties } = toWireSchema(
+      { file: { type: 'file', ai: { embed: true } } },
+      'document',
+    );
+    expect(properties.file_text).toEqual({
+      type: 'string',
+      description: 'Full text extracted from file by the AI pipeline.',
+    });
+  });
+
+  it('uses singular_name in the companion description when present', () => {
+    const { properties } = toWireSchema(
+      {
+        scan: { type: 'file', singular_name: 'receipt scan', ai: { extract_text: true } },
+      },
+      'expense',
+    );
+    expect(properties.scan_text?.description).toBe(
+      'Full text extracted from receipt scan by the AI pipeline.',
+    );
+  });
+
+  it('strips ai and adds no companion for a plain file field', () => {
+    const { properties } = toWireSchema(
+      { file: { type: 'file' } },
+      'document',
+    );
+    expect(properties.file).toEqual({
+      type: 'binary',
+      'x-aepbase-file-field': true,
+    });
+    expect(properties.file_text).toBeUndefined();
+  });
+});
+
+describe('validateResourceDefinition — ai file fields', () => {
+  const def = (fields: ResourceDefinition['fields']): ResourceDefinition => ({
+    singular: 'document',
+    plural: 'documents',
+    fields,
+  });
+
+  it('accepts a well-formed ai file field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ file: { type: 'file', ai: { embed: { chunk_size: 800, overlap: 100 } } } }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects ai options on a non-file field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ notes: { type: 'string', ai: { extract_text: true } } }),
+      ),
+    ).toThrow(/declares ai options but is not a file field/);
+  });
+
+  it('rejects embed with extract_text:false', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ file: { type: 'file', ai: { embed: true, extract_text: false } } }),
+      ),
+    ).toThrow(/embedding requires extracted text/);
+  });
+
+  it('rejects a hand-declared field colliding with the synthesized companion', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          file: { type: 'file', ai: { extract_text: true } },
+          file_text: { type: 'string' },
+        }),
+      ),
+    ).toThrow(/auto-generates a companion "file_text" field, but "file_text" is already declared/);
+  });
+
+  it('rejects overlap >= chunk_size', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ file: { type: 'file', ai: { embed: { chunk_size: 500, overlap: 500 } } } }),
+      ),
+    ).toThrow(/overlap must be smaller than chunk_size/);
+  });
+});

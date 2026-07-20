@@ -20,6 +20,7 @@ export interface DocumentRecord {
   id: string;
   title?: string;
   mime_type?: string;
+  file_text?: string;
   full_text?: string;
   parse_status?: string;
   confidence?: number;

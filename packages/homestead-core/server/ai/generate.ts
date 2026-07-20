@@ -8,12 +8,15 @@
  * - {@link aiGenerateText}   — plain or multimodal text completion.
  * - {@link aiGenerateObject} — schema-validated structured output.
  * - {@link aiRunAgent}       — a tool-calling agentic loop (the chat assistant).
+ * - {@link aiEmbed}          — batch text embedding (semantic search index).
  *
- * Each resolves the configured model via {@link getAiModel}; callers should gate
- * on {@link isAiConfigured} and return 503 first when AI may be unconfigured.
+ * The first three resolve the configured model via {@link getAiModel} (gate on
+ * {@link isAiConfigured}); {@link aiEmbed} uses the separate embedding model via
+ * {@link getEmbeddingModel} (gate on `isEmbeddingConfigured`).
  */
 
 import {
+  embedMany,
   generateText,
   generateObject,
   NoObjectGeneratedError,
@@ -24,7 +27,7 @@ import {
   type ToolSet,
 } from 'ai';
 import type { z } from 'zod';
-import { getAiModel } from './config';
+import { getAiModel, getEmbeddingModel } from './config';
 
 /**
  * Per-provider generation options, keyed by provider name (e.g.
@@ -152,4 +155,23 @@ export async function aiRunAgent<TOOLS extends ToolSet>(opts: {
     stopWhen: stepCountIs(opts.maxRounds),
   });
   return { text, steps };
+}
+
+/**
+ * Embed a batch of texts with the configured embedding model. Returns one
+ * vector per input, order-aligned with `values` (empty in → empty out).
+ * `model` optionally overrides the instance embedding model for a single field
+ * (`ai.embed.embedding_model`). Callers should gate on `isEmbeddingConfigured`
+ * and return 503 first when embedding may be unconfigured.
+ */
+export async function aiEmbed(
+  values: string[],
+  opts?: { model?: string },
+): Promise<number[][]> {
+  if (values.length === 0) return [];
+  const { embeddings } = await embedMany({
+    model: getEmbeddingModel(opts?.model),
+    values,
+  });
+  return embeddings;
 }

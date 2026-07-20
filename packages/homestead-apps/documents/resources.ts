@@ -26,7 +26,15 @@ export const documentsResources = (): ResourceDefinition[] => [
       'parsed from it when it matches a known document type.',
     user_settable_create: true,
     fields: {
-      file: { type: 'file', required: true, description: 'pdf/jpeg/png' },
+      // `ai.embed` makes the platform extract the file's text into the
+      // synthesized companion `file_text` and embed it for semantic search on
+      // upload — so the assistant can answer questions about document contents.
+      file: {
+        type: 'file',
+        required: true,
+        description: 'pdf/jpeg/png',
+        ai: { embed: true },
+      },
       title: {
         type: 'string',
         description:
@@ -49,9 +57,14 @@ export const documentsResources = (): ResourceDefinition[] => [
        * real type from the bytes it reads back, and the model needs it.
        */
       mime_type: { type: 'string', description: 'The uploaded file’s MIME type.' },
+      /**
+       * Legacy: text now lives in the synthesized `file_text` companion (filled
+       * by the platform index pipeline). Kept only so the `full_text → file_text`
+       * backfill can read old records; removed in a follow-up once migrated.
+       */
       full_text: {
         type: 'string',
-        description: 'Full text extracted from the document by the model.',
+        description: 'Deprecated — see file_text. Retained for backfill only.',
       },
       parse_status: {
         type: 'string',
@@ -86,6 +99,12 @@ export const documentsResources = (): ResourceDefinition[] => [
         async: true,
         title: 'Classify document',
         load: () => import('./methods/classify'),
+      },
+      // Migration support for the full_text → file_text backfill; called by
+      // scripts/backfill-document-embeddings.sh. Removable post-migration.
+      reembed: {
+        target: 'item',
+        load: () => import('./methods/reembed'),
       },
     },
   },

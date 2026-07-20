@@ -89,6 +89,36 @@ export interface AiConfig {
 }
 
 /**
+ * Providers that offer a text-embedding model. A subset of {@link AiProvider}:
+ * Anthropic ships no embedding model, so it can't back embeddings even when it
+ * backs the chat `ai` block — hence a separate provider union and config block.
+ */
+export type EmbeddingProvider = 'openai' | 'google';
+
+/**
+ * Embedding configuration for semantic search over file fields (`FieldDef.ai`).
+ * Independent of the chat `ai` block on purpose — the two can use different
+ * providers, and Anthropic (a valid `ai` provider) has no embedding model. Point
+ * it at the same provider/key as `ai` if you like. Omit to disable embedding:
+ * `embed`-flagged file fields then still extract text but aren't made
+ * searchable, and the chat search tool isn't registered.
+ */
+export interface EmbeddingConfig {
+  /** Which provider package to instantiate for embeddings. */
+  provider: EmbeddingProvider;
+  /**
+   * Embedding model id, e.g. `text-embedding-3-small` (OpenAI) or
+   * `text-embedding-004` (Google). A field may override this per-field via
+   * `ai.embed.embedding_model`.
+   */
+  model: string;
+  /** Provider credentials. Server-side only, like {@link AiConfig.auth}. */
+  auth: AiAuthConfig;
+  /** Override the provider's API endpoint. See {@link AiConfig.baseURL}. */
+  baseURL?: string;
+}
+
+/**
  * Shape of the user-supplied configuration consumed by the registry.
  * Operators declare their instance by exporting a value of this type
  * from `homestead.config.ts` at the repo root.
@@ -121,4 +151,12 @@ export interface HomesteadConfig {
    * lands in the client bundle.
    */
   ai?: AiConfig;
+
+  /**
+   * Optional embedding configuration (provider, model, credentials) for
+   * semantic search over `ai.embed`-flagged file fields. Server-side only.
+   * Omit to leave embedding disabled even when `ai` is set — text extraction
+   * still runs, but nothing is indexed for search. See {@link EmbeddingConfig}.
+   */
+  embedding?: EmbeddingConfig;
 }

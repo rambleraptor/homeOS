@@ -10,8 +10,15 @@
  *   - `enum`                → appended to the wire `description` as
  *                             `one of: a, b` (aepbase strips JSON-schema enum)
  *   - `singular_name` / `plural_name` → authoring-only display metadata, stripped
+ *   - `ai` (on file fields) → authoring-only, stripped; a file field opted into
+ *                             text extraction gains a synthesized companion
+ *                             `<field>_text` string property in the wire schema
  */
 
+import {
+  companionTextField,
+  fileExtractsText,
+} from './ai-fields';
 import type {
   FieldDef,
   FieldType,
@@ -58,6 +65,15 @@ function validateFields(
     if (!SNAKE_RE.test(name)) {
       fail(`field "${fieldPath}" must be snake_case`);
     }
+    if (fileExtractsText(field)) {
+      const companion = companionTextField(name);
+      if (companion in fields) {
+        fail(
+          `file field "${fieldPath}" auto-generates a companion "${companion}" ` +
+            `field, but "${companion}" is already declared — rename or remove it`,
+        );
+      }
+    }
     validateField(field, fieldPath, fail);
   }
 }
@@ -80,6 +96,7 @@ function validateField(
     fail(`field "${path}" declares properties but is not an object`);
   }
   validateVariants(field, path, fail);
+  validateFileAi(field, path, fail);
   if (field.default !== undefined) {
     if (field.type === 'file') {
       fail(`field "${path}" is a file field and cannot declare a default`);
@@ -157,6 +174,45 @@ function validateVariants(
   }
 }
 
+/**
+ * Validate a file field's `ai` block. `ai` is only meaningful on file fields;
+ * `embed` implies `extract_text`, so an explicit `extract_text: false` beside a
+ * truthy `embed` is contradictory; chunk/overlap must be sane.
+ */
+function validateFileAi(
+  field: FieldDef,
+  path: string,
+  fail: (message: string) => never,
+): void {
+  const ai = field.ai;
+  if (!ai) return;
+  if (field.type !== 'file') {
+    fail(`field "${path}" declares ai options but is not a file field`);
+  }
+  if (ai.embed && ai.extract_text === false) {
+    fail(
+      `field "${path}" sets embed but extract_text:false — embedding requires ` +
+        `extracted text`,
+    );
+  }
+  if (typeof ai.embed === 'object') {
+    const { chunk_size, overlap } = ai.embed;
+    if (chunk_size !== undefined && chunk_size <= 0) {
+      fail(`field "${path}" embed.chunk_size must be a positive number`);
+    }
+    if (overlap !== undefined && overlap < 0) {
+      fail(`field "${path}" embed.overlap must not be negative`);
+    }
+    if (
+      chunk_size !== undefined &&
+      overlap !== undefined &&
+      overlap >= chunk_size
+    ) {
+      fail(`field "${path}" embed.overlap must be smaller than chunk_size`);
+    }
+  }
+}
+
 /** `form-1099-int` -> `Form1099Int`; `metadata` -> `Metadata`. */
 function pascalCase(value: string): string {
   return value
@@ -214,12 +270,40 @@ export function toWireSchema(
   fields: Record<string, FieldDef>,
   singular: string,
 ): ResourceSchema {
-  const { properties, required } = toWireProperties(fields, singular);
+  const { properties, required } = toWireProperties(
+    withCompanionTextFields(fields),
+    singular,
+  );
   return {
     type: 'object',
     properties,
     ...(required.length ? { required } : {}),
   };
+}
+
+/**
+ * Expand a top-level field map with a companion `<field>_text` string property
+ * for every file field opted into text extraction. The companion is stored (so
+ * aepbase creates the column and returns it on read) but never authored: it's
+ * absent from the `FieldDef` map the chat CRUD-tool builder walks, so the model
+ * can't set it — the index-file pipeline fills it. Only top-level file fields
+ * get one; the boot validator rejects a definition that also declares the
+ * companion name by hand.
+ */
+function withCompanionTextFields(
+  fields: Record<string, FieldDef>,
+): Record<string, FieldDef> {
+  const out: Record<string, FieldDef> = { ...fields };
+  for (const [name, field] of Object.entries(fields)) {
+    if (!fileExtractsText(field)) continue;
+    out[companionTextField(name)] = {
+      type: 'string',
+      description: `Full text extracted from ${
+        field.singular_name ?? name
+      } by the AI pipeline.`,
+    };
+  }
+  return out;
 }
 
 function toWireProperties(

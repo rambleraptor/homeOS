@@ -50,7 +50,12 @@ export const DOC_MARKERS = {
   fail: 'e2e-document-parse-failure',
 } as const;
 
-/** Fields the stub "reads" from a 1099-INT document — a realistic subset. */
+/**
+ * Fields the stub "reads" from a 1099-INT document — a realistic subset. The
+ * schema makes every declared field `.nullable()` (present, but null when not
+ * found), so the fields this stub doesn't read are explicit `null`s rather than
+ * omitted; the handler's `stripNulls` drops them before storage.
+ */
 export const STUB_DOCUMENT_1099 = {
   full_text: 'Form 1099-INT  Interest Income  Ally Bank  Box 1 412.55',
   title: '2025 Ally Bank 1099-INT',
@@ -60,8 +65,12 @@ export const STUB_DOCUMENT_1099 = {
     payer_name: 'Ally Bank',
     payer_tin: 'XX-XXX6789',
     recipient_name: 'Alex Stephen',
+    recipient_tin: null,
     box_1_interest: 412.55,
+    box_2_early_withdrawal_penalty: null,
+    box_3_savings_bond_interest: null,
     box_4_federal_tax_withheld: 0,
+    box_8_tax_exempt_interest: null,
   },
 };
 
