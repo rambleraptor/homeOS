@@ -156,8 +156,15 @@ describe('toZodUnion', () => {
     ).toEqual({ doc_type: 'form-w2', employer: 'Acme', wages: 90000 });
   });
 
-  it('accepts a partial read — fields are optional so a partial parse survives', () => {
-    expect(union().parse({ doc_type: 'form-w2' })).toEqual({ doc_type: 'form-w2' });
+  it('accepts a partial read — absent fields come back as null, not omitted', () => {
+    // Fields are `.nullable()`, not `.optional()`: the model emits every key,
+    // using null for the ones it can't find (see toZodUnion — that is what keeps
+    // Gemini from aborting the structured-output call). A null survives
+    // validation; an omitted key does not, so classify strips the nulls itself.
+    expect(
+      union().parse({ doc_type: 'form-w2', employer: 'Acme', wages: null }),
+    ).toEqual({ doc_type: 'form-w2', employer: 'Acme', wages: null });
+    expect(() => union().parse({ doc_type: 'form-w2' })).toThrow();
   });
 
   it('always offers the unknown variant', () => {

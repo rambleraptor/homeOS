@@ -175,10 +175,16 @@ export function toVariants(types: DocType[]): Record<string, Record<string, Fiel
 /**
  * Doc types → the Zod union the model fills.
  *
- * Every field is optional: a partial read should degrade to missing fields
- * rather than fail validation outright and lose the whole extraction. The
- * `doc_type` literal is the one required key, which keeps the branches
- * distinguishable even when everything else is absent.
+ * Every field is `.nullable()`, not `.optional()`: a partial read degrades to
+ * null fields rather than failing validation and losing the whole extraction.
+ * The distinction matters to Gemini, not just to Zod. An optional field
+ * serialises to a property merely *absent* from `required`, and Gemini 2.5
+ * Flash's structured-output engine aborts on that — finishReason "OTHER", zero
+ * output tokens, every time (even a single optional field triggers it). A
+ * nullable field serialises to `nullable: true`, which Gemini honours: it emits
+ * every key, using null for the ones it can't find. `classify` strips the nulls
+ * before storing. The `doc_type` literal is the one non-nullable key, which
+ * keeps the branches distinguishable.
  *
  * Deliberately `z.union`, not `z.discriminatedUnion`: the AI SDK serialises a
  * discriminated union as JSON-Schema `oneOf`, and Gemini's structured-output
@@ -194,7 +200,7 @@ export function toZodUnion(types: DocType[]) {
     };
     for (const [name, field] of Object.entries(type.fields)) {
       const base = field.type === 'number' ? z.number() : z.string();
-      shape[name] = base.optional().describe(field.description ?? field.label);
+      shape[name] = base.nullable().describe(field.description ?? field.label);
     }
     return z.object(shape);
   };

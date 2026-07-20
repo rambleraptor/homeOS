@@ -49,14 +49,6 @@ const MIN_CONFIDENCE = 0.5;
  */
 const MAX_OUTPUT_TOKENS = 16384;
 
-/**
- * Cap on Gemini's reasoning tokens. Bounded so the model can't think itself out
- * of ever answering (see the classify call below), but ample for deciding a
- * document type. Must leave headroom under {@link MAX_OUTPUT_TOKENS} for the
- * actual output, which counts toward the same budget.
- */
-const THINKING_BUDGET = 4096;
-
 /** What the model may be handed. Gemini reads PDFs natively, multi-page. */
 const SUPPORTED_MIME = /^(application\/pdf|image\/(jpeg|png|webp|gif))$/;
 
@@ -88,8 +80,8 @@ ${catalogue || '(no known document types are configured)'}
 
 4. If it matched a type, fill that type's fields from the document. Rules:
    - Copy values exactly as printed. Do not reformat, round, or unmask them.
-   - Omit any field you cannot find. Never guess, and never carry a value over
-     from a different field just because it looks similar.
+   - Set any field you cannot find to null. Never guess, and never carry a value
+     over from a different field just because it looks similar.
    - Numbers must have no currency symbols, thousands separators, or percent
      signs.
 
@@ -102,6 +94,19 @@ type.`;
 function clampConfidence(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.min(1, Math.max(0, value));
+}
+
+/**
+ * Drop the fields the model returned as null (its "couldn't find it" signal
+ * under the nullable schema), leaving only the values actually read off the
+ * document. `doc_type` is never null, so the discriminator always survives.
+ */
+function stripNulls<T extends { doc_type: string }>(
+  metadata: T,
+): Partial<T> & { doc_type: T['doc_type'] } {
+  return Object.fromEntries(
+    Object.entries(metadata).filter(([, value]) => value !== null),
+  ) as Partial<T> & { doc_type: T['doc_type'] };
 }
 
 export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
@@ -176,18 +181,11 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
     parsed = await aiGenerateObject({
       messages,
       schema,
-      // Gemini 2.5 Flash is a thinking model. Left unbounded on a heavy task
-      // (transcribe the whole document verbatim + fill a union schema) it can
-      // spend its entire output allowance on reasoning and stop before emitting
-      // a single answer token — finishReason "OTHER", textTokens 0. Cap the
-      // thinking budget so it must yield to the answer, and give the answer
-      // plenty of room (a full transcription is legitimately long).
+      // A full transcription plus the extracted fields is legitimately long, so
+      // give the answer plenty of room. (The metadata fields are `.nullable()`,
+      // not `.optional()` — see toZodUnion; that is what keeps Gemini 2.5 Flash
+      // from aborting the structured-output call with finishReason "OTHER".)
       maxOutputTokens: MAX_OUTPUT_TOKENS,
-      providerOptions: {
-        google: {
-          thinkingConfig: { thinkingBudget: THINKING_BUDGET, includeThoughts: false },
-        },
-      },
     });
   } catch (err) {
     // Pin the failure to the concrete input: which document, what shape, and how
@@ -207,9 +205,11 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   const matched =
     parsed.metadata.doc_type !== UNKNOWN_DOC_TYPE && confidence >= MIN_CONFIDENCE;
 
-  // A low-confidence guess is downgraded rather than stored as a match: keep the
-  // text (always useful) and drop the metadata claim.
-  const metadata = matched ? parsed.metadata : { doc_type: UNKNOWN_DOC_TYPE };
+  // The model fills every field, using null for the ones it couldn't find (the
+  // schema is `.nullable()`, not `.optional()`, to keep Gemini from aborting —
+  // see toZodUnion). Drop the nulls so the stored record carries only real
+  // values, matching what an "omit what you can't find" schema would have left.
+  const metadata = matched ? stripNulls(parsed.metadata) : { doc_type: UNKNOWN_DOC_TYPE };
 
   // Only adopt the inferred title when a human hasn't renamed the document.
   // A blank model title never clobbers the existing (filename) default.
