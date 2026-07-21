@@ -16,11 +16,20 @@
  */
 
 import { z } from 'zod';
-import type { FieldDef } from '@rambleraptor/homestead-core/resources/types';
+import type {
+  CustomMethodAuth,
+  FieldDef,
+} from '@rambleraptor/homestead-core/resources/types';
 import type { LazyIcon } from '@rambleraptor/homestead-core/apps/types';
+import type { Document } from '../types';
 
-/** Field types a doc type may declare — the subset worth extracting from a page. */
-export type DocFieldType = 'string' | 'number';
+/**
+ * Field types a doc type may declare. `string`/`number` are the scalar leaves
+ * the model extracts directly; `array`/`object` compose them so a type can
+ * pull a structured value (a list of ingredients, a nested record) in the same
+ * classify pass. An `array` must declare `items`, an `object` its `properties`.
+ */
+export type DocFieldType = 'string' | 'number' | 'array' | 'object';
 
 export interface DocField {
   /** Human-readable name, shown in the UI. */
@@ -28,7 +37,43 @@ export interface DocField {
   type: DocFieldType;
   /** Handed to the model verbatim; the main lever on extraction quality. */
   description?: string;
+  /** Element type for an `array` field. Required when `type` is `array`. */
+  items?: DocField;
+  /** Nested fields for an `object` field. Required when `type` is `object`. */
+  properties?: Record<string, DocField>;
 }
+
+/**
+ * Context handed to a {@link PostClassifyHandler} — the persisted, classified
+ * document and the metadata the model extracted for it, plus the caller's auth
+ * so the hook can create/read related resources over loopback as that user.
+ */
+export interface PostClassifyContext {
+  /** The document as it stands after classify persisted the match. */
+  document: Document;
+  /** Extracted fields (nulls stripped), including the `doc_type` discriminator. */
+  metadata: Record<string, unknown>;
+  /** The classify caller — forward `auth.token` to the aepbase helpers. */
+  auth: CustomMethodAuth;
+}
+
+export interface PostClassifyResult {
+  /**
+   * Path of the resource the hook created, e.g. `hsa-receipts/abc`. Stored on
+   * the document as `linked_resource`; its presence also guards against a
+   * re-run creating a duplicate.
+   */
+  linked_resource?: string;
+}
+
+/**
+ * A doc type's post-classify hook: runs server-side after a document matches
+ * this type. Returns the created resource's path (recorded on the document) or
+ * nothing.
+ */
+export type PostClassifyHandler = (
+  ctx: PostClassifyContext,
+) => Promise<PostClassifyResult | void>;
 
 export interface DocType {
   /** Kebab-case, globally unique. Becomes the discriminator value. */
@@ -43,6 +88,13 @@ export interface DocType {
    */
   icon: LazyIcon;
   fields: Record<string, DocField>;
+  /**
+   * Optional server-only hook run after a document matches this type. Lazily
+   * imported (mirrors `ResourceCustomMethod.load`) so its server-only body —
+   * aepbase helpers, cross-app imports — stays out of the client bundle. See
+   * `methods/classify.ts` for where it fires.
+   */
+  post_classify?: () => Promise<{ default: PostClassifyHandler }>;
 }
 
 /**
@@ -98,39 +150,92 @@ export function validateDocType(input: unknown, source: string): DocType {
         '() => import("lucide-react").then((m) => m.FileText)',
     );
   }
-  if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
-    return fail('fields must be an object');
+  const { post_classify } = doc;
+  if (post_classify !== undefined && typeof post_classify !== 'function') {
+    return fail('post_classify must be a function (a lazy import of the hook)');
   }
 
+  const parsed = parseFields(fields, '', fail);
+  return {
+    id,
+    label,
+    description,
+    icon: icon as LazyIcon,
+    fields: parsed,
+    ...(post_classify ? { post_classify: post_classify as DocType['post_classify'] } : {}),
+  };
+}
+
+/**
+ * Parse and validate a field map, recursing into array `items` and object
+ * `properties`. `path` prefixes error messages (empty at the top level).
+ */
+function parseFields(
+  input: unknown,
+  path: string,
+  fail: (message: string) => never,
+): Record<string, DocField> {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return fail(`${path || 'fields'} must be an object`);
+  }
   const parsed: Record<string, DocField> = {};
-  for (const [name, value] of Object.entries(fields as Record<string, unknown>)) {
+  for (const [name, value] of Object.entries(input as Record<string, unknown>)) {
+    const fieldPath = path ? `${path}.${name}` : name;
     if (!SNAKE_RE.test(name)) {
-      return fail(`field "${name}" must be snake_case`);
+      return fail(`field "${fieldPath}" must be snake_case`);
     }
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return fail(`field "${name}" must be a mapping`);
-    }
-    const field = value as Record<string, unknown>;
-    if (typeof field.label !== 'string' || !field.label.trim()) {
-      return fail(`field "${name}" needs a label`);
-    }
-    if (field.type !== 'string' && field.type !== 'number') {
-      return fail(`field "${name}" type must be "string" or "number"`);
-    }
-    if (field.description !== undefined && typeof field.description !== 'string') {
-      return fail(`field "${name}" description must be a string`);
-    }
-    parsed[name] = {
-      label: field.label,
-      type: field.type,
-      ...(field.description ? { description: field.description } : {}),
-    };
+    parsed[name] = parseField(fieldPath, value, fail);
   }
-
   if (!Object.keys(parsed).length) {
-    return fail('declares no fields');
+    return fail(`${path || 'the type'} declares no fields`);
   }
-  return { id, label, description, icon: icon as LazyIcon, fields: parsed };
+  return parsed;
+}
+
+/** Parse and validate one field, recursing into composite `array`/`object` shapes. */
+function parseField(
+  fieldPath: string,
+  value: unknown,
+  fail: (message: string) => never,
+): DocField {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return fail(`field "${fieldPath}" must be a mapping`);
+  }
+  const field = value as Record<string, unknown>;
+  if (typeof field.label !== 'string' || !field.label.trim()) {
+    return fail(`field "${fieldPath}" needs a label`);
+  }
+  const type = field.type;
+  if (type !== 'string' && type !== 'number' && type !== 'array' && type !== 'object') {
+    return fail(
+      `field "${fieldPath}" type must be "string", "number", "array", or "object"`,
+    );
+  }
+  if (field.description !== undefined && typeof field.description !== 'string') {
+    return fail(`field "${fieldPath}" description must be a string`);
+  }
+  const out: DocField = {
+    label: field.label,
+    type,
+    ...(field.description ? { description: field.description } : {}),
+  };
+  if (type === 'array') {
+    if (field.items === undefined) {
+      return fail(`array field "${fieldPath}" must declare items`);
+    }
+    out.items = parseField(`${fieldPath}[]`, field.items, fail);
+  } else if (field.items !== undefined) {
+    return fail(`field "${fieldPath}" declares items but is not an array`);
+  }
+  if (type === 'object') {
+    if (field.properties === undefined) {
+      return fail(`object field "${fieldPath}" must declare properties`);
+    }
+    out.properties = parseFields(field.properties, fieldPath, fail);
+  } else if (field.properties !== undefined) {
+    return fail(`field "${fieldPath}" declares properties but is not an object`);
+  }
+  return out;
 }
 
 /**
@@ -158,11 +263,7 @@ export function toVariants(types: DocType[]): Record<string, Record<string, Fiel
         );
       }
       if (!prior) seen.set(name, { type: field.type, id: type.id });
-      fields[name] = {
-        type: field.type,
-        singular_name: field.label,
-        ...(field.description ? { description: field.description } : {}),
-      };
+      fields[name] = docFieldToFieldDef(field);
     }
     variants[type.id] = fields;
   }
@@ -171,6 +272,32 @@ export function toVariants(types: DocType[]): Record<string, Record<string, Fiel
   // injects. Declared last so it sorts predictably in the emitted schema.
   variants[UNKNOWN_DOC_TYPE] = {};
   return variants;
+}
+
+/**
+ * One `DocField` → the `FieldDef` the translator turns into wire schema,
+ * recursing into array `items` and object `properties`. The type-agreement
+ * check in {@link toVariants} guards only the top-level (column) names; nested
+ * shapes travel with their parent, so they need no cross-variant reconciliation.
+ */
+function docFieldToFieldDef(field: DocField): FieldDef {
+  const def: FieldDef = {
+    type: field.type,
+    singular_name: field.label,
+    ...(field.description ? { description: field.description } : {}),
+  };
+  if (field.type === 'array' && field.items) {
+    def.items = docFieldToFieldDef(field.items);
+  }
+  if (field.type === 'object' && field.properties) {
+    def.properties = Object.fromEntries(
+      Object.entries(field.properties).map(([name, sub]) => [
+        name,
+        docFieldToFieldDef(sub),
+      ]),
+    );
+  }
+  return def;
 }
 
 /**
@@ -200,8 +327,9 @@ export function toZodUnion(types: DocType[]) {
       doc_type: z.literal(type.id),
     };
     for (const [name, field] of Object.entries(type.fields)) {
-      const base = field.type === 'number' ? z.number() : z.string();
-      shape[name] = base.nullable().describe(field.description ?? field.label);
+      shape[name] = docFieldToZod(field)
+        .nullable()
+        .describe(field.description ?? field.label);
     }
     return z.object(shape);
   };
@@ -214,4 +342,34 @@ export function toZodUnion(types: DocType[]) {
     ...types.map(variant),
     unknown,
   ] as unknown as [z.ZodObject<{ doc_type: z.ZodLiteral<string> }>, z.ZodObject<{ doc_type: z.ZodLiteral<string> }>]);
+}
+
+/**
+ * One `DocField` → its Zod *value* schema (the caller adds the outer
+ * `.nullable()` for a named field). Recurses for composite shapes:
+ *   - `object` → every property nullable-and-described, mirroring the top-level
+ *     rule so Gemini emits every key (null when unfound) instead of aborting.
+ *   - `array`  → elements are the item schema, left non-nullable — a list holds
+ *     values, not null holes; an object element still carries nullable props.
+ */
+function docFieldToZod(field: DocField): z.ZodTypeAny {
+  switch (field.type) {
+    case 'number':
+      return z.number();
+    case 'array':
+      // `parseField` guarantees `items` on an array; `!` narrows for the type.
+      return z.array(docFieldToZod(field.items!));
+    case 'object': {
+      const shape: Record<string, z.ZodTypeAny> = {};
+      for (const [name, sub] of Object.entries(field.properties!)) {
+        shape[name] = docFieldToZod(sub)
+          .nullable()
+          .describe(sub.description ?? sub.label);
+      }
+      return z.object(shape);
+    }
+    case 'string':
+    default:
+      return z.string();
+  }
 }

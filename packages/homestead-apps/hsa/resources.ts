@@ -24,10 +24,18 @@ export const hsaResources: ResourceDefinition[] = [
         enum: ['Stored', 'Reimbursed'],
         required: true,
       },
+      // Optional: a receipt captured manually carries its own file, but one
+      // created from a classified document links back via `source_document`
+      // instead (the document already stores the file — no need to duplicate it).
       receipt_file: {
         type: 'file',
         description: 'Receipt file (jpeg/png/webp/gif/pdf, <=10MB)',
-        required: true,
+      },
+      // When present, `documents/{id}` of the document this receipt was derived
+      // from. Its file stands in for a missing `receipt_file`.
+      source_document: {
+        type: 'string',
+        description: 'Path of the source document this receipt was derived from.',
       },
       notes: { type: 'string' },
       created_by: { type: 'string' },

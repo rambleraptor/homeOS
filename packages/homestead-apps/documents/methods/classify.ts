@@ -32,7 +32,7 @@ import {
 } from '@rambleraptor/homestead-core/server/aepbase';
 import { DOCUMENTS } from '../resources';
 import { toZodUnion, UNKNOWN_DOC_TYPE, type DocType } from '../doc-types/docType';
-import { getDocTypes } from '../doc-types/registry';
+import { getDocType, getDocTypes } from '../doc-types/registry';
 import type { Document } from '../types';
 
 /**
@@ -214,7 +214,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   const inferredTitle = parsed.title?.trim();
   const setTitle = !doc.title_edited && inferredTitle ? { title: inferredTitle } : {};
 
-  await aepUpdate<Document>(
+  const updated = await aepUpdate<Document>(
     DOCUMENTS,
     docId,
     {
@@ -225,6 +225,33 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
     },
     auth.token,
   );
+
+  // Fire the matched type's post-classify hook, if any. Guarded on `matched`
+  // and on the document not already carrying a link, so a re-run ("Read again")
+  // doesn't create a second downstream resource. A hook failure is logged but
+  // never fails the classification — the parse itself already succeeded.
+  if (matched && !doc.linked_resource) {
+    const docType = getDocType(metadata.doc_type);
+    if (docType?.post_classify) {
+      try {
+        const { default: hook } = await docType.post_classify();
+        const result = await hook({ document: updated, metadata, auth });
+        if (result?.linked_resource) {
+          await aepUpdate<Document>(
+            DOCUMENTS,
+            docId,
+            { linked_resource: result.linked_resource },
+            auth.token,
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[documents] post_classify failed for ${docId} (${metadata.doc_type})`,
+          err,
+        );
+      }
+    }
+  }
 
   return {
     doc_type: metadata.doc_type,

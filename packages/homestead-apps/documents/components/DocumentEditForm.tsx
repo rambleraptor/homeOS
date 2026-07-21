@@ -14,7 +14,7 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getDocTypes, getDocType } from '../doc-types/registry';
-import { UNKNOWN_DOC_TYPE } from '../doc-types/docType';
+import { UNKNOWN_DOC_TYPE, type DocField } from '../doc-types/docType';
 import type { Document, DocumentMetadata } from '../types';
 
 interface DocumentEditFormProps {
@@ -27,11 +27,21 @@ interface DocumentEditFormProps {
 /** Metadata values shown as strings while editing; parsed back on submit. */
 type FieldValues = Record<string, string>;
 
+/**
+ * Only scalar fields are editable as text here. A doc type may also declare
+ * composite `array`/`object` fields (a recipe's ingredient list); those aren't
+ * text-editable, so the form skips them and preserves their stored value on save.
+ */
+function isScalarField(field: DocField): boolean {
+  return field.type === 'string' || field.type === 'number';
+}
+
 function initialValues(docTypeId: string, metadata?: DocumentMetadata): FieldValues {
   const type = getDocType(docTypeId);
   if (!type) return {};
   const values: FieldValues = {};
-  for (const name of Object.keys(type.fields)) {
+  for (const [name, field] of Object.entries(type.fields)) {
+    if (!isScalarField(field)) continue;
     const v = metadata?.[name];
     values[name] = v === undefined ? '' : String(v);
   }
@@ -62,7 +72,9 @@ export function DocumentEditForm({
     setValues((prev) => {
       const carried: FieldValues = {};
       if (next) {
-        for (const name of Object.keys(next.fields)) carried[name] = prev[name] ?? '';
+        for (const [name, field] of Object.entries(next.fields)) {
+          if (isScalarField(field)) carried[name] = prev[name] ?? '';
+        }
       }
       return carried;
     });
@@ -73,7 +85,17 @@ export function DocumentEditForm({
 
     const metadata: DocumentMetadata = { doc_type: docTypeId };
     if (selectedType) {
+      // Whether the stored composite values still belong to this record — only
+      // when the type is unchanged (a type switch has no matching prior values).
+      const sameType = docTypeId === document.metadata?.doc_type;
       for (const [name, field] of Object.entries(selectedType.fields)) {
+        if (!isScalarField(field)) {
+          // Not editable here; carry the existing value through so a save (which
+          // replaces the whole metadata object) doesn't drop it.
+          const existing = sameType ? document.metadata?.[name] : undefined;
+          if (existing !== undefined) metadata[name] = existing;
+          continue;
+        }
         const raw = values[name]?.trim() ?? '';
         if (raw === '') continue; // omit empty fields rather than storing ''
         metadata[name] = field.type === 'number' ? Number(raw) : raw;
@@ -131,7 +153,9 @@ export function DocumentEditForm({
 
       {selectedType && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {Object.entries(selectedType.fields).map(([name, field]) => (
+          {Object.entries(selectedType.fields)
+            .filter(([, field]) => isScalarField(field))
+            .map(([name, field]) => (
             <div key={name} data-testid={`document-edit-field-${name}`}>
               <label
                 htmlFor={`doc-field-${name}`}

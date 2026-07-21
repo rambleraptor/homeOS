@@ -88,6 +88,16 @@ export const documentsResources: ResourceDefinition[] = [
           'Fields parsed from the document, shaped by its matched type. ' +
           `Tagged "${UNKNOWN_DOC_TYPE}" when it matches none.`,
       },
+      /**
+       * Set by a doc type's `post_classify` hook to the resource it created
+       * from this document (e.g. `hsa-receipts/{id}`). Also the idempotency
+       * guard: a re-classify skips the hook when this is already set.
+       */
+      linked_resource: {
+        type: 'string',
+        description:
+          'Path of the resource created from this document by a post-classify hook.',
+      },
       created_by: { type: 'string' },
     },
     // POST /api/aep/documents/{id}:classify — reads the stored file, so it

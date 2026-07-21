@@ -12,5 +12,11 @@ import type { DocType } from './docType';
 import form1099Int from './form-1099-int';
 import formW2 from './form-w2';
 import medicalReceipt from './medical-receipt';
+import recipe from './recipe';
 
-export const BUILTIN_DOC_TYPES: DocType[] = [form1099Int, formW2, medicalReceipt];
+export const BUILTIN_DOC_TYPES: DocType[] = [
+  form1099Int,
+  formW2,
+  medicalReceipt,
+  recipe,
+];

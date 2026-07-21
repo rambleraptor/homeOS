@@ -13,25 +13,42 @@ import { useHSAReceipts } from '../hooks/useHSAReceipts';
 import { useHSAReceiptUrl } from '../hooks/useHSAReceiptUrl';
 
 /**
- * Renders an HSA receipt's `receipt_file` as a link. Wrapped in a component
+ * Renders an HSA receipt's file as a link. A manually captured receipt links to
+ * its own `receipt_file`; one derived from a classified document has no file of
+ * its own and links to that `source_document` instead. Wrapped in a component
  * so the backend-aware URL hook can be called once per row.
  */
 function HSAReceiptLink({ receipt }: { receipt: HSAReceipt }) {
   const url = useHSAReceiptUrl(receipt);
-  if (!url) {
-    return <span className="text-gray-400 text-sm">Loading…</span>;
+  if (receipt.receipt_file) {
+    if (!url) {
+      return <span className="text-gray-400 text-sm">Loading…</span>;
+    }
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-accent-terracotta hover:text-accent-terracotta-hover font-medium"
+      >
+        View
+        <ExternalLink className="w-3 h-3" />
+      </a>
+    );
   }
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-accent-terracotta hover:text-accent-terracotta-hover font-medium"
-    >
-      View
-      <ExternalLink className="w-3 h-3" />
-    </a>
-  );
+  if (receipt.source_document) {
+    const docId = receipt.source_document.split('/').pop();
+    return (
+      <a
+        href={`/documents/${docId}`}
+        className="inline-flex items-center gap-1 text-accent-terracotta hover:text-accent-terracotta-hover font-medium"
+      >
+        Document
+        <ExternalLink className="w-3 h-3" />
+      </a>
+    );
+  }
+  return <span className="text-gray-400 text-sm">-</span>;
 }
 
 interface HSAAuditVaultProps {

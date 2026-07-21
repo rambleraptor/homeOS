@@ -17,6 +17,8 @@ const medicalReceipt: DocType = {
   id: 'medical-receipt',
   label: 'Medical receipt',
   icon: () => import('lucide-react').then((m) => m.Stethoscope),
+  // On a match, mirror the receipt into the HSA Receipts app (server-only hook).
+  post_classify: () => import('./post-classify/medical-receipt.server'),
   description:
     'An itemized receipt for a health-related purchase — from a pharmacy, ' +
     "doctor's office, dentist, optometrist, hospital, or medical-supply store. " +

@@ -12,7 +12,10 @@ import type { UNKNOWN_DOC_TYPE } from './doc-types/docType';
  */
 export interface DocumentMetadata {
   doc_type: string | typeof UNKNOWN_DOC_TYPE;
-  [field: string]: string | number | undefined;
+  // Scalars for simple types; arrays/objects once a type declares composite
+  // fields (e.g. a recipe's ingredient list). Narrow per doc type at the use
+  // site — the shape is only known against the matched type's declared fields.
+  [field: string]: unknown;
 }
 
 export interface Document {
@@ -31,6 +34,12 @@ export interface Document {
   parse_status?: ParseStatus;
   confidence?: number;
   metadata?: DocumentMetadata;
+  /**
+   * Path of the resource a `post_classify` hook created from this document
+   * (e.g. `hsa-receipts/abc`). Its presence also stops a re-classify from
+   * creating a duplicate.
+   */
+  linked_resource?: string;
   created_by?: string;
   create_time?: string;
   update_time?: string;
