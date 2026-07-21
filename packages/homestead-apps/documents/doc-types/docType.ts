@@ -1,21 +1,23 @@
 /**
- * The document-type contract: parse a YAML doc type, validate it, and compile
- * it into the two shapes the rest of the app needs.
+ * The document-type contract: validate a doc type and compile it into the
+ * shapes the rest of the app needs.
  *
- * One YAML file is the single source of truth for a document type. It drives:
+ * One TypeScript module (`export default` a {@link DocType}) is the single
+ * source of truth for a document type. It drives:
  *   - the resource schema  (`toVariants`  → FieldDef variants → OpenAPI oneOf)
  *   - the AI extraction    (`toZodUnion`  → a Zod union)
  *   - the UI labels        (`DocType.fields[].label`)
+ *   - the index-row icon   (`DocType.icon`)
  *
- * Runtime-agnostic on purpose: no fs, no import.meta.glob. The server reads the
- * files (`loadDocTypes.server.ts`) and the SPA globs them (its boot shim); both
- * hand the raw text here. Mirrors how app discovery splits `server/
- * app-discovery` from the shared helpers in `apps/discovery`.
+ * The built-in types are a static list (`builtins.ts`), so `validateDocType` is
+ * a test-time guard for the invariants the type system can't express
+ * (kebab-case id, snake_case fields, the reserved `unknown` id) rather than a
+ * boot-time loader.
  */
 
-import { parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 import type { FieldDef } from '@rambleraptor/homestead-core/resources/types';
+import type { LazyIcon } from '@rambleraptor/homestead-core/apps/types';
 
 /** Field types a doc type may declare — the subset worth extracting from a page. */
 export type DocFieldType = 'string' | 'number';
@@ -34,6 +36,12 @@ export interface DocType {
   label: string;
   /** What the document *is* — the model's basis for classifying. */
   description: string;
+  /**
+   * A lazily-loaded Lucide icon, shown on the index row in place of the
+   * "Parsed" badge once a document matches this type. Same shape as an app's
+   * `web.icon`, e.g. `() => import('lucide-react').then((m) => m.Landmark)`.
+   */
+  icon: LazyIcon;
   fields: Record<string, DocField>;
 }
 
@@ -52,29 +60,27 @@ const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const SNAKE_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
 
 /**
- * Parse and validate one doc type. `source` names the file in errors — an
- * operator's YAML typo should say which file, not just what.
+ * Validate one doc type object. `source` names the module in errors — an
+ * operator's typo should say which file, not just what.
  *
- * Throws rather than skipping: a doc type that silently fails to load looks
- * exactly like one the AI never matches, which is painful to debug.
+ * The builtins are TypeScript-checked at compile time; this pass exists for the
+ * invariants the type system can't express (kebab-case id, snake_case fields,
+ * the reserved `unknown` id) and to guard operator-authored overrides, which
+ * are dynamically imported and unchecked. Throws rather than skipping: a doc
+ * type that silently fails to load looks exactly like one the AI never matches,
+ * which is painful to debug.
  */
-export function parseDocType(text: string, source: string): DocType {
+export function validateDocType(input: unknown, source: string): DocType {
   const fail = (message: string): never => {
     throw new Error(`[documents] invalid doc type "${source}": ${message}`);
   };
 
-  let raw: unknown;
-  try {
-    raw = parseYaml(text);
-  } catch (err) {
-    return fail(`YAML did not parse: ${err instanceof Error ? err.message : err}`);
-  }
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return fail('must be a YAML mapping');
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return fail('module must default-export a doc type object');
   }
 
-  const doc = raw as Record<string, unknown>;
-  const { id, label, description, fields } = doc;
+  const doc = input as Record<string, unknown>;
+  const { id, label, description, icon, fields } = doc;
 
   if (typeof id !== 'string' || !KEBAB_RE.test(id)) {
     return fail(`id ${JSON.stringify(id)} must be kebab-case`);
@@ -86,8 +92,14 @@ export function parseDocType(text: string, source: string): DocType {
   if (typeof description !== 'string' || !description.trim()) {
     return fail('description is required — it is what the model classifies on');
   }
+  if (typeof icon !== 'function') {
+    return fail(
+      'icon is required — a lazy Lucide import, e.g. ' +
+        '() => import("lucide-react").then((m) => m.FileText)',
+    );
+  }
   if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
-    return fail('fields must be a mapping');
+    return fail('fields must be an object');
   }
 
   const parsed: Record<string, DocField> = {};
@@ -118,18 +130,7 @@ export function parseDocType(text: string, source: string): DocType {
   if (!Object.keys(parsed).length) {
     return fail('declares no fields');
   }
-  return { id, label, description, fields: parsed };
-}
-
-/**
- * Merge package defaults with the operator's doc types: same id → the project's
- * file wins wholesale, matching how an explicit `homestead.config.ts` app entry
- * beats an auto-discovered one. Sorted by id so schema output is deterministic.
- */
-export function mergeDocTypes(defaults: DocType[], overrides: DocType[]): DocType[] {
-  const byId = new Map(defaults.map((t) => [t.id, t]));
-  for (const t of overrides) byId.set(t.id, t);
-  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return { id, label, description, icon: icon as LazyIcon, fields: parsed };
 }
 
 /**

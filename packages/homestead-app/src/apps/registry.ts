@@ -11,10 +11,7 @@
  * re-export keeps existing `@/apps/registry` call sites working.
  */
 
-import {
-  getAllAppsDeep,
-  initializeAppRegistry,
-} from '@rambleraptor/homestead-core/apps/registry';
+import { initializeAppRegistry } from '@rambleraptor/homestead-core/apps/registry';
 import { withAlwaysInstalled } from '@rambleraptor/homestead-core/apps/core-apps';
 import {
   assertDiscoveredApp,
@@ -37,11 +34,5 @@ const discoveredApps = Object.keys(discoveredModules)
 initializeAppRegistry(
   withAlwaysInstalled(mergeDiscoveredApps(config.apps ?? [], discoveredApps)),
 );
-
-// Per-app client boot (build-time asset loading, singleton priming), before any
-// component reads the registry's schema. Generic over every registered app —
-// bundled, npm-published, or discovered — so the shell names none. Client boot
-// is synchronous by contract (see AppBoot); the server mirror runs boot.server.
-for (const app of getAllAppsDeep()) app.boot?.client?.();
 
 export * from '@rambleraptor/homestead-core/apps/registry';
