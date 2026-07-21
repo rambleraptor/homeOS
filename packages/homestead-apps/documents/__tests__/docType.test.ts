@@ -90,13 +90,80 @@ describe('validateDocType', () => {
         { ...wellFormed, fields: { paid: { label: 'P', type: 'boolean' } } },
         'x.ts',
       ),
-    ).toThrow(/type must be "string" or "number"/);
+    ).toThrow(/type must be "string", "number", "array", or "object"/);
   });
 
   it('rejects a doc type with no fields', () => {
     expect(() => validateDocType({ ...wellFormed, fields: {} }, 'x.ts')).toThrow(
       /declares no fields/,
     );
+  });
+
+  it('accepts array and object fields with their nested shapes', () => {
+    const ingredients = {
+      ...wellFormed,
+      fields: {
+        items: {
+          label: 'Items',
+          type: 'array',
+          items: {
+            label: 'Item',
+            type: 'object',
+            properties: {
+              name: { label: 'Name', type: 'string' },
+              qty: { label: 'Qty', type: 'number' },
+            },
+          },
+        },
+      },
+    };
+    expect(() => validateDocType(ingredients, 'x.ts')).not.toThrow();
+  });
+
+  it('rejects an array field with no items', () => {
+    expect(() =>
+      validateDocType(
+        { ...wellFormed, fields: { list: { label: 'List', type: 'array' } } },
+        'x.ts',
+      ),
+    ).toThrow(/array field "list" must declare items/);
+  });
+
+  it('rejects an object field with no properties', () => {
+    expect(() =>
+      validateDocType(
+        { ...wellFormed, fields: { blob: { label: 'Blob', type: 'object' } } },
+        'x.ts',
+      ),
+    ).toThrow(/object field "blob" must declare properties/);
+  });
+
+  it('rejects a non-snake_case nested property name', () => {
+    expect(() =>
+      validateDocType(
+        {
+          ...wellFormed,
+          fields: {
+            row: {
+              label: 'Row',
+              type: 'object',
+              properties: { badName: { label: 'B', type: 'string' } },
+            },
+          },
+        },
+        'x.ts',
+      ),
+    ).toThrow(/"row\.badName" must be snake_case/);
+  });
+
+  it('accepts an optional post_classify function and rejects a non-function', () => {
+    const hook = () => Promise.resolve({ default: async () => undefined });
+    expect(() =>
+      validateDocType({ ...wellFormed, post_classify: hook }, 'x.ts'),
+    ).not.toThrow();
+    expect(() =>
+      validateDocType({ ...wellFormed, post_classify: 'nope' }, 'x.ts'),
+    ).toThrow(/post_classify must be a function/);
   });
 });
 
@@ -128,6 +195,39 @@ describe('toVariants', () => {
         type('form-b', { amount: { label: 'Amount', type: 'string' } }),
       ]),
     ).toThrow(/"amount" is a number in doc type "form-a" but a string in "form-b"/);
+  });
+
+  it('compiles an array-of-object field into a nested FieldDef', () => {
+    const variants = toVariants([
+      type('recipe', {
+        parsed_ingredients: {
+          label: 'Ingredients',
+          type: 'array',
+          description: 'The list.',
+          items: {
+            label: 'Ingredient',
+            type: 'object',
+            properties: {
+              item: { label: 'Item', type: 'string' },
+              qty: { label: 'Qty', type: 'number' },
+            },
+          },
+        },
+      }),
+    ]);
+    expect(variants.recipe.parsed_ingredients).toEqual({
+      type: 'array',
+      singular_name: 'Ingredients',
+      description: 'The list.',
+      items: {
+        type: 'object',
+        singular_name: 'Ingredient',
+        properties: {
+          item: { type: 'string', singular_name: 'Item' },
+          qty: { type: 'number', singular_name: 'Qty' },
+        },
+      },
+    });
   });
 });
 
@@ -167,6 +267,45 @@ describe('toZodUnion', () => {
     expect(() => union().parse({ doc_type: 'form-nope' })).toThrow();
     expect(() => union().parse({ doc_type: 'form-w2', wages: '90000' })).toThrow();
   });
+
+  it('parses a composite array-of-object field', () => {
+    const recipeUnion = toZodUnion([
+      type('recipe', {
+        parsed_ingredients: {
+          label: 'Ingredients',
+          type: 'array',
+          items: {
+            label: 'Ingredient',
+            type: 'object',
+            properties: {
+              item: { label: 'Item', type: 'string' },
+              qty: { label: 'Qty', type: 'number' },
+            },
+          },
+        },
+      }),
+    ]);
+    const parsed = recipeUnion.parse({
+      doc_type: 'recipe',
+      // A per-ingredient null models "unfound" — object props are nullable, so
+      // this survives validation (classify/hook strip the nulls before storing).
+      parsed_ingredients: [
+        { item: 'flour', qty: 2 },
+        { item: 'salt', qty: null },
+      ],
+    });
+    expect(parsed).toEqual({
+      doc_type: 'recipe',
+      parsed_ingredients: [
+        { item: 'flour', qty: 2 },
+        { item: 'salt', qty: null },
+      ],
+    });
+    // The whole composite field is nullable too — a recipe with no list read.
+    expect(
+      recipeUnion.parse({ doc_type: 'recipe', parsed_ingredients: null }),
+    ).toEqual({ doc_type: 'recipe', parsed_ingredients: null });
+  });
 });
 
 describe('the built-in doc types', () => {
@@ -175,6 +314,7 @@ describe('the built-in doc types', () => {
       'form-1099-int',
       'form-w2',
       'medical-receipt',
+      'recipe',
     ]);
   });
 

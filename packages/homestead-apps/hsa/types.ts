@@ -25,7 +25,10 @@ export interface HSAReceipt {
   category: ReceiptCategory;
   patient?: string;
   status: ReceiptStatus;
-  receipt_file: string;
+  /** Absent when the receipt links to a source document instead of its own file. */
+  receipt_file?: string;
+  /** `documents/{id}` this receipt was derived from; holds the file in place of `receipt_file`. */
+  source_document?: string;
   notes?: string;
   created_by?: string;
   created: string;

@@ -14,6 +14,26 @@ interface DocumentMetadataProps {
   metadata?: Metadata;
 }
 
+/**
+ * Render a metadata value for display. Most fields are scalars; a doc type with
+ * composite fields (a recipe's ingredient list, say) yields arrays/objects, so
+ * flatten those to a readable line rather than `String()`-ing them to
+ * `[object Object]`.
+ */
+function formatValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    return value.map(formatValue).filter(Boolean).join(', ');
+  }
+  if (typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>)
+      .map(formatValue)
+      .filter(Boolean)
+      .join(' ');
+  }
+  return String(value);
+}
+
 export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
   if (!metadata || metadata.doc_type === UNKNOWN_DOC_TYPE) return null;
 
@@ -29,7 +49,7 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
           .map(([key, value]) => (
             <div key={key}>
               <dt className="text-xs text-gray-500">{key}</dt>
-              <dd className="text-sm text-gray-900">{String(value)}</dd>
+              <dd className="text-sm text-gray-900">{formatValue(value)}</dd>
             </div>
           ))}
       </dl>
@@ -54,7 +74,7 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
       {rows.map((row) => (
         <div key={row.name} data-testid={`document-field-${row.name}`}>
           <dt className="text-xs text-gray-500">{row.label}</dt>
-          <dd className="text-sm font-medium text-gray-900">{String(row.value)}</dd>
+          <dd className="text-sm font-medium text-gray-900">{formatValue(row.value)}</dd>
         </div>
       ))}
     </dl>
