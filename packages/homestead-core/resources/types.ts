@@ -258,6 +258,15 @@ export interface CustomMethodContext {
    * when the method lives on a nested resource. Empty for top-level ones.
    */
   parent?: string[];
+  /**
+   * Append a status/progress entry to the operation's log (`metadata.logs`),
+   * surfaced as the operation's current status in the Operations tab. Present
+   * **only for async (AEP-151) methods** — sync methods and the pre-flight
+   * `validate` check have no operation, so call it as `ctx.log?.(...)`. Never
+   * throws; safe to `await` or ignore. The dispatcher brackets the run with
+   * `started` and terminal `succeeded` / `failed: …` entries automatically.
+   */
+  log?: (message: string) => Promise<void>;
 }
 
 export type CustomMethodHandler = (

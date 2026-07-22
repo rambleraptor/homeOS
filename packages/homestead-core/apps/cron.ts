@@ -11,6 +11,13 @@
  * aepbase helpers (`@rambleraptor/homestead-core/server/aepbase`) to read or
  * write engine data.
  *
+ * Every firing runs inside an AEP-151 **operation** — the scheduler creates one
+ * before invoking the handler and completes it (succeeded/failed) afterwards —
+ * so each run leaves a persisted record (status, timing, result, or error) in
+ * the `operations` collection, visible in the Operations tab. The value a
+ * handler resolves becomes the operation's `response`; anything it throws
+ * becomes the operation's `error`.
+ *
  * The handler is referenced through a lazy `import()` — the same convention as
  * AEP-136 custom methods — so the server-only code stays out of the client
  * bundle. Keep handler modules under the app's `crons/` (or `methods/`)
@@ -34,14 +41,33 @@ export interface CronContext {
   token: string;
   /** RFC3339 timestamp of this firing. */
   firedAt: string;
+  /**
+   * Append a status/progress entry to this firing's operation log
+   * (`metadata.logs`). The most recent entry surfaces as the operation's
+   * current status in the Operations tab while it runs. Never throws — a
+   * logging failure is swallowed — and is safe to `await` (for ordering) or
+   * ignore.
+   *
+   * The scheduler brackets each firing with a `started` entry and a terminal
+   * `succeeded` / `failed: …` entry automatically; use this for the steps in
+   * between (e.g. `await ctx.log('processed 5 of 20')`).
+   */
+  log: (message: string) => Promise<void>;
 }
 
 /**
  * A cron handler. Runs to completion (or rejection); the scheduler logs and
  * swallows a rejection so one bad run can't take the process down, and skips
  * the next tick if a previous run of the same hook is still in flight.
+ *
+ * The resolved value is recorded as the firing's operation `response` (return
+ * a small summary object — e.g. `{ processed: 5 }` — for useful logging), and
+ * a thrown value becomes the operation `error`. Returning nothing is fine; the
+ * operation still records success and timing.
  */
-export type CronHandler = (ctx: CronContext) => Promise<void>;
+export type CronHandler = (
+  ctx: CronContext,
+) => Promise<Record<string, unknown> | void>;
 
 /**
  * Declarative description of a single periodic hook an app schedules.
@@ -53,6 +79,13 @@ export interface CronHook {
    * collides with one already seen.
    */
   id: string;
+
+  /**
+   * Human-readable label for the operation each firing spawns, shown in the
+   * Operations tab (e.g. `'Weekly grocery digest'`). Defaults to the hook's
+   * {@link id}.
+   */
+  title?: string;
 
   /**
    * Seconds between firings. The scheduler runs the handler every

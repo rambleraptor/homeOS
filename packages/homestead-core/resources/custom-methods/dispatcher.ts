@@ -24,7 +24,7 @@ import type {
   CustomMethodTarget,
   ResourceCustomMethod,
 } from '../types';
-import type { OperationStore } from '../operations';
+import { makeOperationLogger, type OperationStore } from '../operations';
 
 export interface DispatchOptions {
   request: Request;
@@ -268,15 +268,34 @@ async function dispatchAsync(
     );
   }
 
-  const bgCtx: CustomMethodContext = { ...ctx, request: replay() };
+  // Per-operation logger: the handler appends progress via `ctx.log(...)`, and
+  // we bracket the run with `started` / terminal entries so `metadata.logs`
+  // always ends with the operation's current status.
+  const logger = makeOperationLogger(operations, {
+    token: ctx.auth.token,
+    id: operation.id,
+  });
+  const bgCtx: CustomMethodContext = {
+    ...ctx,
+    request: replay(),
+    log: (message) => logger.log(message),
+  };
 
   // Fire-and-forget: the request has already been answered with 202.
   void (async () => {
     try {
+      await logger.log('started');
       const response = await handler(bgCtx);
+      // Record terminal status before completing. Safe against complete()'s
+      // PATCH: the logger only writes `metadata`, complete() only writes
+      // done/status/response/error (disjoint keys).
+      await logger.log('succeeded');
       await operations.complete({ token: ctx.auth.token, id: operation.id, response });
     } catch (error) {
       console.error(`Async custom method ${methodName} threw:`, error);
+      await logger.log(
+        `failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
       try {
         await operations.complete({ token: ctx.auth.token, id: operation.id, error });
       } catch (recordError) {

@@ -14,6 +14,7 @@ import {
   type CreateOperationInput,
   type Operation,
   type OperationStore,
+  type UpdateMetadataInput,
 } from '../resources/operations';
 
 export const operationStore: OperationStore = {
@@ -37,6 +38,12 @@ export const operationStore: OperationStore = {
         ? { done: true, status: 'failed', error: toOperationError(error) }
         : { done: true, status: 'succeeded', response: (response ?? {}) as Record<string, unknown> };
     await aepUpdate<Operation>(OPERATIONS, id, patch, token);
+  },
+
+  async updateMetadata({ token, id, metadata }: UpdateMetadataInput): Promise<void> {
+    // Merge-patch the `metadata` key. The engine replaces the object wholesale,
+    // which is exactly what the logger wants (it sends the full logs array).
+    await aepUpdate<Operation>(OPERATIONS, id, { metadata }, token);
   },
 };
 

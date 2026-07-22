@@ -138,10 +138,18 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   })();
 
   // Start the app-declared cron hooks. Each firing mints its own short-lived
-  // admin token, so this doesn't depend on the schema sync above having
-  // finished; interval-based hooks fire well after boot regardless.
+  // admin token and runs inside an AEP-151 operation (built-in per-run
+  // logging), so this doesn't depend on the schema sync above having finished;
+  // interval-based hooks fire well after boot regardless.
   const { startCronScheduler } = await import('./cron');
-  const cron = startCronScheduler(engine.db, registry.getAllCronHooks());
+  const { operationStore } = await import(
+    '@rambleraptor/homestead-core/server/operations'
+  );
+  const cron = startCronScheduler(
+    engine.db,
+    registry.getAllCronHooks(),
+    operationStore,
+  );
 
   console.log(
     `[homestead-server] listening on :${opts.publicPort}${opts.dev ? ' (dev: vite middleware)' : ''}`,

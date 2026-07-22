@@ -188,11 +188,21 @@ Each handler runs with a short-lived **admin** bearer token minted per firing
 settles. Pair it with the server-side aepbase helpers
 (`@rambleraptor/homestead-core/server/aepbase`) to read or write engine data.
 
+Every firing runs inside an **operation** — the scheduler opens one, runs the
+handler, then marks it succeeded (with the handler's return value) or failed
+(with its error). Each run therefore leaves a persisted record — status, timing,
+result/error, and a log timeline — in the Operations tab. That's the built-in
+logging you get for free. The handler's `ctx.log(message)` appends a line to the
+operation's `metadata.logs`; the most recent line shows as the operation's live
+status while it runs (the scheduler brackets each run with `started` and a
+terminal `succeeded` / `failed: …` entry automatically).
+
 ```ts
 // app.config.ts
 crons: [
   {
     id: 'groceries-weekly-digest',   // globally unique across all apps
+    title: 'Weekly grocery digest',  // label for the operation (defaults to id)
     intervalSeconds: 60 * 60 * 24,   // once a day
     runOnStart: false,               // also fire once at boot? (default false)
     load: () => import('./crons/weekly-digest'),
@@ -207,9 +217,11 @@ crons: [
 import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
 import { aepList } from '@rambleraptor/homestead-core/server/aepbase';
 
-const handler: CronHandler = async ({ token }) => {
+const handler: CronHandler = async ({ token, log }) => {
   const items = await aepList('grocery-items', token);
+  await log(`digesting ${items.length} items`);   // appears in the Operations tab
   // …send a digest, prune stale rows, etc.
+  return { digested: items.length };               // recorded as the operation's response
 };
 
 export default handler;
@@ -219,6 +231,9 @@ The scheduler skips a tick if the previous run of the same hook is still in
 flight, and logs-and-swallows a handler that throws so one bad run can't take
 the process down. A hook with a duplicate `id` or a non-positive
 `intervalSeconds` is dropped with a warning at boot.
+
+> Async (AEP-151) custom methods get the same logging: their handler context
+> carries `ctx.log?.(message)`, writing to the spawned operation's timeline.
 
 > Scheduling is **interval-based** (every N seconds), not wall-clock cron
 > (“3am daily”). For a fixed time of day, pick a modest interval and have the
