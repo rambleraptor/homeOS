@@ -30,6 +30,7 @@ import type {
   AppRoute,
   UserSettingDef,
 } from './types';
+import type { CronHook } from './cron';
 import type {
   ResourceCustomMethod,
   ResourceDefinition,
@@ -516,6 +517,52 @@ export function getAllResourceCustomMethods(): Record<string, ResourceCustomMeth
     for (const [verb, method] of Object.entries(def.customMethods ?? {})) {
       out[`${def.plural}:${verb}`] = method;
     }
+  }
+  return out;
+}
+
+/**
+ * A cron hook paired with the id of the app that declared it. The appId
+ * rides along so the scheduler can label log output and hand it to the
+ * handler's context without a separate hook→app index.
+ */
+export type RegisteredCronHook = CronHook & { appId: string };
+
+/**
+ * Collect every cron hook declared by registered apps — top-level and
+ * nested. Consumed by the server's scheduler on boot. Ids must be unique
+ * across all apps: a hook whose id was already seen is dropped with a
+ * warning, as is one with a non-positive `intervalSeconds`, so the
+ * scheduler never sets up a broken or ambiguous timer.
+ */
+export function getAllCronHooks(): RegisteredCronHook[] {
+  const out: RegisteredCronHook[] = [];
+  const seen = new Set<string>();
+  const visit = (mod: AppConfig): void => {
+    for (const hook of mod.crons ?? []) {
+      if (seen.has(hook.id)) {
+        logger.warn(
+          `Duplicate cron hook id "${hook.id}" (app "${mod.id}") ignored`,
+          { appId: mod.id, hookId: hook.id },
+        );
+        continue;
+      }
+      if (!(hook.intervalSeconds > 0)) {
+        logger.warn(
+          `Cron hook "${hook.id}" (app "${mod.id}") has a non-positive intervalSeconds; ignored`,
+          { appId: mod.id, hookId: hook.id },
+        );
+        continue;
+      }
+      seen.add(hook.id);
+      out.push({ ...hook, appId: mod.id });
+    }
+    for (const child of mod.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const mod of getAppRegistry().apps) {
+    visit(mod);
   }
   return out;
 }

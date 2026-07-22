@@ -15,16 +15,17 @@ const SERVER_STUB_ID = '\0homestead-server-only-stub';
  *
  *  - custom-method handlers + bulk-import parsers, under an app's `methods/` dir
  *    (ResourceDefinition.customMethods[].load / bulkImport.formats[].load);
+ *  - cron handlers, under an app's `crons/` dir (AppConfig.crons[].load);
  *  - server boot modules, named `*.server.ts` (AppConfig.boot.server).
  *
- * Both are invoked only in homestead-server, whose bundle is built separately
+ * All are invoked only in homestead-server, whose bundle is built separately
  * and is unaffected. A handler that strays outside these naming conventions
  * silently ships to the browser, so keep server-only code under `methods/` or
- * in a `.server` module.
+ * `crons/`, or in a `.server` module.
  */
 function stubServerOnlyModules(): Plugin {
   const SERVER_ONLY_RE =
-    /homestead-apps[/\\].*(?:[/\\]methods[/\\][^/\\]+|\.server\.[jt]sx?)$/;
+    /homestead-apps[/\\].*(?:[/\\](?:methods|crons)[/\\][^/\\]+|\.server\.[jt]sx?)$/;
   return {
     name: 'homestead:stub-server-only',
     enforce: 'pre',

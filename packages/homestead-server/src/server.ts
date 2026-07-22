@@ -137,6 +137,12 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     await syncSchema(engine.db, engineBase);
   })();
 
+  // Start the app-declared cron hooks. Each firing mints its own short-lived
+  // admin token, so this doesn't depend on the schema sync above having
+  // finished; interval-based hooks fire well after boot regardless.
+  const { startCronScheduler } = await import('./cron');
+  const cron = startCronScheduler(engine.db, registry.getAllCronHooks());
+
   console.log(
     `[homestead-server] listening on :${opts.publicPort}${opts.dev ? ' (dev: vite middleware)' : ''}`,
   );
@@ -150,6 +156,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     publicPort: opts.publicPort,
     engine,
     stop: async () => {
+      cron.stop();
       await stopPublic();
       engine.db.close();
       vectorStore.close();

@@ -10,6 +10,9 @@ import type { LucideIcon } from 'lucide-react';
 import type { AppFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
 import type { AppVisibility } from '../settings/visibility';
+import type { CronHook } from './cron';
+
+export type { CronContext, CronHandler, CronHook } from './cron';
 
 /**
  * A lazily-loaded React component. The thunk resolves to either a module
@@ -291,6 +294,16 @@ export interface AppConfig {
    * the sidebar placement.
    */
   children?: AppConfig[];
+
+  /**
+   * Optional periodic server-side hooks. Each declares a handler the
+   * server's scheduler invokes on a fixed interval (see {@link CronHook}).
+   * Hooks run headless — the scheduler mints a short-lived admin token per
+   * firing — so an app can schedule background work (digests, cleanups,
+   * reminders) without any web surface. Aggregated across apps (and nested
+   * children) via `getAllCronHooks()` at server boot.
+   */
+  crons?: CronHook[];
 
   /**
    * Web / presentation config: routing, navigation placement, the UI
