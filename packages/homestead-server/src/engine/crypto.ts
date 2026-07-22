@@ -11,10 +11,12 @@
  * Envelope scheme, per encrypted item:
  *   1. a fresh random 32-byte data-encryption key (DEK) encrypts the bytes
  *      with AES-256-GCM;
- *   2. a per-owner key-encryption key (KEK), derived from the master key and
- *      the owning user's id, wraps the DEK with AES-256-GCM.
+ *   2. a per-item key-encryption key (KEK), derived from the master key and a
+ *      stable key id (the resource path), wraps the DEK with AES-256-GCM.
  * The wrapped DEK travels next to the ciphertext in a self-describing
- * container, so rotating the master key later only has to re-wrap DEKs.
+ * container, so rotating the master key later only has to re-wrap DEKs. Keying
+ * the KEK on the resource path gives per-resource isolation: a leaked KEK
+ * exposes one resource's data, not the whole instance.
  *
  * Two on-the-wire forms share one container:
  *   - binary (file bytes on disk) — raw container, prefixed with a magic tag;
@@ -121,13 +123,13 @@ function requireMasterKey(): Buffer {
 }
 
 /**
- * Per-owner key-encryption key. HMAC-SHA256 over the master key with an
- * owner-scoped label — one HMAC is HKDF-Expand with L=32 and, since the master
+ * Per-item key-encryption key. HMAC-SHA256 over the master key with a
+ * key-id-scoped label — one HMAC is HKDF-Expand with L=32 and, since the master
  * key is already uniformly random, a sound KDF here. Deterministic, so the
- * same owner always derives the same KEK for wrap and unwrap.
+ * same key id always derives the same KEK for wrap and unwrap.
  */
-function deriveKek(masterKey: Buffer, ownerId: string): Buffer {
-  return createHmac('sha256', masterKey).update(`homestead-kek:v1:${ownerId}`).digest();
+function deriveKek(masterKey: Buffer, keyId: string): Buffer {
+  return createHmac('sha256', masterKey).update(`homestead-kek:v1:${keyId}`).digest();
 }
 
 function gcmEncrypt(key: Buffer, plaintext: Buffer): { nonce: Buffer; ct: Buffer; tag: Buffer } {
@@ -145,10 +147,10 @@ function gcmDecrypt(key: Buffer, nonce: Buffer, ct: Buffer, tag: Buffer): Buffer
 
 /**
  * Encrypt bytes into a self-describing binary container, wrapping the DEK with
- * the KEK derived for `ownerId`. Requires a configured master key.
+ * the KEK derived for `keyId`. Requires a configured master key.
  */
-export function encryptBytes(plaintext: Uint8Array, ownerId: string): Buffer {
-  const kek = deriveKek(requireMasterKey(), ownerId);
+export function encryptBytes(plaintext: Uint8Array, keyId: string): Buffer {
+  const kek = deriveKek(requireMasterKey(), keyId);
   const dek = randomBytes(DEK_LEN);
   const wrapped = gcmEncrypt(kek, dek);
   const data = gcmEncrypt(dek, Buffer.from(plaintext));
@@ -176,7 +178,7 @@ export function isEncryptedContainer(bytes: Uint8Array): boolean {
  * DecryptError on any malformed/tampered input or authentication failure, and
  * MissingMasterKeyError if no key is configured — never returns partial data.
  */
-export function decryptBytes(container: Uint8Array, ownerId: string): Buffer {
+export function decryptBytes(container: Uint8Array, keyId: string): Buffer {
   if (!isEncryptedContainer(container)) {
     throw new DecryptError('not an encrypted container (bad magic)');
   }
@@ -197,7 +199,7 @@ export function decryptBytes(container: Uint8Array, ownerId: string): Buffer {
   const dataTag = buf.subarray(off, (off += TAG_LEN));
   const ciphertext = buf.subarray(off);
 
-  const kek = deriveKek(requireMasterKey(), ownerId);
+  const kek = deriveKek(requireMasterKey(), keyId);
   try {
     const dek = gcmDecrypt(kek, dekNonce, wrappedDek, dekTag);
     return gcmDecrypt(dek, dataNonce, ciphertext, dataTag);
@@ -215,8 +217,8 @@ export function isEncryptedText(value: string): boolean {
  * Encrypt a text value into the `enc:v1:<base64>` form used for DB columns.
  * Requires a configured master key.
  */
-export function encryptText(plaintext: string, ownerId: string): string {
-  const container = encryptBytes(Buffer.from(plaintext, 'utf8'), ownerId);
+export function encryptText(plaintext: string, keyId: string): string {
+  const container = encryptBytes(Buffer.from(plaintext, 'utf8'), keyId);
   return TEXT_PREFIX + container.toString('base64');
 }
 
@@ -224,10 +226,10 @@ export function encryptText(plaintext: string, ownerId: string): string {
  * Decrypt a text value. Legacy plaintext (no prefix) is returned unchanged, so
  * mixed plaintext/ciphertext rows coexist during lazy migration.
  */
-export function decryptText(value: string, ownerId: string): string {
+export function decryptText(value: string, keyId: string): string {
   if (!isEncryptedText(value)) return value;
   const container = Buffer.from(value.slice(TEXT_PREFIX.length), 'base64');
-  return decryptBytes(container, ownerId).toString('utf8');
+  return decryptBytes(container, keyId).toString('utf8');
 }
 
 /** Test-only: drop the cached master key so a test can change the env. */

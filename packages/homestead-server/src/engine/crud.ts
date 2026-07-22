@@ -12,14 +12,24 @@
 
 import { errorResponse, HttpError, isUniqueConstraintError, jsonResponse } from './errors';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import {
   deleteAllFileFields,
-  FILE_FIELD_SENTINEL,
   fileFieldExists,
+  fileKeyId,
+  fileLooksEncrypted,
   filePath,
   openFileStream,
   writeFileField,
 } from './files';
+import {
+  decryptBytes,
+  DecryptError,
+  encryptionEnabled,
+  FILE_MARKER_ENCRYPTED,
+  FILE_MARKER_PLAINTEXT,
+  MissingMasterKeyError,
+} from './crypto';
 import { generateId, nowRFC3339 } from './ids';
 import type { RegisteredResource, Registry } from './registry';
 import {
@@ -305,8 +315,12 @@ function preparePayload(
   for (const std of STANDARD_FIELDS) delete fields[std];
   stripReadOnlyFields(r.schema, fields);
 
+  // Authoritative encryption flag for each uploaded file, gated on the same
+  // encryptionEnabled() check writeFileField uses this request, so marker and
+  // on-disk format always agree.
+  const marker = encryptionEnabled() ? FILE_MARKER_ENCRYPTED : FILE_MARKER_PLAINTEXT;
   for (const name of uploaded) {
-    fields[name] = FILE_FIELD_SENTINEL;
+    fields[name] = marker;
   }
   for (const name of r.fileFields) {
     if (uploaded.has(name)) continue;
@@ -673,10 +687,29 @@ export async function handleDownload(
   if (!existsSync(diskPath)) {
     return errorResponse(404, `file field "${field}" has no content`);
   }
-  return new Response(openFileStream(diskPath), {
-    headers: {
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${field}"`,
-    },
-  });
+
+  const headers = {
+    'Content-Type': 'application/octet-stream',
+    'Content-Disposition': `inline; filename="${field}"`,
+  };
+
+  // The DB marker is authoritative: encrypted content is buffered + decrypted
+  // (GCM needs the whole buffer to verify), plaintext is streamed as before.
+  if (stored.fields[field] === FILE_MARKER_ENCRYPTED) {
+    try {
+      const plaintext = decryptBytes(await readFile(diskPath), fileKeyId(path, field));
+      return new Response(new Uint8Array(plaintext), { headers });
+    } catch (err) {
+      if (err instanceof MissingMasterKeyError || err instanceof DecryptError) {
+        return errorResponse(500, `cannot decrypt file field "${field}": ${err.message}`);
+      }
+      throw err;
+    }
+  }
+
+  // Legacy plaintext. Guard against a marker/format mismatch leaking ciphertext.
+  if (await fileLooksEncrypted(diskPath)) {
+    return errorResponse(500, `file field "${field}" is encrypted but not marked; refusing to serve`);
+  }
+  return new Response(openFileStream(diskPath), { headers });
 }
