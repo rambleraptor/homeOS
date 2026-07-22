@@ -171,4 +171,10 @@ export class RecipesPage {
   async clickBackToRecipes() {
     await this.page.getByTestId('recipe-view-back').click();
   }
+
+  async addIngredientsToGroceryList() {
+    const btn = this.page.getByTestId('recipe-view-add-to-groceries');
+    await btn.waitFor({ state: 'visible' });
+    await btn.click();
+  }
 }
