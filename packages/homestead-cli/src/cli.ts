@@ -38,6 +38,12 @@ async function main(argv: string[]): Promise<number> {
       const { resourcesCmd } = await import('./resources.ts');
       return resourcesCmd(rest);
     }
+    case 'login':
+      return loginCmd(rest);
+    case 'logout':
+      return logoutCmd(rest);
+    case 'profiles':
+      return profilesCmd(rest);
     case 'admin':
       return adminCmd(rest);
     case 'key':
@@ -114,6 +120,51 @@ async function adminCmd(args: string[]): Promise<number> {
     dataDir: strFlag(parsed.values['data-dir']),
     email: strFlag(parsed.values.email),
   });
+}
+
+async function loginCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, {
+    server: { type: 'string' },
+    email: { type: 'string' },
+    password: { type: 'string' },
+    profile: { type: 'string' },
+    'set-default': { type: 'boolean', default: false },
+  });
+  if (!parsed) return 1;
+  const { login } = await import('./login.ts');
+  return login({
+    server: strFlag(parsed.values.server),
+    email: strFlag(parsed.values.email),
+    password: strFlag(parsed.values.password),
+    profile: strFlag(parsed.values.profile),
+    setDefault: parsed.values['set-default'] === true,
+  });
+}
+
+async function logoutCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, { profile: { type: 'string' } });
+  if (!parsed) return 1;
+  const { logout } = await import('./login.ts');
+  return logout({ profile: strFlag(parsed.values.profile) });
+}
+
+async function profilesCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, {}, { positionals: true });
+  if (!parsed) return 1;
+  const { listProfiles, useProfile } = await import('./login.ts');
+  const [action, label] = parsed.positionals;
+  if (action === 'use') {
+    if (!label) {
+      console.error('usage: homestead profiles use <label>');
+      return 1;
+    }
+    return useProfile(label);
+  }
+  if (action && action !== 'list') {
+    console.error(`unknown profiles action ${JSON.stringify(action)} (expected "list" or "use")`);
+    return 1;
+  }
+  return listProfiles();
 }
 
 async function initCmd(args: string[]): Promise<number> {
@@ -418,6 +469,9 @@ function printUsage(): void {
       '  homestead doctor            Check whether the host can run `homestead start`.',
       '  homestead install-service   (Optional) Install the systemd service (run with sudo).',
       '  homestead resources [...]   CRUD/List resources + their custom methods (run bare to list them).',
+      '  homestead login             Log in to a server and save a profile (creds for `resources`).',
+      '  homestead logout            Revoke + remove a saved login profile.',
+      '  homestead profiles [use L]  List saved profiles, or repoint the default to profile L.',
       '  homestead admin reset-password  Rotate the superuser password (prints the new one).',
       '  homestead key generate      Create a master key for encryption-at-rest (writes ~/.homestead/master.key).',
       '  homestead key show          Print the resolved master key (for backing up to a password manager).',
@@ -444,13 +498,19 @@ function printUsage(): void {
       '  --data-dir=PATH             server data dir (default <project>/data).',
       '  --env-file=PATH             EnvironmentFile for the units (default <project>/.env if present).',
       '',
+      'Flags for `login`:',
+      '  --server=URL                Server to log in to (a trailing /api/aep is ok). Prompts if omitted.',
+      '  --email=EMAIL --password=PW Account credentials. Prompts (password hidden) if omitted.',
+      '  --profile=LABEL             Profile label to save under (default "default").',
+      '  --set-default               Make this profile the default even if one already exists.',
+      '',
       'Flags for `resources`:',
-      '  --server-url=URL            Engine base URL (default http://127.0.0.1:<port>/api/aep).',
-      '  --port=N                    App port for the engine base URL when --server-url is unset (default 3000).',
+      '  --profile=LABEL             Login profile to authenticate with (default: the default profile).',
+      '  --server-url=URL            Engine/app URL (overrides the profile; default the profile or loopback).',
+      '  --port=N                    Loopback port when no profile/--server-url is set (default 3000).',
       '  --@data=PATH                JSON file supplying a custom method/create body.',
-      '  --token=TOKEN               Bearer token; skips the local admin-token mint.',
-      '  --email=EMAIL --password=PW Superuser creds; skips the local admin-token mint.',
-      '  --data-dir=PATH             Data dir holding the sqlite db (default <project>/data).',
+      '  --token=TOKEN               Bearer token, overriding any stored profile.',
+      '  --email=EMAIL --password=PW Log in fresh, overriding any stored profile.',
       '',
       'Flags for `key`:',
       '  --file=PATH                 Key file location (default ~/.homestead/master.key).',

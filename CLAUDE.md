@@ -344,12 +344,22 @@ project dir:
   on boot). There is no git or input-hash coupling — Vite's module graph is the
   source of truth for what changed.
 - `homestead start --dev`: `bun --watch` child with Vite middleware (HMR).
-- `homestead admin reset-password` and the `resources` token mint run as bun
-  children of the project's homestead-server (`src/tools/`), so the binary
-  bundles zero engine code and can never write to a db with stale logic.
+- `homestead admin reset-password` runs as a bun child of the project's
+  homestead-server (`src/tools/`), so the binary bundles zero engine code and
+  can never write to a db with stale logic.
+- `homestead login` authenticates against a (possibly remote) server via
+  `POST /users/:login` and saves a bearer token per named profile under
+  `~/.homestead/credentials.json` (dir 0700 / file 0600). `homestead
+  resources` then authenticates with the default profile (override with
+  `--profile=<label>`, or `--server-url` / `--token` / `--email`+`--password`)
+  — it no longer mints a local admin token, so it uses exactly the access the
+  logged-in account has and can target remote servers. `logout` revokes +
+  removes a profile; `profiles [use <label>]` lists them or repoints the
+  default.
 
 Other commands: `init`, `doctor`, `install-service` (sudo; installs the
-systemd service), `resources`, `admin reset-password`.
+systemd service), `resources`, `login`, `logout`, `profiles`,
+`admin reset-password`.
 
 ### Deployment
 
