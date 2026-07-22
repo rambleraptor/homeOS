@@ -6,6 +6,7 @@
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import type { OperationLogEntry } from '@rambleraptor/homestead-core/resources/operations';
 import { useOperations } from '../hooks/useOperations';
 import type { Operation } from '../types';
 
@@ -20,6 +21,25 @@ function formatDate(dateString: string): string {
   });
 }
 
+function formatTime(dateString: string): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric' });
+}
+
+/**
+ * Read the operation's log timeline from `metadata.logs`, tolerating the
+ * loosely-typed `metadata` (an arbitrary object on the wire).
+ */
+function readLogs(operation: Operation): OperationLogEntry[] {
+  const logs = (operation.metadata as { logs?: unknown } | undefined)?.logs;
+  if (!Array.isArray(logs)) return [];
+  return logs.filter(
+    (e): e is OperationLogEntry =>
+      !!e && typeof (e as OperationLogEntry).message === 'string',
+  );
+}
+
 function OperationStatusIcon({ operation }: { operation: Operation }) {
   if (!operation.done) return <Spinner size="sm" />;
   if (operation.status === 'failed' || operation.error) {
@@ -29,6 +49,8 @@ function OperationStatusIcon({ operation }: { operation: Operation }) {
 }
 
 function statusLabel(operation: Operation): string {
+  // The canonical status word. The live per-step detail lives in the log
+  // timeline below (its last entry is the operation's current status).
   if (!operation.done) return 'Running…';
   if (operation.status === 'failed' || operation.error) return 'Failed';
   return 'Completed';
@@ -37,6 +59,7 @@ function statusLabel(operation: Operation): string {
 function OperationRow({ operation }: { operation: Operation }) {
   const errorMessage =
     typeof operation.error?.message === 'string' ? operation.error.message : null;
+  const logs = readLogs(operation);
 
   return (
     <Card>
@@ -51,12 +74,27 @@ function OperationRow({ operation }: { operation: Operation }) {
           <h3 className="font-semibold text-gray-900">
             {operation.title || operation.method || 'Operation'}
           </h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-gray-600 mt-1" data-testid="operation-status">
             {statusLabel(operation)}
             {operation.method ? ` · ${operation.method}` : ''}
           </p>
           {errorMessage && (
             <p className="text-sm text-red-600 mt-1 break-words">{errorMessage}</p>
+          )}
+          {logs.length > 0 && (
+            <ul
+              className="mt-2 space-y-0.5 border-l-2 border-gray-100 pl-3"
+              data-testid="operation-logs"
+            >
+              {logs.map((entry, i) => (
+                <li key={i} className="text-xs text-gray-500 flex gap-2">
+                  <span className="tabular-nums shrink-0 text-gray-400">
+                    {formatTime(entry.time)}
+                  </span>
+                  <span className="break-words">{entry.message}</span>
+                </li>
+              ))}
+            </ul>
           )}
           <p className="text-xs text-gray-500 mt-2">
             {formatDate(operation.updated || operation.created)}

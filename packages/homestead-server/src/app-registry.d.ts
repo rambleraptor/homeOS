@@ -1,6 +1,7 @@
 import type { ResourceCustomMethod } from '@rambleraptor/homestead-core/resources/types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type { AiConfig, EmbeddingConfig } from '@rambleraptor/homestead-core/apps/config';
+import type { RegisteredCronHook } from '@rambleraptor/homestead-core/apps/registry';
 import type { AppAccessConfig } from './engine/access';
 import type { OAuthConfig } from './engine/oauth';
 
@@ -17,4 +18,5 @@ export function getAllResourceCustomMethods(): Record<string, ResourceCustomMeth
 export function getAllResourceDefs(): ResourceDefinition[];
 export function getAllAppFlagDefs(): Record<string, unknown>;
 export function getAllUserSettingDefs(): Record<string, unknown>;
+export function getAllCronHooks(): RegisteredCronHook[];
 export function handleChat(request: Request): Promise<Response>;

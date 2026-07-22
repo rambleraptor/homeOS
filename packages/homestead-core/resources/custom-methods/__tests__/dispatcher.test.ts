@@ -264,6 +264,7 @@ describe('dispatchCustomMethod', () => {
         complete: vi.fn(async () => {
           resolveComplete();
         }),
+        updateMetadata: vi.fn(async () => {}),
       };
       return { operations, completed };
     }
@@ -300,6 +301,74 @@ describe('dispatchCustomMethod', () => {
       expect(operations.complete).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'op1', response: { ok: true } }),
       );
+    });
+
+    it('threads ctx.log into the async handler and records the timeline in metadata.logs', async () => {
+      const { operations, completed } = makeOperationStore({
+        id: 'op-log',
+        path: 'operations/op-log',
+        done: false,
+      });
+      let sawLog: unknown;
+      const handler = vi.fn(async (ctx) => {
+        sawLog = ctx.log;
+        await ctx.log?.('working…');
+        return { ok: true };
+      });
+
+      const res = await dispatchCustomMethod({
+        request: makeRequest('POST'),
+        path: '/grocery-items:long-task',
+        resolveMethod: () => makeMethod(handler, { async: true }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(res.status).toBe(202);
+      await completed;
+
+      // The handler received a callable log function…
+      expect(typeof sawLog).toBe('function');
+      // …and the run was bracketed with started/succeeded around its own entry.
+      const lastWrite = operations.updateMetadata.mock.calls.at(-1)?.[0] as
+        | { metadata: { logs: { message: string }[] } }
+        | undefined;
+      expect(lastWrite?.metadata.logs.map((e) => e.message)).toEqual([
+        'started',
+        'working…',
+        'succeeded',
+      ]);
+    });
+
+    it('does not give the pre-flight validate a log function', async () => {
+      const { operations } = makeOperationStore({
+        id: 'op-validate-log',
+        path: 'operations/op-validate-log',
+        done: false,
+      });
+      const handler = vi.fn(async () => ({}));
+      let validateHadLog = true;
+      const validate = vi.fn(async (ctx) => {
+        validateHadLog = 'log' in ctx && ctx.log !== undefined;
+        return Response.json({ error: 'nope' }, { status: 503 });
+      });
+
+      await dispatchCustomMethod({
+        request: makeRequest('POST', { image: 'x' }),
+        path: '/hsa-receipts:parse-receipt',
+        resolveMethod: () => ({
+          target: 'collection',
+          async: true,
+          load: async () => ({ default: handler, validate }),
+        }),
+        authenticate: async () => fakeAuth,
+        passthrough: neverPassthrough,
+        operations,
+      });
+
+      expect(validate).toHaveBeenCalledOnce();
+      expect(validateHadLog).toBe(false);
     });
 
     it('records the error when the async handler throws', async () => {
