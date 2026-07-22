@@ -274,6 +274,14 @@ export function toWireSchema(
     withCompanionTextFields(fields),
     singular,
   );
+  // Flag each extracted-text companion so the engine encrypts it at rest
+  // (see engine/store.ts). The marker is authoritative; nothing else keys
+  // encryption off the `_text` suffix.
+  for (const [name, field] of Object.entries(fields)) {
+    if (fileExtractsText(field)) {
+      properties[companionTextField(name)]!['x-aepbase-file-text-field'] = true;
+    }
+  }
   return {
     type: 'object',
     properties,

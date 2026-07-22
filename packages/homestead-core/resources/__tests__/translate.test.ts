@@ -428,6 +428,7 @@ describe('toWireSchema — ai file fields', () => {
     expect(properties.file_text).toEqual({
       type: 'string',
       description: 'Full text extracted from file by the AI pipeline.',
+      'x-aepbase-file-text-field': true,
     });
     // Companion is stored but not required.
     expect(required).toEqual(['file']);
@@ -441,7 +442,16 @@ describe('toWireSchema — ai file fields', () => {
     expect(properties.file_text).toEqual({
       type: 'string',
       description: 'Full text extracted from file by the AI pipeline.',
+      'x-aepbase-file-text-field': true,
     });
+  });
+
+  it('marks the companion so the engine encrypts it at rest', () => {
+    const { properties } = toWireSchema(
+      { file: { type: 'file', ai: { extract_text: true } } },
+      'document',
+    );
+    expect(properties.file_text?.['x-aepbase-file-text-field']).toBe(true);
   });
 
   it('uses singular_name in the companion description when present', () => {
