@@ -40,6 +40,10 @@ async function main(argv: string[]): Promise<number> {
     }
     case 'admin':
       return adminCmd(rest);
+    case 'key':
+      return keyCmd(rest);
+    case 'backup':
+      return backupCmd(rest);
     default:
       printUsage();
       console.error(`\nunknown subcommand ${JSON.stringify(sub)}`);
@@ -294,6 +298,48 @@ async function promptChoice(label: string, choices: string[], def: string): Prom
   });
 }
 
+async function keyCmd(args: string[]): Promise<number> {
+  const parsed = parse(
+    args,
+    { file: { type: 'string' }, force: { type: 'boolean', default: false } },
+    { positionals: true },
+  );
+  if (!parsed) return 1;
+  const action = parsed.positionals[0];
+  const { generateKeyCmd, showKeyCmd } = await import('./key.ts');
+  switch (action) {
+    case 'generate':
+      return generateKeyCmd({
+        file: strFlag(parsed.values.file),
+        force: parsed.values.force === true,
+      });
+    case 'show':
+      return showKeyCmd({ file: strFlag(parsed.values.file) });
+    default:
+      console.error('usage: homestead key <generate|show> [--file=PATH] [--force]');
+      return 1;
+  }
+}
+
+async function backupCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, {
+    'data-dir': { type: 'string' },
+    out: { type: 'string' },
+  });
+  if (!parsed) return 1;
+  const { backupCmd: runBackup } = await import('./backup.ts');
+  return runBackup({
+    dataDir: strFlag(parsed.values['data-dir']),
+    out: strFlag(parsed.values.out),
+    stamp: backupStamp(),
+  });
+}
+
+/** Compact UTC stamp (YYYYMMDD-HHMMSS) for the default backup filename. */
+function backupStamp(): string {
+  return new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+}
+
 async function initAppCmd(args: string[]): Promise<number> {
   const parsed = parse(args, {}, { positionals: true });
   if (!parsed) return 1;
@@ -373,6 +419,9 @@ function printUsage(): void {
       '  homestead install-service   (Optional) Install the systemd service (run with sudo).',
       '  homestead resources [...]   CRUD/List resources + their custom methods (run bare to list them).',
       '  homestead admin reset-password  Rotate the superuser password (prints the new one).',
+      '  homestead key generate      Create a master key for encryption-at-rest (writes ~/.homestead/master.key).',
+      '  homestead key show          Print the resolved master key (for backing up to a password manager).',
+      '  homestead backup            Archive the data dir (ciphertext; refuses to include the master key).',
       '',
       'Flags for `init`:',
       '  --dir=PATH                  Project directory (default: prompt, or cwd with --yes).',
@@ -402,6 +451,14 @@ function printUsage(): void {
       '  --token=TOKEN               Bearer token; skips the local admin-token mint.',
       '  --email=EMAIL --password=PW Superuser creds; skips the local admin-token mint.',
       '  --data-dir=PATH             Data dir holding the sqlite db (default <project>/data).',
+      '',
+      'Flags for `key`:',
+      '  --file=PATH                 Key file location (default ~/.homestead/master.key).',
+      '  --force                     Overwrite an existing key (destroys access to data under the old key).',
+      '',
+      'Flags for `backup`:',
+      '  --data-dir=PATH             Data dir to archive (default <project>/data).',
+      '  --out=PATH                  Output archive path (default homestead-backup-<timestamp>.tar.gz).',
     ].join('\n'),
   );
 }
