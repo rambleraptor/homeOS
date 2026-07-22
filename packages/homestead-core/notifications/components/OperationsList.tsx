@@ -48,10 +48,10 @@ function OperationStatusIcon({ operation }: { operation: Operation }) {
   return <CheckCircle2 className="w-5 h-5 text-green-500" />;
 }
 
-function statusLabel(operation: Operation, logs: OperationLogEntry[]): string {
-  // While running, the latest log entry is the live status (falls back to a
-  // generic label before the first entry lands).
-  if (!operation.done) return logs.at(-1)?.message ?? 'Running…';
+function statusLabel(operation: Operation): string {
+  // The canonical status word. The live per-step detail lives in the log
+  // timeline below (its last entry is the operation's current status).
+  if (!operation.done) return 'Running…';
   if (operation.status === 'failed' || operation.error) return 'Failed';
   return 'Completed';
 }
@@ -75,7 +75,7 @@ function OperationRow({ operation }: { operation: Operation }) {
             {operation.title || operation.method || 'Operation'}
           </h3>
           <p className="text-sm text-gray-600 mt-1" data-testid="operation-status">
-            {statusLabel(operation, logs)}
+            {statusLabel(operation)}
             {operation.method ? ` · ${operation.method}` : ''}
           </p>
           {errorMessage && (
