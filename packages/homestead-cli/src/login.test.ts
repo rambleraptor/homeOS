@@ -21,11 +21,11 @@ type FetchCall = { url: string; init?: RequestInit };
 /** Install a fetch stub that records calls and returns `responder(call)`. */
 function stubFetch(responder: (call: FetchCall) => Response): FetchCall[] {
   const calls: FetchCall[] = [];
-  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const call = { url: String(input), init };
     calls.push(call);
     return responder(call);
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
   return calls;
 }
 
@@ -114,7 +114,7 @@ test('logout removes the profile even when the revoke call fails', async () => {
   saveProfile('work', { server: 'https://work', token: 'tok', email: 'w@w.com', userId: 'users/1' });
   globalThis.fetch = (async () => {
     throw new Error('connection refused');
-  }) as typeof fetch;
+  }) as unknown as typeof fetch;
 
   const code = await logout({ profile: 'work' });
 
