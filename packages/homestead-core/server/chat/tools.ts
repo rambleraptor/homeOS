@@ -12,10 +12,24 @@
  */
 
 import { z } from 'zod';
+import { referenceFields } from '../../resources/references';
 import type { FieldDef, ResourceDefinition } from '../../resources/types';
 import { logger } from '../../utils/logger';
 
 export type CrudOp = 'create' | 'read' | 'update' | 'delete';
+
+/**
+ * A reference field the executor can validate before writing: the field name,
+ * the target's plural (for the existence check), and whether it's a to-many
+ * link. Only targets addressable by id alone (top-level resources, incl. the
+ * built-in `user`) are listed — a parent-scoped target can't be fetched
+ * without its parent path.
+ */
+export interface ReferenceCheck {
+  field: string;
+  plural: string;
+  isArray: boolean;
+}
 
 /** Everything the executor needs to turn a model tool call into an aepbase request. */
 export interface ToolBinding {
@@ -35,6 +49,13 @@ export interface ToolBinding {
    * valid.)
    */
   jsonStringFields: Set<string>;
+  /**
+   * Reference fields the executor should existence-check before a create/update
+   * write, so a bad id comes back as a correctable error instead of a dangling
+   * pointer. Empty for reads/deletes and resources with no validatable
+   * references.
+   */
+  references: ReferenceCheck[];
 }
 
 /** A tool's model-facing surface: description + Zod input schema. */
@@ -216,6 +237,18 @@ export function buildTools(defs: ResourceDefinition[]): BuiltTools {
         .map(([key]) => key),
     );
 
+    // Reference fields whose target is fetchable by id alone (top-level, incl.
+    // the built-in `user`) — the executor existence-checks these on write.
+    const references: ReferenceCheck[] = [];
+    for (const fr of referenceFields(def)) {
+      if (!bodyFields.has(fr.field)) continue;
+      const target = fr.resource === USER_ROOT ? undefined : bySingular.get(fr.resource);
+      const plural = fr.resource === USER_ROOT ? USER_ROOT_PLURAL : target?.plural;
+      const parented = fr.resource === USER_ROOT ? false : (target?.parents?.length ?? 0) > 0;
+      if (!plural || parented) continue;
+      references.push({ field: fr.field, plural, isArray: fr.isArray });
+    }
+
     // Create requires its required fields; update is a merge patch (all
     // optional). Read carries an optional id (omit to list).
     const createFields: Record<string, z.ZodTypeAny> = {};
@@ -279,6 +312,8 @@ export function buildTools(defs: ResourceDefinition[]): BuiltTools {
         parentPlurals,
         bodyFields,
         jsonStringFields,
+        // Only create/update write bodies, so only they validate references.
+        references: op === 'create' || op === 'update' ? references : [],
       });
     }
   }

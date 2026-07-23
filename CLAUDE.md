@@ -468,9 +468,19 @@ fields: {
   round-trips through aepbase without a custom keyword.
 - Consumers: the chat tool builder tells the model which resource an id belongs
   to (and, when that resource has its own tools, which `read_<x>` tool finds
-  one). `onDelete: 'restrict' | 'cascade' | 'set-null'` is accepted and
-  validated but **not yet enforced** — engine-side referential integrity is a
-  planned follow-up.
+  one); the chat executor existence-checks a supplied reference id before a
+  create/update write; and the search tool resolves a hit's references to their
+  target's display name.
+- `onDelete` is **enforced by the engine** at delete time, opt-in per field —
+  only a reference that declares one is acted on:
+  - `restrict` blocks the delete (409) while any record still points at it;
+  - `set-null` clears the pointer on each referrer (array items: drops the
+    element) — not allowed on a `required` field;
+  - `cascade` deletes each referring record and its subtree. Supported by the
+    engine but intentionally unused in this repo's schemas.
+  A structured `x-aepbase-reference` marker on the wire property carries this to
+  the engine (see `homestead-server/src/engine/references.ts`); the human-
+  readable `description` note is emitted alongside it.
 
 ### Parent / child relationships
 

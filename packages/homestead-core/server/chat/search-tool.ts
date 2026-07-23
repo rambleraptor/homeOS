@@ -18,9 +18,29 @@ import { aepGet } from '../aepbase';
 import { isEmbeddingConfigured } from '../ai/config';
 import { aiEmbed, tool } from '../ai/generate';
 import { fileEmbeds } from '../../resources/ai-fields';
+import { referenceFields } from '../../resources/references';
 import type { ResourceDefinition } from '../../resources/types';
 import { getVectorStore } from '../vectors/store';
 import type { ChatToolCall } from '../../chat/types';
+
+/** Built-in user root — searchable resources may reference it (`created_by`). */
+const USER_PLURAL = 'users';
+
+/** A reference to resolve on a search hit: the field, target plural + singular. */
+interface RefSpec {
+  field: string;
+  resource: string;
+  plural: string;
+  isArray: boolean;
+}
+
+/** A reference resolved to its target's display label (when it has one). */
+interface ResolvedReference {
+  field: string;
+  resource: string;
+  id: string;
+  label?: string;
+}
 
 /** The tool's exposed name, referenced by the system prompt. */
 export const SEARCH_TOOL_NAME = 'search_documents';
@@ -40,9 +60,17 @@ function embeddedResources(defs: ResourceDefinition[]): ResourceDefinition[] {
 /** A resource's display title from a fetched record, if it has one. */
 function pickTitle(record: unknown): string | undefined {
   if (!record || typeof record !== 'object') return undefined;
-  const r = record as { title?: unknown; name?: unknown };
+  const r = record as {
+    title?: unknown;
+    name?: unknown;
+    display_name?: unknown;
+    email?: unknown;
+  };
   if (typeof r.title === 'string' && r.title) return r.title;
   if (typeof r.name === 'string' && r.name) return r.name.split('/').filter(Boolean).pop();
+  // Users carry no title/name; fall back to their display name, then email.
+  if (typeof r.display_name === 'string' && r.display_name) return r.display_name;
+  if (typeof r.email === 'string' && r.email) return r.email;
   return undefined;
 }
 
@@ -65,6 +93,27 @@ export function makeSearchTool(opts: {
   const pluralToSingular = new Map(resources.map((d) => [d.plural, d.singular]));
   const singularToPlural = new Map(resources.map((d) => [d.singular, d.plural]));
 
+  // Reference fields to resolve per searchable resource, limited to targets we
+  // can fetch by id alone (top-level, incl. the built-in `user`). Non-embedded
+  // targets (e.g. `person`) are reachable through the full def list.
+  const pluralOfTarget = new Map<string, string>(opts.defs.map((d) => [d.singular, d.plural]));
+  pluralOfTarget.set('user', USER_PLURAL);
+  const parentedTargets = new Set(
+    opts.defs.filter((d) => d.parents?.length).map((d) => d.singular),
+  );
+  const refsBySingular = new Map<string, RefSpec[]>();
+  for (const def of resources) {
+    const specs = referenceFields(def)
+      .filter((fr) => pluralOfTarget.has(fr.resource) && !parentedTargets.has(fr.resource))
+      .map((fr) => ({
+        field: fr.field,
+        resource: fr.resource,
+        plural: pluralOfTarget.get(fr.resource)!,
+        isArray: fr.isArray,
+      }));
+    if (specs.length) refsBySingular.set(def.singular, specs);
+  }
+
   const resourcesParam = z
     .array(z.enum(plurals as [string, ...string[]]))
     .optional()
@@ -86,7 +135,8 @@ export function makeSearchTool(opts: {
       plurals.join(', ') +
       ') by meaning, not just keywords. Use this to answer questions about the ' +
       'contents of documents. Returns matching passages with a citation (the ' +
-      'resource type and record id) you should reference in your answer.',
+      'resource type and record id) you should reference in your answer, plus ' +
+      'any linked records (e.g. the uploader) resolved to their names.',
     inputSchema,
     execute: async (args: z.infer<typeof inputSchema>) => {
       const { query } = args;
@@ -109,13 +159,55 @@ export function makeSearchTool(opts: {
         resources: wantSingulars,
       });
 
+      // Resolve one reference id → its target's display label, caching across
+      // hits so a repeated creator/person is fetched once.
+      const labelCache = new Map<string, string | undefined>();
+      const resolveLabel = async (plural: string, id: string): Promise<string | undefined> => {
+        const ck = `${plural}/${id}`;
+        if (labelCache.has(ck)) return labelCache.get(ck);
+        let label: string | undefined;
+        try {
+          label = pickTitle(await aepGet(plural, id, opts.token));
+        } catch {
+          label = undefined; // inaccessible target — leave the id unlabeled
+        }
+        labelCache.set(ck, label);
+        return label;
+      };
+
+      // A hit record's references, resolved to labels for the model to connect
+      // the document to the entities it points at (e.g. its uploader).
+      const resolveReferences = async (
+        singular: string,
+        record: unknown,
+      ): Promise<ResolvedReference[] | undefined> => {
+        const specs = refsBySingular.get(singular);
+        if (!specs || !record || typeof record !== 'object') return undefined;
+        const fields = record as Record<string, unknown>;
+        const out: ResolvedReference[] = [];
+        for (const spec of specs) {
+          const raw = fields[spec.field];
+          const ids = spec.isArray ? (Array.isArray(raw) ? raw : []) : [raw];
+          for (const id of ids) {
+            if (typeof id !== 'string' || id.length === 0) continue;
+            const label = await resolveLabel(spec.plural, id);
+            out.push({ field: spec.field, resource: spec.resource, id, ...(label ? { label } : {}) });
+          }
+        }
+        return out.length ? out : undefined;
+      };
+
       // Verify access once per record (a doc can contribute several chunks).
-      const accessCache = new Map<string, { title?: string } | null>();
+      const accessCache = new Map<
+        string,
+        { title?: string; references?: ResolvedReference[] } | null
+      >();
       const results: Array<{
         resource: string;
         id: string;
         field: string;
         title?: string;
+        references?: ResolvedReference[];
         passage: string;
         score: number;
       }> = [];
@@ -128,7 +220,11 @@ export function makeSearchTool(opts: {
         let rec = accessCache.get(key);
         if (rec === undefined) {
           try {
-            rec = { title: pickTitle(await aepGet(plural, hit.record, opts.token)) };
+            const record = await aepGet(plural, hit.record, opts.token);
+            rec = {
+              title: pickTitle(record),
+              references: await resolveReferences(hit.resource, record),
+            };
           } catch {
             rec = null; // inaccessible or gone — drop from results
           }
@@ -140,6 +236,7 @@ export function makeSearchTool(opts: {
           id: hit.record,
           field: hit.field,
           title: rec.title,
+          references: rec.references,
           passage: hit.text,
           score: Number(hit.score.toFixed(4)),
         });

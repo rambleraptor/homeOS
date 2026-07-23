@@ -277,6 +277,49 @@ function registeredToDoc(r: RegisteredResource, hasChildren: boolean): ResourceD
   };
 }
 
+/**
+ * Translate the engine-internal `x-aepbase-reference` marker into the public,
+ * AEP-aligned `x-aep-resource-reference` linkage (matching the `aepbase/<name>`
+ * type string used by `x-aep-resource`), so a consumer knows a string field
+ * holds the id of another resource. Returns null when the property is not a
+ * reference.
+ */
+function referenceAnnotation(prop: SchemaProperty | undefined): Json | null {
+  const marker = prop?.['x-aepbase-reference'] as
+    | { resource?: string; onDelete?: string }
+    | undefined;
+  if (!marker || typeof marker !== 'object' || typeof marker.resource !== 'string') {
+    return null;
+  }
+  return {
+    type: `aepbase/${marker.resource}`,
+    ...(marker.onDelete ? { onDelete: marker.onDelete } : {}),
+  };
+}
+
+/**
+ * Rewrite a property for the public doc: swap the internal reference marker for
+ * the AEP-style annotation, recursing into an array's `items` for to-many
+ * references. Copies before mutating so the registry's stored schema is
+ * untouched.
+ */
+function withReferenceAnnotation(out: Json, prop: SchemaProperty): void {
+  const ref = referenceAnnotation(prop);
+  if (ref) {
+    delete out['x-aepbase-reference'];
+    out['x-aep-resource-reference'] = ref;
+  }
+  if (prop.type === 'array' && prop.items) {
+    const itemRef = referenceAnnotation(prop.items);
+    if (itemRef) {
+      const items: Json = { ...(prop.items as SchemaProperty) };
+      delete items['x-aepbase-reference'];
+      items['x-aep-resource-reference'] = itemRef;
+      out.items = items;
+    }
+  }
+}
+
 /** Component schema with enriched property metadata + example object. */
 function componentSchema(doc: ResourceDoc): Json {
   const properties: Record<string, Json> = {};
@@ -289,6 +332,7 @@ function componentSchema(doc: ResourceDoc): Json {
     }
     if (name in doc.examples) out.example = doc.examples[name];
     if (doc.fileFields.has(name)) out['x-aepbase-file-field'] = true;
+    withReferenceAnnotation(out, prop as SchemaProperty);
     properties[name] = out;
   }
 
