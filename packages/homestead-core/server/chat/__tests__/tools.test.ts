@@ -99,6 +99,14 @@ function descOf(field: z.ZodTypeAny): string | undefined {
   return undefined;
 }
 
+/** The description on an array field's element schema (unwrapping `.optional()`). */
+function itemDescOf(field: z.ZodTypeAny): string | undefined {
+  let f = field as { unwrap?: () => z.ZodTypeAny };
+  if (typeof f.unwrap === 'function') f = f.unwrap() as typeof f;
+  const arr = f as unknown as { element?: z.ZodTypeAny };
+  return arr.element ? descOf(arr.element) : undefined;
+}
+
 describe('buildTools', () => {
   it('generates four tools per resource with snake_case names', () => {
     const { tools, bindings } = buildTools(ALL);
@@ -223,6 +231,43 @@ describe('buildTools', () => {
     expect(del.safeParse({}).success).toBe(false);
     expect(del.safeParse({ id: 'x' }).success).toBe(true);
     expect(keysFor(tools, 'delete_gift_card')).not.toContain('merchant');
+  });
+
+  it('points the model at the read tool for a declared reference target', () => {
+    const person: ResourceDefinition = {
+      singular: 'person',
+      plural: 'people',
+      fields: { name: { type: 'string', required: true } },
+    };
+    const shared: ResourceDefinition = {
+      singular: 'person-shared-data',
+      plural: 'person-shared-data',
+      fields: {
+        person_a: {
+          type: 'string',
+          required: true,
+          reference: { resource: 'person' },
+        },
+        created_by: { type: 'string', reference: { resource: 'user' } },
+        players: {
+          type: 'array',
+          items: { type: 'string', reference: { resource: 'person' } },
+        },
+      },
+    };
+    const { tools } = buildTools([person, shared]);
+    const create = schemaFor(tools, 'create_person_shared_data');
+
+    // Declared target → hint names its read tool.
+    expect(descOf(create.shape.person_a)).toBe(
+      'id of a person record (use read_person to find one)',
+    );
+    // Built-in `user` has no generated tool → no read hint.
+    expect(descOf(create.shape.created_by)).toBe('id of a user record');
+    // References inside array items are annotated on the element.
+    expect(itemDescOf(create.shape.players)).toBe(
+      'id of a person record (use read_person to find one)',
+    );
   });
 
   it('declares enum fields as real enums', () => {

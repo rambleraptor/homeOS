@@ -441,6 +441,37 @@ sync by construction.
 7. **`singular` is globally unique.** The registry throws on
    duplicate declarations across apps.
 
+### Resource references
+
+Annotate a string field that stores another record's id with
+`reference: { resource: '<singular>' }` so the link is machine-readable
+instead of a prose `description`:
+
+```ts
+fields: {
+  created_by: { type: 'string', reference: { resource: 'user' } },
+  store:      { type: 'string', reference: { resource: 'store' } },
+  players: {
+    type: 'array',
+    items: { type: 'string', reference: { resource: 'person' } },
+  },
+}
+```
+
+- Only valid on `string` fields; for a to-many reference annotate the array's
+  `items`, not the array. Mutually exclusive with `enum`.
+- The target must be a declared resource, or the built-in `user` root — the
+  schema sync validates references across all definitions at boot and fails
+  fast on an unknown target.
+- Like `enum`, the annotation is stripped from the wire schema and folded into
+  the wire `description` (`reference to a <resource> record (by id)`), so it
+  round-trips through aepbase without a custom keyword.
+- Consumers: the chat tool builder tells the model which resource an id belongs
+  to (and, when that resource has its own tools, which `read_<x>` tool finds
+  one). `onDelete: 'restrict' | 'cascade' | 'set-null'` is accepted and
+  validated but **not yet enforced** — engine-side referential integrity is a
+  planned follow-up.
+
 ### Parent / child relationships
 
 | Child                       | Parent        | URL pattern                                                 |

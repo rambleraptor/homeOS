@@ -24,7 +24,7 @@ export const giftCardsResources: ResourceDefinition[] = [
         type: 'file',
         description: 'Back-of-card image (jpeg/png/webp/gif, <=5MB)',
       },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
     bulkImport: {
       formats: [
@@ -55,7 +55,7 @@ export const giftCardsResources: ResourceDefinition[] = [
       new_amount: { type: 'number', required: true },
       amount_changed: { type: 'number', required: true },
       notes: { type: 'string' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
 ];

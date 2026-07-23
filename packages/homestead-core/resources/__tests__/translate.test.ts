@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   toWireSchema,
+  validateReferenceTargets,
   validateResourceDefinition,
   variantSchemaName,
 } from '../translate';
@@ -412,6 +413,195 @@ describe('validateResourceDefinition', () => {
         }),
       ),
     ).toThrow(/declares items but is not an array/);
+  });
+});
+
+describe('toWireSchema — references', () => {
+  it('folds a reference into the wire description', () => {
+    const { properties } = toWireSchema(
+      { person_a: { type: 'string', reference: { resource: 'person' } } },
+      'person-shared-data',
+    );
+    expect(properties.person_a).toEqual({
+      type: 'string',
+      description: 'reference to a person record (by id)',
+    });
+  });
+
+  it('appends the reference note to an existing description', () => {
+    const { properties } = toWireSchema(
+      {
+        project: {
+          type: 'string',
+          description: 'empty/missing means the main project.',
+          reference: { resource: 'project' },
+        },
+      },
+      'todo',
+    );
+    expect(properties.project.description).toBe(
+      'empty/missing means the main project. (reference to a project record (by id))',
+    );
+  });
+
+  it('notes references on array items', () => {
+    const { properties } = toWireSchema(
+      {
+        players: {
+          type: 'array',
+          items: { type: 'string', reference: { resource: 'person' } },
+        },
+      },
+      'game',
+    );
+    expect(properties.players).toEqual({
+      type: 'array',
+      items: {
+        type: 'string',
+        description: 'reference to a person record (by id)',
+      },
+    });
+  });
+
+  it('strips the structured reference from the wire schema', () => {
+    const { properties } = toWireSchema(
+      { created_by: { type: 'string', reference: { resource: 'user' } } },
+      'todo',
+    );
+    expect(properties.created_by).not.toHaveProperty('reference');
+  });
+});
+
+describe('validateResourceDefinition — references', () => {
+  const def = (fields: ResourceDefinition['fields']): ResourceDefinition => ({
+    singular: 'person-shared-data',
+    plural: 'person-shared-data',
+    fields,
+  });
+
+  it('accepts a well-formed string reference and an array-item reference', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          person_a: { type: 'string', reference: { resource: 'person' } },
+          players: {
+            type: 'array',
+            items: { type: 'string', reference: { resource: 'person' } },
+          },
+          address_id: {
+            type: 'string',
+            reference: { resource: 'address', onDelete: 'set-null' },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects a reference on a non-string field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          players: {
+            type: 'array',
+            items: { type: 'string' },
+            reference: { resource: 'person' },
+          },
+        }),
+      ),
+    ).toThrow(/declares a reference but is not a string/);
+  });
+
+  it('rejects a field with both enum and reference', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          person_a: {
+            type: 'string',
+            enum: ['a'],
+            reference: { resource: 'person' },
+          },
+        }),
+      ),
+    ).toThrow(/both enum and reference/);
+  });
+
+  it('rejects a non-kebab-case reference resource', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({ person_a: { type: 'string', reference: { resource: 'Person' } } }),
+      ),
+    ).toThrow(/reference resource "Person" must be kebab-case/);
+  });
+
+  it('rejects an invalid onDelete', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          person_a: {
+            type: 'string',
+            // @ts-expect-error deliberately invalid onDelete value
+            reference: { resource: 'person', onDelete: 'explode' },
+          },
+        }),
+      ),
+    ).toThrow(/onDelete "explode" must be one of/);
+  });
+});
+
+describe('validateReferenceTargets', () => {
+  const person: ResourceDefinition = {
+    singular: 'person',
+    plural: 'people',
+    fields: { name: { type: 'string' } },
+  };
+
+  it('accepts references to declared resources and the built-in user root', () => {
+    const shared: ResourceDefinition = {
+      singular: 'person-shared-data',
+      plural: 'person-shared-data',
+      fields: {
+        person_a: { type: 'string', reference: { resource: 'person' } },
+        created_by: { type: 'string', reference: { resource: 'user' } },
+      },
+    };
+    expect(() => validateReferenceTargets([person, shared])).not.toThrow();
+  });
+
+  it('throws on a reference to an unknown resource, naming the array-item field', () => {
+    const bad: ResourceDefinition = {
+      singular: 'event',
+      plural: 'events',
+      fields: {
+        people: {
+          type: 'array',
+          items: { type: 'string', reference: { resource: 'persn' } },
+        },
+      },
+    };
+    expect(() => validateReferenceTargets([bad])).toThrow(
+      /field "people\[\]" references unknown resource "persn"/,
+    );
+  });
+
+  it('walks references nested in array items and object properties', () => {
+    const nested: ResourceDefinition = {
+      singular: 'game',
+      plural: 'games',
+      fields: {
+        scores: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              player: { type: 'string', reference: { resource: 'ghost' } },
+            },
+          },
+        },
+      },
+    };
+    expect(() => validateReferenceTargets([nested])).toThrow(
+      /field "scores\[\]\.player" references unknown resource "ghost"/,
+    );
   });
 });
 

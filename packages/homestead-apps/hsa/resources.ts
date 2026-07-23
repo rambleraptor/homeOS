@@ -38,7 +38,7 @@ export const hsaResources: ResourceDefinition[] = [
         description: 'Path of the source document this receipt was derived from.',
       },
       notes: { type: 'string' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
     // AEP-136 custom method on the hsa-receipt collection. Long-running
     // (AEP-151): returns 202 + a pollable operation rather than blocking on

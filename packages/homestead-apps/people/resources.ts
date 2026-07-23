@@ -13,7 +13,7 @@ export const peopleResources: ResourceDefinition[] = [
     user_settable_create: true,
     fields: {
       name: { type: 'string', required: true },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
     bulkImport: {
       formats: [
@@ -41,12 +41,12 @@ export const peopleResources: ResourceDefinition[] = [
     fields: {
       person_a: {
         type: 'string',
-        description: 'people/{person_id}',
+        reference: { resource: 'person' },
         required: true,
       },
-      person_b: { type: 'string', description: 'people/{person_id}' },
-      address_id: { type: 'string' },
-      created_by: { type: 'string' },
+      person_b: { type: 'string', reference: { resource: 'person' } },
+      address_id: { type: 'string', reference: { resource: 'address' } },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -64,8 +64,11 @@ export const peopleResources: ResourceDefinition[] = [
       country: { type: 'string' },
       wifi_network: { type: 'string' },
       wifi_password: { type: 'string' },
-      shared_data_id: { type: 'string' },
-      created_by: { type: 'string', required: true },
+      shared_data_id: {
+        type: 'string',
+        reference: { resource: 'person-shared-data' },
+      },
+      created_by: { type: 'string', required: true, reference: { resource: 'user' } },
     },
   },
 ];

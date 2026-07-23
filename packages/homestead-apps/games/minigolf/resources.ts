@@ -14,14 +14,13 @@ export const minigolfResources: ResourceDefinition[] = [
       played_at: { type: 'string', description: 'RFC3339 timestamp' },
       players: {
         type: 'array',
-        items: { type: 'string' },
-        description: 'Player resource paths (people/{id})',
+        items: { type: 'string', reference: { resource: 'person' } },
         required: true,
       },
       hole_count: { type: 'number', required: true },
       completed: { type: 'boolean' },
       notes: { type: 'string' },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -40,14 +39,14 @@ export const minigolfResources: ResourceDefinition[] = [
           properties: {
             player: {
               type: 'string',
-              description: 'people/{id} resource path',
+              reference: { resource: 'person' },
             },
             strokes: { type: 'number' },
           },
         },
         required: true,
       },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
 ];

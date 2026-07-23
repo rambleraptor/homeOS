@@ -41,7 +41,7 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
       script_id: { type: 'string', required: true },
       parameters: { type: 'object' },
       last_run_at: { type: 'string', format: 'date-time' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -87,7 +87,11 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
       },
       method: { type: 'string', description: 'The `plural:verb` that spawned it.' },
       title: { type: 'string', description: 'Human-readable label.' },
-      created_by: { type: 'string', description: 'User id of the initiator.' },
+      created_by: {
+        type: 'string',
+        description: 'User id of the initiator.',
+        reference: { resource: 'user' },
+      },
     },
   },
 ];

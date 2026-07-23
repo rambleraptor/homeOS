@@ -101,7 +101,7 @@ export const recipesResources: ResourceDefinition[] = [
         type: 'file',
         description: 'Recipe photo (jpeg/png/webp/gif, <=5MB).',
       },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -118,7 +118,7 @@ export const recipesResources: ResourceDefinition[] = [
       rating: { type: 'number', description: '1-5 scale' },
       deviated: { type: 'boolean' },
       deviation_notes: { type: 'string' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
 ];
