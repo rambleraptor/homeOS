@@ -33,6 +33,11 @@ import {
 import { generateId, nowRFC3339 } from './ids';
 import type { RegisteredResource, Registry } from './registry';
 import {
+  checkReferenceRestrict,
+  collectReferrers,
+  findReferrers,
+} from './references';
+import {
   deleteResource,
   getResource,
   insertResource,
@@ -556,10 +561,46 @@ function deleteSubtree(
 }
 
 /**
+ * Apply the `set-null` and `cascade` reference behaviors for a record being
+ * deleted (`restrict` is handled up front by {@link checkReferenceRestrict}).
+ * Runs inside the delete transaction so referrer rewrites and the delete commit
+ * together. Cascade recurses so a chain of cascades resolves; `restrict` is
+ * skipped here (its matches were already proven empty before the transaction).
+ */
+function applyReferenceCleanup(
+  reg: Registry,
+  singular: string,
+  id: string,
+  filePaths: string[],
+): void {
+  const now = nowRFC3339();
+  for (const ref of findReferrers(reg, singular)) {
+    if (ref.onDelete === 'restrict') continue;
+    for (const row of collectReferrers(reg, ref, id)) {
+      if (ref.onDelete === 'set-null') {
+        row.fields[ref.field] = ref.isArray
+          ? (row.fields[ref.field] as unknown[]).filter((v) => v !== id)
+          : null;
+        updateResource(reg.db, ref.resource.plural, row.path, row.fields, now, ref.resource.schema);
+      } else if (ref.onDelete === 'cascade') {
+        // Resolve references pointing at the row we're about to delete, then
+        // remove it and its child subtree.
+        applyReferenceCleanup(reg, ref.resource.singular, row.id, filePaths);
+        deleteSubtree(reg, ref.resource, row.path, row.id, filePaths);
+      }
+    }
+  }
+}
+
+/**
  * AEP-135 delete. A `?force=true` query param cascades: the resource and its
  * entire child subtree are removed. Without it, deleting a resource that
  * still has children fails with FAILED_PRECONDITION (409) rather than
  * orphaning them.
+ *
+ * Independently of `force`, deleting a record that other records reference with
+ * `onDelete: restrict` fails with 409; `set-null`/`cascade` referrers are
+ * resolved inside the transaction (see {@link applyReferenceCleanup}).
  */
 export function handleDelete(reg: Registry, match: RouteMatch, req: Request): Response {
   const r = match.resource;
@@ -576,8 +617,12 @@ export function handleDelete(reg: Registry, match: RouteMatch, req: Request): Re
     );
   }
 
+  const restrictErr = checkReferenceRestrict(reg, r.singular, match.id);
+  if (restrictErr) return errorResponse(409, `resource "${path}": ${restrictErr}`);
+
   const filePaths: string[] = [];
   reg.db.transaction(() => {
+    applyReferenceCleanup(reg, r.singular, match.id, filePaths);
     deleteSubtree(reg, r, path, match.id, filePaths);
   })();
 

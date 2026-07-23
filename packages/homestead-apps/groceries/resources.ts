@@ -27,7 +27,7 @@ export const groceriesResources: ResourceDefinition[] = [
       checked: { type: 'boolean', default: false },
       category: { type: 'string' },
       notes: { type: 'string' },
-      store: { type: 'string', reference: { resource: 'store' } },
+      store: { type: 'string', reference: { resource: 'store', onDelete: 'restrict' } },
       created_by: { type: 'string', reference: { resource: 'user' } },
     },
     // AEP-136 custom methods on the grocery collection:

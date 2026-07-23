@@ -35,7 +35,7 @@ export const todosResources: ResourceDefinition[] = [
       project: {
         type: 'string',
         description: 'empty/missing means the main project.',
-        reference: { resource: 'project' },
+        reference: { resource: 'project', onDelete: 'restrict' },
       },
       in_main: {
         type: 'boolean',

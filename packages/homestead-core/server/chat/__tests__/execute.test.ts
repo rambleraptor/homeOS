@@ -41,8 +41,27 @@ const notification: ResourceDefinition = {
   },
 };
 
+const person: ResourceDefinition = {
+  singular: 'person',
+  plural: 'people',
+  fields: { name: { type: 'string', required: true } },
+};
+
+const game: ResourceDefinition = {
+  singular: 'game',
+  plural: 'games',
+  fields: {
+    owner: { type: 'string', reference: { resource: 'person' } },
+    players: {
+      type: 'array',
+      items: { type: 'string', reference: { resource: 'person' } },
+    },
+  },
+};
+
 const TOKEN = 'user-token';
 const { bindings } = buildTools([todo, notification]);
+const { bindings: refBindings } = buildTools([person, game]);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -162,5 +181,67 @@ describe('executeToolCall', () => {
       TOKEN,
     );
     expect(out).toMatchObject({ ok: false, error: 'create todos → 403' });
+  });
+});
+
+describe('executeToolCall — reference validation', () => {
+  it('creates when a reference id resolves', async () => {
+    const out = await executeToolCall(
+      { name: 'create_game', args: { owner: 'p-1' } },
+      refBindings,
+      TOKEN,
+    );
+    expect(aepGet).toHaveBeenCalledWith('people', 'p-1', TOKEN);
+    expect(out.ok).toBe(true);
+    expect(aepCreate).toHaveBeenCalledWith('games', { owner: 'p-1' }, TOKEN, undefined);
+  });
+
+  it('rejects a create whose reference id does not resolve, without writing', async () => {
+    vi.mocked(aepGet).mockRejectedValueOnce(new Error('people/missing → 404'));
+    const out = await executeToolCall(
+      { name: 'create_game', args: { owner: 'missing' } },
+      refBindings,
+      TOKEN,
+    );
+    expect(out).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('no people record with id "missing"'),
+    });
+    expect(aepCreate).not.toHaveBeenCalled();
+  });
+
+  it('validates every id in a to-many reference', async () => {
+    vi.mocked(aepGet).mockImplementation(async (_plural: string, id: string) => {
+      if (id === 'bad') throw new Error('404');
+      return { id };
+    });
+    const out = await executeToolCall(
+      { name: 'create_game', args: { players: ['good', 'bad'] } },
+      refBindings,
+      TOKEN,
+    );
+    expect(out.ok).toBe(false);
+    expect(aepCreate).not.toHaveBeenCalled();
+  });
+
+  it('skips validation when no reference field is supplied', async () => {
+    const out = await executeToolCall(
+      { name: 'create_game', args: {} },
+      refBindings,
+      TOKEN,
+    );
+    expect(aepGet).not.toHaveBeenCalled();
+    expect(out.ok).toBe(true);
+  });
+
+  it('validates references on update too', async () => {
+    vi.mocked(aepGet).mockRejectedValueOnce(new Error('404'));
+    const out = await executeToolCall(
+      { name: 'update_game', args: { id: 'g-1', owner: 'missing' } },
+      refBindings,
+      TOKEN,
+    );
+    expect(out.ok).toBe(false);
+    expect(aepUpdate).not.toHaveBeenCalled();
   });
 });

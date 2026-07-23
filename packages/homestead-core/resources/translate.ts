@@ -255,6 +255,12 @@ function validateReference(
         `restrict, cascade, set-null`,
     );
   }
+  // set-null clears the field on the referencing record; a required scalar
+  // field can't be nulled. (Array-item references have no `required` — set-null
+  // there removes the element, which is always valid.)
+  if (ref.onDelete === 'set-null' && field.required) {
+    fail(`field "${path}" uses onDelete: set-null but is required — a required field cannot be nulled`);
+  }
 }
 
 /**
@@ -469,6 +475,14 @@ function toWireProperty(
     ...(field.format ? { format: field.format } : {}),
     ...(field.default !== undefined ? { default: field.default } : {}),
     ...(field.type === 'file' ? { 'x-aepbase-file-field': true } : {}),
+    ...(field.reference
+      ? {
+          'x-aepbase-reference': {
+            resource: field.reference.resource,
+            ...(field.reference.onDelete ? { onDelete: field.reference.onDelete } : {}),
+          },
+        }
+      : {}),
   };
   if (field.items) prop.items = toWireProperty(field.items, singular, fieldName);
   if (field.properties) {

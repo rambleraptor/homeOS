@@ -127,6 +127,49 @@ describe('AEP wire-contract invariants vs the baseline', () => {
   });
 });
 
+describe('resource references in the generated doc', () => {
+  test('emits x-aep-resource-reference and drops the internal marker', async () => {
+    // A fresh engine so the frozen-baseline resource set above is untouched.
+    const t2 = await makeEngine();
+    await defineResource(t2, {
+      singular: 'store',
+      plural: 'stores',
+      user_settable_create: true,
+      schema: { type: 'object', properties: { name: { type: 'string' } } },
+    });
+    await defineResource(t2, {
+      singular: 'grocery',
+      plural: 'groceries',
+      user_settable_create: true,
+      schema: {
+        type: 'object',
+        properties: {
+          store: {
+            type: 'string',
+            'x-aepbase-reference': { resource: 'store', onDelete: 'restrict' },
+          },
+          buddies: {
+            type: 'array',
+            items: { type: 'string', 'x-aepbase-reference': { resource: 'store' } },
+          },
+        },
+      },
+    });
+
+    const doc2 = await (await call(t2.engine, 'GET', '/openapi.json')).json();
+    const props = doc2.components.schemas['grocery'].properties;
+
+    expect(props.store['x-aep-resource-reference']).toEqual({
+      type: 'aepbase/store',
+      onDelete: 'restrict',
+    });
+    expect(props.store['x-aepbase-reference']).toBeUndefined();
+    // To-many references are annotated on the array's items.
+    expect(props.buddies.items['x-aep-resource-reference']).toEqual({ type: 'aepbase/store' });
+    expect(props.buddies.items['x-aepbase-reference']).toBeUndefined();
+  });
+});
+
 describe('aep-lib-ts consumer round-trip', () => {
   test('fromOpenAPI + patchCreateMethods derives the full resource model', async () => {
     const apiClient = await APIClient.fromOpenAPI(doc, 'http://localhost:8090');

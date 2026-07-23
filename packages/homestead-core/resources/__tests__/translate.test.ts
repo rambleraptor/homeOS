@@ -417,7 +417,7 @@ describe('validateResourceDefinition', () => {
 });
 
 describe('toWireSchema — references', () => {
-  it('folds a reference into the wire description', () => {
+  it('folds a reference into the wire description and emits a structured marker', () => {
     const { properties } = toWireSchema(
       { person_a: { type: 'string', reference: { resource: 'person' } } },
       'person-shared-data',
@@ -425,6 +425,18 @@ describe('toWireSchema — references', () => {
     expect(properties.person_a).toEqual({
       type: 'string',
       description: 'reference to a person record (by id)',
+      'x-aepbase-reference': { resource: 'person' },
+    });
+  });
+
+  it('includes onDelete in the marker when declared', () => {
+    const { properties } = toWireSchema(
+      { store: { type: 'string', reference: { resource: 'store', onDelete: 'restrict' } } },
+      'grocery',
+    );
+    expect(properties.store['x-aepbase-reference']).toEqual({
+      resource: 'store',
+      onDelete: 'restrict',
     });
   });
 
@@ -459,6 +471,7 @@ describe('toWireSchema — references', () => {
       items: {
         type: 'string',
         description: 'reference to a person record (by id)',
+        'x-aepbase-reference': { resource: 'person' },
       },
     });
   });
@@ -545,6 +558,33 @@ describe('validateResourceDefinition — references', () => {
         }),
       ),
     ).toThrow(/onDelete "explode" must be one of/);
+  });
+
+  it('rejects onDelete: set-null on a required field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          person_a: {
+            type: 'string',
+            required: true,
+            reference: { resource: 'person', onDelete: 'set-null' },
+          },
+        }),
+      ),
+    ).toThrow(/required field cannot be nulled/);
+  });
+
+  it('accepts onDelete: set-null on a non-required field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          person_a: {
+            type: 'string',
+            reference: { resource: 'person', onDelete: 'set-null' },
+          },
+        }),
+      ),
+    ).not.toThrow();
   });
 });
 

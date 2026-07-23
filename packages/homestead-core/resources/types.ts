@@ -233,6 +233,15 @@ export interface JsonSchemaProperty {
    */
   'x-aepbase-file-field'?: boolean;
   /**
+   * Structured resource-reference marker, produced by the translator from a
+   * field's `reference` annotation. Unlike the human-readable description note
+   * (which every reference also gets), this machine-readable form is what the
+   * engine reads to enforce `onDelete` at delete time. For a to-many reference
+   * the marker sits on the array's `items`. See
+   * `homestead-server/src/engine/references.ts`.
+   */
+  'x-aepbase-reference'?: { resource: string; onDelete?: ReferenceOnDelete };
+  /**
    * Marks an extracted-text companion column so the engine encrypts it at
    * rest (see `homestead-server/src/engine/store.ts`). Added by the
    * translator to each `<field>_text` companion.

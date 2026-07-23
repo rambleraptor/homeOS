@@ -47,6 +47,33 @@ function buildParentPath(
 }
 
 /**
+ * Verify every reference id in the body points at a real target record, under
+ * the caller's own token (so an id the caller can't see counts as invalid).
+ * Returns an error string for the first bad id, or null when all resolve.
+ * Skips absent/empty values — an omitted optional reference isn't validated.
+ */
+async function validateReferences(
+  binding: ToolBinding,
+  body: Record<string, unknown>,
+  token: string,
+): Promise<string | null> {
+  for (const ref of binding.references) {
+    const value = body[ref.field];
+    if (value === undefined || value === null) continue;
+    const ids = ref.isArray ? (Array.isArray(value) ? value : []) : [value];
+    for (const id of ids) {
+      if (typeof id !== 'string' || id.length === 0) continue;
+      try {
+        await aepGet(ref.plural, id, token);
+      } catch {
+        return `no ${ref.plural} record with id "${id}" (referenced by "${ref.field}")`;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Extract the record body from tool args: only declared schema fields,
  * with free-form-object fields JSON-parsed back into objects.
  */
@@ -89,7 +116,10 @@ export async function executeToolCall(
 
     switch (binding.op) {
       case 'create': {
-        const result = await aepCreate(plural, buildBody(binding, args), token, parent);
+        const body = buildBody(binding, args);
+        const refErr = await validateReferences(binding, body, token);
+        if (refErr) return { ...base, ok: false, error: refErr };
+        const result = await aepCreate(plural, body, token, parent);
         return { ...base, ok: true, result };
       }
       case 'read': {
@@ -111,7 +141,10 @@ export async function executeToolCall(
       case 'update': {
         const id = stringArg(args.id);
         if (!id) throw new Error('missing required parameter "id"');
-        const result = await aepUpdate(plural, id, buildBody(binding, args), token, parent);
+        const body = buildBody(binding, args);
+        const refErr = await validateReferences(binding, body, token);
+        if (refErr) return { ...base, ok: false, error: refErr };
+        const result = await aepUpdate(plural, id, body, token, parent);
         return { ...base, ok: true, result };
       }
       case 'delete': {

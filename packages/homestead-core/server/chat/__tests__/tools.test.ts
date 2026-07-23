@@ -270,6 +270,49 @@ describe('buildTools', () => {
     );
   });
 
+  it('records validatable references on create/update bindings only', () => {
+    const person: ResourceDefinition = {
+      singular: 'person',
+      plural: 'people',
+      fields: { name: { type: 'string' } },
+    };
+    const childThing: ResourceDefinition = {
+      singular: 'child-thing',
+      plural: 'child-things',
+      parents: ['person'],
+      fields: { name: { type: 'string' } },
+    };
+    const game: ResourceDefinition = {
+      singular: 'game',
+      plural: 'games',
+      fields: {
+        owner: { type: 'string', reference: { resource: 'person' } },
+        created_by: { type: 'string', reference: { resource: 'user' } },
+        // Parent-scoped target — not fetchable by id alone, so excluded.
+        thing: { type: 'string', reference: { resource: 'child-thing' } },
+        players: {
+          type: 'array',
+          items: { type: 'string', reference: { resource: 'person' } },
+        },
+      },
+    };
+    const { bindings } = buildTools([person, childThing, game]);
+
+    const create = bindings.get('create_game')!;
+    expect(create.references).toEqual(
+      expect.arrayContaining([
+        { field: 'owner', plural: 'people', isArray: false },
+        { field: 'created_by', plural: 'users', isArray: false },
+        { field: 'players', plural: 'people', isArray: true },
+      ]),
+    );
+    expect(create.references.map((r) => r.field)).not.toContain('thing');
+    expect(bindings.get('update_game')!.references).toHaveLength(3);
+    // Reads and deletes don't write, so they carry no reference checks.
+    expect(bindings.get('read_game')!.references).toEqual([]);
+    expect(bindings.get('delete_game')!.references).toEqual([]);
+  });
+
   it('declares enum fields as real enums', () => {
     const { tools } = buildTools(ALL);
     const create = schemaFor(tools, 'create_transaction');
