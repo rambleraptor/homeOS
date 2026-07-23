@@ -123,6 +123,7 @@ export async function aepList<T>(
   plural: string,
   token: string,
   parent?: ParentPath,
+  filter?: string,
 ): Promise<T[]> {
   const base = pathFor(plural, parent);
   const out: T[] = [];
@@ -130,6 +131,8 @@ export async function aepList<T>(
   do {
     const qs = new URLSearchParams();
     qs.set('max_page_size', '200');
+    // URLSearchParams encodes the value (quotes/spaces in a filter expression).
+    if (filter) qs.set('filter', filter);
     if (pageToken) qs.set('page_token', pageToken);
     const res = await aepbaseFetch(`${base}?${qs}`, { token });
     if (!res.ok) {
@@ -169,6 +172,51 @@ export async function aepCreate<T>(
   });
   if (!res.ok) {
     throw new Error(`create ${plural} → ${await aepError(res)}`);
+  }
+  return (await res.json()) as T;
+}
+
+/**
+ * Create a record that carries a file field, via a multipart upload — the
+ * server-side equivalent of the SPA's `FormData` create (see
+ * `documents/hooks/useUploadDocument.ts`). The engine's multipart parser
+ * (`engine/crud.ts`) expects a JSON `resource` part plus a file part whose form
+ * field name matches a declared file field.
+ *
+ * Uses a direct `fetch` rather than {@link aepbaseFetch}, which forces a JSON
+ * content-type; here we must let `fetch` set the multipart boundary itself, so
+ * only the Authorization header is sent.
+ */
+export async function aepCreateMultipart<T>(
+  plural: string,
+  fields: Record<string, unknown>,
+  file: {
+    /** Form field name; must match the resource's file field. Default `file`. */
+    field?: string;
+    filename: string;
+    contentType: string;
+    bytes: Buffer | Uint8Array;
+  },
+  token: string,
+  parent?: ParentPath,
+): Promise<T> {
+  const form = new FormData();
+  form.append('resource', JSON.stringify(fields));
+  // Copy into a fresh ArrayBuffer-backed view: a Node Buffer's backing store is
+  // typed as ArrayBufferLike (possibly SharedArrayBuffer), which BlobPart's
+  // stricter DOM types reject.
+  form.append(
+    file.field ?? 'file',
+    new Blob([Uint8Array.from(file.bytes)], { type: file.contentType }),
+    file.filename,
+  );
+  const res = await fetch(`${AEPBASE_URL}${pathFor(plural, parent)}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`create ${plural} (multipart) → ${await aepError(res)}`);
   }
   return (await res.json()) as T;
 }

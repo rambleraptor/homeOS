@@ -99,6 +99,25 @@ export const documentsResources: ResourceDefinition[] = [
           'Path of the resource created from this document by a post-classify hook.',
       },
       created_by: { type: 'string', reference: { resource: 'user' } },
+      /**
+       * Set when the document was ingested from an email by the
+       * `documents-ingest-email` cron (empty for hand-uploaded documents). The
+       * source message's provider id — used to look up which attachments of a
+       * message have already been filed, so a re-run doesn't duplicate them.
+       */
+      source_email_id: {
+        type: 'string',
+        description: 'Provider message id this document was ingested from (email source only).',
+      },
+      /**
+       * Stable per-message attachment key `"{index}:{filename}"`. The index
+       * disambiguates repeated filenames (or unnamed parts) within one message,
+       * so dedup is exact even when two attachments share a name.
+       */
+      source_email_attachment: {
+        type: 'string',
+        description: 'Identifier of the source email attachment ("{index}:{filename}").',
+      },
     },
     // POST /api/aep/documents/{id}:classify — reads the stored file, so it
     // takes the record's id rather than re-uploading the bytes.

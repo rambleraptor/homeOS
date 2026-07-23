@@ -86,6 +86,30 @@ const ai: HomesteadConfig['ai'] = aiApiKey
     }
   : undefined;
 
+// Email is opt-in: enabled only when Gmail credentials are present in the
+// launcher's environment. The refresh token is for one mailbox and must carry
+// gmail.readonly + gmail.modify (the documents ingestion cron trashes processed
+// messages) and gmail.send if you send mail. With any credential unset, `email`
+// is undefined and email features are disabled. Like OAuth/AI secrets, these
+// are read server-side only, so they never land in the client bundle.
+const gmailClientId = fromEnv('GMAIL_CLIENT_ID');
+const gmailClientSecret = fromEnv('GMAIL_CLIENT_SECRET');
+const gmailRefreshToken = fromEnv('GMAIL_REFRESH_TOKEN');
+
+const email: HomesteadConfig['email'] =
+  gmailClientId && gmailClientSecret && gmailRefreshToken
+    ? {
+        provider: 'gmail',
+        auth: {
+          clientId: gmailClientId,
+          clientSecret: gmailClientSecret,
+          refreshToken: gmailRefreshToken,
+        },
+        user: fromEnv('GMAIL_USER') ?? 'me',
+        query: fromEnv('EMAIL_QUERY') ?? 'has:attachment',
+      }
+    : undefined;
+
 const config: HomesteadConfig = {
   apps: [
     todosApp,
@@ -101,6 +125,7 @@ const config: HomesteadConfig = {
   ],
   auth,
   ai,
+  email,
 };
 
 // A running `homestead start` watches this file (and the apps/ tree): edit it
