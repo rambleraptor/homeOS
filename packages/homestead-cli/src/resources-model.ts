@@ -1,33 +1,27 @@
-import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import axios from 'axios';
 import { APIClient, Client, logger } from '@aep_dev/aep-lib-ts';
 import type { OpenAPI, Resource } from '@aep_dev/aep-lib-ts';
-import { loadProject } from './project.ts';
-import { findRuntime, resolveServerModule } from './runtime.ts';
+import { getProfile, type Profile } from './credentials.ts';
 
 // aep-lib-ts logs OpenAPI parsing at INFO; silence it so command output is clean.
 logger.settings.minLevel = 7;
 
 /** How `homestead resources` finds and authenticates to a running aepbase. */
 export interface ConnectOptions {
-  /** Project directory holding homestead.config.ts + data/. Defaults to CWD. */
-  projectDir?: string;
   /**
-   * App origin or engine base URL. Wins over `port`. A trailing `/api/aep`
-   * is optional — it's normalized away to recover the origin.
+   * App origin or engine base URL. Wins over a profile and `port`. A trailing
+   * `/api/aep` is optional — it's normalized away to recover the origin.
    */
   serverUrl?: string;
-  /** App port (default 3000) when `serverUrl` is not given. */
+  /** App port (default 3000) when neither `serverUrl` nor a profile is given. */
   port?: number;
-  /** Explicit data dir holding the sqlite db; overrides the project's. */
-  dataDir?: string;
-  /** Pre-obtained bearer token; skips the local admin-token mint. */
+  /** Login profile label to use; defaults to the stored default profile. */
+  profile?: string;
+  /** Pre-obtained bearer token; overrides any stored profile. */
   token?: string;
-  /** Superuser email (with `password`); skips the local admin-token mint. */
+  /** Account email (with `password`); logs in fresh, overriding any profile. */
   email?: string;
-  /** Superuser password (with `email`). */
+  /** Account password (with `email`). */
   password?: string;
 }
 
@@ -76,12 +70,13 @@ export async function connect(opts: ConnectOptions): Promise<ResourceContext> {
   // The engine is reachable only under /api/aep on the app origin; the
   // custom-method gateway (/api/custom-methods, /api/aep/<plural>:<verb>)
   // lives at the origin root.
-  const origin = resolveOrigin(opts);
+  const profile = resolveProfile(opts);
+  const origin = resolveOrigin(opts, profile);
   const serverUrl = `${origin}/api/aep`;
   const sidecarUrl = origin;
   await probe(origin);
 
-  const { token, userId } = await resolveAuth(serverUrl, opts);
+  const { token, userId } = await resolveAuth(serverUrl, opts, profile);
   const openapi = await fetchOpenApi(serverUrl);
 
   const apiClient = await APIClient.fromOpenAPI(openapi, serverUrl);
@@ -155,13 +150,37 @@ function patchCreateMethods(
   }
 }
 
-/** Resolve the app origin, tolerating a `--server-url` that includes /api/aep. */
-function resolveOrigin(opts: ConnectOptions): string {
+/**
+ * Resolve the app origin. Precedence: an explicit `--server-url` (tolerating a
+ * trailing `/api/aep`), then the chosen profile's stored server, then loopback
+ * on `--port` (default 3000).
+ */
+function resolveOrigin(opts: ConnectOptions, profile: Profile | undefined): string {
   if (opts.serverUrl) {
     return opts.serverUrl.replace(/\/$/, '').replace(/\/api\/aep$/, '');
   }
+  if (profile) return profile.server;
   const port = opts.port ?? 3000;
   return `http://127.0.0.1:${port}`;
+}
+
+/**
+ * Pick the login profile that backs this run, if any. A named `--profile` must
+ * exist. Otherwise the default profile is used only when no inline auth
+ * override (`--token` / `--email`+`--password`) was supplied.
+ */
+function resolveProfile(opts: ConnectOptions): Profile | undefined {
+  if (opts.profile) {
+    const found = getProfile(opts.profile);
+    if (!found) {
+      throw new ConnectError(
+        `no such profile "${opts.profile}" — run \`homestead login --profile=${opts.profile}\` first.`,
+      );
+    }
+    return found.profile;
+  }
+  if (opts.token || (opts.email && opts.password)) return undefined;
+  return getProfile()?.profile;
 }
 
 /** One-shot reachability check so we fail fast with a clear message. */
@@ -178,14 +197,15 @@ async function probe(origin: string): Promise<void> {
 
 /**
  * Resolve the caller's bearer token + user id. The id is needed for the
- * custom-method gateway's `X-User-Id` header. With `--token` we read it back
- * via `/users/me`; with `--email/--password` we log in; otherwise we mint an
- * admin token directly in the project's sqlite db (no stored credentials —
- * data/credentials.json is gone).
+ * custom-method gateway's `X-User-Id` header. Precedence: an explicit
+ * `--token` (read back via `/users/me`), then `--email`+`--password` (a fresh
+ * login), then the stored login profile. With none of these, the user has to
+ * run `homestead login` first — there is no local admin-token mint.
  */
 async function resolveAuth(
   serverUrl: string,
   opts: ConnectOptions,
+  profile: Profile | undefined,
 ): Promise<{ token: string; userId: string }> {
   if (opts.token) {
     return { token: opts.token, userId: await whoami(serverUrl, opts.token) };
@@ -193,48 +213,12 @@ async function resolveAuth(
   if (opts.email && opts.password) {
     return login(serverUrl, opts.email, opts.password);
   }
-  return mintLocalAdminToken(opts);
-}
-
-// Wire contract with homestead-server/src/tools/mint-admin-token.ts.
-const TOKEN_MARKER = '@@HOMESTEAD_TOKEN@@';
-
-/**
- * Mint a superuser token from the project's database, via a runtime child of
- * the project's homestead-server (tools/mint-admin-token.ts) so the binary
- * never bundles engine code.
- */
-function mintLocalAdminToken(
-  opts: ConnectOptions,
-): { token: string; userId: string } {
-  const dataDir = opts.dataDir ?? loadProject(opts.projectDir ?? '.').dataDir;
-  const dbPath = join(dataDir, 'aepbase.db');
-  if (!existsSync(dbPath)) {
-    throw new ConnectError(
-      `no database at ${dbPath} — pass --email/--password (or --token), or run ` +
-        'from a project whose server has booted at least once.',
-    );
+  if (profile) {
+    return { token: profile.token, userId: profile.userId };
   }
-  let tool: string;
-  try {
-    tool = resolveServerModule(opts.projectDir ?? '.', 'tools', 'mint-admin-token.ts');
-  } catch (err) {
-    throw new ConnectError(err instanceof Error ? err.message : String(err));
-  }
-  const cmd = findRuntime(opts.projectDir ?? '.').run(tool, ['--data-dir', dataDir]);
-  const proc = spawnSync(cmd[0]!, cmd.slice(1), { encoding: 'utf8' });
-  const line = (proc.stdout ?? '')
-    .split('\n')
-    .find((l) => l.startsWith(TOKEN_MARKER));
-  if (proc.status !== 0 || !line) {
-    const err = (proc.stderr ?? '').trim();
-    throw new ConnectError(err.split('\n')[0] || `token mint failed (exit ${proc.status})`);
-  }
-  const admin = JSON.parse(line.slice(TOKEN_MARKER.length)) as {
-    token: string;
-    userId: string;
-  };
-  return { token: admin.token, userId: admin.userId };
+  throw new ConnectError(
+    'not logged in — run `homestead login` (or pass --token, or --email + --password).',
+  );
 }
 
 async function whoami(serverUrl: string, token: string): Promise<string> {

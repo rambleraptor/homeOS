@@ -5,9 +5,10 @@
  * form backed by /api/setup, which sets the email + password and claims the
  * instance. Recovery goes through `homestead admin reset-password`, which
  * calls resetSuperuserPassword() against the db directly (and also claims).
- * Schema sync and `homestead resources` mint short-lived tokens via
+ * The boot-time schema sync and cron runs mint short-lived tokens via
  * mintAdminToken() — the pending superuser exists from first boot, so those
- * work before the instance is claimed.
+ * work before the instance is claimed. (The `homestead resources` CLI no
+ * longer mints locally; it uses a user token from `homestead login`.)
  */
 
 import type { Database } from './engine/sqlite';
@@ -152,8 +153,7 @@ export interface AdminToken {
 
 /**
  * Mint a bearer token for the first superuser directly in the db — no
- * password round-trip. Used by the boot-time schema sync and the
- * `homestead resources` CLI.
+ * password round-trip. Used by the boot-time schema sync and cron runs.
  */
 export function mintAdminToken(db: Database): AdminToken {
   const found = firstSuperuser(db);

@@ -29,10 +29,10 @@ import {
 const GLOBAL_FLAGS = [
   'server-url',
   'port',
+  'profile',
   'token',
   'email',
   'password',
-  'data-dir',
   'output',
 ];
 
@@ -239,7 +239,7 @@ function connectOptions(flags: RawFlags): ConnectOptions {
   return {
     serverUrl: str(flags['server-url']),
     port: num(flags['port']),
-    dataDir: str(flags['data-dir']),
+    profile: str(flags['profile']),
     token: str(flags.token),
     email: str(flags.email),
     password: str(flags.password),
