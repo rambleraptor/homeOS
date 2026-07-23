@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { loadProject } from './project.ts';
 import { findRuntime } from './runtime.ts';
+import { keyPermsAreLocked, resolveKeyLocation } from './key.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
 export interface Check {
@@ -24,6 +25,7 @@ export async function runDoctor(opts: DoctorOptions): Promise<Check[]> {
   checks.push(await portCheck('app port', opts.frontendPort));
   checks.push(projectCheck(opts.projectDir));
   checks.push(depsCheck(opts.projectDir));
+  checks.push(masterKeyCheck(opts.projectDir));
   return checks;
 }
 
@@ -85,6 +87,52 @@ function projectCheck(dir: string): Check {
       detail: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/**
+ * Encryption-at-rest key hygiene. Encryption is opt-in, so an absent key is a
+ * warning (not a failure); a key inside the data dir is a failure because it
+ * would be captured by backups and defeat the whole scheme.
+ */
+function masterKeyCheck(dir: string): Check {
+  const loc = resolveKeyLocation();
+  if (loc.source === 'none') {
+    return {
+      name: 'encryption',
+      status: 'warn',
+      detail: 'no master key — file encryption is OFF (run `homestead key generate` to enable)',
+    };
+  }
+  if (loc.source === 'env') {
+    return { name: 'encryption', status: 'ok', detail: 'master key from HOMESTEAD_MASTER_KEY' };
+  }
+
+  const keyPath = loc.path!;
+  let dataDir: string | undefined;
+  try {
+    dataDir = loadProject(dir).dataDir;
+  } catch {
+    // No project here; skip the containment check but still report the key.
+  }
+  if (dataDir) {
+    const p = resolve(dataDir);
+    const c = resolve(keyPath);
+    if (c === p || c.startsWith(p + sep)) {
+      return {
+        name: 'encryption',
+        status: 'fail',
+        detail: `master key ${keyPath} is inside the data dir — backups would capture it; move it out`,
+      };
+    }
+  }
+  if (!keyPermsAreLocked(keyPath)) {
+    return {
+      name: 'encryption',
+      status: 'warn',
+      detail: `master key ${keyPath} is group/other-readable — chmod 600 it`,
+    };
+  }
+  return { name: 'encryption', status: 'ok', detail: `master key at ${keyPath} (0600)` };
 }
 
 // The server, SPA shell, and vite all resolve through the project's

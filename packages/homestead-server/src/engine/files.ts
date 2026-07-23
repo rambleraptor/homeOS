@@ -5,12 +5,22 @@
  */
 
 import { createReadStream, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { open, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
+import { encryptBytes, encryptionEnabled, isEncryptedContainer } from './crypto';
 
 /** The DB column value marking that a file field has on-disk content. */
 export const FILE_FIELD_SENTINEL = '1';
+
+/**
+ * Stable key id for a file field's encryption KEK. The resource path is
+ * immutable for a resource's lifetime (ids and parents never change), so this
+ * derives the same KEK on write and on read.
+ */
+export function fileKeyId(resourcePath: string, field: string): string {
+  return `${resourcePath}/${field}`;
+}
 
 function sanitizeSegment(s: string): void {
   if (s === '' || s === '.' || s === '..' || s.includes('/') || s.includes('\\')) {
@@ -35,12 +45,31 @@ export async function writeFileField(
 ): Promise<void> {
   const p = filePath(root, resourcePath, field);
   mkdirSync(dirname(p), { recursive: true });
-  await writeFile(p, new Uint8Array(await content.arrayBuffer()));
+  let bytes: Uint8Array = new Uint8Array(await content.arrayBuffer());
+  if (encryptionEnabled()) {
+    bytes = encryptBytes(bytes, fileKeyId(resourcePath, field));
+  }
+  await writeFile(p, bytes);
 }
 
 /** A web ReadableStream over a disk file, for streaming Response bodies. */
 export function openFileStream(path: string): ReadableStream {
   return Readable.toWeb(createReadStream(path)) as unknown as ReadableStream;
+}
+
+/**
+ * Cheap head-sniff: does this file start with the encrypted-container magic?
+ * Used to catch a marker/format mismatch without reading the whole file.
+ */
+export async function fileLooksEncrypted(path: string): Promise<boolean> {
+  const fh = await open(path, 'r');
+  try {
+    const buf = Buffer.alloc(16);
+    const { bytesRead } = await fh.read(buf, 0, 16, 0);
+    return isEncryptedContainer(buf.subarray(0, bytesRead));
+  } finally {
+    await fh.close();
+  }
 }
 
 export function fileFieldExists(root: string, resourcePath: string, field: string): boolean {

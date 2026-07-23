@@ -134,6 +134,9 @@ export async function resetSuperuserPassword(
     nowRFC3339(),
     found.id,
   );
+  // Revoke existing sessions: a reset means the old password is no longer
+  // trusted, so tokens minted under it must not keep working.
+  db.query('DELETE FROM _tokens WHERE user_id = ?').run(found.id);
   // Handing out working credentials claims the instance — the first-visit
   // setup form must not reappear over a usable login.
   setMeta(db, SETUP_CLAIMED_KEY, '1');

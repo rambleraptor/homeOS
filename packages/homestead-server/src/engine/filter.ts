@@ -128,6 +128,11 @@ export function compileFilter(filter: string, schema: Schema): CompiledFilter {
           if (!column) {
             throw new FilterError(`unknown field ${JSON.stringify(t.value)}`);
           }
+          // Extracted-text columns are encrypted at rest, so a SQL comparison
+          // would match ciphertext and silently return nothing. Reject it.
+          if (schema.properties?.[t.value]?.['x-aepbase-file-text-field'] === true) {
+            throw new FilterError(`field ${JSON.stringify(t.value)} is encrypted and cannot be filtered`);
+          }
           return { sql: column, isField: true };
         }
         case 'string':

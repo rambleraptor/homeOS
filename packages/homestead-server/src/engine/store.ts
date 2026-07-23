@@ -9,6 +9,7 @@ import type { Schema, StoredResource } from './types';
 import { STANDARD_FIELDS } from './types';
 import { sanitizeTableName } from './db';
 import { compileFilter } from './filter';
+import { decryptText, encryptionEnabled, encryptText, isEncryptedText } from './crypto';
 
 type SqlValue = string | number | bigint | boolean | null | Uint8Array;
 
@@ -16,6 +17,45 @@ function schemaPropertyNames(schema: Schema): string[] {
   return Object.keys(schema.properties ?? {})
     .filter((n) => !STANDARD_FIELDS.has(n))
     .sort();
+}
+
+/** True for an extracted-text companion column (translate.ts tags these). */
+function isFileTextField(schema: Schema, name: string): boolean {
+  return schema.properties?.[name]?.['x-aepbase-file-text-field'] === true;
+}
+
+/** Stable KEK key id for a text column value, matching the file-field scheme. */
+function textKeyId(path: string, field: string): string {
+  return `${path}/${field}`;
+}
+
+/**
+ * Encrypt an extracted-text value before it is written, when a master key is
+ * configured. No-op for other fields, empty/non-string values, already-
+ * encrypted values, and when encryption is disabled (values stay plaintext).
+ */
+function encryptForStore(val: unknown, schema: Schema, name: string, path: string): unknown {
+  if (
+    encryptionEnabled() &&
+    isFileTextField(schema, name) &&
+    typeof val === 'string' &&
+    val.length > 0 &&
+    !isEncryptedText(val)
+  ) {
+    return encryptText(val, textKeyId(path, name));
+  }
+  return val;
+}
+
+/**
+ * Decrypt an extracted-text value on read. Legacy plaintext passes through;
+ * a missing/wrong key throws (fails closed) rather than leaking ciphertext.
+ */
+function decryptForStore(val: unknown, schema: Schema, name: string, path: string): unknown {
+  if (isFileTextField(schema, name) && typeof val === 'string' && isEncryptedText(val)) {
+    return decryptText(val, textKeyId(path, name));
+  }
+  return val;
 }
 
 /**
@@ -59,8 +99,9 @@ function rowToStored(
   schema: Schema,
 ): StoredResource {
   const fields: Record<string, unknown> = {};
+  const path = String(row.path);
   for (const name of schemaPropertyNames(schema)) {
-    fields[name] = coerceFieldValue(row[name], schema, name);
+    fields[name] = decryptForStore(coerceFieldValue(row[name], schema, name), schema, name, path);
   }
   return {
     id: String(row.id),
@@ -88,7 +129,8 @@ export function insertResource(
   }
   for (const propName of schemaPropertyNames(schema)) {
     colNames.push(propName);
-    values.push(bindFieldValue(r.fields[propName], schema, propName));
+    const value = encryptForStore(r.fields[propName], schema, propName, r.path);
+    values.push(bindFieldValue(value, schema, propName));
   }
 
   const placeholders = colNames.map(() => '?').join(', ');
@@ -191,7 +233,8 @@ export function updateResource(
   for (const propName of schemaPropertyNames(schema)) {
     if (propName in fields) {
       setClauses.push(`${propName} = ?`);
-      args.push(bindFieldValue(fields[propName], schema, propName));
+      const value = encryptForStore(fields[propName], schema, propName, path);
+      args.push(bindFieldValue(value, schema, propName));
     }
   }
 

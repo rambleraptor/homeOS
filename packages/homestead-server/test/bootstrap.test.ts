@@ -80,6 +80,16 @@ describe('resetSuperuserPassword', () => {
     expect(await verifyPassword('old', hash)).toBe(false);
   });
 
+  test('revokes existing sessions so old tokens stop working', async () => {
+    const db = freshDb();
+    await createSuperuser(db, 'owner@example.com', 'old');
+    const { token } = mintAdminToken(db);
+    expect(getUserByToken(db, token)?.email).toBe('owner@example.com');
+
+    await resetSuperuserPassword(db);
+    expect(getUserByToken(db, token)).toBeNull();
+  });
+
   test('throws when no superuser exists', async () => {
     const db = freshDb();
     await expect(resetSuperuserPassword(db)).rejects.toThrow('no superuser exists');

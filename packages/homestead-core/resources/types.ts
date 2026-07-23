@@ -190,6 +190,12 @@ export interface JsonSchemaProperty {
    * `aepbase/main.go` (EnableFileFields).
    */
   'x-aepbase-file-field'?: boolean;
+  /**
+   * Marks an extracted-text companion column so the engine encrypts it at
+   * rest (see `homestead-server/src/engine/store.ts`). Added by the
+   * translator to each `<field>_text` companion.
+   */
+  'x-aepbase-file-text-field'?: boolean;
 }
 
 export interface ResourceSchema {
