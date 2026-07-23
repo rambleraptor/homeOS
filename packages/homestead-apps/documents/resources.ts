@@ -98,7 +98,7 @@ export const documentsResources: ResourceDefinition[] = [
         description:
           'Path of the resource created from this document by a post-classify hook.',
       },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
     // POST /api/aep/documents/{id}:classify — reads the stored file, so it
     // takes the record's id rather than re-uploading the bytes.

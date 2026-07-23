@@ -13,7 +13,11 @@
  */
 
 import type { ResourceDefinition, ResourceSchema } from './types';
-import { toWireSchema, validateResourceDefinition } from './translate';
+import {
+  toWireSchema,
+  validateReferenceTargets,
+  validateResourceDefinition,
+} from './translate';
 import { jsonEqual } from './equal';
 
 const DEFINITIONS_PATH = 'aep-resource-definitions';
@@ -58,6 +62,7 @@ export async function syncResourceDefinitions(
 
   assertNoDuplicateSingulars(defs);
   for (const def of defs) validateResourceDefinition(def);
+  validateReferenceTargets(defs);
   const ordered = topoSort(defs);
   const existingIds = await listExistingIds(aepbaseUrl, token);
 

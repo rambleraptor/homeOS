@@ -24,8 +24,19 @@ import type {
   FieldType,
   JsonSchemaProperty,
   ResourceDefinition,
+  ResourceReference,
   ResourceSchema,
 } from './types';
+
+/** aepbase's built-in root resource (EnableUsers); never declared in code. */
+const BUILTIN_REFERENCE_TARGETS: ReadonlySet<string> = new Set(['user']);
+
+/** Delete-time behaviors a reference may declare. */
+const ON_DELETE_VALUES: ReadonlySet<string> = new Set([
+  'restrict',
+  'cascade',
+  'set-null',
+]);
 
 /** Kebab-case: aepbase rejects URL params with uppercase letters. */
 const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
@@ -86,6 +97,7 @@ function validateField(
   if (field.enum && field.type !== 'string') {
     fail(`field "${path}" declares enum but is not a string`);
   }
+  validateReference(field, path, fail);
   if (field.items && field.type !== 'array') {
     fail(`field "${path}" declares items but is not an array`);
   }
@@ -210,6 +222,85 @@ function validateFileAi(
     ) {
       fail(`field "${path}" embed.overlap must be smaller than chunk_size`);
     }
+  }
+}
+
+/**
+ * Validate a resource-reference annotation's shape. Cross-definition existence
+ * of the target is checked separately by {@link validateReferenceTargets},
+ * once the full definition set is known.
+ */
+function validateReference(
+  field: FieldDef,
+  path: string,
+  fail: (message: string) => never,
+): void {
+  const ref = field.reference;
+  if (!ref) return;
+  if (field.type !== 'string') {
+    fail(
+      `field "${path}" declares a reference but is not a string — for a ` +
+        `to-many reference, annotate the array's items`,
+    );
+  }
+  if (field.enum) {
+    fail(`field "${path}" declares both enum and reference — a field is one or the other`);
+  }
+  if (!KEBAB_RE.test(ref.resource)) {
+    fail(`field "${path}" reference resource "${ref.resource}" must be kebab-case`);
+  }
+  if (ref.onDelete && !ON_DELETE_VALUES.has(ref.onDelete)) {
+    fail(
+      `field "${path}" reference onDelete "${ref.onDelete}" must be one of ` +
+        `restrict, cascade, set-null`,
+    );
+  }
+}
+
+/**
+ * Cross-definition check: every `reference.resource` must name a declared
+ * resource, or the built-in `user` root. Runs after per-definition validation,
+ * once the full set is known (a single definition can't see its siblings).
+ * Throws a `[resources]`-prefixed error naming the offending field.
+ */
+export function validateReferenceTargets(defs: ResourceDefinition[]): void {
+  const known = new Set<string>([
+    ...BUILTIN_REFERENCE_TARGETS,
+    ...defs.map((d) => d.singular),
+  ]);
+  for (const def of defs) {
+    walkReferences(def.fields, '', (fieldPath, ref) => {
+      if (!known.has(ref.resource)) {
+        throw new Error(
+          `[resources] invalid definition "${def.singular}": field ` +
+            `"${fieldPath}" references unknown resource "${ref.resource}"`,
+        );
+      }
+    });
+  }
+}
+
+/** Visit every reference in a field map, recursing into items/properties/variants. */
+function walkReferences(
+  fields: Record<string, FieldDef>,
+  path: string,
+  visit: (path: string, ref: ResourceReference) => void,
+): void {
+  for (const [name, field] of Object.entries(fields)) {
+    walkFieldReferences(field, path ? `${path}.${name}` : name, visit);
+  }
+}
+
+function walkFieldReferences(
+  field: FieldDef,
+  path: string,
+  visit: (path: string, ref: ResourceReference) => void,
+): void {
+  if (field.reference) visit(path, field.reference);
+  if (field.items) walkFieldReferences(field.items, `${path}[]`, visit);
+  if (field.properties) walkReferences(field.properties, path, visit);
+  for (const [variantId, vf] of Object.entries(field.variants ?? {})) {
+    walkReferences(vf, `${path}.${variantId}`, visit);
   }
 }
 
@@ -390,11 +481,19 @@ function toWireProperty(
 }
 
 /**
- * Wire description: the authored description, with enum values appended
- * as `one of: a, b` since aepbase strips JSON-schema `enum` on round-trip.
+ * Wire description: the authored description, plus any authoring-only
+ * annotations aepbase can't carry structurally, appended as notes —
+ * `one of: a, b` for enums, `reference to a <resource> record (by id)` for
+ * resource references (aepbase strips JSON-schema `enum` and custom keywords on
+ * round-trip, but preserves `description`).
  */
 function wireDescription(field: FieldDef): string | undefined {
-  if (!field.enum?.length) return field.description;
-  const allowed = `one of: ${field.enum.join(', ')}`;
-  return field.description ? `${field.description} (${allowed})` : allowed;
+  const notes: string[] = [];
+  if (field.enum?.length) notes.push(`one of: ${field.enum.join(', ')}`);
+  if (field.reference) {
+    notes.push(`reference to a ${field.reference.resource} record (by id)`);
+  }
+  if (!notes.length) return field.description;
+  const suffix = notes.join('; ');
+  return field.description ? `${field.description} (${suffix})` : suffix;
 }

@@ -28,7 +28,7 @@ export const creditCardsResources: ResourceDefinition[] = [
       },
       notes: { type: 'string' },
       archived: { type: 'boolean' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -59,7 +59,7 @@ export const creditCardsResources: ResourceDefinition[] = [
         ],
       },
       notes: { type: 'string' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -74,7 +74,7 @@ export const creditCardsResources: ResourceDefinition[] = [
       period_end: { type: 'string', format: 'date-time', required: true },
       amount: { type: 'number', required: true },
       notes: { type: 'string' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
 ];

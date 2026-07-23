@@ -18,8 +18,7 @@ export const eventsResources: ResourceDefinition[] = [
       },
       people: {
         type: 'array',
-        items: { type: 'string' },
-        description: 'array of people/{person_id} reference strings',
+        items: { type: 'string', reference: { resource: 'person' } },
       },
       recurrence: {
         type: 'string',
@@ -31,7 +30,7 @@ export const eventsResources: ResourceDefinition[] = [
         description:
           "for yearly-nth-weekday: '<n>:<weekday>' where n is 1..4 or -1 (last) and weekday is 0=Sun..6=Sat. Month comes from `date`. Example: '2:0' = 2nd Sunday.",
       },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
 ];

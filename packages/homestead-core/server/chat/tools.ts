@@ -66,10 +66,30 @@ interface ConvertedProperty {
 }
 
 /**
+ * Guidance appended to a reference field's description so the model knows the
+ * id belongs to another resource — and, when that resource has its own generated
+ * tools, which read tool finds one. `readable` holds the singulars that produce
+ * CRUD tools (i.e. declared resources); a built-in target like `user` has no
+ * tool, so the hint stops at the resource name.
+ */
+function referenceNote(
+  reference: NonNullable<FieldDef['reference']>,
+  readable: ReadonlySet<string>,
+): string {
+  const base = `id of a ${reference.resource} record`;
+  return readable.has(reference.resource)
+    ? `${base} (use read_${snake(reference.resource)} to find one)`
+    : base;
+}
+
+/**
  * Convert one declared field to a Zod schema.
  * Returns null for fields the model can't supply (file fields).
  */
-function fieldToZod(prop: FieldDef): ConvertedProperty | null {
+function fieldToZod(
+  prop: FieldDef,
+  readable: ReadonlySet<string>,
+): ConvertedProperty | null {
   if (prop.type === 'file') return null;
 
   const description = prop.description;
@@ -81,10 +101,13 @@ function fieldToZod(prop: FieldDef): ConvertedProperty | null {
           jsonString: false,
         };
       }
-      const note =
-        prop.format === 'date-time'
-          ? `${description ? `${description} ` : ''}(ISO 8601 date-time)`
-          : description;
+      let note = description;
+      if (prop.reference) {
+        const ref = referenceNote(prop.reference, readable);
+        note = note ? `${note} — ${ref}` : ref;
+      } else if (prop.format === 'date-time') {
+        note = `${description ? `${description} ` : ''}(ISO 8601 date-time)`;
+      }
       return { schema: described(z.string(), note), jsonString: false };
     }
     case 'number':
@@ -94,7 +117,7 @@ function fieldToZod(prop: FieldDef): ConvertedProperty | null {
     case 'boolean':
       return { schema: described(z.boolean(), description), jsonString: false };
     case 'array': {
-      const items = prop.items ? fieldToZod(prop.items) : null;
+      const items = prop.items ? fieldToZod(prop.items, readable) : null;
       if (!items) return null;
       return { schema: described(z.array(items.schema), description), jsonString: false };
     }
@@ -112,7 +135,7 @@ function fieldToZod(prop: FieldDef): ConvertedProperty | null {
       }
       const shape: Record<string, z.ZodTypeAny> = {};
       for (const [key, value] of entries) {
-        const converted = fieldToZod(value);
+        const converted = fieldToZod(value, readable);
         if (!converted) continue;
         shape[key] = value.required ? converted.schema : converted.schema.optional();
       }
@@ -153,6 +176,9 @@ function resolveParentChain(
  */
 export function buildTools(defs: ResourceDefinition[]): BuiltTools {
   const bySingular = new Map(defs.map((d) => [d.singular, d]));
+  // Singulars that get their own CRUD tools — used to decide whether a
+  // reference field's description can point the model at a `read_<x>` tool.
+  const readable = new Set(bySingular.keys());
   const pluralOf = (singular: string): string =>
     singular === USER_ROOT
       ? USER_ROOT_PLURAL
@@ -178,7 +204,7 @@ export function buildTools(defs: ResourceDefinition[]): BuiltTools {
     const bodyFields = new Set<string>();
     const jsonStringFields = new Set<string>();
     for (const [key, prop] of Object.entries(def.fields)) {
-      const converted = fieldToZod(prop);
+      const converted = fieldToZod(prop, readable);
       if (!converted) continue;
       fieldSchemas[key] = converted.schema;
       bodyFields.add(key);

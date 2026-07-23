@@ -12,7 +12,7 @@ export const groceriesResources: ResourceDefinition[] = [
     fields: {
       name: { type: 'string', required: true },
       sort_order: { type: 'number' },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -27,8 +27,8 @@ export const groceriesResources: ResourceDefinition[] = [
       checked: { type: 'boolean', default: false },
       category: { type: 'string' },
       notes: { type: 'string' },
-      store: { type: 'string', description: 'stores/{store_id}' },
-      created_by: { type: 'string' },
+      store: { type: 'string', reference: { resource: 'store' } },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
     // AEP-136 custom methods on the grocery collection:
     //   POST /api/aep/groceries:process-image

@@ -26,7 +26,7 @@ export const pictionaryResources: ResourceDefinition[] = [
           'Picture of the winning word/drawing (jpeg/png/webp/gif, <=5MB)',
       },
       notes: { type: 'string' },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
     bulkImport: {
       formats: [
@@ -52,8 +52,7 @@ export const pictionaryResources: ResourceDefinition[] = [
     fields: {
       players: {
         type: 'array',
-        items: { type: 'string' },
-        description: 'Player resource paths (people/{id})',
+        items: { type: 'string', reference: { resource: 'person' } },
         required: true,
       },
       won: { type: 'boolean' },
@@ -62,7 +61,7 @@ export const pictionaryResources: ResourceDefinition[] = [
         description:
           '1-based position within the game; teams have no name',
       },
-      created_by: { type: 'string' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
 ];

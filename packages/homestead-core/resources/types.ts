@@ -65,6 +65,42 @@ export interface FileAiOptions {
 }
 
 /**
+ * Behavior when a referenced record is deleted while this reference still
+ * points at it. Declared metadata only for now — the engine does not yet
+ * enforce referential integrity; wiring these into the delete path is the
+ * planned follow-up. Declaring one today documents intent and lets apps
+ * annotate fully ahead of enforcement.
+ */
+export type ReferenceOnDelete = 'restrict' | 'cascade' | 'set-null';
+
+/**
+ * Marks a string field as a **resource reference**: its value is the id of a
+ * record of `resource` (the `{plural}/{id}` path convention some fields use is
+ * still just the id in the stored value). Authoring-side metadata — like
+ * `enum`, it is stripped from the wire schema and folded into the wire
+ * `description` (aepbase preserves `description`, not custom keywords), so it
+ * survives round-trip without an aepbase extension.
+ *
+ * Machine-readable consumers read the structured form: the chat tool builder
+ * tells the model exactly which resource an id belongs to (and which read tool
+ * finds one), and future work can enforce referential integrity and resolve
+ * references in the UI.
+ *
+ * For a to-many reference, annotate the array's `items` (a string), not the
+ * array field itself. Mutually exclusive with `enum`.
+ */
+export interface ResourceReference {
+  /**
+   * Kebab-case singular of the referenced resource, e.g. `person`. Must name a
+   * declared resource, or the built-in `user` root; the schema sync validates
+   * this across all definitions at boot and fails fast on an unknown target.
+   */
+  resource: string;
+  /** Delete-time behavior — declared only, not yet enforced. See {@link ReferenceOnDelete}. */
+  onDelete?: ReferenceOnDelete;
+}
+
+/**
  * A single field on a resource. Translated to a JSON-schema property
  * (`JsonSchemaProperty`) by `translate.ts` before being sent to aepbase.
  */
@@ -88,6 +124,12 @@ export interface FieldDef {
    * passes them to Gemini as a real enum.
    */
   enum?: readonly string[];
+  /**
+   * Marks this (string) field as a reference to another resource — see
+   * {@link ResourceReference}. Only valid on `string` fields; for a to-many
+   * reference, annotate the array's `items`. Mutually exclusive with `enum`.
+   */
+  reference?: ResourceReference;
   /**
    * Whether the field is required on create. The translator collects
    * `required: true` fields into the JSON-schema `required` array.

@@ -16,7 +16,7 @@ export const todosResources: ResourceDefinition[] = [
     user_settable_create: true,
     fields: {
       name: { type: 'string', description: 'Project name.', required: true },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
     },
   },
   {
@@ -31,11 +31,11 @@ export const todosResources: ResourceDefinition[] = [
         enum: ['pending', 'in_progress', 'do_later', 'completed', 'cancelled'],
         required: true,
       },
-      created_by: { type: 'string', description: 'users/{user_id}' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
       project: {
         type: 'string',
-        description:
-          'projects/{project_id}; empty/missing means the main project.',
+        description: 'empty/missing means the main project.',
+        reference: { resource: 'project' },
       },
       in_main: {
         type: 'boolean',
