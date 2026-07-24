@@ -8,6 +8,7 @@ import { findSharedDataForPerson } from '../utils/sharedDataSync';
 interface PersonRecord {
   id: string;
   name: string;
+  aliases?: string[];
   created_by?: string;
   create_time?: string;
   update_time?: string;
@@ -20,6 +21,7 @@ function toPerson(
 ): Person {
   return {
     ...record,
+    aliases: record.aliases ?? [],
     created: record.create_time || '',
     updated: record.update_time || '',
     created_by: record.created_by || '',

@@ -24,6 +24,7 @@ describe('PersonCard', () => {
   const mockPerson: Person = {
     id: '1',
     name: 'John Doe',
+    aliases: [],
     addresses: [{
       id: 'addr-1',
       line1: '123 Main St',

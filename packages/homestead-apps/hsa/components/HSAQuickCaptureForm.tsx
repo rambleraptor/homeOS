@@ -9,6 +9,8 @@ import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { awaitOperation } from '@rambleraptor/homestead-core/api/operations';
 import { ReferenceSelect } from '@rambleraptor/homestead-core/shared/components/ReferenceSelect';
+import { usePeople } from '../../people/hooks/usePeople';
+import { matchPersonByName } from '../../people/utils/matchPerson';
 import type { HSAReceiptFormData, ReceiptCategory } from '../types';
 
 /** Shape returned by the `hsa-receipts:parse-receipt` custom method. */
@@ -75,6 +77,7 @@ export function HSAQuickCaptureForm({
   onCancel,
   isSubmitting,
 }: HSAQuickCaptureFormProps) {
+  const { data: people } = usePeople();
   const [formData, setFormData] = useState<HSAReceiptFormData>({
     merchant: '',
     service_date: '',
@@ -161,6 +164,14 @@ export function HSAQuickCaptureForm({
         operation.id,
       );
 
+      // Resolve the printed patient name to a person via name/aliases so the
+      // canonical link is pre-filled. Only auto-links on an unambiguous match;
+      // keeps whatever the user already picked otherwise.
+      const parsedPatient = result.data.patient || '';
+      const matched = parsedPatient
+        ? matchPersonByName(parsedPatient, people ?? [])
+        : undefined;
+
       // Auto-fill form with parsed data
       setFormData({
         ...formData,
@@ -168,7 +179,8 @@ export function HSAQuickCaptureForm({
         service_date: result.data.service_date,
         amount: result.data.amount,
         category: result.data.category,
-        patient: result.data.patient || '',
+        patient: parsedPatient,
+        person: matched ? `people/${matched.id}` : formData.person,
       });
 
       setParseSuccess(true);
