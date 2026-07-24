@@ -18,6 +18,16 @@ import { initializeAppRegistry } from '@rambleraptor/homestead-core/apps/registr
 // calls take effect, freezing the wrong module bindings.
 initializeAppRegistry([]);
 
+// ResizeObserver stub for jsdom — Radix primitives (Checkbox, Select, …)
+// observe their trigger size on mount, and jsdom doesn't implement it.
+if (!('ResizeObserver' in globalThis)) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 // matchMedia stub for jsdom
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
