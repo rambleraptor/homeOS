@@ -79,6 +79,11 @@ export function PersonCard({
                 </div>
               )}
             </div>
+            {person.aliases.length > 0 && (
+              <p className="text-xs text-gray-500 mt-0.5" data-testid="person-aliases-list">
+                aka {person.aliases.join(', ')}
+              </p>
+            )}
             {events.map((event) => (
               <div
                 key={event.id}

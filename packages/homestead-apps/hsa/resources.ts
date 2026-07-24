@@ -18,7 +18,18 @@ export const hsaResources: ResourceDefinition[] = [
         enum: ['Medical', 'Dental', 'Vision', 'Rx'],
         required: true,
       },
+      // Free-text name as printed on the receipt. Being phased out in favour of
+      // the canonical `person` link below, but kept for now (and still filled by
+      // the AI parse) so existing receipts keep their label.
       patient: { type: 'string' },
+      // Canonical link to a `person` record. Different receipts can print the
+      // same patient's name differently (maiden name, middle name, nickname);
+      // linking to one person collapses those variants so they group and filter
+      // together. Stored as a `people/{id}` path.
+      person: {
+        type: 'string',
+        reference: { resource: 'person', onDelete: 'set-null' },
+      },
       status: {
         type: 'string',
         enum: ['Stored', 'Reimbursed'],

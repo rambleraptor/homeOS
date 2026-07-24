@@ -31,6 +31,7 @@ export interface PersonSharedData {
 export interface Person {
   id: string;
   name: string;
+  aliases: string[]; // Alternate names (maiden name, nickname); can be empty
   addresses: Address[]; // Array of addresses (can be empty)
   partner?: Person; // Partner info if exists
   created_by: string;
@@ -53,6 +54,7 @@ export interface AddressFormData {
 
 export interface PersonFormData {
   name: string;
+  aliases: string[]; // Alternate names (maiden name, nickname)
   addresses: AddressFormData[]; // Array of addresses
   partner_id?: string; // Used in form to select partner
 }

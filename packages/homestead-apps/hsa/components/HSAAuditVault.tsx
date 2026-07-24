@@ -4,13 +4,23 @@
  * Table view of HSA receipts with filtering
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import { formatDate } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
+import { usePeople } from '../../people/hooks/usePeople';
 import type { HSAStats, HSAReceipt, ReceiptStatus } from '../types';
 import { useHSAReceipts } from '../hooks/useHSAReceipts';
 import { useHSAReceiptUrl } from '../hooks/useHSAReceiptUrl';
+
+/** Resolve a `people/{id}` reference path to a person's display name. */
+function personNameFor(
+  path: string | undefined,
+  namesById: Map<string, string>,
+): string | undefined {
+  if (!path) return undefined;
+  return namesById.get(path.replace(/^people\//, ''));
+}
 
 /**
  * Renders an HSA receipt's file as a link. A manually captured receipt links to
@@ -69,12 +79,40 @@ export function HSAAuditVault({
   isUpdating,
 }: HSAAuditVaultProps) {
   const { data: receipts } = useHSAReceipts();
+  const { data: people } = usePeople();
+
+  // 'All', 'Unlinked' (no person set), or a `people/{id}` path.
+  const [personFilter, setPersonFilter] = useState<string>('All');
+
+  const namesById = useMemo(
+    () => new Map((people ?? []).map((p) => [p.id, p.name])),
+    [people],
+  );
+
+  // Only the people actually referenced by receipts are worth offering as
+  // filter options, so the dropdown doesn't list the whole address book.
+  const personOptions = useMemo(() => {
+    const paths = new Set<string>();
+    for (const r of receipts ?? []) {
+      if (r.person) paths.add(r.person);
+    }
+    return Array.from(paths)
+      .map((path) => ({
+        path,
+        name: personNameFor(path, namesById) ?? 'Unknown',
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [receipts, namesById]);
 
   const filteredReceipts = useMemo(() => {
     if (!receipts) return [];
-    if (statusFilter === 'All') return receipts;
-    return receipts.filter((r) => r.status === statusFilter);
-  }, [receipts, statusFilter]);
+    return receipts.filter((r) => {
+      if (statusFilter !== 'All' && r.status !== statusFilter) return false;
+      if (personFilter === 'All') return true;
+      if (personFilter === 'Unlinked') return !r.person;
+      return r.person === personFilter;
+    });
+  }, [receipts, statusFilter, personFilter]);
 
 
   return (
@@ -96,6 +134,24 @@ export function HSAAuditVault({
               <option value="Stored">Stored ({stats.storedReceipts})</option>
               <option value="Reimbursed">Reimbursed ({stats.reimbursedReceipts})</option>
             </select>
+            <label htmlFor="person-filter" className="text-sm font-medium text-gray-700">
+              Person:
+            </label>
+            <select
+              id="person-filter"
+              data-testid="hsa-person-filter"
+              value={personFilter}
+              onChange={(e) => setPersonFilter(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
+            >
+              <option value="All">All</option>
+              {personOptions.map((opt) => (
+                <option key={opt.path} value={opt.path}>
+                  {opt.name}
+                </option>
+              ))}
+              <option value="Unlinked">Unlinked</option>
+            </select>
           </div>
         </div>
       </div>
@@ -103,9 +159,12 @@ export function HSAAuditVault({
       {filteredReceipts.length === 0 ? (
         <div className="p-8 text-center text-gray-500">
           <p>No receipts found</p>
-          {statusFilter !== 'All' && (
+          {(statusFilter !== 'All' || personFilter !== 'All') && (
             <button
-              onClick={() => onStatusFilterChange('All')}
+              onClick={() => {
+                onStatusFilterChange('All');
+                setPersonFilter('All');
+              }}
               className="mt-2 text-sm text-accent-terracotta hover:text-accent-terracotta-hover"
             >
               View all receipts
@@ -161,7 +220,7 @@ export function HSAAuditVault({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {receipt.patient || '-'}
+                    {personNameFor(receipt.person, namesById) || receipt.patient || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <HSAReceiptLink receipt={receipt} />

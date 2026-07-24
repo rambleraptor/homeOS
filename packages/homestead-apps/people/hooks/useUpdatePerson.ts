@@ -43,6 +43,7 @@ export function useUpdatePerson() {
 
       const personRecord = await aepbase.update<PersonRecord>(PEOPLE, id, {
         name: data.name,
+        aliases: data.aliases,
       });
 
       const newPartnerId = data.partner_id || undefined;

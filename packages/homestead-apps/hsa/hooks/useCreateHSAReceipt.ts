@@ -22,6 +22,7 @@ export function useCreateHSAReceipt() {
         status: data.status,
       };
       if (data.patient) resource.patient = data.patient;
+      if (data.person) resource.person = data.person;
       if (data.notes) resource.notes = data.notes;
       if (userId) resource.created_by = `users/${userId}`;
 

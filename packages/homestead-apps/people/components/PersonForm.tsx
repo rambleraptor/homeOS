@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
+import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import type { Person, PersonFormData, AddressFormData } from '../types';
 import { usePeople } from '../hooks/usePeople';
 import { AddressesInput } from './AddressesInput';
@@ -35,6 +36,7 @@ export function PersonForm({
 
   const [formData, setFormData] = useState<PersonFormData>({
     name: initialData?.name || '',
+    aliases: initialData?.aliases || [],
     addresses: initialAddresses,
     partner_id: initialData?.partner?.id || '',
   });
@@ -65,6 +67,27 @@ export function PersonForm({
           }
           required
         />
+      </div>
+
+      {/* Aliases */}
+      <div>
+        <label
+          htmlFor="aliases"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Also known as
+        </label>
+        <TagInput
+          id="aliases"
+          value={formData.aliases}
+          onChange={(aliases) => setFormData({ ...formData, aliases })}
+          placeholder="Add an alternate name…"
+          testId="person-aliases"
+        />
+        <p className="text-sm text-gray-500 mt-1">
+          Alternate names (maiden name, nickname, middle name) used to match
+          this person on receipts and imports.
+        </p>
       </div>
 
       {/* Partner selection */}
