@@ -24,6 +24,8 @@ export interface HSAReceipt {
   amount: number;
   category: ReceiptCategory;
   patient?: string;
+  /** Canonical link to a `person` record, as a `people/{id}` path. */
+  person?: string;
   status: ReceiptStatus;
   /** Absent when the receipt links to a source document instead of its own file. */
   receipt_file?: string;
@@ -44,6 +46,8 @@ export interface HSAReceiptFormData {
   amount: number;
   category: ReceiptCategory;
   patient?: string;
+  /** Canonical link to a `person` record, as a `people/{id}` path. */
+  person?: string;
   status: ReceiptStatus;
   receipt_file?: File;
   notes?: string;
