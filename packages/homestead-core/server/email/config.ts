@@ -21,15 +21,23 @@ import { GmailProvider } from './gmail';
 let current: EmailConfig | null = null;
 let cached: EmailProvider | null = null;
 
-/** True when `cfg` carries usable Gmail credentials. */
+/**
+ * True when `cfg` carries usable credentials for its provider. Narrows on
+ * `provider` so each provider validates its own credential shape — a new union
+ * member adds a `case` here rather than widening a shared check.
+ */
 function hasCredentials(cfg: EmailConfig | null): cfg is EmailConfig {
   if (cfg === null) return false;
-  const { clientId, clientSecret, refreshToken } = cfg.auth;
-  return (
-    clientId.trim() !== '' &&
-    clientSecret.trim() !== '' &&
-    refreshToken.trim() !== ''
-  );
+  switch (cfg.provider) {
+    case 'gmail': {
+      const { clientId, clientSecret, refreshToken } = cfg.auth;
+      return (
+        clientId.trim() !== '' &&
+        clientSecret.trim() !== '' &&
+        refreshToken.trim() !== ''
+      );
+    }
+  }
 }
 
 /**
