@@ -124,6 +124,27 @@ describe('toWireSchema', () => {
     expect(properties.checked).toEqual({ type: 'boolean', default: false });
     expect(properties.count).toEqual({ type: 'integer', default: 0 });
   });
+
+  it('emits an x-aepbase-default-from marker (+ note) for defaultFromFlag', () => {
+    const { properties } = toWireSchema({
+      store: {
+        type: 'string',
+        reference: { resource: 'store', onDelete: 'restrict' },
+        defaultFromFlag: { app: 'groceries', key: 'default_store' },
+      },
+    }, 'grocery');
+    expect(properties.store).toEqual({
+      type: 'string',
+      description:
+        'reference to a store record (by id); ' +
+        'defaults to the household "default_store" setting when omitted',
+      'x-aepbase-reference': { resource: 'store', onDelete: 'restrict' },
+      'x-aepbase-default-from': {
+        resource: 'app-flags',
+        field: 'groceries__default_store',
+      },
+    });
+  });
 });
 
 describe('toWireSchema — tagged unions', () => {
@@ -398,6 +419,73 @@ describe('validateResourceDefinition', () => {
         }),
       ),
     ).toThrow(/default must be one of its enum values/);
+  });
+
+  it('accepts defaultFromFlag on a string reference field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          fields: {
+            store: {
+              type: 'string',
+              reference: { resource: 'store' },
+              defaultFromFlag: { app: 'groceries', key: 'default_store' },
+            },
+          },
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it('rejects defaultFromFlag on a non-string field', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          fields: {
+            count: { type: 'integer', defaultFromFlag: { app: 'a', key: 'k' } },
+          },
+        }),
+      ),
+    ).toThrow(/declares defaultFromFlag but is not a string/);
+  });
+
+  it('rejects defaultFromFlag alongside a static default or enum', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          fields: {
+            store: {
+              type: 'string',
+              default: 'x',
+              defaultFromFlag: { app: 'a', key: 'k' },
+            },
+          },
+        }),
+      ),
+    ).toThrow(/both default and defaultFromFlag/);
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          fields: {
+            store: {
+              type: 'string',
+              enum: ['x'],
+              defaultFromFlag: { app: 'a', key: 'k' },
+            },
+          },
+        }),
+      ),
+    ).toThrow(/both enum and defaultFromFlag/);
+  });
+
+  it('rejects defaultFromFlag missing an app or key', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          fields: { store: { type: 'string', defaultFromFlag: { app: '', key: 'k' } } },
+        }),
+      ),
+    ).toThrow(/must name both an app and a key/);
   });
 
   it('rejects arrays without items and items on non-arrays', () => {

@@ -49,6 +49,7 @@ import {
 } from './store';
 import type { Schema, StoredResource, User } from './types';
 import { STANDARD_FIELDS, TYPE_SUPERUSER } from './types';
+import { applyDynamicDefaults } from './defaults';
 import {
   applyDefaults,
   stripReadOnlyFields,
@@ -363,6 +364,7 @@ export async function handleCreate(
   const { fields, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
   preparePayload(r, fields, uploaded);
   applyDefaults(r.schema, fields);
+  applyDynamicDefaults(reg, r.schema, fields);
 
   const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
   if (requiredErr) throw new HttpError(400, requiredErr);
@@ -476,6 +478,7 @@ export async function handleApply(
   const { fields, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
   preparePayload(r, fields, uploaded);
   applyDefaults(r.schema, fields);
+  applyDynamicDefaults(reg, r.schema, fields);
 
   const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
   if (requiredErr) throw new HttpError(400, requiredErr);
