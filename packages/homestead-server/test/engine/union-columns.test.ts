@@ -65,7 +65,7 @@ async function seed(t: TestEngine): Promise<void> {
   ];
   for (const body of docs) {
     const res = await call(t.engine, 'POST', '/documents', { token: t.adminToken, body });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
   }
 }
 
