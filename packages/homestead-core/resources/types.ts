@@ -144,6 +144,19 @@ export interface FieldDef {
    * the field's declared `type`.
    */
   default?: unknown;
+  /**
+   * Default this field to the current value of a household **app flag**,
+   * resolved live by the engine at create / full-replace time when the field
+   * is omitted. Unlike a static {@link default} (a fixed literal baked into the
+   * schema), the value is read from the `app-flags` singleton on every write,
+   * so *every* create path — the chat CRUD tools, cron hooks, image import, and
+   * the UI alike — inherits the same household default without each having to
+   * know the flag exists. A blank flag means "no default": the field stays
+   * unset. String fields only; mutually exclusive with {@link default} and
+   * {@link enum}, but composes with {@link reference} (a default store id is
+   * still a store reference). See `homestead-server/src/engine/defaults.ts`.
+   */
+  defaultFromFlag?: { app: string; key: string };
   /** Element type for `array` fields. */
   items?: FieldDef;
   /** Nested fields for `object` fields. */
@@ -241,6 +254,16 @@ export interface JsonSchemaProperty {
    * `homestead-server/src/engine/references.ts`.
    */
   'x-aepbase-reference'?: { resource: string; onDelete?: ReferenceOnDelete };
+  /**
+   * Marks a field whose default is sourced *live* from another collection's
+   * field — the household `app-flags` singleton. Produced by the translator
+   * from a field's `defaultFromFlag`. `resource` is the source collection's
+   * plural, `field` its flattened column; on create (or full-replace) the
+   * engine reads that column off the collection's single row and fills this
+   * field when it's absent from the request. See
+   * `homestead-server/src/engine/defaults.ts`.
+   */
+  'x-aepbase-default-from'?: { resource: string; field: string };
   /**
    * Marks an extracted-text companion column so the engine encrypts it at
    * rest (see `homestead-server/src/engine/store.ts`). Added by the

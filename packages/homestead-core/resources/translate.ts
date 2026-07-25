@@ -15,6 +15,8 @@
  *                             `<field>_text` string property in the wire schema
  */
 
+import { APP_FLAGS } from '../app-flags/sync';
+import { fieldName as flagFieldName } from '../settings/flags';
 import {
   companionTextField,
   fileExtractsText,
@@ -119,6 +121,7 @@ function validateField(
     const typeErr = checkDefaultType(field.type, field.default);
     if (typeErr) fail(`field "${path}" default ${typeErr}`);
   }
+  validateDefaultFromFlag(field, path, fail);
   if (field.properties) validateFields(field.properties, path, fail);
   if (field.items) validateField(field.items, `${path}[]`, fail);
 }
@@ -222,6 +225,35 @@ function validateFileAi(
     ) {
       fail(`field "${path}" embed.overlap must be smaller than chunk_size`);
     }
+  }
+}
+
+/**
+ * Validate a `defaultFromFlag` annotation. Like a static `default` it only
+ * makes sense on a string field, and it can't coexist with a static `default`
+ * (two sources of truth) or an `enum` (a flag value isn't a fixed member of a
+ * closed set). It *does* compose with `reference` — a default store id is still
+ * a store reference. The named flag's existence isn't checked here; a bad
+ * `app`/`key` simply resolves to no default at runtime.
+ */
+function validateDefaultFromFlag(
+  field: FieldDef,
+  path: string,
+  fail: (message: string) => never,
+): void {
+  const from = field.defaultFromFlag;
+  if (!from) return;
+  if (field.type !== 'string') {
+    fail(`field "${path}" declares defaultFromFlag but is not a string`);
+  }
+  if (field.default !== undefined) {
+    fail(`field "${path}" declares both default and defaultFromFlag — use one`);
+  }
+  if (field.enum) {
+    fail(`field "${path}" declares both enum and defaultFromFlag — a field is one or the other`);
+  }
+  if (!from.app || !from.key) {
+    fail(`field "${path}" defaultFromFlag must name both an app and a key`);
   }
 }
 
@@ -483,6 +515,14 @@ function toWireProperty(
           },
         }
       : {}),
+    ...(field.defaultFromFlag
+      ? {
+          'x-aepbase-default-from': {
+            resource: APP_FLAGS,
+            field: flagFieldName(field.defaultFromFlag.app, field.defaultFromFlag.key),
+          },
+        }
+      : {}),
   };
   if (field.items) prop.items = toWireProperty(field.items, singular, fieldName);
   if (field.properties) {
@@ -506,6 +546,11 @@ function wireDescription(field: FieldDef): string | undefined {
   if (field.enum?.length) notes.push(`one of: ${field.enum.join(', ')}`);
   if (field.reference) {
     notes.push(`reference to a ${field.reference.resource} record (by id)`);
+  }
+  if (field.defaultFromFlag) {
+    notes.push(
+      `defaults to the household "${field.defaultFromFlag.key}" setting when omitted`,
+    );
   }
   if (!notes.length) return field.description;
   const suffix = notes.join('; ');
