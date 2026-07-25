@@ -1,7 +1,10 @@
 /**
  * Dynamic resource CRUD — port of pkg/resource/handler.go, with the Go
- * server's behavioral quirks preserved (create → 200, delete → 204, merge
- * semantics, singleton implicit creation, download-URL echo).
+ * server's behavioral quirks preserved (delete → 204, merge semantics,
+ * singleton implicit creation, download-URL echo). Create returns 201 Created
+ * (AEP-133), as does an apply/PUT that creates a new resource; an apply that
+ * updates an existing one returns 200. (The Go server returned 200 on create;
+ * this diverges deliberately to follow current AEP guidance.)
  *
  * One deliberate improvement over Go: multipart bodies may carry non-file
  * fields as plain string parts (coerced to their schema types), which is
@@ -382,7 +385,7 @@ export async function handleCreate(
     return errorResponse(500, `failed to create resource: ${err instanceof Error ? err.message : err}`);
   }
 
-  return jsonResponse(storedToMap(reg, r, stored));
+  return jsonResponse(storedToMap(reg, r, stored), 201);
 }
 
 export function handleGet(reg: Registry, match: RouteMatch): Response {
@@ -495,7 +498,7 @@ export async function handleApply(
     fields,
   };
   insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
-  return jsonResponse(storedToMap(reg, r, stored));
+  return jsonResponse(storedToMap(reg, r, stored), 201);
 }
 
 /** The FK column naming a child row's direct parent (e.g. `credit_card_id`). */

@@ -57,7 +57,7 @@ describe('superuser_write enforcement', () => {
       token: t.adminToken,
       body: { name: 'vip' },
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
 
     const list = await call(t.engine, 'GET', `/users/${u.user.id}/account-tags`, {
       token: u.token,
@@ -72,7 +72,7 @@ describe('superuser_write enforcement', () => {
       token: t.adminToken,
       body: { name: 'vip' },
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
 
     const patched = await call(t.engine, 'PATCH', `/users/${u.user.id}/account-tags/t1`, {
       token: u.token,
@@ -92,7 +92,7 @@ describe('superuser_write enforcement', () => {
       token: t.adminToken,
       body: { name: 'vip' },
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
 
     const patched = await call(t.engine, 'PATCH', `/users/${u.user.id}/account-tags/t1`, {
       token: t.adminToken,
@@ -112,7 +112,7 @@ describe('superuser_write enforcement', () => {
       token: u.token,
       body: { body: 'mine' },
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
 
     // But another user still can't write into this user's notes.
     const other = await seedUser(t.engine, { email: 'other@example.com' });

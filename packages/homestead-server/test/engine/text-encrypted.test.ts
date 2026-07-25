@@ -45,7 +45,7 @@ describe('encrypted extracted-text column', () => {
       token: t.adminToken,
       body: { name: 'R', file_text: 'secret extracted words' },
     });
-    expect(create.status).toBe(200);
+    expect(create.status).toBe(201);
     // Response is decrypted for the caller...
     expect((await create.json()).file_text).toBe('secret extracted words');
     // ...but the raw column is ciphertext behind the enc:v1: flag.
