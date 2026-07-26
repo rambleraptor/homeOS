@@ -1,92 +1,140 @@
-import { useEffect, useRef, useState } from 'react';
-import { Check, MessageCircle, Send, Wrench, X } from 'lucide-react';
+import { useState } from 'react';
+import { Check, MessageCircle, Send, Sparkles, User, Wrench, X } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { Input } from '@rambleraptor/homestead-core/shared/components/ui/input';
+import {
+  Avatar,
+  AvatarFallback,
+} from '@rambleraptor/homestead-core/shared/components/ui/avatar';
+import {
+  Bubble,
+  BubbleContent,
+} from '@rambleraptor/homestead-core/shared/components/ui/bubble';
+import {
+  Marker,
+  MarkerContent,
+  MarkerIcon,
+} from '@rambleraptor/homestead-core/shared/components/ui/marker';
+import {
+  Message,
+  MessageAvatar,
+  MessageContent,
+} from '@rambleraptor/homestead-core/shared/components/ui/message';
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@rambleraptor/homestead-core/shared/components/ui/message-scroller';
 import { useChat, type UiChatMessage } from '../hooks/useChat';
 import type { ChatToolCall } from '../types';
 
-function ToolCallChip({ call }: { call: ChatToolCall }) {
+/** A tool the assistant invoked, shown as a status marker in the transcript. */
+function ToolMarker({ call }: { call: ChatToolCall }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-        call.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-      }`}
+    <Marker
+      className={call.ok ? undefined : 'text-destructive'}
       title={call.ok ? undefined : call.error}
     >
-      <Wrench className="w-3 h-3" aria-hidden="true" />
-      {call.tool}
+      <MarkerIcon>
+        <Wrench />
+      </MarkerIcon>
+      <MarkerContent>
+        {call.ok ? 'Used' : 'Failed'} <span className="font-medium">{call.tool}</span>
+        {!call.ok && call.error ? ` — ${call.error}` : null}
+      </MarkerContent>
       {call.ok ? (
-        <Check className="w-3 h-3" aria-hidden="true" />
+        <Check className="size-3.5 shrink-0" aria-hidden="true" />
       ) : (
-        <X className="w-3 h-3" aria-hidden="true" />
+        <X className="size-3.5 shrink-0" aria-hidden="true" />
       )}
-    </span>
+    </Marker>
   );
 }
 
 /** Animated three-dot "assistant is typing" indicator. */
-function TypingIndicator() {
+function TypingDots() {
   return (
-    <div className="flex justify-start" data-testid="chat-pending">
-      <div className="bg-bg-pearl rounded-2xl px-4 py-3">
-        <div className="flex items-center gap-1">
-          {[0, 150, 300].map((delay) => (
-            <span
-              key={delay}
-              className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
-              style={{ animationDelay: `${delay}ms` }}
-            />
-          ))}
-        </div>
-      </div>
+    <div
+      className="flex items-center gap-1 py-1"
+      data-testid="chat-pending"
+      aria-label="Assistant is typing"
+    >
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="size-2 rounded-full bg-muted-foreground/60 animate-bounce"
+          style={{ animationDelay: `${delay}ms` }}
+        />
+      ))}
     </div>
   );
 }
 
-function MessageBubble({ message }: { message: UiChatMessage }) {
+function ChatMessage({ message }: { message: UiChatMessage }) {
   const isUser = message.role === 'user';
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-          isUser
-            ? 'bg-accent-terracotta text-white'
-            : 'bg-bg-pearl text-gray-900'
-        }`}
-      >
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
+    <Message align={isUser ? 'end' : 'start'}>
+      <MessageAvatar>
+        <Avatar>
+          <AvatarFallback
+            className={isUser ? 'bg-primary text-primary-foreground' : undefined}
+          >
+            {isUser ? (
+              <User className="size-4" aria-hidden="true" />
+            ) : (
+              <Sparkles className="size-4" aria-hidden="true" />
+            )}
+          </AvatarFallback>
+        </Avatar>
+      </MessageAvatar>
+      <MessageContent>
+        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="flex flex-col gap-1">
             {message.toolCalls.map((call, i) => (
-              <ToolCallChip key={i} call={call} />
+              <ToolMarker key={i} call={call} />
             ))}
           </div>
         )}
-        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
-        {message.toolCalls?.some((c) => !c.ok) && (
-          <div className="mt-2 space-y-1">
-            {message.toolCalls
-              .filter((c) => !c.ok)
-              .map((call, i) => (
-                <p key={i} className="text-xs text-red-600">
-                  {call.tool}: {call.error}
-                </p>
-              ))}
-          </div>
-        )}
-      </div>
-    </div>
+        <Bubble variant={isUser ? 'default' : 'muted'}>
+          <BubbleContent className="whitespace-pre-wrap">
+            {message.content}
+          </BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
+  );
+}
+
+/** Assistant row that shows the typing indicator while a reply is pending. */
+function PendingMessage() {
+  return (
+    <Message align="start">
+      <MessageAvatar>
+        <Avatar>
+          <AvatarFallback>
+            <Sparkles className="size-4" aria-hidden="true" />
+          </AvatarFallback>
+        </Avatar>
+      </MessageAvatar>
+      <MessageContent>
+        <Bubble variant="muted">
+          <BubbleContent>
+            <TypingDots />
+          </BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
   );
 }
 
 export function ChatHome() {
   const { messages, pending, error, notConfigured, send } = useChat();
   const [draft, setDraft] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, pending]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +161,8 @@ export function ChatHome() {
     );
   }
 
+  const isEmpty = messages.length === 0 && !pending;
+
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] space-y-4">
       <PageHeader
@@ -123,47 +173,68 @@ export function ChatHome() {
       {/* Card's inner CardContent isn't a flex container, so the chat
           column uses a plain styled div to let the message list stretch. */}
       <div className="flex-1 flex flex-col min-h-0 bg-surface-white border border-gray-100 rounded-xl shadow-sm p-4">
-        <div
-          className="flex-1 overflow-y-auto space-y-3 p-1"
-          data-testid="chat-messages"
-        >
-          {messages.length === 0 && (
-            <div className="text-center py-12">
-              <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-600">Start a conversation</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Try "What's on my todo list?" or "Add milk to the grocery
-                list"
-              </p>
-            </div>
-          )}
-          {messages.map((message, i) => (
-            <MessageBubble key={i} message={message} />
-          ))}
-          {pending && <TypingIndicator />}
-          {error && (
-            <p
-              className="text-sm text-red-600 whitespace-pre-wrap break-words rounded-lg bg-red-50 px-3 py-2"
-              role="alert"
-            >
-              {error}
+        {isEmpty ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <MessageCircle className="w-16 h-16 text-gray-300 mb-4" />
+            <p className="text-gray-600">Start a conversation</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Try "What's on my todo list?" or "Add milk to the grocery list"
             </p>
-          )}
-          <div ref={bottomRef} />
-        </div>
+          </div>
+        ) : (
+          <MessageScrollerProvider autoScroll>
+            <MessageScroller className="min-h-0 flex-1">
+              <MessageScrollerViewport
+                className="py-1"
+                data-testid="chat-messages"
+              >
+                <MessageScrollerContent className="gap-6 px-1">
+                  {messages.map((message, i) => (
+                    <MessageScrollerItem
+                      key={i}
+                      messageId={String(i)}
+                      scrollAnchor={message.role === 'user'}
+                    >
+                      <ChatMessage message={message} />
+                    </MessageScrollerItem>
+                  ))}
+                  {pending && (
+                    <MessageScrollerItem messageId="pending">
+                      <PendingMessage />
+                    </MessageScrollerItem>
+                  )}
+                  {error && (
+                    <MessageScrollerItem messageId="error">
+                      <Marker
+                        variant="border"
+                        className="text-destructive"
+                        role="alert"
+                      >
+                        <MarkerContent className="whitespace-pre-wrap break-words">
+                          {error}
+                        </MarkerContent>
+                      </Marker>
+                    </MessageScrollerItem>
+                  )}
+                </MessageScrollerContent>
+              </MessageScrollerViewport>
+              <MessageScrollerButton />
+            </MessageScroller>
+          </MessageScrollerProvider>
+        )}
 
         <form
           onSubmit={handleSubmit}
           className="flex items-center gap-2 pt-3 mt-3 border-t border-gray-100"
         >
-          <input
+          <Input
             type="text"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Message the assistant…"
             disabled={pending}
             data-testid="chat-input"
-            className="flex-1 px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-accent-terracotta/50 disabled:bg-bg-pearl"
+            className="flex-1"
           />
           <Button
             type="submit"
