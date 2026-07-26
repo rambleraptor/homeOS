@@ -15,11 +15,7 @@
 import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { makeOperationLogger } from '@rambleraptor/homestead-core/resources/operations';
-import {
-  operationRunner,
-  operationTimeoutMs,
-  withTimeout,
-} from '@rambleraptor/homestead-core/resources/operation-runner';
+import { runOperationJob } from '@rambleraptor/homestead-core/resources/operation-runner';
 import { indexFile } from '@rambleraptor/homestead-core/server/vectors/index-file';
 import { getVectorStore } from '@rambleraptor/homestead-core/server/vectors/store';
 import {
@@ -162,30 +158,21 @@ async function runIndexOperation(input: {
 
   const opId = op.id;
   const logger = makeOperationLogger(operationStore, { token, id: opId });
-  await operationRunner.submit(async () => {
-    try {
-      await operationStore.start?.({ token, id: opId });
-      await logger.log('started');
-      const response = await withTimeout(
-        indexFile({
-          resource: def.singular,
-          plural,
-          record: recordId,
-          field: fieldName,
-          embed: resolveEmbedOptions(field),
-          token,
-        }),
-        operationTimeoutMs(),
-        `index ${def.singular}/${recordId} exceeded the operation time limit`,
-      );
-      await logger.log('succeeded');
-      await operationStore.complete({ token, id: opId, response });
-    } catch (err) {
-      await logger.log(`failed: ${err instanceof Error ? err.message : String(err)}`);
-      await operationStore.complete({ token, id: opId, error: err }).catch((recordErr) => {
-        logFailure('index', def.singular, recordId, recordErr);
-      });
-    }
+  await runOperationJob({
+    store: operationStore,
+    token,
+    operationId: opId,
+    log: (message) => logger.log(message),
+    work: () =>
+      indexFile({
+        resource: def.singular,
+        plural,
+        record: recordId,
+        field: fieldName,
+        embed: resolveEmbedOptions(field),
+        token,
+      }),
+    timeoutLabel: `index ${def.singular}/${recordId}`,
   });
 }
 

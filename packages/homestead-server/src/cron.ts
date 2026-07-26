@@ -40,11 +40,7 @@ import {
   type OperationLogger,
   type OperationStore,
 } from '@rambleraptor/homestead-core/resources/operations';
-import {
-  operationRunner,
-  operationTimeoutMs,
-  withTimeout,
-} from '@rambleraptor/homestead-core/resources/operation-runner';
+import { runOperationJob } from '@rambleraptor/homestead-core/resources/operation-runner';
 
 export interface CronScheduler {
   /** Stop all timers. Idempotent. In-flight handlers are left to finish. */
@@ -110,50 +106,29 @@ export async function runCronHook(
   const log = logger ? (m: string) => logger.log(m) : async () => {};
 
   try {
-    // Run through the shared pool so cron firings compete for the same
-    // `HOMESTEAD_MAX_OPERATIONS` slots as every other operation, rather than
-    // firing alongside them. The token stays valid across any queue wait; it's
-    // revoked in `finally` once the run settles.
-    await operationRunner.submit(async () => {
-      try {
-        if (operation) await operations.start?.({ token: admin.token, id: operation.id });
-        await log('started');
+    // Run through the shared lifecycle helper so cron firings compete for the
+    // same `HOMESTEAD_MAX_OPERATIONS` slots as every other operation and share
+    // the start → log → complete choreography. `operationId` is undefined when
+    // the record couldn't be created — the run still happens, just untracked.
+    // The token stays valid across any queue wait; it's revoked in `finally`
+    // once the run settles.
+    await runOperationJob({
+      store: operations,
+      token: admin.token,
+      operationId: operation?.id,
+      log,
+      work: async () => {
         const mod = await hook.load();
-        const response = await withTimeout(
-          Promise.resolve(
-            mod.default({
-              id: hook.id,
-              appId: hook.appId,
-              token: admin.token,
-              firedAt,
-              log,
-            }),
-          ),
-          operationTimeoutMs(),
-          `cron "${hook.id}" exceeded the operation time limit`,
-        );
-        // Record the terminal status before completing. Safe against the
-        // complete() PATCH below: the logger only writes `metadata` while
-        // complete() only writes done/status/response/error (disjoint keys).
-        await log('succeeded');
-        if (operation) {
-          await operations.complete({
-            token: admin.token,
-            id: operation.id,
-            response: response ?? {},
-          });
-        }
-      } catch (error) {
-        console.error(`[cron] "${hook.id}" failed`, error);
-        await log(`failed: ${error instanceof Error ? error.message : String(error)}`);
-        if (operation) {
-          try {
-            await operations.complete({ token: admin.token, id: operation.id, error });
-          } catch (recordError) {
-            console.error(`[cron] "${hook.id}" could not record failure`, recordError);
-          }
-        }
-      }
+        return mod.default({
+          id: hook.id,
+          appId: hook.appId,
+          token: admin.token,
+          firedAt,
+          log,
+        });
+      },
+      timeoutLabel: `cron "${hook.id}"`,
+      onError: (error) => console.error(`[cron] "${hook.id}" failed`, error),
     });
   } finally {
     admin.revoke();

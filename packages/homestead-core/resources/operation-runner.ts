@@ -19,6 +19,8 @@
  * under Bun, Node, and the test harness alike.
  */
 
+import type { OperationStore } from './operations';
+
 /** Default max concurrent operations when `HOMESTEAD_MAX_OPERATIONS` is unset. */
 export const DEFAULT_MAX_CONCURRENT_OPERATIONS = 4;
 
@@ -143,3 +145,85 @@ export function maxConcurrentOperations(): number {
  * process, not each spawner independently.
  */
 export const operationRunner = new OperationRunner(maxConcurrentOperations());
+
+export interface RunOperationJobOptions {
+  /** The store the operation record lives in. */
+  store: OperationStore;
+  /** Bearer token the lifecycle writes (`start`/`complete`) are made with. */
+  token: string;
+  /**
+   * The operation record's id. Omit only for a best-effort run whose record
+   * couldn't be created — the `start`/`complete` writes are then skipped and
+   * just `work` runs (still pooled).
+   */
+  operationId?: string;
+  /**
+   * Append a progress entry to the operation's log timeline. Pass the bound
+   * `logger.log` (see {@link makeOperationLogger}); pass a no-op when there is
+   * no record to log against.
+   */
+  log: (message: string) => Promise<void>;
+  /** The actual work; its resolved value becomes the operation's `response`. */
+  work: () => Promise<unknown>;
+  /** Subject for the timeout error, e.g. the method name or `cron "<id>"`. */
+  timeoutLabel: string;
+  /**
+   * Invoked with the thrown value before it's recorded on the operation, for
+   * call-site context logging. The failure is always logged onto the operation
+   * itself regardless.
+   */
+  onError?: (error: unknown) => void;
+}
+
+/**
+ * Run `work` as a pooled AEP-151 operation: wait for a slot in the shared
+ * {@link operationRunner}, promote the (pending) record to `running`, bracket
+ * the run with `started` / terminal log entries, guard it with the
+ * per-operation timeout, and record the response (success) or error (throw).
+ *
+ * This is the single home of the start → log → complete choreography: the
+ * custom-method dispatcher, the cron scheduler, and the file-index trigger all
+ * create their record, then funnel through here, so the lifecycle can't drift
+ * between them. Never rejects — every failure is logged onto the operation (and
+ * surfaced via `onError`) — so callers can `void` or `await` the returned
+ * promise freely. It resolves once the operation has settled.
+ */
+export function runOperationJob({
+  store,
+  token,
+  operationId,
+  log,
+  work,
+  timeoutLabel,
+  onError,
+}: RunOperationJobOptions): Promise<void> {
+  return operationRunner.submit(async () => {
+    try {
+      // Promote out of the queue now that a slot is ours.
+      if (operationId) await store.start?.({ token, id: operationId });
+      await log('started');
+      const response = await withTimeout(
+        Promise.resolve(work()),
+        operationTimeoutMs(),
+        `${timeoutLabel} exceeded the operation time limit`,
+      );
+      // Record the terminal status before completing. Safe against complete()'s
+      // PATCH: the logger only writes `metadata`, complete() only writes
+      // done/status/response/error (disjoint keys).
+      await log('succeeded');
+      // Default a void result to `{}` so the record always carries an object
+      // response, independent of how a given store handles `undefined`.
+      if (operationId) await store.complete({ token, id: operationId, response: response ?? {} });
+    } catch (error) {
+      onError?.(error);
+      await log(`failed: ${error instanceof Error ? error.message : String(error)}`);
+      if (operationId) {
+        try {
+          await store.complete({ token, id: operationId, error });
+        } catch (recordError) {
+          console.error(`Failed to record failure for operation ${operationId}:`, recordError);
+        }
+      }
+    }
+  });
+}

@@ -25,11 +25,7 @@ import type {
   ResourceCustomMethod,
 } from '../types';
 import { makeOperationLogger, type OperationStore } from '../operations';
-import {
-  operationRunner,
-  operationTimeoutMs,
-  withTimeout,
-} from '../operation-runner';
+import { runOperationJob } from '../operation-runner';
 
 export interface DispatchOptions {
   request: Request;
@@ -289,44 +285,22 @@ async function dispatchAsync(
     log: (message) => logger.log(message),
   };
 
-  // Hand the work to the shared runner so at most `HOMESTEAD_MAX_OPERATIONS`
-  // run at once; the rest wait their turn in the queue (staying visibly
-  // `pending`) instead of all firing and starving each other's loopback writes.
-  // The request has already been answered with 202.
-  const operationId = operation.id;
-  void operationRunner
-    .submit(async () => {
-      try {
-        // Promote out of the queue now that a slot is ours.
-        await operations.start?.({ token: ctx.auth.token, id: operationId });
-        await logger.log('started');
-        const response = await withTimeout(
-          Promise.resolve(handler(bgCtx)),
-          operationTimeoutMs(),
-          `${methodName} exceeded the operation time limit`,
-        );
-        // Record terminal status before completing. Safe against complete()'s
-        // PATCH: the logger only writes `metadata`, complete() only writes
-        // done/status/response/error (disjoint keys).
-        await logger.log('succeeded');
-        await operations.complete({ token: ctx.auth.token, id: operationId, response });
-      } catch (error) {
-        console.error(`Async custom method ${methodName} threw:`, error);
-        await logger.log(
-          `failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        try {
-          await operations.complete({ token: ctx.auth.token, id: operationId, error });
-        } catch (recordError) {
-          console.error(`Failed to record failure for operation ${operationId}:`, recordError);
-        }
-      }
-    })
-    .catch((error) => {
-      // The task above swallows its own errors; this only trips on a runner
-      // internal fault. Log so it's never silent.
-      console.error(`Operation runner failed for ${methodName}:`, error);
-    });
+  // Hand the work to the shared pool (at most `HOMESTEAD_MAX_OPERATIONS` run at
+  // once; the rest wait their turn as `pending`) via the shared lifecycle
+  // helper. The request has already been answered with 202.
+  void runOperationJob({
+    store: operations,
+    token: ctx.auth.token,
+    operationId: operation.id,
+    log: (message) => logger.log(message),
+    work: () => handler(bgCtx),
+    timeoutLabel: methodName,
+    onError: (error) => console.error(`Async custom method ${methodName} threw:`, error),
+  }).catch((error) => {
+    // runOperationJob swallows its own errors; this only trips on a runner
+    // internal fault. Log so it's never silent.
+    console.error(`Operation runner failed for ${methodName}:`, error);
+  });
 
   return Response.json(operation, { status: 202 });
 }
