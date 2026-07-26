@@ -1,0 +1,121 @@
+/**
+ * shadcn semantic tokens + chat utilities
+ *
+ * The June 2026 shadcn chat primitives (Bubble, Message, MessageScroller,
+ * Marker, Avatar — under `homestead-core/shared/components/ui/`) are authored
+ * against the standard shadcn semantic color tokens (`--background`,
+ * `--primary`, `--muted`, `--border`, …) rather than this repo's brand tokens
+ * (`accent-terracotta`, `bg-pearl`, `brand-navy`). This file maps the semantic
+ * tokens onto the brand palette so those components render on-brand without
+ * hand-editing each one, and future shadcn components "just work".
+ *
+ * Imported from `globals.css`. Uses shadcn's canonical pattern: raw vars in
+ * `:root` (so `var(--primary)` etc. resolve inside the components' color-mix
+ * expressions) mapped to Tailwind utilities via `@theme inline`.
+ */
+
+:root {
+  --background: #ffffff; /* surface-white */
+  --foreground: #2c3e50; /* brand-slate */
+  --card: #ffffff;
+  --card-foreground: #2c3e50;
+  --popover: #ffffff;
+  --popover-foreground: #2c3e50;
+  --primary: #e07a5f; /* accent-terracotta */
+  --primary-foreground: #ffffff;
+  --secondary: #f7f9fc; /* bg-pearl */
+  --secondary-foreground: #1a2b4c; /* brand-navy */
+  --muted: #f7f9fc; /* bg-pearl */
+  --muted-foreground: #6c757d; /* text-muted */
+  --accent: #f7f9fc;
+  --accent-foreground: #1a2b4c;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb; /* gray-200 */
+  --input: #e5e7eb;
+  --ring: #e07a5f;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/**
+ * scroll-fade utility (verbatim subset of shadcn's `tailwind.css`, bottom-edge
+ * only). The MessageScrollerViewport bakes in `scroll-fade-b` to fade the
+ * conversation into the composer as it scrolls.
+ */
+@property --scroll-fade-b {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-mask {
+  syntax: "*";
+  inherits: false;
+}
+
+@theme inline {
+  @keyframes scroll-fade-reveal-b {
+    from {
+      --scroll-fade-b: var(
+        --_scroll-fade-size-b,
+        var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
+      );
+    }
+    to {
+      --scroll-fade-b: 0px;
+    }
+  }
+}
+
+@utility scroll-fade-b {
+  --_scroll-fade-size-b: var(
+    --scroll-fade-b-size,
+    var(--scroll-fade-size, min(12%, calc(var(--spacing) * 10)))
+  );
+  --scroll-fade-mask: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--scroll-fade-b, 0px)),
+    transparent 100%
+  );
+  -webkit-mask-image: var(--scroll-fade-mask);
+  mask-image: var(--scroll-fade-mask);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+
+  @supports (animation-timeline: scroll()) {
+    animation: scroll-fade-reveal-b 1ms ease-in-out;
+    animation-timeline: scroll(self y);
+    animation-range: calc(
+        100% - var(--scroll-fade-reveal, calc(var(--spacing) * 24))
+      )
+      100%;
+    animation-fill-mode: both;
+  }
+
+  @supports not (animation-timeline: scroll()) {
+    --scroll-fade-b: var(--_scroll-fade-size-b);
+  }
+}

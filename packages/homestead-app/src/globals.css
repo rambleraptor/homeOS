@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* shadcn semantic tokens (mapped to the brand palette) + chat utilities,
+ * required by the shadcn chat primitives used by the Chat app. */
+@import "./shadcn-chat.css";
 
 /* Tailwind v4 auto-source-detection roots at the Vite cwd
  * (packages/homestead-app/) and excludes node_modules, so the sibling
