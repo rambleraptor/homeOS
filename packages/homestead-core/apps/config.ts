@@ -119,6 +119,84 @@ export interface EmbeddingConfig {
 }
 
 /**
+ * Email provider to use for this instance. Only Gmail is implemented today; the
+ * value discriminates the {@link EmailConfig} union, so a new provider (IMAP,
+ * Microsoft Graph, …) is added as a new union member carrying its own
+ * credential/connection fields — the generic parts of the config don't change.
+ */
+export type EmailProviderName = 'gmail';
+
+/**
+ * Fields common to every provider's email config. Provider-neutral on purpose:
+ * anything Gmail-specific (OAuth credentials, the `userId` mailbox) lives on the
+ * provider's own config member, not here.
+ */
+export interface EmailConfigBase {
+  /**
+   * Provider-specific search expression scoping which messages the documents
+   * ingestion cron reads (and then trashes). Defaults to `'has:attachment'`.
+   * Narrow it to a dedicated label/address (e.g. `'label:homestead
+   * has:attachment'`) so only mail meant for ingestion is ever touched. The
+   * *syntax* is the provider's (Gmail search here); the field itself is generic.
+   */
+  query?: string;
+}
+
+/**
+ * Credentials for the Gmail provider. A long-lived OAuth **refresh token** for
+ * one mailbox (obtained once via the Google OAuth consent flow), plus the
+ * client id/secret used to exchange it for short-lived access tokens.
+ *
+ * Server-side only, exactly like {@link AiAuthConfig.apiKey} and OAuth
+ * `clientSecret`: read from the environment when the launcher evaluates this
+ * config server-side, never surfaced to the browser bundle.
+ *
+ * The refresh token must carry the scopes the features you use need:
+ * `https://www.googleapis.com/auth/gmail.readonly` to read, plus
+ * `.../gmail.modify` for the documents ingestion cron (it moves processed
+ * messages to Trash) and `.../gmail.send` to send.
+ */
+export interface GmailAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+}
+
+/**
+ * Gmail-specific email configuration. The OAuth credentials and the mailbox
+ * `user` are Gmail concepts and live only on this member of the
+ * {@link EmailConfig} union — they are not part of the generic email config.
+ */
+export interface GmailConfig extends EmailConfigBase {
+  provider: 'gmail';
+  /** Gmail OAuth credentials. */
+  auth: GmailAuthConfig;
+  /**
+   * Mailbox to operate on, in the Gmail API's `userId` form. Defaults to
+   * `'me'` (the mailbox that owns the refresh token). Set it to an explicit
+   * address only under Google Workspace domain-wide delegation.
+   */
+  user?: string;
+}
+
+/**
+ * Email configuration for this instance — a discriminated union over
+ * {@link EmailProviderName}. Consumed by the server (not the SPA bundle) to read
+ * and send mail through a provider, and to power the documents app's
+ * email-ingestion cron. Omit it to disable email entirely — the provider
+ * factory then reports unconfigured and the ingestion cron no-ops.
+ *
+ * Adding a provider means adding a member (e.g. `GmailConfig | ImapConfig`); the
+ * factory in `core/server/email/config.ts` narrows on `provider` to build the
+ * matching {@link EmailProvider}.
+ *
+ * These are plain data types only: `homestead.config.ts` (which the SPA imports)
+ * builds a value of this shape from env vars, so nothing here may reference the
+ * server-only provider classes under `core/server/email`.
+ */
+export type EmailConfig = GmailConfig;
+
+/**
  * Shape of the user-supplied configuration consumed by the registry.
  * Operators declare their instance by exporting a value of this type
  * from `homestead.config.ts` at the repo root.
@@ -159,4 +237,14 @@ export interface HomesteadConfig {
    * still runs, but nothing is indexed for search. See {@link EmbeddingConfig}.
    */
   embedding?: EmbeddingConfig;
+
+  /**
+   * Optional email configuration (provider + credentials). Consumed by the
+   * server (not the SPA bundle) to read/send mail and to drive the documents
+   * app's email-ingestion cron. Omit to disable email — the provider factory
+   * reports unconfigured and the cron no-ops. Credentials are read from the
+   * environment when the launcher evaluates this file server-side, so they
+   * never land in the client bundle. See {@link EmailConfig}.
+   */
+  email?: EmailConfig;
 }

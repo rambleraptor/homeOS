@@ -1,6 +1,10 @@
 import type { ResourceCustomMethod } from '@rambleraptor/homestead-core/resources/types';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
-import type { AiConfig, EmbeddingConfig } from '@rambleraptor/homestead-core/apps/config';
+import type {
+  AiConfig,
+  EmailConfig,
+  EmbeddingConfig,
+} from '@rambleraptor/homestead-core/apps/config';
 import type { RegisteredCronHook } from '@rambleraptor/homestead-core/apps/registry';
 import type { AppAccessConfig } from './engine/access';
 import type { OAuthConfig } from './engine/oauth';
@@ -9,6 +13,7 @@ export function appAccessMap(): AppAccessConfig | null;
 export function oauthConfig(): OAuthConfig | null;
 export function aiConfig(): AiConfig | null;
 export function embeddingConfig(): EmbeddingConfig | null;
+export function emailConfig(): EmailConfig | null;
 
 export function getResourceCustomMethod(
   plural: string,

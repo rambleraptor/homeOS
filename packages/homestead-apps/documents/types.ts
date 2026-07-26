@@ -41,6 +41,10 @@ export interface Document {
    */
   linked_resource?: string;
   created_by?: string;
+  /** Provider message id this doc was ingested from (email source only). */
+  source_email_id?: string;
+  /** Per-message attachment key `"{index}:{filename}"` for email-ingested docs. */
+  source_email_attachment?: string;
   create_time?: string;
   update_time?: string;
 }

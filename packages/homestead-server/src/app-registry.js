@@ -80,6 +80,11 @@ export function embeddingConfig() {
   return config.embedding ?? null;
 }
 
+/** The `email` block of homestead.config.ts, or null when email is unconfigured. */
+export function emailConfig() {
+  return config.email ?? null;
+}
+
 export {
   getResourceCustomMethod,
   getAllResourceCustomMethods,

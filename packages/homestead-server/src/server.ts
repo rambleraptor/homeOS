@@ -60,6 +60,13 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   setAiConfig(registry.aiConfig());
   setEmbeddingConfig(registry.embeddingConfig());
 
+  // Same hand-down for the operator's email config (null leaves email disabled,
+  // so the documents ingestion cron no-ops).
+  const { setEmailConfig } = await import(
+    '@rambleraptor/homestead-core/server/email/config'
+  );
+  setEmailConfig(registry.emailConfig());
+
   // Vector store for semantic search over ai.embed file fields. Core can't open
   // a SQLite db itself (server → core dependency direction), so the server
   // constructs the store and hands it down, like the AI config above.

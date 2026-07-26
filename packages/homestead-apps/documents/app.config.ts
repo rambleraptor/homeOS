@@ -14,6 +14,17 @@ export const documentsApp: AppConfig = {
   name: 'Documents',
   description: 'Store documents and parse their details automatically',
   resources: documentsResources,
+  // Pull document attachments out of incoming email every 5 minutes. No-ops
+  // when no email provider is configured. The handler lives under `crons/` so
+  // it's stubbed out of the browser bundle; the import stays lazy.
+  crons: [
+    {
+      id: 'documents-ingest-email',
+      title: 'Ingest email attachments',
+      intervalSeconds: 300,
+      load: () => import('./crons/ingest-email'),
+    },
+  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.FileText),
     basePath: '/documents',
