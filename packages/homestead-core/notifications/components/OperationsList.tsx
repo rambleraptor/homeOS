@@ -51,7 +51,10 @@ function OperationStatusIcon({ operation }: { operation: Operation }) {
 function statusLabel(operation: Operation): string {
   // The canonical status word. The live per-step detail lives in the log
   // timeline below (its last entry is the operation's current status).
-  if (!operation.done) return 'Running…';
+  if (!operation.done) {
+    // Queued behind the concurrency gate: waiting for a slot, not yet running.
+    return operation.status === 'pending' ? 'Queued…' : 'Running…';
+  }
   if (operation.status === 'failed' || operation.error) return 'Failed';
   return 'Completed';
 }

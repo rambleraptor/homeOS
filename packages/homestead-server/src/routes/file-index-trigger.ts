@@ -14,6 +14,12 @@
 
 import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
+import { makeOperationLogger } from '@rambleraptor/homestead-core/resources/operations';
+import {
+  operationRunner,
+  operationTimeoutMs,
+  withTimeout,
+} from '@rambleraptor/homestead-core/resources/operation-runner';
 import { indexFile } from '@rambleraptor/homestead-core/server/vectors/index-file';
 import { getVectorStore } from '@rambleraptor/homestead-core/server/vectors/store';
 import {
@@ -123,7 +129,12 @@ export async function handleCrudWithIndexing(
   return res;
 }
 
-/** Create an operation, run the index pipeline, and record the outcome on it. */
+/**
+ * Create an operation, run the index pipeline under the shared concurrency gate,
+ * and record the outcome on it. The record is created `pending` and queued
+ * behind {@link operationRunner} so a burst of uploads can't stampede the
+ * indexer; it flips to `running` (with a `started` log entry) once a slot frees.
+ */
 async function runIndexOperation(input: {
   def: ResourceDefinition;
   plural: string;
@@ -134,30 +145,48 @@ async function runIndexOperation(input: {
   userId: string;
 }): Promise<void> {
   const { def, plural, recordId, fieldName, field, token, userId } = input;
+  let op;
   try {
-    const op = await operationStore.create({
+    op = await operationStore.create({
       token,
       method: `${plural}/${recordId}:index-file`,
       title: `Index ${fieldName}`,
       createdBy: userId,
+      status: 'pending',
     });
-    try {
-      const response = await indexFile({
-        resource: def.singular,
-        plural,
-        record: recordId,
-        field: fieldName,
-        embed: resolveEmbedOptions(field),
-        token,
-      });
-      await operationStore.complete({ token, id: op.id, response });
-    } catch (err) {
-      await operationStore.complete({ token, id: op.id, error: err });
-    }
   } catch (err) {
-    // Couldn't even create/complete the operation — nothing tracks it, so log.
+    // Couldn't even create the operation — nothing tracks it, so log.
     logFailure('index', def.singular, recordId, err);
+    return;
   }
+
+  const opId = op.id;
+  const logger = makeOperationLogger(operationStore, { token, id: opId });
+  await operationRunner.submit(async () => {
+    try {
+      await operationStore.start?.({ token, id: opId });
+      await logger.log('started');
+      const response = await withTimeout(
+        indexFile({
+          resource: def.singular,
+          plural,
+          record: recordId,
+          field: fieldName,
+          embed: resolveEmbedOptions(field),
+          token,
+        }),
+        operationTimeoutMs(),
+        `index ${def.singular}/${recordId} exceeded the operation time limit`,
+      );
+      await logger.log('succeeded');
+      await operationStore.complete({ token, id: opId, response });
+    } catch (err) {
+      await logger.log(`failed: ${err instanceof Error ? err.message : String(err)}`);
+      await operationStore.complete({ token, id: opId, error: err }).catch((recordErr) => {
+        logFailure('index', def.singular, recordId, recordErr);
+      });
+    }
+  });
 }
 
 function logFailure(what: string, resource: string, record: string, err: unknown): void {
