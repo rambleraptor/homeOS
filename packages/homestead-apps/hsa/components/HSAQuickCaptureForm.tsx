@@ -153,7 +153,7 @@ export function HSAQuickCaptureForm({
 
       // Parsing is long-running (AEP-151): the custom method answers with 202
       // + an operation, which we poll to completion. The operation also shows
-      // up in the notifications app while it runs.
+      // up in the (superuser-only) Operations app while it runs.
       // POST /api/aep/hsa-receipts:parse-receipt
       const operation = await aepbase.customMethod<{ id: string }>(
         'hsa-receipts',

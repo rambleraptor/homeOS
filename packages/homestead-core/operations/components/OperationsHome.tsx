@@ -1,11 +1,12 @@
 /**
- * Operations tab in the notifications app — lists AEP-151 long-running
- * operations, polling while any are still in flight.
+ * Operations app home — lists AEP-151 long-running operations, polling while
+ * any are still in flight. Superuser-only (gated by the app's route).
  */
 
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import type { OperationLogEntry } from '@rambleraptor/homestead-core/resources/operations';
 import { useOperations } from '../hooks/useOperations';
 import type { Operation } from '../types';
@@ -108,7 +109,7 @@ function OperationRow({ operation }: { operation: Operation }) {
   );
 }
 
-export function OperationsList() {
+function OperationsList() {
   const { data: operations, isLoading } = useOperations();
 
   if (isLoading) {
@@ -138,6 +139,18 @@ export function OperationsList() {
       {operations.map((operation) => (
         <OperationRow key={operation.id} operation={operation} />
       ))}
+    </div>
+  );
+}
+
+export function OperationsHome() {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Operations"
+        subtitle="Long-running background tasks across the household."
+      />
+      <OperationsList />
     </div>
   );
 }

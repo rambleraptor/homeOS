@@ -191,7 +191,7 @@ settles. Pair it with the server-side aepbase helpers
 Every firing runs inside an **operation** — the scheduler opens one, runs the
 handler, then marks it succeeded (with the handler's return value) or failed
 (with its error). Each run therefore leaves a persisted record — status, timing,
-result/error, and a log timeline — in the Operations tab. That's the built-in
+result/error, and a log timeline — in the Operations app. That's the built-in
 logging you get for free. The handler's `ctx.log(message)` appends a line to the
 operation's `metadata.logs`; the most recent line shows as the operation's live
 status while it runs (the scheduler brackets each run with `started` and a
@@ -219,7 +219,7 @@ import { aepList } from '@rambleraptor/homestead-core/server/aepbase';
 
 const handler: CronHandler = async ({ token, log }) => {
   const items = await aepList('grocery-items', token);
-  await log(`digesting ${items.length} items`);   // appears in the Operations tab
+  await log(`digesting ${items.length} items`);   // appears in the Operations app
   // …send a digest, prune stale rows, etc.
   return { digested: items.length };               // recorded as the operation's response
 };

@@ -2,14 +2,14 @@
  * AEP-151 operations list + polling.
  *
  * Operations are a top-level, household-shared collection (`/operations`), so
- * unlike notifications the list is unscoped. While any operation is still
- * running the query polls every few seconds; it stops polling once everything
- * is `done` (this is the app's only polling query).
+ * the list is unscoped. While any operation is still running the query polls
+ * every few seconds; it stops polling once everything is `done` (this is the
+ * app's only polling query).
  */
 
 import { useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { OPERATIONS } from '@rambleraptor/homestead-core/resources/builtins';
+import { OPERATIONS } from '@rambleraptor/homestead-core/resources/operations';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Operation } from '../types';
 
@@ -36,7 +36,7 @@ export async function fetchOperations(): Promise<Operation[]> {
     .sort((a, b) => (b.created || '').localeCompare(a.created || ''));
 }
 
-const operationsKey = queryKeys.app('notifications').resource('operation').list();
+const operationsKey = queryKeys.app('operations').resource('operation').list();
 
 export function useOperations() {
   return useQuery({
@@ -48,7 +48,7 @@ export function useOperations() {
   });
 }
 
-/** True when at least one operation is still running. Feeds the top-bar spinner. */
+/** True when at least one operation is still running. */
 export function useHasOngoingOperations(): boolean {
   const { data } = useOperations();
   return !!data?.some((op) => !op.done);

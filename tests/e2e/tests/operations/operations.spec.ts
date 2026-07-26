@@ -3,16 +3,17 @@
  *
  * Drives the real async method — `hsa-receipts:parse-receipt` — end to end:
  * the call returns 202 + an operation, the AI parse runs in the background,
- * and the notifications app tracks it. The AI provider is a local stub (see
- * config/ai-stub.ts) so no paid model is called; the stub's deliberate delay is
- * what keeps the operation observably `running`.
+ * and the superuser-only Operations app tracks it. The AI provider is a local
+ * stub (see config/ai-stub.ts) so no paid model is called; the stub's
+ * deliberate delay is what keeps the operation observably `running`.
  *
  * Operations are a top-level, household-shared collection (not user-scoped), so
- * each test cleans up the records it creates.
+ * a regular user can spawn one and a superuser sees it in the Operations app.
+ * Each test cleans up the records it creates.
  */
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
-import { NotificationsPage } from '../../pages/NotificationsPage';
+import { OperationsPage } from '../../pages/OperationsPage';
 import { aepList, aepRemove, postCustomMethod } from '../../utils/aepbase-helpers';
 import { FAIL_IMAGE, OK_IMAGE } from '../../config/ai-stub';
 
@@ -30,8 +31,8 @@ const PARSE_RECEIPT = '/hsa-receipts:parse-receipt';
 test.describe('Operations (AEP-151)', () => {
   const createdIds: string[] = [];
 
-  // Never leave an operation behind — a stray "running" one would spin the
-  // bell for every later test.
+  // Never leave an operation behind — a stray "running" one would keep the
+  // Operations page polling for every later test.
   test.afterEach(async ({ adminToken }) => {
     for (const id of createdIds.splice(0)) {
       await aepRemove(adminToken, OPERATIONS, id).catch(() => {});
@@ -51,28 +52,24 @@ test.describe('Operations (AEP-151)', () => {
     return operation;
   }
 
-  test('bell spins and the Operations tab tracks a real parse to completion', async ({
-    authenticatedPage,
+  test('the Operations page tracks a real parse to completion', async ({
+    authenticatedAdminPage,
     userToken,
   }) => {
+    // A regular member kicks off the parse; the superuser watches it land.
     const operation = await startParse(userToken, OK_IMAGE);
 
-    const notifications = new NotificationsPage(authenticatedPage);
-    await notifications.goto();
+    const operations = new OperationsPage(authenticatedAdminPage);
+    await operations.goto();
 
-    // The bell wears a spinner while the parse runs.
-    await expect(notifications.bellSpinner).toBeVisible({ timeout: 30_000 });
-
-    // The Operations tab lists it under the method's declared title.
-    await notifications.openOperationsTab();
-    const row = notifications.operationRow(operation.id);
-    await expect(row).toBeVisible();
+    // The page lists it under the method's declared title, still running.
+    const row = operations.operationRow(operation.id);
+    await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row).toContainText('Parse receipt');
     await expect(row).toContainText(/running/i);
 
-    // The background parse finishes; the polling UI notices and the bell clears.
+    // The background parse finishes; the polling UI notices.
     await expect(row).toContainText(/completed/i, { timeout: 20_000 });
-    await expect(notifications.bellSpinner).toBeHidden();
   });
 
   test('a completed operation carries the parsed receipt as its response', async ({
@@ -101,22 +98,20 @@ test.describe('Operations (AEP-151)', () => {
   });
 
   test('a parse that finds nothing fails the operation and shows the error', async ({
-    authenticatedPage,
+    authenticatedAdminPage,
     userToken,
   }) => {
     // The stub returns an empty object for this image, so the real handler
     // throws and the failure lands on the operation.
     const operation = await startParse(userToken, FAIL_IMAGE);
 
-    const notifications = new NotificationsPage(authenticatedPage);
-    await notifications.goto();
-    await notifications.openOperationsTab();
+    const operations = new OperationsPage(authenticatedAdminPage);
+    await operations.goto();
 
-    const row = notifications.operationRow(operation.id);
-    await expect(row).toBeVisible();
+    const row = operations.operationRow(operation.id);
+    await expect(row).toBeVisible({ timeout: 30_000 });
     await expect(row).toContainText(/failed/i, { timeout: 20_000 });
     await expect(row).toContainText('No receipt data found in image');
-    await expect(notifications.bellSpinner).toBeHidden();
   });
 
   test('an async method rejected pre-flight returns an error, not an operation', async ({
