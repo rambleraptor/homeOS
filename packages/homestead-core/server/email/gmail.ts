@@ -78,14 +78,35 @@ function parseAddresses(value: string | undefined): EmailAddress[] {
 }
 
 /**
- * True when a part is a real attachment rather than an inline body or an inline
- * image (email signatures, embedded logos). We require a non-empty filename and
- * skip parts explicitly marked `Content-Disposition: inline`.
+ * Below this many bytes, an `inline` part is treated as message chrome (a
+ * signature logo, a tracking pixel, a bullet icon) rather than something the
+ * sender meant to attach. Real scans and phone photos run hundreds of KB.
+ */
+const INLINE_CHROME_MAX_BYTES = 64 * 1024;
+
+/** Byte length of a part's payload, whether it's fetched by id or carried inline. */
+function partSize(part: GmailPart): number {
+  if (part.body?.size !== undefined) return part.body.size;
+  // base64url expands 3 bytes into 4 chars; close enough for a size threshold.
+  return part.body?.data ? Math.floor((part.body.data.length * 3) / 4) : 0;
+}
+
+/**
+ * True when a part is a real attachment rather than an inline body or message
+ * chrome. A non-empty filename is required.
+ *
+ * `Content-Disposition: inline` alone can't be the test: Gmail's composer marks
+ * a dragged-in photo inline inside a `multipart/related` and references it from
+ * the HTML body via `cid:` — byte-for-byte the shape of a signature logo. A
+ * `cid:` cross-check can't separate them either, so we fall back to size, which
+ * does: chrome is a few KB, a photo or scan is hundreds.
  */
 function isAttachmentPart(part: GmailPart): boolean {
   if (!part.filename) return false;
   const disposition = header(part, 'content-disposition')?.toLowerCase() ?? '';
-  if (disposition.startsWith('inline')) return false;
+  if (disposition.startsWith('inline') && partSize(part) < INLINE_CHROME_MAX_BYTES) {
+    return false;
+  }
   return true;
 }
 

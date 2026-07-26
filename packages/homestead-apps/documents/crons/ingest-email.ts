@@ -69,15 +69,33 @@ const handler: CronHandler = async ({ token, log }) => {
   for (const ref of refs) {
     const message = await provider.getMessage(ref.id);
 
-    // Pair each supported attachment with its dedup key (index is over ALL
-    // attachments so keys stay stable regardless of filtering).
-    const supported = message.attachments
-      .map((att, index) => ({ att, key: attachmentKey(index, att) }))
-      .filter(({ att }) => SUPPORTED_MIME.test(att.mimeType));
+    // Pair each attachment with its dedup key (index is over ALL attachments so
+    // keys stay stable regardless of filtering).
+    const keyed = message.attachments.map((att, index) => ({
+      att,
+      key: attachmentKey(index, att),
+    }));
+    const supported = keyed.filter(({ att }) => SUPPORTED_MIME.test(att.mimeType));
+    const unsupported = keyed.filter(({ att }) => !SUPPORTED_MIME.test(att.mimeType));
+
+    // Say out loud what we drop. Silence here is invisible in the Operations
+    // log — the run just reports zeroes — and when the message has other
+    // ingestible parts it gets trashed with the dropped one still inside.
+    if (unsupported.length > 0) {
+      const seen = unsupported
+        .map(({ att }) => `${att.filename || '(unnamed)'} (${att.mimeType})`)
+        .join(', ');
+      await log(`message ${ref.id}: skipping unsupported attachment(s): ${seen}`);
+    }
 
     // Nothing we can file → leave the message untouched (never trash mail we
     // didn't consume).
-    if (supported.length === 0) continue;
+    if (supported.length === 0) {
+      if (unsupported.length === 0) {
+        await log(`message ${ref.id}: no attachment parts found; leaving in place`);
+      }
+      continue;
+    }
 
     // Which of this message's attachments are already filed?
     const existing = await aepList<Document>(

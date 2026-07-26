@@ -1,7 +1,8 @@
 /**
  * Tests for the Gmail provider. `fetch` is stubbed — no network — so we assert
  * the request URLs/bodies and the parsing of representative Gmail payloads
- * (nested multipart, an inline image that must be excluded, base64url bodies).
+ * (nested multipart, inline images on both sides of the size threshold,
+ * base64url bodies).
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -165,12 +166,78 @@ describe('GmailProvider.getMessage', () => {
     expect(msg.date).toBe(new Date(1700000000000).toISOString());
     expect(msg.body).toEqual({ text: 'Plain body', html: '<p>HTML body</p>' });
 
-    // Only the PDF; the inline PNG is dropped.
+    // Only the PDF; the tiny inline PNG is dropped as signature chrome.
     expect(msg.attachments).toEqual([
       { id: 'att-1', filename: 'receipt.pdf', mimeType: 'application/pdf', size: 1234 },
     ]);
     // format=full requested.
     expect(calls.find((c) => /\/messages\/m1/.test(c.url))!.url).toContain('format=full');
+  });
+
+  it('keeps a large inline image (Gmail composer photo, not signature chrome)', async () => {
+    // What Gmail's composer produces for a dragged-in photo: multipart/related,
+    // `Content-Disposition: inline`, and a cid: reference from the HTML body —
+    // structurally identical to a signature logo, so only size separates them.
+    const photoPayload = {
+      id: 'm3',
+      payload: {
+        mimeType: 'multipart/related',
+        parts: [
+          {
+            mimeType: 'multipart/alternative',
+            parts: [
+              { mimeType: 'text/plain', body: { data: b64url('') } },
+              {
+                mimeType: 'text/html',
+                body: { data: b64url('<div><img src="cid:ii_19f9f347"></div>') },
+              },
+            ],
+          },
+          {
+            mimeType: 'image/jpeg',
+            filename: 'IMG_4982.jpeg',
+            headers: [
+              { name: 'Content-Disposition', value: 'inline; filename="IMG_4982.jpeg"' },
+              { name: 'Content-ID', value: '<ii_19f9f347>' },
+            ],
+            body: { attachmentId: 'att-photo', size: 725469 },
+          },
+        ],
+      },
+    };
+    routeFetch([tokenRoute, [/\/messages\/m3\?/, () => json(photoPayload)]]);
+    const gmail = new GmailProvider(auth);
+    const msg = await gmail.getMessage('m3');
+
+    expect(msg.attachments).toEqual([
+      {
+        id: 'att-photo',
+        filename: 'IMG_4982.jpeg',
+        mimeType: 'image/jpeg',
+        size: 725469,
+      },
+    ]);
+  });
+
+  it('drops an inline part whose size is only implied by its base64 body', async () => {
+    // No body.size — the threshold has to fall back to the encoded length.
+    const chromePayload = {
+      id: 'm4',
+      payload: {
+        mimeType: 'multipart/related',
+        parts: [
+          {
+            mimeType: 'image/gif',
+            filename: 'pixel.gif',
+            headers: [{ name: 'Content-Disposition', value: 'inline' }],
+            body: { data: b64url('GIF89a-tiny') },
+          },
+        ],
+      },
+    };
+    routeFetch([tokenRoute, [/\/messages\/m4\?/, () => json(chromePayload)]]);
+    const gmail = new GmailProvider(auth);
+    expect((await gmail.getMessage('m4')).attachments).toEqual([]);
   });
 
   it('handles a small inline attachment carried as body.data (no attachmentId)', async () => {

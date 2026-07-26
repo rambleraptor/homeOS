@@ -170,6 +170,43 @@ describe('documents-ingest-email', () => {
     expect(aepCreateMultipart).not.toHaveBeenCalled();
     expect(provider.trashMessage).not.toHaveBeenCalled();
     expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, trashed: 0 });
+    // An all-zero run must say what it dropped, or it's undiagnosable.
+    expect(ctx.log).toHaveBeenCalledWith(
+      'message m1: skipping unsupported attachment(s): invite.ics (text/calendar), archive.zip (application/zip)',
+    );
+  });
+
+  it('logs an unsupported attachment even when the message is trashed', async () => {
+    provider.listMessages.mockResolvedValue([{ id: 'm1' }]);
+    provider.getMessage.mockResolvedValue(
+      message({
+        attachments: [
+          pdfAttachment(),
+          { id: 'z', filename: 'notes.docx', mimeType: 'application/vnd.ms-word' },
+        ],
+      }),
+    );
+
+    const result = await handler(ctx);
+
+    expect(result.uploaded).toBe(1);
+    // Trashing takes the dropped attachment with it — that has to be on record.
+    expect(provider.trashMessage).toHaveBeenCalledWith('m1');
+    expect(ctx.log).toHaveBeenCalledWith(
+      'message m1: skipping unsupported attachment(s): notes.docx (application/vnd.ms-word)',
+    );
+  });
+
+  it('logs a message that parsed with no attachment parts at all', async () => {
+    provider.listMessages.mockResolvedValue([{ id: 'm1' }]);
+    provider.getMessage.mockResolvedValue(message({ attachments: [] }));
+
+    const result = await handler(ctx);
+
+    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, trashed: 0 });
+    expect(ctx.log).toHaveBeenCalledWith(
+      'message m1: no attachment parts found; leaving in place',
+    );
   });
 
   it('does not trash a message when an upload fails', async () => {
