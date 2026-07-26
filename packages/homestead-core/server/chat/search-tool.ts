@@ -15,7 +15,7 @@
 
 import { z } from 'zod';
 import { aepGet } from '../aepbase';
-import { isEmbeddingConfigured } from '../ai/config';
+import { getEmbeddingModelId, isEmbeddingConfigured } from '../ai/config';
 import { aiEmbed, tool } from '../ai/generate';
 import { fileEmbeds } from '../../resources/ai-fields';
 import { referenceFields } from '../../resources/references';
@@ -155,6 +155,10 @@ export function makeSearchTool(opts: {
       const [vector] = await aiEmbed([query]);
       const hits = await store.search({
         vector,
+        // The query uses the instance-default embedding model, so it can only
+        // match vectors that model produced. Fields pinned to a different model
+        // via `ai.embed.embedding_model` are intentionally not searched here.
+        model: getEmbeddingModelId(),
         limit: limit * CANDIDATE_FACTOR,
         resources: wantSingulars,
       });
