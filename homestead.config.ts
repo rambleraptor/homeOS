@@ -109,6 +109,26 @@ const email: HomesteadConfig['email'] =
         query: fromEnv('EMAIL_QUERY') ?? 'has:attachment',
       }
     : undefined;
+// Embedding is opt-in and independent of `ai`: it powers semantic search over
+// `ai.embed`-flagged file fields. Enabled only when EMBEDDING_API_KEY is set;
+// with no key, `embedding` is undefined — `embed` fields still extract text but
+// aren't indexed for search, and the chat search tool isn't registered.
+// Anthropic ships no embedding model, so the provider is 'openai' | 'google'
+// only. Defaults below (Gemini) can be overridden per-instance:
+//   EMBEDDING_PROVIDER  'openai' | 'google'
+//   EMBEDDING_MODEL     e.g. 'text-embedding-3-small' (OpenAI),
+//                            'text-embedding-004' (Google)
+//   EMBEDDING_BASE_URL  point at a self-hosted/proxied endpoint
+const embeddingApiKey = fromEnv('EMBEDDING_API_KEY');
+const embedding: HomesteadConfig['embedding'] = embeddingApiKey
+  ? {
+      provider: (fromEnv('EMBEDDING_PROVIDER') ??
+        'google') as NonNullable<HomesteadConfig['embedding']>['provider'],
+      model: fromEnv('EMBEDDING_MODEL') ?? 'text-embedding-004',
+      auth: { apiKey: embeddingApiKey },
+      baseURL: fromEnv('EMBEDDING_BASE_URL'),
+    }
+  : undefined;
 
 const config: HomesteadConfig = {
   apps: [
@@ -126,6 +146,7 @@ const config: HomesteadConfig = {
   auth,
   ai,
   email,
+  embedding,
 };
 
 // A running `homestead start` watches this file (and the apps/ tree): edit it

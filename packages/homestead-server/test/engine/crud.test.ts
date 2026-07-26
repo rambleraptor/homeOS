@@ -10,12 +10,12 @@ beforeEach(async () => {
 });
 
 describe('create', () => {
-  test('returns 200 (not 201) with the stored resource', async () => {
+  test('returns 201 Created with the stored resource', async () => {
     const res = await call(t.engine, 'POST', '/books', {
       token: t.adminToken,
       body: { title: 'Dune', pages: 412 },
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.title).toBe('Dune');
     expect(body.pages).toBe(412);
@@ -109,7 +109,7 @@ describe('defaults', () => {
       token: t.adminToken,
       body: { name: 'W' },
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.enabled).toBe(false);
     expect(body.count).toBe(3);
@@ -289,22 +289,22 @@ describe('delete', () => {
 });
 
 describe('apply (PUT)', () => {
-  test('creates when missing, replaces when present', async () => {
-    const created = await (
-      await call(t.engine, 'PUT', '/books/put-book', {
-        token: t.adminToken,
-        body: { title: 'V1' },
-      })
-    ).json();
+  test('creates when missing (201), replaces when present (200)', async () => {
+    const createRes = await call(t.engine, 'PUT', '/books/put-book', {
+      token: t.adminToken,
+      body: { title: 'V1' },
+    });
+    expect(createRes.status).toBe(201);
+    const created = await createRes.json();
     expect(created.id).toBe('put-book');
     expect(created.title).toBe('V1');
 
-    const replaced = await (
-      await call(t.engine, 'PUT', '/books/put-book', {
-        token: t.adminToken,
-        body: { title: 'V2' },
-      })
-    ).json();
+    const replaceRes = await call(t.engine, 'PUT', '/books/put-book', {
+      token: t.adminToken,
+      body: { title: 'V2' },
+    });
+    expect(replaceRes.status).toBe(200);
+    const replaced = await replaceRes.json();
     expect(replaced.title).toBe('V2');
     expect(replaced.create_time).toBe(created.create_time);
   });
@@ -495,7 +495,7 @@ describe('user-parented scoping', () => {
       token: alice.token,
       body: { text: 'mine' },
     });
-    expect(created.status).toBe(200);
+    expect(created.status).toBe(201);
 
     const denied = await call(t.engine, 'GET', `/users/${alice.user.id}/notes`, {
       token: bob.token,

@@ -45,7 +45,7 @@ describe('multipart create', () => {
         attachment: new Blob(['file-bytes']),
       }),
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.name).toBe('Receipt');
     expect(body.size).toBe(42);
@@ -63,7 +63,7 @@ describe('multipart create', () => {
         attachment: new Blob(['x']),
       }),
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.name).toBe('R2');
     expect(body.size).toBe(7);

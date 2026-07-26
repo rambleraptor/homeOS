@@ -311,6 +311,7 @@ describe('toZodUnion', () => {
 describe('the built-in doc types', () => {
   it('expose the expected ids', () => {
     expect(BUILTIN_DOC_TYPES.map((t) => t.id).sort()).toEqual([
+      'auto-insurance-policy',
       'form-1099-int',
       'form-w2',
       'medical-receipt',

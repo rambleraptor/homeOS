@@ -35,6 +35,7 @@ describe('usePeopleStats', () => {
       {
         id: '1',
         name: 'John',
+        aliases: [],
         addresses: [],
         created_by: 'user-1',
         created: '',
@@ -43,6 +44,7 @@ describe('usePeopleStats', () => {
       {
         id: '2',
         name: 'Jane',
+        aliases: [],
         addresses: [],
         created_by: 'user-1',
         created: '',

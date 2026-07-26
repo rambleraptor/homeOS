@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import { aepDownload, aepUpdate } from '../aepbase';
-import { isAiConfigured } from '../ai/config';
+import { getEmbeddingModelId, isAiConfigured } from '../ai/config';
 import { aiEmbed, aiGenerateObject, type ModelMessage } from '../ai/generate';
 import { companionTextField } from '../../resources/ai-fields';
 import type { EmbedOptions } from '../../resources/types';
@@ -41,14 +41,19 @@ export async function embedTextIntoStore(
     await store.purge(scope);
     return 0;
   }
+  const override = embed.embedding_model || undefined;
   const pieces = chunkText(text, embed);
-  const vectors = await aiEmbed(pieces, { model: embed.embedding_model || undefined });
+  const vectors = await aiEmbed(pieces, { model: override });
+  // Tag the vectors with the exact model that produced them (resolving the
+  // per-field override the same way `aiEmbed` did), so search never compares
+  // them against another model's and a model swap is a clean re-embed.
+  const model = getEmbeddingModelId(override);
   const chunks: VectorChunk[] = pieces.map((piece, i) => ({
     chunk: i,
     text: piece,
     vector: vectors[i],
   }));
-  await store.replace(scope, chunks);
+  await store.replace({ ...scope, model }, chunks);
   return chunks.length;
 }
 

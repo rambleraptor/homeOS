@@ -27,6 +27,7 @@ export function useCreatePerson() {
         const userId = aepbase.getCurrentUser()?.id;
         const personRecord = await aepbase.create<PersonRecord>(PEOPLE, {
           name: data.name,
+          aliases: data.aliases,
           created_by: userId ? `users/${userId}` : undefined,
         });
 

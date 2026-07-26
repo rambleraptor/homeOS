@@ -6,8 +6,13 @@
  * schemas, a `results` array in list responses, `skip`/`filter`/`id`
  * parameter names, and `components.schemas[*]["x-aep-resource"]`.
  *
- * Quirks copied from Go on purpose (consumers compensate for them already):
- * create declares a 201 response, and operation descriptions use a
+ * The create operation declares a 201 response, which now matches what the
+ * runtime returns (AEP-133) — it is no longer a doc-only quirk. Note that
+ * aep-lib-ts v0.0.2 only wires up create when the POST declares a 200, so
+ * `homestead resources` still re-derives create from the raw path
+ * (`patchCreateMethods`); that compensation is unaffected by the runtime code.
+ *
+ * One quirk still copied from Go on purpose: operation descriptions use a
  * camelCased singular ("Creates a new giftCard.").
  */
 

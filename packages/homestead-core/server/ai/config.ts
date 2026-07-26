@@ -139,3 +139,21 @@ export function getEmbeddingModel(modelOverride?: string): EmbeddingModel {
       return createGoogleGenerativeAI({ apiKey, baseURL }).textEmbeddingModel(model);
   }
 }
+
+/**
+ * The stable identity of the embedding model {@link getEmbeddingModel} would
+ * resolve for the same `modelOverride` — a fully-qualified `provider:model`
+ * string, e.g. `openai:text-embedding-3-small`. Persisted alongside every stored
+ * vector (and stamped on every query) so the store never compares vectors across
+ * models, and so a model swap is a clean re-embed rather than silent corruption.
+ *
+ * The provider is part of the identity on purpose: two providers can share a
+ * model name yet embed into unrelated spaces. Throws
+ * {@link EmbeddingNotConfiguredError} when unconfigured, mirroring
+ * {@link getEmbeddingModel} — gate on {@link isEmbeddingConfigured} first.
+ */
+export function getEmbeddingModelId(modelOverride?: string): string {
+  const cfg = currentEmbedding;
+  if (!hasEmbeddingKey(cfg)) throw new EmbeddingNotConfiguredError();
+  return `${cfg.provider}:${modelOverride || cfg.model}`;
+}

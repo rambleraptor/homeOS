@@ -27,7 +27,15 @@ export const groceriesResources: ResourceDefinition[] = [
       checked: { type: 'boolean', default: false },
       category: { type: 'string' },
       notes: { type: 'string' },
-      store: { type: 'string', reference: { resource: 'store', onDelete: 'restrict' } },
+      // When a create omits `store`, the engine fills the household's
+      // `default_store` app flag (see StoreManagement) — so the chat tools,
+      // image import, and every other write path get the default store too,
+      // not just the web form that reads the flag client-side.
+      store: {
+        type: 'string',
+        reference: { resource: 'store', onDelete: 'restrict' },
+        defaultFromFlag: { app: 'groceries', key: 'default_store' },
+      },
       created_by: { type: 'string', reference: { resource: 'user' } },
     },
     // AEP-136 custom methods on the grocery collection:

@@ -13,6 +13,10 @@ export const peopleResources: ResourceDefinition[] = [
     user_settable_create: true,
     fields: {
       name: { type: 'string', required: true },
+      // Alternate names this person is known by (maiden name, nickname,
+      // middle name). Used to match a printed name back to one person when
+      // capturing receipts and importing records.
+      aliases: { type: 'array', items: { type: 'string' } },
       created_by: { type: 'string', reference: { resource: 'user' } },
     },
     bulkImport: {

@@ -47,7 +47,7 @@ async function upload(id: string, content: string): Promise<void> {
     token: t.adminToken,
     form: multipart({ name: 'R', attachment: new Blob([content]) }),
   });
-  expect(res.status).toBe(200);
+  expect(res.status).toBe(201);
 }
 
 describe('encrypted file bytes at rest', () => {
