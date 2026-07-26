@@ -22,6 +22,19 @@ export interface FieldScope {
   field: string;
 }
 
+/**
+ * The (record, field) to replace, plus the identity of the embedding model that
+ * produced the vectors. Vectors are not comparable across models — a vector from
+ * one model is meaningless in another's space — so the model is part of the
+ * stored key: a `replace` touches only *this* model's vectors for the field,
+ * letting a second model's vectors coexist (the basis for a zero-downtime model
+ * swap). The identity is a fully-qualified `provider:model` string, e.g.
+ * `openai:text-embedding-3-small` (see `getEmbeddingModelId`).
+ */
+export interface ReplaceScope extends FieldScope {
+  model: string;
+}
+
 /** Targets vectors to delete: a whole record, or one field of it. */
 export interface PurgeScope {
   resource: string;
@@ -51,6 +64,13 @@ export interface VectorHit extends FieldScope {
 export interface VectorSearchQuery {
   /** Query embedding (any magnitude — normalized internally). */
   vector: number[];
+  /**
+   * Identity of the model that produced {@link vector}. The store compares only
+   * against vectors stored under the same model, so a query is never scored
+   * against another model's incomparable vectors. A `provider:model` string,
+   * matching what `replace` stored (see {@link ReplaceScope.model}).
+   */
+  model: string;
   /** Maximum hits to return. */
   limit: number;
   /** Restrict to these resource singulars. Omit to search all. */
@@ -59,11 +79,18 @@ export interface VectorSearchQuery {
 
 export interface VectorStore {
   /**
-   * Replace all vectors for one (record, field) with `chunks`. Re-indexing a
-   * file is a full replace, so a shrunk document leaves no stale chunks behind.
+   * Replace the vectors for one (record, field) **under `scope.model`** with
+   * `chunks`. Re-indexing a file is a full replace for that model, so a shrunk
+   * document leaves no stale chunks behind — but vectors stored under a
+   * *different* model are untouched, so two models' vectors coexist until one is
+   * purged.
    */
-  replace(scope: FieldScope, chunks: VectorChunk[]): Promise<void>;
-  /** Delete vectors for a record, or one field of it. */
+  replace(scope: ReplaceScope, chunks: VectorChunk[]): Promise<void>;
+  /**
+   * Delete vectors for a record, or one field of it — across **every** model.
+   * A deleted record (or emptied field) has no content under any model, so all
+   * of its vectors go.
+   */
   purge(scope: PurgeScope): Promise<void>;
   /** Nearest-neighbor search by cosine similarity. */
   search(query: VectorSearchQuery): Promise<VectorHit[]>;
