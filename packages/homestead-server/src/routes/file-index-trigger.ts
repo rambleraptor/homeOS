@@ -14,6 +14,8 @@
 
 import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
+import { makeOperationLogger } from '@rambleraptor/homestead-core/resources/operations';
+import { runOperationJob } from '@rambleraptor/homestead-core/resources/operation-runner';
 import { indexFile } from '@rambleraptor/homestead-core/server/vectors/index-file';
 import { getVectorStore } from '@rambleraptor/homestead-core/server/vectors/store';
 import {
@@ -123,7 +125,12 @@ export async function handleCrudWithIndexing(
   return res;
 }
 
-/** Create an operation, run the index pipeline, and record the outcome on it. */
+/**
+ * Create an operation, run the index pipeline under the shared concurrency gate,
+ * and record the outcome on it. The record is created `pending` and queued
+ * behind {@link operationRunner} so a burst of uploads can't stampede the
+ * indexer; it flips to `running` (with a `started` log entry) once a slot frees.
+ */
 async function runIndexOperation(input: {
   def: ResourceDefinition;
   plural: string;
@@ -134,30 +141,39 @@ async function runIndexOperation(input: {
   userId: string;
 }): Promise<void> {
   const { def, plural, recordId, fieldName, field, token, userId } = input;
+  let op;
   try {
-    const op = await operationStore.create({
+    op = await operationStore.create({
       token,
       method: `${plural}/${recordId}:index-file`,
       title: `Index ${fieldName}`,
       createdBy: userId,
+      status: 'pending',
     });
-    try {
-      const response = await indexFile({
+  } catch (err) {
+    // Couldn't even create the operation — nothing tracks it, so log.
+    logFailure('index', def.singular, recordId, err);
+    return;
+  }
+
+  const opId = op.id;
+  const logger = makeOperationLogger(operationStore, { token, id: opId });
+  await runOperationJob({
+    store: operationStore,
+    token,
+    operationId: opId,
+    log: (message) => logger.log(message),
+    work: () =>
+      indexFile({
         resource: def.singular,
         plural,
         record: recordId,
         field: fieldName,
         embed: resolveEmbedOptions(field),
         token,
-      });
-      await operationStore.complete({ token, id: op.id, response });
-    } catch (err) {
-      await operationStore.complete({ token, id: op.id, error: err });
-    }
-  } catch (err) {
-    // Couldn't even create/complete the operation — nothing tracks it, so log.
-    logFailure('index', def.singular, recordId, err);
-  }
+      }),
+    timeoutLabel: `index ${def.singular}/${recordId}`,
+  });
 }
 
 function logFailure(what: string, resource: string, record: string, err: unknown): void {

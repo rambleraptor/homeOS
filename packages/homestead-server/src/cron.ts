@@ -17,8 +17,13 @@
  * handler still runs so the work isn't skipped.
  *
  * A hook that is still running when its next tick arrives is skipped for that
- * tick (no overlapping runs), and a handler that throws is logged and
- * swallowed so a single bad run can't take the process down.
+ * tick (no overlapping runs of the same hook), and a handler that throws is
+ * logged and swallowed so a single bad run can't take the process down.
+ *
+ * Each firing runs through the shared {@link operationRunner}, the same
+ * process-wide concurrency pool every other operation uses, so cron work
+ * competes for the same `HOMESTEAD_MAX_OPERATIONS` slots instead of being
+ * treated separately.
  *
  * Timers are `unref`'d: cron work should never keep the process alive on its
  * own — the HTTP listener does that — so shutdown and short-lived tools/tests
@@ -35,6 +40,7 @@ import {
   type OperationLogger,
   type OperationStore,
 } from '@rambleraptor/homestead-core/resources/operations';
+import { runOperationJob } from '@rambleraptor/homestead-core/resources/operation-runner';
 
 export interface CronScheduler {
   /** Stop all timers. Idempotent. In-flight handlers are left to finish. */
@@ -48,12 +54,12 @@ export function cronOperationMethod(id: string): string {
 
 /**
  * Run a single hook once, end to end: mint a short-lived admin token, open an
- * operation for the firing, invoke the lazily-imported handler, and complete
- * the operation (succeeded with the handler's result, or failed with its
- * error) before revoking the token. Never rejects — a missing admin, a failed
- * operation create, or a throwing handler is logged and swallowed so the
- * scheduler's timer callback stays clean. Exposed (rather than inlined) so the
- * per-firing contract can be unit-tested without timers.
+ * operation for the firing, run the lazily-imported handler through the shared
+ * concurrency pool, and complete the operation (succeeded with the handler's
+ * result, or failed with its error) before revoking the token. Never rejects —
+ * a missing admin, a failed operation create, or a throwing handler is logged
+ * and swallowed so the scheduler's timer callback stays clean. Exposed (rather
+ * than inlined) so the per-firing contract can be unit-tested without timers.
  *
  * The firing is bracketed with a `started` log entry and a terminal
  * `succeeded` / `failed: …` entry, and the handler gets a `log` function to add
@@ -73,9 +79,12 @@ export async function runCronHook(
     return;
   }
 
-  // Open the operation up front so the run is logged even mid-flight. Best
+  // Open the operation up front so the run is visible while it's queued. Best
   // effort: if it can't be created, still run the handler (the work matters
-  // more than the record) with a no-op logger.
+  // more than the record) with a no-op logger. Created `pending` — the run is
+  // gated behind the shared runner and may wait for a slot; `start()` promotes
+  // it to `running` once one frees.
+  const firedAt = nowRFC3339();
   let operation: Operation | undefined;
   try {
     operation = await operations.create({
@@ -83,6 +92,7 @@ export async function runCronHook(
       method: cronOperationMethod(hook.id),
       title: hook.title ?? hook.id,
       createdBy: admin.userId,
+      status: 'pending',
     });
   } catch (error) {
     console.error(`[cron] "${hook.id}" could not open an operation; running without one`, error);
@@ -96,36 +106,30 @@ export async function runCronHook(
   const log = logger ? (m: string) => logger.log(m) : async () => {};
 
   try {
-    await log('started');
-    const mod = await hook.load();
-    const response = await mod.default({
-      id: hook.id,
-      appId: hook.appId,
+    // Run through the shared lifecycle helper so cron firings compete for the
+    // same `HOMESTEAD_MAX_OPERATIONS` slots as every other operation and share
+    // the start → log → complete choreography. `operationId` is undefined when
+    // the record couldn't be created — the run still happens, just untracked.
+    // The token stays valid across any queue wait; it's revoked in `finally`
+    // once the run settles.
+    await runOperationJob({
+      store: operations,
       token: admin.token,
-      firedAt: nowRFC3339(),
+      operationId: operation?.id,
       log,
+      work: async () => {
+        const mod = await hook.load();
+        return mod.default({
+          id: hook.id,
+          appId: hook.appId,
+          token: admin.token,
+          firedAt,
+          log,
+        });
+      },
+      timeoutLabel: `cron "${hook.id}"`,
+      onError: (error) => console.error(`[cron] "${hook.id}" failed`, error),
     });
-    // Record the terminal status before completing. Safe against the
-    // complete() PATCH below: the logger only writes `metadata` while
-    // complete() only writes done/status/response/error (disjoint keys).
-    await log('succeeded');
-    if (operation) {
-      await operations.complete({
-        token: admin.token,
-        id: operation.id,
-        response: response ?? {},
-      });
-    }
-  } catch (error) {
-    console.error(`[cron] "${hook.id}" failed`, error);
-    await log(`failed: ${error instanceof Error ? error.message : String(error)}`);
-    if (operation) {
-      try {
-        await operations.complete({ token: admin.token, id: operation.id, error });
-      } catch (recordError) {
-        console.error(`[cron] "${hook.id}" could not record failure`, recordError);
-      }
-    }
   } finally {
     admin.revoke();
   }

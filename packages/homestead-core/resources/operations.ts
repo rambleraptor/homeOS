@@ -45,6 +45,13 @@ export interface CreateOperationInput {
   title?: string;
   /** User id of the initiator (stored as `created_by`). */
   createdBy?: string;
+  /**
+   * Initial status. Defaults to `running` (the record starts executing
+   * immediately). Spawners that queue behind the {@link OperationStore}'s
+   * concurrency gate create it as `pending` and later flip it to `running` via
+   * {@link OperationStore.start} once a slot frees.
+   */
+  status?: OperationStatus;
 }
 
 /** Inputs for finishing an operation — exactly one of `response`/`error`. */
@@ -89,6 +96,12 @@ export interface OperationStore {
   complete(input: CompleteOperationInput): Promise<void>;
   /** Overwrite the operation's `metadata` (used to append log entries). */
   updateMetadata(input: UpdateMetadataInput): Promise<void>;
+  /**
+   * Promote a `pending` (queued) operation to `running`. Called once a
+   * concurrency slot frees, just before the handler executes. Optional so test
+   * fakes and older stores that never queue can omit it.
+   */
+  start?(input: { token: string; id: string }): Promise<void>;
 }
 
 /**

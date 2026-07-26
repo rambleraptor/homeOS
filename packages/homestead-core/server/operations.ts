@@ -18,18 +18,22 @@ import {
 } from '../resources/operations';
 
 export const operationStore: OperationStore = {
-  async create({ token, method, title, createdBy }: CreateOperationInput): Promise<Operation> {
+  async create({ token, method, title, createdBy, status }: CreateOperationInput): Promise<Operation> {
     return aepCreate<Operation>(
       OPERATIONS,
       {
         done: false,
-        status: 'running',
+        status: status ?? 'running',
         method,
         title: title ?? method,
         created_by: createdBy ?? '',
       },
       token,
     );
+  },
+
+  async start({ token, id }: { token: string; id: string }): Promise<void> {
+    await aepUpdate<Operation>(OPERATIONS, id, { status: 'running' }, token);
   },
 
   async complete({ token, id, response, error }: CompleteOperationInput): Promise<void> {
