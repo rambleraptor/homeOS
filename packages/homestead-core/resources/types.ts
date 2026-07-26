@@ -340,7 +340,7 @@ export interface CustomMethodContext {
   parent?: string[];
   /**
    * Append a status/progress entry to the operation's log (`metadata.logs`),
-   * surfaced as the operation's current status in the Operations tab. Present
+   * surfaced as the operation's current status in the Operations app. Present
    * **only for async (AEP-151) methods** — sync methods and the pre-flight
    * `validate` check have no operation, so call it as `ctx.log?.(...)`. Never
    * throws; safe to `await` or ignore. The dispatcher brackets the run with
@@ -415,7 +415,7 @@ export interface ResourceCustomMethod {
   async?: boolean;
   /**
    * Human-readable label for the operation this method spawns, shown in the
-   * notifications app's Operations tab (e.g. `'Parse receipt'`). Async methods
+   * (superuser-only) Operations app (e.g. `'Parse receipt'`). Async methods
    * only; defaults to the `plural:verb` method name.
    */
   title?: string;

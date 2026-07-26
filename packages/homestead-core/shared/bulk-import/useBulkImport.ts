@@ -134,8 +134,8 @@ export function useBulkImportRun(plural: string, queryKey: readonly unknown[]) {
         body,
       );
       // No intervalMs override: a real import is background work, and the
-      // operation stays visible in the notifications app if the user navigates
-      // away mid-import.
+      // operation stays visible in the (superuser-only) Operations app if the
+      // user navigates away mid-import.
       return awaitOperation<BulkImportResult>(operation.id);
     },
     onSuccess: () => {

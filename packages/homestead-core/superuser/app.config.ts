@@ -10,13 +10,14 @@
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { flagManagementApp } from './flag-management/app.config';
 import { usersApp } from './users/app.config';
+import { operationsApp } from '@rambleraptor/homestead-core/operations/app.config';
 
 export const superuserApp: AppConfig = {
   id: 'superuser',
   name: 'Superuser',
   description: 'App flags and other superuser-only controls',
   defaultEnabled: 'superusers',
-  children: [usersApp, flagManagementApp],
+  children: [usersApp, flagManagementApp, operationsApp],
   web: {
     icon: () => import('lucide-react').then((m) => m.ShieldCheck),
     basePath: '/superuser',

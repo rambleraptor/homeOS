@@ -42,8 +42,8 @@ export function useUploadDocument() {
       const doc = await aepbase.create<Document>(DOCUMENTS, formData);
       await invalidateDocuments();
 
-      // Fire-and-forget: the operation is observable in the notifications
-      // Operations tab, and the list polls parse_status. A failure here must not
+      // Fire-and-forget: the operation is observable in the (superuser-only)
+      // Operations app, and the list polls parse_status. A failure here must not
       // fail the upload — the file is already stored.
       void aepbase
         .customMethod<{ id: string }>(DOCUMENTS, 'classify', undefined, { id: doc.id })

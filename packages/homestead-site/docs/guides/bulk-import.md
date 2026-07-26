@@ -53,8 +53,8 @@ same call.
 
 Every call runs as an [AEP-151 operation](https://aep.dev/151/): you get `202`
 and a pending operation, then poll it. Long imports survive the user navigating
-away, show up in the notifications app, and fail cleanly if the server restarts
-mid-import.
+away, show up in the (superuser-only) Operations app, and fail cleanly if the
+server restarts mid-import.
 
 A call is two steps:
 

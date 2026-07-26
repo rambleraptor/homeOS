@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Bell, Check, Calendar } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
@@ -6,12 +5,8 @@ import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner'
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useNotifications } from '../hooks/useNotifications';
 import { useMarkNotificationAsRead } from '../hooks/useMarkNotificationAsRead';
-import { useHasOngoingOperations } from '../hooks/useOperations';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Notification } from '../types';
-import { OperationsList } from './OperationsList';
-
-type Tab = 'notifications' | 'operations';
 
 function NotificationsPanel() {
   const { data: notifications, isLoading } = useNotifications();
@@ -110,64 +105,15 @@ function NotificationsPanel() {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  testId,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  testId: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      data-testid={testId}
-      className={`px-4 py-2 -mb-px border-b-2 font-medium text-sm transition-colors ${
-        active
-          ? 'border-brand-navy text-brand-navy'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 export function NotificationsHome() {
-  const [tab, setTab] = useState<Tab>('notifications');
-  const hasOngoingOperations = useHasOngoingOperations();
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Notification Center"
-        subtitle="View and manage your notifications and operations"
+        subtitle="View and manage your notifications"
       />
 
-      <div className="flex gap-2 border-b border-gray-200">
-        <TabButton
-          active={tab === 'notifications'}
-          onClick={() => setTab('notifications')}
-          testId="notifications-tab"
-        >
-          Notifications
-        </TabButton>
-        <TabButton
-          active={tab === 'operations'}
-          onClick={() => setTab('operations')}
-          testId="operations-tab"
-        >
-          <span className="inline-flex items-center gap-2">
-            Operations
-            {hasOngoingOperations && <Spinner size="sm" />}
-          </span>
-        </TabButton>
-      </div>
-
-      {tab === 'notifications' ? <NotificationsPanel /> : <OperationsList />}
+      <NotificationsPanel />
     </div>
   );
 }

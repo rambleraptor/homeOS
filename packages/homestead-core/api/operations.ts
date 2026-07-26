@@ -4,13 +4,12 @@
  * Async custom methods answer with `202` + an Operation instead of the result.
  * `awaitOperation` polls that operation until it settles and hands back its
  * `response` — letting a caller `await` an async method almost as if it were
- * synchronous, while the operation itself stays visible in the notifications
- * app's Operations tab.
+ * synchronous, while the operation itself stays visible in the (superuser-only)
+ * Operations app.
  */
 
 import { aepbase } from './aepbase';
-import { OPERATIONS } from '../resources/builtins';
-import type { Operation } from '../resources/operations';
+import { OPERATIONS, type Operation } from '../resources/operations';
 
 const DEFAULT_INTERVAL_MS = 1500;
 const DEFAULT_TIMEOUT_MS = 120_000;

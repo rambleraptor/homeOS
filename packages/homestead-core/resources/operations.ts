@@ -9,9 +9,13 @@
  * `packages/homestead-core/server/operations.ts`.
  */
 
-import { OPERATIONS } from './builtins';
-
-export { OPERATIONS };
+/**
+ * Plural of the `operation` collection. The resource *definition* is owned by
+ * the operations app (`@rambleraptor/homestead-core/operations/resources`); the
+ * const lives here in the runtime-agnostic contract module so the dispatcher,
+ * cron scheduler, and server store can reach it without importing an app dir.
+ */
+export const OPERATIONS = 'operations' as const;
 
 /** AEP-151 operation status shown in the UI. `done` is the source of truth. */
 export type OperationStatus = 'pending' | 'running' | 'succeeded' | 'failed';

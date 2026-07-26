@@ -14,7 +14,7 @@
  * Every firing runs inside an AEP-151 **operation** — the scheduler creates one
  * before invoking the handler and completes it (succeeded/failed) afterwards —
  * so each run leaves a persisted record (status, timing, result, or error) in
- * the `operations` collection, visible in the Operations tab. The value a
+ * the `operations` collection, visible in the Operations app. The value a
  * handler resolves becomes the operation's `response`; anything it throws
  * becomes the operation's `error`.
  *
@@ -44,7 +44,7 @@ export interface CronContext {
   /**
    * Append a status/progress entry to this firing's operation log
    * (`metadata.logs`). The most recent entry surfaces as the operation's
-   * current status in the Operations tab while it runs. Never throws — a
+   * current status in the Operations app while it runs. Never throws — a
    * logging failure is swallowed — and is safe to `await` (for ordering) or
    * ignore.
    *
@@ -82,7 +82,7 @@ export interface CronHook {
 
   /**
    * Human-readable label for the operation each firing spawns, shown in the
-   * Operations tab (e.g. `'Weekly grocery digest'`). Defaults to the hook's
+   * Operations app (e.g. `'Weekly grocery digest'`). Defaults to the hook's
    * {@link id}.
    */
   title?: string;
