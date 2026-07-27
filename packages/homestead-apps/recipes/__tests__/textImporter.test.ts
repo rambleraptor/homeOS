@@ -3,6 +3,7 @@ import {
   textImporter,
   parseQuantity,
   parseIngredientLine,
+  extractNote,
   splitSteps,
   extractRecipeMeta,
 } from '../importers/textImporter';
@@ -97,6 +98,45 @@ describe('parseIngredientLine', () => {
   it('preserves the raw line exactly', () => {
     const raw = '1 tablespoon extra-virgin olive oil';
     expect(parseIngredientLine(raw).raw).toBe(raw);
+  });
+
+  it('pulls a parenthetical substitution into notes and keeps item clean', () => {
+    expect(parseIngredientLine('1 whole chicken (or 8 thighs, 4 breasts)')).toEqual({
+      qty: 1,
+      unit: '',
+      item: 'whole chicken',
+      notes: 'or 8 thighs, 4 breasts',
+      raw: '1 whole chicken (or 8 thighs, 4 breasts)',
+    });
+  });
+
+  it('omits notes entirely when there is no parenthetical', () => {
+    const ing = parseIngredientLine('2 cups flour');
+    expect(ing).not.toHaveProperty('notes');
+  });
+});
+
+describe('extractNote', () => {
+  it('splits a trailing parenthetical off the text', () => {
+    expect(extractNote('chicken (or 8 thighs, 4 breasts)')).toEqual({
+      text: 'chicken',
+      note: 'or 8 thighs, 4 breasts',
+    });
+  });
+
+  it('joins multiple parentheticals with a semicolon', () => {
+    expect(extractNote('butter (softened) (unsalted)')).toEqual({
+      text: 'butter',
+      note: 'softened; unsalted',
+    });
+  });
+
+  it('returns the trimmed text with no note when there are no parens', () => {
+    expect(extractNote('  black pepper  ')).toEqual({ text: 'black pepper' });
+  });
+
+  it('leaves an unclosed parenthesis in place', () => {
+    expect(extractNote('salt (to taste')).toEqual({ text: 'salt (to taste' });
   });
 });
 
@@ -212,7 +252,8 @@ Source: https://www.wellplated.com/bacon-wrapped-asparagus/`;
       {
         qty: 1,
         unit: 'pound',
-        item: 'asparagus spears trimmed (about 20 to 24 spears)',
+        item: 'asparagus spears trimmed',
+        notes: 'about 20 to 24 spears',
         raw: '1 pound asparagus spears trimmed (about 20 to 24 spears)',
       },
       {

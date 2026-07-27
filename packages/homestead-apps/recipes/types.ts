@@ -6,6 +6,13 @@ export interface RecipeIngredient {
   item: string;
   qty: number;
   unit: string;
+  /**
+   * Substitutions or other context that isn't part of the ingredient name —
+   * e.g. "or 8 thighs, 4 breasts" for "1 whole chicken (or 8 thighs, 4
+   * breasts)". Importers extract parenthetical asides here; absent when the
+   * ingredient has no note.
+   */
+  notes?: string;
   raw: string;
 }
 

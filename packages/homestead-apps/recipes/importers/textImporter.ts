@@ -162,16 +162,41 @@ export function parseQuantity(line: string): { qty: number; rest: string } {
 }
 
 /**
- * Split an ingredient line into `{ qty, unit, item, raw }`.
+ * Pull parenthetical asides out of an ingredient's text into a separate note.
+ *
+ *   "chicken (or 8 thighs, 4 breasts)" -> { text: "chicken", note: "or 8 thighs, 4 breasts" }
+ *
+ * These trailing/inline parentheticals hold substitutions and other context
+ * ("to taste", "about 20 spears") that shouldn't be part of the ingredient
+ * name — pulling them out keeps `item` clean for grocery-list matching while
+ * preserving the aside. Multiple groups are joined with "; "; an unclosed
+ * parenthesis is left untouched.
+ */
+export function extractNote(text: string): { text: string; note?: string } {
+  const notes: string[] = [];
+  const stripped = text.replace(/\(([^)]*)\)/g, (_match, inner: string) => {
+    const trimmed = inner.trim();
+    if (trimmed) notes.push(trimmed);
+    return ' ';
+  });
+  const note = notes.join('; ');
+  if (!note) return { text: text.trim() };
+  return { text: stripped.replace(/\s+/g, ' ').trim(), note };
+}
+
+/**
+ * Split an ingredient line into `{ qty, unit, item, notes, raw }`.
  *
  * Heuristic only — the `raw` line is always preserved so users can fix
- * anything we got wrong in the form.
+ * anything we got wrong in the form. `notes` is only present when the line
+ * carries a parenthetical aside (see {@link extractNote}).
  */
 export function parseIngredientLine(line: string): RecipeIngredient {
   const raw = line.trim();
   const { qty, rest } = parseQuantity(raw);
+  const { text, note } = extractNote(rest);
 
-  const tokens = rest.split(/\s+/).filter(Boolean);
+  const tokens = text.split(/\s+/).filter(Boolean);
   let unit = '';
   let itemStart = 0;
   if (tokens.length > 0 && UNIT_SET.has(tokens[0].toLowerCase().replace(/\.$/, ''))) {
@@ -180,7 +205,7 @@ export function parseIngredientLine(line: string): RecipeIngredient {
   }
   const item = tokens.slice(itemStart).join(' ').trim();
 
-  return { qty, unit, item, raw };
+  return { qty, unit, item, ...(note ? { notes: note } : {}), raw };
 }
 
 /**

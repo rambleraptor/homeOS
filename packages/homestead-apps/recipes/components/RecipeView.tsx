@@ -253,7 +253,17 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
                   <span className="font-medium tabular-nums shrink-0">
                     {formatQty(ing)}
                   </span>
-                  <span>{ing.item || ing.raw}</span>
+                  <span className="min-w-0">
+                    {ing.item || ing.raw}
+                    {ing.notes && (
+                      <span
+                        data-testid={`recipe-view-ingredient-notes-${idx}`}
+                        className="block text-sm text-text-muted"
+                      >
+                        {ing.notes}
+                      </span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

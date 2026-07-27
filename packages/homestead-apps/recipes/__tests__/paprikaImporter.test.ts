@@ -50,7 +50,8 @@ describe('paprikaJsonToRecipe', () => {
       {
         qty: 1,
         unit: 'pound',
-        item: 'asparagus spears trimmed (about 20 to 24 spears)',
+        item: 'asparagus spears trimmed',
+        notes: 'about 20 to 24 spears',
         raw: '1 pound asparagus spears trimmed (about 20 to 24 spears)',
       },
       {
