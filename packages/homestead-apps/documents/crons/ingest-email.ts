@@ -131,17 +131,27 @@ const handler: CronHandler = async ({ token, log }) => {
         uploaded++;
         filed.add(key);
 
-        // Kick off classification (fire-and-forget; the upload is already
-        // durable). Skip when AI is off — classify would just 503 and clutter
-        // the Operations log.
+        // Kick off classification. Skip when AI is off — classify would just
+        // 503 and clutter the Operations log.
+        //
+        // Await the trigger (which returns 202 as soon as the operation record
+        // is created), not the classification itself — the work still runs in
+        // the background pool. We wait only for acceptance so the operation
+        // takes its lease on our short-lived admin token *before* this firing
+        // returns and revokes it; otherwise the classify operation's own
+        // lifecycle writes would race the revoke and strand it forever. A
+        // trigger failure is logged but not fatal: the upload is already durable
+        // and must not block trashing the message.
         if (aiReady) {
-          void aepbaseFetch(`/${DOCUMENTS}/${doc.id}:classify`, {
-            token,
-            method: 'POST',
-            body: {},
-          }).catch((error) => {
+          try {
+            await aepbaseFetch(`/${DOCUMENTS}/${doc.id}:classify`, {
+              token,
+              method: 'POST',
+              body: {},
+            });
+          } catch (error) {
             console.error(`[documents] classify trigger failed for ${doc.id}`, error);
-          });
+          }
         }
       } catch (error) {
         messageFailed = true;

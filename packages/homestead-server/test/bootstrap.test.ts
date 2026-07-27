@@ -11,6 +11,7 @@ import {
   DEFAULT_SUPERUSER_EMAIL,
 } from '../src/bootstrap';
 import { countUsers, createUserTables, getUserByEmail, getUserByToken } from '../src/engine/users';
+import { retainToken, releaseToken } from '@rambleraptor/homestead-core/server/token-lease';
 
 function freshDb(): Database {
   const db = new Database(':memory:');
@@ -109,5 +110,23 @@ describe('mintAdminToken', () => {
   test('throws when no superuser exists', () => {
     const db = freshDb();
     expect(() => mintAdminToken(db)).toThrow('no superuser exists');
+  });
+
+  test('revoke defers token deletion while a background operation holds a lease', async () => {
+    const db = freshDb();
+    await createSuperuser(db, 'owner@example.com', 'pw');
+    const admin = mintAdminToken(db);
+
+    // A detached operation created under this token retains a lease on it.
+    retainToken(admin.token);
+
+    // The minter revokes eagerly (e.g. a cron firing returning) — but the token
+    // must stay usable so the in-flight operation's lifecycle writes still work.
+    admin.revoke();
+    expect(getUserByToken(db, admin.token)?.email).toBe('owner@example.com');
+
+    // Once the operation settles and releases its lease, the token is deleted.
+    releaseToken(admin.token);
+    expect(getUserByToken(db, admin.token)).toBeNull();
   });
 });
