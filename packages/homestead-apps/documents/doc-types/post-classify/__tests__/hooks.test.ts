@@ -9,8 +9,10 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { Document } from '../../../types';
 
 const aepCreate = vi.fn();
+const aepList = vi.fn();
 vi.mock('@rambleraptor/homestead-core/server/aepbase', () => ({
   aepCreate: (...args: unknown[]) => aepCreate(...args),
+  aepList: (...args: unknown[]) => aepList(...args),
 }));
 
 import medicalReceiptHook from '../medical-receipt.server';
@@ -33,6 +35,8 @@ const doc = (over: Partial<Document> = {}): Document => ({
 beforeEach(() => {
   aepCreate.mockReset();
   aepCreate.mockResolvedValue({ id: 'created1' });
+  aepList.mockReset();
+  aepList.mockResolvedValue([]); // no people to match unless a test says so
 });
 
 describe('medical-receipt post_classify', () => {
@@ -70,6 +74,71 @@ describe('medical-receipt post_classify', () => {
     expect(body.notes).toContain('Items: Amoxicillin, dispensing fee');
     expect(body.notes).toContain('Paid by: card');
     expect(result).toEqual({ linked_resource: 'hsa-receipts/created1' });
+  });
+
+  it('links the receipt to a person on an unambiguous patient-name match', async () => {
+    aepList.mockResolvedValue([
+      { id: 'p1', name: 'Jamie', aliases: [] },
+      { id: 'p2', name: 'Alex', aliases: ['Alexander'] },
+    ]);
+
+    await medicalReceiptHook({
+      document: doc(),
+      metadata: { doc_type: 'medical-receipt', patient: 'Jamie' },
+      auth,
+    });
+
+    const [plural, body, token] = aepCreate.mock.calls[0];
+    expect(plural).toBe('hsa-receipts');
+    expect(token).toBe('tok');
+    expect(aepList).toHaveBeenCalledWith('people', 'tok');
+    expect(body.patient).toBe('Jamie');
+    expect(body.person).toBe('people/p1');
+  });
+
+  it('matches a patient name against a person alias', async () => {
+    aepList.mockResolvedValue([{ id: 'p2', name: 'Alex', aliases: ['Alexander'] }]);
+
+    await medicalReceiptHook({
+      document: doc(),
+      metadata: { doc_type: 'medical-receipt', patient: 'alexander' },
+      auth,
+    });
+
+    const [, body] = aepCreate.mock.calls[0];
+    expect(body.person).toBe('people/p2');
+  });
+
+  it('leaves person unset when the patient name is ambiguous or unknown', async () => {
+    aepList.mockResolvedValue([
+      { id: 'p1', name: 'Jamie', aliases: [] },
+      { id: 'p3', name: 'Jamie', aliases: [] }, // two people named Jamie → ambiguous
+    ]);
+
+    await medicalReceiptHook({
+      document: doc(),
+      metadata: { doc_type: 'medical-receipt', patient: 'Jamie' },
+      auth,
+    });
+
+    const [, body] = aepCreate.mock.calls[0];
+    expect(body.patient).toBe('Jamie');
+    expect(body.person).toBeUndefined();
+  });
+
+  it('still creates the receipt when the people lookup fails', async () => {
+    aepList.mockRejectedValue(new Error('boom'));
+
+    await medicalReceiptHook({
+      document: doc(),
+      metadata: { doc_type: 'medical-receipt', patient: 'Jamie' },
+      auth,
+    });
+
+    expect(aepCreate).toHaveBeenCalledTimes(1);
+    const [, body] = aepCreate.mock.calls[0];
+    expect(body.patient).toBe('Jamie');
+    expect(body.person).toBeUndefined();
   });
 
   it('falls back to a valid category and the document date/title when absent', async () => {
