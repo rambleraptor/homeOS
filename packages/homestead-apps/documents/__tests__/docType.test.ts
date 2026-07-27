@@ -156,6 +156,35 @@ describe('validateDocType', () => {
     ).toThrow(/"row\.badName" must be snake_case/);
   });
 
+  it('accepts a person marker on a string field and preserves it', () => {
+    const parsed = validateDocType(
+      {
+        ...wellFormed,
+        fields: { patient: { label: 'Patient', type: 'string', person: true } },
+      },
+      'x.ts',
+    );
+    expect(parsed.fields.patient!.person).toBe(true);
+  });
+
+  it('rejects a person marker on a non-string field', () => {
+    expect(() =>
+      validateDocType(
+        { ...wellFormed, fields: { amount: { label: 'Amount', type: 'number', person: true } } },
+        'x.ts',
+      ),
+    ).toThrow(/person is only valid on a string field/);
+  });
+
+  it('rejects a non-boolean person marker', () => {
+    expect(() =>
+      validateDocType(
+        { ...wellFormed, fields: { who: { label: 'Who', type: 'string', person: 'yes' } } },
+        'x.ts',
+      ),
+    ).toThrow(/person must be a boolean/);
+  });
+
   it('accepts an optional post_classify function and rejects a non-function', () => {
     const hook = () => Promise.resolve({ default: async () => undefined });
     expect(() =>

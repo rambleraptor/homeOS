@@ -1,0 +1,85 @@
+/**
+ * The documents index filter bar. Presentational — driven by props, reports
+ * changes through onChange — so it's tested directly without a data layer.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { DocumentFilters } from '../components/DocumentFilters';
+import { EMPTY_FILTERS, type DocumentFilters as Filters } from '../filtering';
+
+const docTypes = [
+  { value: 'form-w2', label: 'Form W-2' },
+  { value: 'medical-receipt', label: 'Medical receipt' },
+];
+const people = ['Alex Stephen', 'Jane Doe'];
+
+function setup(filters: Filters = EMPTY_FILTERS) {
+  const onChange = vi.fn();
+  render(
+    <DocumentFilters
+      filters={filters}
+      onChange={onChange}
+      docTypes={docTypes}
+      people={people}
+    />,
+  );
+  return { onChange };
+}
+
+describe('DocumentFilters', () => {
+  it('renders a type option per facet and a person option per name', () => {
+    setup();
+    expect(screen.getByRole('option', { name: 'Form W-2' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Medical receipt' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Alex Stephen' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Jane Doe' })).toBeInTheDocument();
+  });
+
+  it('reports search input through onChange', async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup();
+    await user.type(screen.getByTestId('document-search'), 'a');
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, search: 'a' });
+  });
+
+  it('reports a chosen document type', async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup();
+    await user.selectOptions(screen.getByTestId('document-type-filter'), 'form-w2');
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, docType: 'form-w2' });
+  });
+
+  it('reports a chosen person', async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup();
+    await user.selectOptions(screen.getByTestId('document-person-filter'), 'Jane Doe');
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, person: 'Jane Doe' });
+  });
+
+  it('hides the type and person selects when there are no facets', () => {
+    render(
+      <DocumentFilters
+        filters={EMPTY_FILTERS}
+        onChange={vi.fn()}
+        docTypes={[]}
+        people={[]}
+      />,
+    );
+    expect(screen.queryByTestId('document-type-filter')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('document-person-filter')).not.toBeInTheDocument();
+  });
+
+  it('hides Clear when no filter is active', () => {
+    setup();
+    expect(screen.queryByTestId('document-filters-clear')).not.toBeInTheDocument();
+  });
+
+  it('shows Clear when a filter is active and resets everything', async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup({ search: 'x', docType: 'form-w2', person: '' });
+    await user.click(screen.getByTestId('document-filters-clear'));
+    expect(onChange).toHaveBeenCalledWith({ search: '', docType: '', person: '' });
+  });
+});

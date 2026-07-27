@@ -39,6 +39,7 @@ const form1099Int: DocType = {
     recipient_name: {
       label: 'Recipient name',
       type: 'string',
+      person: true,
       description:
         'The account holder the interest was paid to, as printed on the form.',
     },

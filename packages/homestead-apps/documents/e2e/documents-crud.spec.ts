@@ -134,6 +134,55 @@ test.describe('Documents', () => {
     expect(overThousand.map((d) => d.id)).not.toContain(parsed.id);
   });
 
+  test('the index filters by search, type, and person', async ({
+    userToken,
+    authenticatedPage,
+  }) => {
+    // A parsed 1099 (recipient "Alex Stephen", per the AI stub) and an unmatched
+    // letter — enough to exercise all three filters against distinct rows.
+    const parsed = await uploadAndClassify(userToken, 'match', { title: 'ally-1099' });
+    const unmatched = await uploadAndClassify(userToken, 'unknown', {
+      title: 'mystery-letter',
+    });
+    expect(parsed.parse_status).toBe('parsed');
+    expect(unmatched.parse_status).toBe('unmatched');
+
+    const documents = new DocumentsPage(authenticatedPage);
+    await documents.goto();
+    await expect(documents.card('ally-1099')).toBeVisible();
+    await expect(documents.card('mystery-letter')).toBeVisible();
+
+    // Search narrows to the matching title.
+    await documents.search('ally');
+    await expect(documents.card('ally-1099')).toBeVisible();
+    await expect(documents.card('mystery-letter')).toHaveCount(0);
+
+    // Search also reaches parsed metadata (the payer name from the 1099).
+    await documents.search('Ally Bank');
+    await expect(documents.card('ally-1099')).toBeVisible();
+
+    await documents.clearFilters();
+    await expect(documents.card('mystery-letter')).toBeVisible();
+
+    // Type filter keeps only the 1099; the unmatched letter drops out.
+    await documents.filterByType('Form 1099-INT');
+    await expect(documents.card('ally-1099')).toBeVisible();
+    await expect(documents.card('mystery-letter')).toHaveCount(0);
+
+    await documents.clearFilters();
+
+    // Person filter — "Alex Stephen" is derived from the 1099's recipient_name,
+    // not stored; the unmatched letter names no one, so it drops out.
+    await documents.filterByPerson('Alex Stephen');
+    await expect(documents.card('ally-1099')).toBeVisible();
+    await expect(documents.card('mystery-letter')).toHaveCount(0);
+
+    // A filter that matches nothing shows the no-matches placeholder.
+    await documents.clearFilters();
+    await documents.search('nothing-matches-this-xyz');
+    await expect(documents.noMatches()).toBeVisible();
+  });
+
   test('classify rejects an unsupported file type pre-flight, creating no operation', async ({
     userToken,
   }) => {
