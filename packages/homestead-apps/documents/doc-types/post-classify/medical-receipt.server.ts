@@ -12,11 +12,14 @@
  * only ever reached through the lazy `post_classify` thunk on the doc type.
  */
 
-import { aepCreate } from '@rambleraptor/homestead-core/server/aepbase';
+import { aepCreate, aepList } from '@rambleraptor/homestead-core/server/aepbase';
 import type { PostClassifyHandler } from '../docType';
 import { DOCUMENTS } from '../../resources';
 import { HSA_RECEIPTS } from '../../../hsa/resources';
 import type { HSAReceipt, ReceiptCategory } from '../../../hsa/types';
+import { PEOPLE } from '../../../people/resources';
+import type { Person } from '../../../people/types';
+import { matchPersonByName } from '../../../people/utils/matchPerson';
 
 /** The HSA receipt categories, as the enum the resource declares. */
 const HSA_CATEGORIES: ReceiptCategory[] = ['Medical', 'Dental', 'Vision', 'Rx'];
@@ -41,6 +44,29 @@ function toDateTime(printed: string | undefined, fallback: string): string {
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
   }
   return fallback;
+}
+
+/**
+ * Resolve a printed patient name to a canonical `person` record, so a
+ * document-created receipt links to a person the same way the quick-capture
+ * form does (via `matchPersonByName`) rather than only carrying the free-text
+ * `patient`. Best-effort enrichment: an unreadable people list, or a name that
+ * matches zero or more than one person, just leaves the receipt with its
+ * patient string — never blocks receipt creation.
+ */
+async function resolvePersonPath(
+  name: string,
+  token: string,
+): Promise<string | undefined> {
+  try {
+    const people = await aepList<Person>(PEOPLE, token);
+    // Empty `aliases` may come back absent; `matchPersonByName` spreads it.
+    const normalized = people.map((p) => ({ ...p, aliases: p.aliases ?? [] }));
+    const matched = matchPersonByName(name, normalized);
+    return matched ? `${PEOPLE}/${matched.id}` : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Fold the receipt-content fields the HSA schema has no column for into notes. */
@@ -72,7 +98,11 @@ const handler: PostClassifyHandler = async ({ document, metadata, auth }) => {
     source_document: `${DOCUMENTS}/${document.id}`,
   };
   const patient = asString(metadata.patient);
-  if (patient) receipt.patient = patient;
+  if (patient) {
+    receipt.patient = patient;
+    const personPath = await resolvePersonPath(patient, auth.token);
+    if (personPath) receipt.person = personPath;
+  }
   const notes = receiptNotes(metadata);
   if (notes) receipt.notes = notes;
   if (document.created_by) receipt.created_by = document.created_by;

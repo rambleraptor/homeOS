@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Upload, X, Sparkles, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { awaitOperation } from '@rambleraptor/homestead-core/api/operations';
-import { ReferenceSelect } from '@rambleraptor/homestead-core/shared/components/ReferenceSelect';
+import { ReferenceField } from '@rambleraptor/homestead-core/shared/components/ReferenceField';
 import { usePeople } from '../../people/hooks/usePeople';
 import { matchPersonByName } from '../../people/utils/matchPerson';
 import type { HSAReceiptFormData, ReceiptCategory } from '../types';
@@ -323,22 +323,18 @@ export function HSAQuickCaptureForm({
 
         {/* Person — canonical link to a People record, so receipts for the same
             person group together regardless of how the name is printed. */}
-        <div>
-          <label htmlFor="person" className="block text-sm font-medium text-gray-700 mb-1">
-            Person
-          </label>
-          <ReferenceSelect
-            id="person"
-            collection="people"
-            value={formData.person ? [formData.person] : []}
-            onChange={(paths) =>
-              setFormData({ ...formData, person: paths[0] ?? '' })
-            }
-            placeholder="Search people…"
-            emptyMessage="No people found — add them in the People app."
-            testId="hsa-receipt-person"
-          />
-        </div>
+        <ReferenceField
+          id="person"
+          label="Person"
+          collection="people"
+          value={formData.person ? [formData.person] : []}
+          onChange={(paths) =>
+            setFormData({ ...formData, person: paths[0] ?? '' })
+          }
+          placeholder="Search people…"
+          emptyMessage="No people found — add them in the People app."
+          testId="hsa-receipt-person"
+        />
       </div>
 
       {/* Receipt File */}
