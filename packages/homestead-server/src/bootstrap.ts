@@ -16,6 +16,7 @@ import { generateId, generateToken, nowRFC3339 } from './engine/ids';
 import type { User } from './engine/types';
 import { TYPE_SUPERUSER } from './engine/types';
 import { countUsers, deleteToken, hashPassword, insertToken, insertUser } from './engine/users';
+import { leaseToken, releaseToken } from '@rambleraptor/homestead-core/server/token-lease';
 
 export const DEFAULT_SUPERUSER_EMAIL = 'admin@example.com';
 
@@ -147,22 +148,36 @@ export async function resetSuperuserPassword(
 export interface AdminToken {
   token: string;
   userId: string;
-  /** Remove the token from the db (call when done). */
+  /**
+   * Release the minter's reference on the token. The token row is removed from
+   * the db once this *and* every lease taken by an operation created under it
+   * (see {@link leaseToken}) have been released — so calling this while a
+   * detached background operation is still in flight defers the real deletion
+   * until that work settles, rather than yanking the token out from under it.
+   */
   revoke: () => void;
 }
 
 /**
  * Mint a bearer token for the first superuser directly in the db — no
  * password round-trip. Used by the boot-time schema sync and cron runs.
+ *
+ * The token is registered as *leased*: `revoke()` releases the minter's own
+ * reference, but the underlying row is only deleted once all references are
+ * gone. Background operations created with this token (via `operationStore`)
+ * retain a reference for their lifetime, so a cron firing can revoke eagerly
+ * the moment its handler returns without stranding the classify/index
+ * operations it kicked off fire-and-forget.
  */
 export function mintAdminToken(db: Database): AdminToken {
   const found = firstSuperuser(db);
   if (!found) throw new Error('no superuser exists; start the server once to bootstrap one');
   const token = generateToken();
   insertToken(db, token, found.id);
+  leaseToken(token, () => deleteToken(db, token));
   return {
     token,
     userId: found.id,
-    revoke: () => deleteToken(db, token),
+    revoke: () => releaseToken(token),
   };
 }

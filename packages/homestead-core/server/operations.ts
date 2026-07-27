@@ -7,6 +7,7 @@
  */
 
 import { aepCreate, aepUpdate } from './aepbase';
+import { retainToken, releaseToken } from './token-lease';
 import {
   OPERATIONS,
   toOperationError,
@@ -19,7 +20,7 @@ import {
 
 export const operationStore: OperationStore = {
   async create({ token, method, title, createdBy, status }: CreateOperationInput): Promise<Operation> {
-    return aepCreate<Operation>(
+    const op = await aepCreate<Operation>(
       OPERATIONS,
       {
         done: false,
@@ -30,6 +31,14 @@ export const operationStore: OperationStore = {
       },
       token,
     );
+    // Hold the caller's token open until this operation settles (see complete).
+    // A detached operation — one whose creator uses a short-lived, revocable
+    // admin token (e.g. a cron firing) — otherwise races the revoke: its
+    // start/log/complete writes fire after the token is gone and 401, stranding
+    // the record. Retaining a lease keeps the token valid across the operation's
+    // whole lifetime. A no-op for ordinary (unleased) user tokens.
+    retainToken(token);
+    return op;
   },
 
   async start({ token, id }: { token: string; id: string }): Promise<void> {
@@ -41,7 +50,14 @@ export const operationStore: OperationStore = {
       error !== undefined
         ? { done: true, status: 'failed', error: toOperationError(error) }
         : { done: true, status: 'succeeded', response: (response ?? {}) as Record<string, unknown> };
-    await aepUpdate<Operation>(OPERATIONS, id, patch, token);
+    try {
+      await aepUpdate<Operation>(OPERATIONS, id, patch, token);
+    } finally {
+      // Release the lease taken in create(), even if the terminal write failed —
+      // the operation is settled either way. When this is the last reference the
+      // token is finally revoked for real.
+      releaseToken(token);
+    }
   },
 
   async updateMetadata({ token, id, metadata }: UpdateMetadataInput): Promise<void> {
