@@ -61,6 +61,11 @@ export const recipesResources: ResourceDefinition[] = [
               description:
                 'Standardized unit (cup, tsp, g, whole, ...).',
             },
+            notes: {
+              type: 'string',
+              description:
+                'Substitutions or other context (e.g. "or 8 thighs, 4 breasts", "to taste").',
+            },
             raw: {
               type: 'string',
               description: 'Original unparsed ingredient string.',

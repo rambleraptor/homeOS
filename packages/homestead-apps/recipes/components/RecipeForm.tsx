@@ -100,6 +100,7 @@ export function RecipeForm({
         ...ing,
         item: ing.item.trim(),
         unit: ing.unit.trim(),
+        notes: ing.notes?.trim() || undefined,
         raw: ing.raw.trim() || `${ing.qty} ${ing.unit} ${ing.item}`.trim(),
       }))
       .filter((ing) => ing.item.length > 0);
@@ -322,6 +323,15 @@ export function RecipeForm({
               >
                 <Trash2 className="w-4 h-4" />
               </button>
+              <input
+                type="text"
+                value={ing.notes ?? ''}
+                onChange={(e) => handleIngredientChange(index, 'notes', e.target.value)}
+                placeholder="notes (substitutions, prep, etc.)"
+                aria-label={`Notes for ingredient ${index + 1}`}
+                data-testid={`ingredient-notes-${index}`}
+                className="col-span-11 px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
+              />
             </div>
           ))}
         </div>
