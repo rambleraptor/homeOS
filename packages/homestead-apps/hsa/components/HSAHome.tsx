@@ -12,16 +12,19 @@ import { useUpdateHSAReceipt } from '../hooks/useUpdateHSAReceipt';
 import { useDeleteHSAReceipt } from '../hooks/useDeleteHSAReceipt';
 import { HSAKPICard } from './HSAKPICard';
 import { HSAQuickCaptureForm } from './HSAQuickCaptureForm';
+import { HSAReceiptEditForm } from './HSAReceiptEditForm';
 import { HSAAuditVault } from './HSAAuditVault';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { HSAReceiptFormData, ReceiptStatus } from '../types';
+import type { HSAReceipt, HSAReceiptFormData, ReceiptStatus } from '../types';
 
 export function HSAHome() {
   const [showForm, setShowForm] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [receiptToDelete, setReceiptToDelete] = useState<string | null>(null);
+  const [editingReceipt, setEditingReceipt] = useState<HSAReceipt | null>(null);
   const [statusFilter, setStatusFilter] = useState<ReceiptStatus | 'All'>('All');
 
   const { stats, isLoading, isError, error } = useHSAStats();
@@ -40,6 +43,12 @@ export function HSAHome() {
 
   const handleFormCancel = () => {
     setShowForm(false);
+  };
+
+  const handleEditSubmit = async (data: Partial<HSAReceipt>) => {
+    if (!editingReceipt) return;
+    await updateMutation.mutateAsync({ id: editingReceipt.id, data });
+    setEditingReceipt(null);
   };
 
   const handleMarkAsReimbursed = async (id: string) => {
@@ -138,10 +147,26 @@ export function HSAHome() {
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
           onMarkAsReimbursed={handleMarkAsReimbursed}
+          onEdit={setEditingReceipt}
           onDelete={handleDeleteReceipt}
           isUpdating={updateMutation.isPending}
         />
       )}
+
+      <Modal
+        isOpen={editingReceipt !== null}
+        onClose={() => setEditingReceipt(null)}
+        title="Edit Receipt"
+      >
+        {editingReceipt && (
+          <HSAReceiptEditForm
+            receipt={editingReceipt}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setEditingReceipt(null)}
+            isSubmitting={updateMutation.isPending}
+          />
+        )}
+      </Modal>
 
       <ConfirmDialog
         isOpen={deleteConfirmOpen}

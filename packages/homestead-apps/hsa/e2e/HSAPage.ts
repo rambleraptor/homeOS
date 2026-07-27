@@ -101,6 +101,55 @@ export class HSAPage {
     await expect(this.page.getByText(formattedAmount).first()).toBeVisible();
   }
 
+  async editReceipt(
+    merchant: string,
+    updates: {
+      merchant?: string;
+      service_date?: string;
+      amount?: number;
+      category?: 'Medical' | 'Dental' | 'Vision' | 'Rx';
+      status?: 'Stored' | 'Reimbursed';
+      patient?: string;
+      notes?: string;
+    },
+  ) {
+    const editButton = this.page.getByRole('button', {
+      name: new RegExp(`Edit ${merchant} receipt`, 'i'),
+    });
+    await editButton.waitFor({ state: 'visible' });
+    await editButton.click();
+
+    // The edit modal renders its own set of fields (prefixed ids).
+    const submit = this.page.getByTestId('hsa-receipt-edit-submit');
+    await submit.waitFor({ state: 'visible' });
+
+    if (updates.merchant !== undefined) {
+      await this.page.locator('#edit-merchant').fill(updates.merchant);
+    }
+    if (updates.service_date !== undefined) {
+      await this.page.locator('#edit-service_date').fill(updates.service_date);
+    }
+    if (updates.amount !== undefined) {
+      await this.page.locator('#edit-amount').fill(updates.amount.toString());
+    }
+    if (updates.category !== undefined) {
+      await this.page.locator('#edit-category').selectOption(updates.category);
+    }
+    if (updates.status !== undefined) {
+      await this.page.locator('#edit-status').selectOption(updates.status);
+    }
+    if (updates.patient !== undefined) {
+      await this.page.locator('#edit-patient').fill(updates.patient);
+    }
+    if (updates.notes !== undefined) {
+      await this.page.locator('#edit-notes').fill(updates.notes);
+    }
+
+    await submit.click();
+    await submit.waitFor({ state: 'hidden' });
+    await this.page.waitForLoadState('networkidle');
+  }
+
   async markReceiptAsReimbursed(merchant: string) {
     const markButton = this.page.getByRole('button', {
       name: new RegExp(`Mark ${merchant}.*reimbursed`, 'i'),

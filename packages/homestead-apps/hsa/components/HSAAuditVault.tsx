@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { CheckCircle, ExternalLink, Trash2 } from 'lucide-react';
+import { CheckCircle, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import { formatDate } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { usePeople } from '../../people/hooks/usePeople';
@@ -66,6 +66,7 @@ interface HSAAuditVaultProps {
   statusFilter: ReceiptStatus | 'All';
   onStatusFilterChange: (status: ReceiptStatus | 'All') => void;
   onMarkAsReimbursed: (id: string) => void;
+  onEdit: (receipt: HSAReceipt) => void;
   onDelete: (id: string) => void;
   isUpdating: boolean;
 }
@@ -75,6 +76,7 @@ export function HSAAuditVault({
   statusFilter,
   onStatusFilterChange,
   onMarkAsReimbursed,
+  onEdit,
   onDelete,
   isUpdating,
 }: HSAAuditVaultProps) {
@@ -250,6 +252,15 @@ export function HSAAuditVault({
                           Mark Reimbursed
                         </button>
                       )}
+                      <button
+                        onClick={() => onEdit(receipt)}
+                        aria-label={`Edit ${receipt.merchant} receipt`}
+                        data-testid={`hsa-receipt-edit-${receipt.id}`}
+                        className="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+                        title="Edit receipt"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => onDelete(receipt.id)}
                         aria-label={`Delete ${receipt.merchant} receipt`}

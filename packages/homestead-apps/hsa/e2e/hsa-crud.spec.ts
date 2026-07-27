@@ -108,6 +108,35 @@ test.describe('HSA CRUD', () => {
     await hsaPage.expectReceiptInList(reimbursedReceipt.merchant);
   });
 
+  test('should edit a receipt', async ({ userToken }) => {
+    // Seed a receipt via API, then edit it through the UI.
+    const receiptData = testHSAReceipts[0];
+    const created = await createHSAReceipt(userToken, receiptData);
+
+    await hsaPage.goto();
+    await hsaPage.expectReceiptInList(receiptData.merchant, receiptData.amount);
+
+    await hsaPage.editReceipt(receiptData.merchant, {
+      merchant: 'Walgreens Pharmacy',
+      amount: 60.25,
+      status: 'Reimbursed',
+    });
+
+    // Verify the edits persisted in the database.
+    const updated = await aepGet<{
+      merchant: string;
+      amount: number;
+      status: string;
+    }>(userToken, 'hsa-receipts', created.id);
+    expect(updated.merchant).toBe('Walgreens Pharmacy');
+    expect(updated.amount).toBe(60.25);
+    expect(updated.status).toBe('Reimbursed');
+
+    // And in the UI.
+    await hsaPage.expectReceiptInList('Walgreens Pharmacy', 60.25);
+    await hsaPage.expectReceiptNotInList(receiptData.merchant);
+  });
+
   test('should delete a receipt', async ({ userToken }) => {
     // Create a receipt via API
     const receiptData = testHSAReceipts[0];
