@@ -12,10 +12,12 @@ import {
   collectPeople,
   filterDocuments,
   hasActiveFilters,
+  personIdentity,
   UNRECOGNISED_TYPE,
 } from '../filtering';
 import { getDocumentPeople } from '../doc-types/people';
 import type { Document } from '../types';
+import type { Person } from '../../people/types';
 
 /** A parsed document with the given type + metadata; ids are auto-assigned. */
 let idSeq = 0;
@@ -31,6 +33,10 @@ function doc(
     ...extra,
     metadata: metadata as Document['metadata'],
   };
+}
+
+function person(id: string, name: string, aliases: string[] = []): Person {
+  return { id, name, aliases, addresses: [], created_by: 'u', created: '', updated: '' };
 }
 
 const w2 = doc(
@@ -54,6 +60,9 @@ const unknown = doc({ doc_type: UNRECOGNISED_TYPE }, { title: 'Mystery scan' });
 const pending = doc(undefined, { title: 'Still reading', parse_status: 'pending' });
 
 const all = [w2, receipt, policy, unknown, pending];
+
+/** No people directory — every name resolves to a by-spelling identity. */
+const NO_DIRECTORY: Person[] = [];
 
 describe('getDocumentPeople', () => {
   it('pulls the person-flagged scalar field', () => {
@@ -80,10 +89,60 @@ describe('getDocumentPeople', () => {
   });
 });
 
+describe('personIdentity', () => {
+  const directory = [person('p1', 'Robert Smith', ['Bob Smith', 'Bobby'])];
+
+  it('resolves a directory match (by name or alias) to one id-keyed identity', () => {
+    // Every spelling of Robert collapses to the same key, labelled canonically.
+    expect(personIdentity('Robert Smith', directory)).toEqual({
+      value: 'person:p1',
+      label: 'Robert Smith',
+    });
+    expect(personIdentity('bob  smith', directory)).toEqual({
+      value: 'person:p1',
+      label: 'Robert Smith',
+    });
+    expect(personIdentity('Bobby', directory)).toEqual({
+      value: 'person:p1',
+      label: 'Robert Smith',
+    });
+  });
+
+  it('keys an unknown name by its normalized spelling, keeping the original label', () => {
+    // The key collapses whitespace + lowercases (so "Jane  Doe" and "Jane Doe"
+    // dedupe); the label only trims, staying faithful to the extracted spelling.
+    expect(personIdentity('  Jane   Doe ', directory)).toEqual({
+      value: 'name:jane doe',
+      label: 'Jane   Doe',
+    });
+  });
+
+  it('does not merge an ambiguous name into a directory person', () => {
+    const ambiguous = [person('a', 'Sam'), person('b', 'sam')];
+    // matchPersonByName bails on ambiguity, so it stays a by-name identity.
+    expect(personIdentity('Sam', ambiguous).value).toBe('name:sam');
+  });
+});
+
 describe('collectPeople', () => {
-  it('unions people across documents, sorted and case-insensitively deduped', () => {
+  it('unions people, case-insensitively deduped and sorted, with no directory', () => {
     const dupe = doc({ doc_type: 'medical-receipt', patient: 'jane doe' });
-    expect(collectPeople([...all, dupe])).toEqual(['Jane Doe', 'John Roe', 'Sam Doe']);
+    expect(collectPeople([...all, dupe], NO_DIRECTORY)).toEqual([
+      { value: 'name:jane doe', label: 'Jane Doe' },
+      { value: 'name:john roe', label: 'John Roe' },
+      { value: 'name:sam doe', label: 'Sam Doe' },
+    ]);
+  });
+
+  it('collapses aliases of one directory person into a single canonical entry', () => {
+    // Jane appears as "Jane Doe" (W-2, policy) and here as her alias "Janey".
+    const aliasDoc = doc({ doc_type: 'medical-receipt', patient: 'Janey' });
+    const directory = [person('p1', 'Jane Doe', ['Janey'])];
+    const facets = collectPeople([w2, policy, aliasDoc], directory);
+    expect(facets).toEqual([
+      { value: 'person:p1', label: 'Jane Doe' },
+      { value: 'name:sam doe', label: 'Sam Doe' },
+    ]);
   });
 });
 
@@ -107,68 +166,90 @@ describe('collectDocTypeFacets', () => {
 
 describe('filterDocuments', () => {
   it('returns everything with empty filters', () => {
-    expect(filterDocuments(all, { search: '', docType: '', person: '' })).toEqual(all);
+    expect(
+      filterDocuments(all, { search: '', docType: '', person: '' }, NO_DIRECTORY),
+    ).toEqual(all);
   });
 
   it('filters by document type', () => {
     expect(
-      filterDocuments(all, { search: '', docType: 'form-w2', person: '' }),
+      filterDocuments(all, { search: '', docType: 'form-w2', person: '' }, NO_DIRECTORY),
     ).toEqual([w2]);
   });
 
   it('filters by the Unrecognised type', () => {
     expect(
-      filterDocuments(all, { search: '', docType: UNRECOGNISED_TYPE, person: '' }),
+      filterDocuments(
+        all,
+        { search: '', docType: UNRECOGNISED_TYPE, person: '' },
+        NO_DIRECTORY,
+      ),
     ).toEqual([unknown]);
   });
 
-  it('filters by person across scalar and array fields', () => {
+  it('filters by a by-name identity across scalar and array fields', () => {
     // Jane Doe is the W-2 employee and both the insured + a driver on the policy.
+    const jane = personIdentity('Jane Doe', NO_DIRECTORY).value;
     expect(
-      filterDocuments(all, { search: '', docType: '', person: 'Jane Doe' }),
+      filterDocuments(all, { search: '', docType: '', person: jane }, NO_DIRECTORY),
     ).toEqual([w2, policy]);
+
+    const sam = personIdentity('Sam Doe', NO_DIRECTORY).value;
     expect(
-      filterDocuments(all, { search: '', docType: '', person: 'Sam Doe' }),
+      filterDocuments(all, { search: '', docType: '', person: sam }, NO_DIRECTORY),
     ).toEqual([policy]);
   });
 
-  it('matches person case-insensitively', () => {
-    expect(
-      filterDocuments(all, { search: '', docType: '', person: 'jane doe' }),
-    ).toEqual([w2, policy]);
+  it('filters by a directory person across every alias, on any document', () => {
+    // A doc naming Jane by her alias must match the same person filter as the
+    // docs naming her canonically — the whole point of alias-aware filtering.
+    const aliasDoc = doc({ doc_type: 'medical-receipt', patient: 'Janey' });
+    const directory = [person('p1', 'Jane Doe', ['Janey'])];
+    const key = 'person:p1';
+    const result = filterDocuments(
+      [w2, receipt, policy, aliasDoc],
+      { search: '', docType: '', person: key },
+      directory,
+    );
+    expect(result).toEqual([w2, policy, aliasDoc]);
   });
 
   it('searches titles', () => {
-    expect(filterDocuments(all, { search: 'mystery', docType: '', person: '' })).toEqual([
-      unknown,
-    ]);
+    expect(
+      filterDocuments(all, { search: 'mystery', docType: '', person: '' }, NO_DIRECTORY),
+    ).toEqual([unknown]);
   });
 
   it('searches parsed metadata values', () => {
-    expect(filterDocuments(all, { search: 'geico', docType: '', person: '' })).toEqual([
-      policy,
-    ]);
     expect(
-      filterDocuments(all, { search: 'city pharmacy', docType: '', person: '' }),
+      filterDocuments(all, { search: 'geico', docType: '', person: '' }, NO_DIRECTORY),
+    ).toEqual([policy]);
+    expect(
+      filterDocuments(
+        all,
+        { search: 'city pharmacy', docType: '', person: '' },
+        NO_DIRECTORY,
+      ),
     ).toEqual([receipt]);
   });
 
   it('searches the type label', () => {
     expect(
-      filterDocuments(all, { search: 'insurance', docType: '', person: '' }),
+      filterDocuments(all, { search: 'insurance', docType: '', person: '' }, NO_DIRECTORY),
     ).toEqual([policy]);
   });
 
   it('ANDs the filters together', () => {
     expect(
-      filterDocuments(all, { search: 'policy', docType: 'form-w2', person: '' }),
+      filterDocuments(all, { search: 'policy', docType: 'form-w2', person: '' }, NO_DIRECTORY),
     ).toEqual([]);
+    const sam = personIdentity('Sam Doe', NO_DIRECTORY).value;
     expect(
-      filterDocuments(all, {
-        search: 'auto',
-        docType: 'auto-insurance-policy',
-        person: 'Sam Doe',
-      }),
+      filterDocuments(
+        all,
+        { search: 'auto', docType: 'auto-insurance-policy', person: sam },
+        NO_DIRECTORY,
+      ),
     ).toEqual([policy]);
   });
 });
@@ -179,6 +260,6 @@ describe('hasActiveFilters', () => {
     expect(hasActiveFilters({ search: '  ', docType: '', person: '' })).toBe(false);
     expect(hasActiveFilters({ search: 'x', docType: '', person: '' })).toBe(true);
     expect(hasActiveFilters({ search: '', docType: 'form-w2', person: '' })).toBe(true);
-    expect(hasActiveFilters({ search: '', docType: '', person: 'Jane Doe' })).toBe(true);
+    expect(hasActiveFilters({ search: '', docType: '', person: 'person:p1' })).toBe(true);
   });
 });

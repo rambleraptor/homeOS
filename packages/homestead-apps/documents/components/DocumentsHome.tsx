@@ -7,6 +7,7 @@ import { Loader2, Upload, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
+import { usePeople } from '../../people/hooks/usePeople';
 import { DocumentListItem } from './DocumentListItem';
 import { DocumentFilters } from './DocumentFilters';
 import {
@@ -27,17 +28,24 @@ export function DocumentsHome() {
 
   const { data: documents, isLoading, isError, error } = useDocuments();
   const upload = useUploadDocument();
+  // The people directory resolves extracted names to canonical identities so
+  // the person facet follows aliases. Absent (people app disabled / still
+  // loading) it's empty, and every name degrades to a by-spelling identity.
+  const { data: directory } = usePeople();
 
   // Facets come from the whole list; the visible rows are what's left after the
-  // filters. Both recompute only when the list or the filters change.
+  // filters. Both recompute only when the list, directory, or filters change.
   const docTypeFacets = useMemo(
     () => collectDocTypeFacets(documents ?? []),
     [documents],
   );
-  const people = useMemo(() => collectPeople(documents ?? []), [documents]);
+  const people = useMemo(
+    () => collectPeople(documents ?? [], directory ?? []),
+    [documents, directory],
+  );
   const visibleDocuments = useMemo(
-    () => filterDocuments(documents ?? [], filters),
-    [documents, filters],
+    () => filterDocuments(documents ?? [], filters, directory ?? []),
+    [documents, filters, directory],
   );
 
   const handleFiles = async (files: FileList | null) => {
