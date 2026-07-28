@@ -13,7 +13,10 @@ const docTypes = [
   { value: 'form-w2', label: 'Form W-2' },
   { value: 'medical-receipt', label: 'Medical receipt' },
 ];
-const people = ['Alex Stephen', 'Jane Doe'];
+const people = [
+  { value: 'name:alex stephen', label: 'Alex Stephen' },
+  { value: 'person:p1', label: 'Jane Doe' },
+];
 
 function setup(filters: Filters = EMPTY_FILTERS) {
   const onChange = vi.fn();
@@ -51,11 +54,12 @@ describe('DocumentFilters', () => {
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, docType: 'form-w2' });
   });
 
-  it('reports a chosen person', async () => {
+  it('reports a chosen person by identity key, not label', async () => {
     const user = userEvent.setup();
     const { onChange } = setup();
-    await user.selectOptions(screen.getByTestId('document-person-filter'), 'Jane Doe');
-    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, person: 'Jane Doe' });
+    // The option's value is the identity key; the label is only what's shown.
+    await user.selectOptions(screen.getByTestId('document-person-filter'), 'person:p1');
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, person: 'person:p1' });
   });
 
   it('hides the type and person selects when there are no facets', () => {

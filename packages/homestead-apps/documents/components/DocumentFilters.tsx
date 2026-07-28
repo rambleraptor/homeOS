@@ -5,7 +5,7 @@
  */
 
 import { Search, X } from 'lucide-react';
-import type { DocumentFilters as Filters, DocTypeFacet } from '../filtering';
+import type { DocumentFilters as Filters, DocTypeFacet, PersonFacet } from '../filtering';
 import { hasActiveFilters } from '../filtering';
 
 interface DocumentFiltersProps {
@@ -14,7 +14,7 @@ interface DocumentFiltersProps {
   /** Doc types present in the list — the type dropdown's options. */
   docTypes: DocTypeFacet[];
   /** People named across the list — the person dropdown's options. */
-  people: string[];
+  people: PersonFacet[];
 }
 
 const SELECT_CLASS =
@@ -73,8 +73,8 @@ export function DocumentFilters({
         >
           <option value="">Anyone</option>
           {people.map((person) => (
-            <option key={person} value={person}>
-              {person}
+            <option key={person.value} value={person.value}>
+              {person.label}
             </option>
           ))}
         </select>

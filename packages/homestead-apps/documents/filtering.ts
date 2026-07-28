@@ -12,6 +12,8 @@
 import { getDocType } from './doc-types/registry';
 import { UNKNOWN_DOC_TYPE } from './doc-types/docType';
 import { getDocumentPeople } from './doc-types/people';
+import { matchPersonByName } from '../people/utils/matchPerson';
+import type { Person } from '../people/types';
 import type { Document } from './types';
 
 /** The discriminator value the type facet uses for "matched no known type". */
@@ -22,7 +24,11 @@ export interface DocumentFilters {
   search: string;
   /** A doc type id, `UNRECOGNISED_TYPE`, or '' for "any type". */
   docType: string;
-  /** A person's name (as it appears in `getDocumentPeople`), or '' for "anyone". */
+  /**
+   * A person *identity key* (see `personIdentity`), or '' for "anyone". Not a
+   * raw name: two spellings of the same directory person share one key, so the
+   * filter follows aliases rather than exact text.
+   */
   person: string;
 }
 
@@ -67,20 +73,50 @@ export function collectDocTypeFacets(documents: Document[]): DocTypeFacet[] {
   return facets;
 }
 
+/** A person facet entry: a stable identity key and its display label. */
+export interface PersonFacet {
+  value: string;
+  label: string;
+}
+
+/** Trim, lowercase, and collapse internal whitespace — mirrors `matchPersonByName`. */
+function normalizeName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 /**
- * Every person named across the documents, deduplicated case-insensitively and
- * sorted for a stable dropdown. Derived from metadata via `getDocumentPeople`,
- * never stored.
+ * Resolve an extracted name to a stable person identity against the directory.
+ *
+ * When the name matches exactly one directory person (by name or any alias,
+ * case- and whitespace-insensitively), that person *is* the identity — so
+ * "Robert Smith" and his alias "Bob Smith" collapse to one entry keyed by id
+ * and labelled with his canonical name. A name the directory doesn't know (no
+ * match, or an ambiguous one) falls back to a self-identity keyed by the
+ * normalized name, so unknown people still dedupe by spelling without ever
+ * being merged with a directory person.
  */
-export function collectPeople(documents: Document[]): string[] {
-  const seen = new Map<string, string>();
+export function personIdentity(name: string, people: Person[]): PersonFacet {
+  const match = matchPersonByName(name, people);
+  if (match) return { value: `person:${match.id}`, label: match.name };
+  return { value: `name:${normalizeName(name)}`, label: name.trim() };
+}
+
+/**
+ * Every distinct person named across the documents, resolved through the
+ * directory so aliases of one person become a single entry, then sorted for a
+ * stable dropdown. Derived from metadata via `getDocumentPeople`, never stored.
+ */
+export function collectPeople(documents: Document[], people: Person[]): PersonFacet[] {
+  const byKey = new Map<string, PersonFacet>();
   for (const doc of documents) {
-    for (const person of getDocumentPeople(doc)) {
-      const key = person.toLowerCase();
-      if (!seen.has(key)) seen.set(key, person);
+    for (const name of getDocumentPeople(doc)) {
+      const identity = personIdentity(name, people);
+      // A directory match's label is the canonical name (stable across
+      // spellings); for an unknown name, keep the first spelling seen.
+      if (!byKey.has(identity.value)) byKey.set(identity.value, identity);
     }
   }
-  return [...seen.values()].sort((a, b) => a.localeCompare(b));
+  return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
 /** The searchable text of a document: its title, type label, and metadata values. */
@@ -120,20 +156,27 @@ function collectSearchStrings(value: unknown, out: string[]): void {
  * Apply search + type + person filters to the list. Each is independent and
  * ANDed together; an empty filter matches everything. The input order (already
  * sorted newest-first upstream) is preserved.
+ *
+ * `people` is the directory used to resolve names to identities, so the person
+ * filter follows aliases: a document matches the selected person when *any* name
+ * it extracted resolves to that same identity key.
  */
 export function filterDocuments(
   documents: Document[],
   filters: DocumentFilters,
+  people: Person[],
 ): Document[] {
   const search = filters.search.trim().toLowerCase();
-  const personKey = filters.person.trim().toLowerCase();
+  const personKey = filters.person.trim();
 
   return documents.filter((doc) => {
     if (filters.docType && doc.metadata?.doc_type !== filters.docType) return false;
 
     if (personKey) {
-      const people = getDocumentPeople(doc).map((p) => p.toLowerCase());
-      if (!people.includes(personKey)) return false;
+      const identities = getDocumentPeople(doc).map(
+        (name) => personIdentity(name, people).value,
+      );
+      if (!identities.includes(personKey)) return false;
     }
 
     if (search && !searchableText(doc).includes(search)) return false;
