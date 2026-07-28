@@ -89,6 +89,7 @@ const medicalReceipt: DocType = {
     patient: {
       label: 'Patient',
       type: 'string',
+      person: true,
       description:
         'The person the care or item was for, when the receipt names them (for ' +
         'example on a pharmacy label or an itemized statement). The patient, not ' +

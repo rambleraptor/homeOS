@@ -41,6 +41,16 @@ export interface DocField {
   items?: DocField;
   /** Nested fields for an `object` field. Required when `type` is `object`. */
   properties?: Record<string, DocField>;
+  /**
+   * Marks a `string` field (or, on an array's `items`, each element) as holding
+   * a person's name — a patient, a covered driver, a tax-form recipient. It's a
+   * UI-only annotation: the documents index reads it to build the generic
+   * "filter by person" facet from whatever a document already extracted, so a
+   * new person-bearing doc type joins the filter with no code change. Never
+   * emitted to the wire schema or the Zod extraction shape — the names live in
+   * the type's own metadata columns, not a stored people list.
+   */
+  person?: boolean;
 }
 
 /**
@@ -214,10 +224,21 @@ function parseField(
   if (field.description !== undefined && typeof field.description !== 'string') {
     return fail(`field "${fieldPath}" description must be a string`);
   }
+  if (field.person !== undefined) {
+    if (typeof field.person !== 'boolean') {
+      return fail(`field "${fieldPath}" person must be a boolean`);
+    }
+    // A person marker names a single name value, so it only makes sense on a
+    // string leaf. For a list of people, mark the array's `items`, not the array.
+    if (field.person && type !== 'string') {
+      return fail(`field "${fieldPath}" person is only valid on a string field`);
+    }
+  }
   const out: DocField = {
     label: field.label,
     type,
     ...(field.description ? { description: field.description } : {}),
+    ...(field.person ? { person: true } : {}),
   };
   if (type === 'array') {
     if (field.items === undefined) {

@@ -31,6 +31,7 @@ const formW2: DocType = {
     employee_name: {
       label: 'Employee name',
       type: 'string',
+      person: true,
       description: 'The employee the wages were paid to, from Box e.',
     },
     employee_ssn: {

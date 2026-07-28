@@ -51,6 +51,7 @@ const autoInsurancePolicy: DocType = {
     named_insured: {
       label: 'Named insured',
       type: 'string',
+      person: true,
       description:
         'The primary policyholder — the person (or people) the policy is issued ' +
         'to, from the "Named Insured" block. The account holder, distinct from ' +
@@ -118,6 +119,7 @@ const autoInsurancePolicy: DocType = {
       items: {
         label: 'Driver',
         type: 'string',
+        person: true,
         description: 'A single covered driver’s name, as printed.',
       },
     },

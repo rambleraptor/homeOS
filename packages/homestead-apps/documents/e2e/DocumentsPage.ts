@@ -59,6 +59,33 @@ export class DocumentsPage {
     await expect(this.page.getByTestId('documents-empty')).toBeVisible();
   }
 
+  // --- Index filters --------------------------------------------------------
+
+  /** Type into the free-text search box. */
+  async search(text: string): Promise<void> {
+    await this.page.getByTestId('document-search').fill(text);
+  }
+
+  /** Select a document type by its visible label (e.g. "Form 1099-INT"). */
+  async filterByType(label: string): Promise<void> {
+    await this.page.getByTestId('document-type-filter').selectOption({ label });
+  }
+
+  /** Select a person by name. */
+  async filterByPerson(name: string): Promise<void> {
+    await this.page.getByTestId('document-person-filter').selectOption({ label: name });
+  }
+
+  /** Reset every filter via the Clear button. */
+  async clearFilters(): Promise<void> {
+    await this.page.getByTestId('document-filters-clear').click();
+  }
+
+  /** The "no documents match your filters" placeholder. */
+  noMatches(): Locator {
+    return this.page.getByTestId('documents-no-matches');
+  }
+
   // --- Detail page ----------------------------------------------------------
 
   detail(): Locator {

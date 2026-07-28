@@ -2,21 +2,43 @@
  * Documents home: upload a file, watch it get read, browse what came back.
  */
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Loader2, Upload, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
 import { DocumentListItem } from './DocumentListItem';
+import { DocumentFilters } from './DocumentFilters';
+import {
+  collectDocTypeFacets,
+  collectPeople,
+  EMPTY_FILTERS,
+  filterDocuments,
+  hasActiveFilters,
+  type DocumentFilters as Filters,
+} from '../filtering';
 
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
 
 export function DocumentsHome() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
 
   const { data: documents, isLoading, isError, error } = useDocuments();
   const upload = useUploadDocument();
+
+  // Facets come from the whole list; the visible rows are what's left after the
+  // filters. Both recompute only when the list or the filters change.
+  const docTypeFacets = useMemo(
+    () => collectDocTypeFacets(documents ?? []),
+    [documents],
+  );
+  const people = useMemo(() => collectPeople(documents ?? []), [documents]);
+  const visibleDocuments = useMemo(
+    () => filterDocuments(documents ?? [], filters),
+    [documents, filters],
+  );
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -97,11 +119,31 @@ export function DocumentsHome() {
       )}
 
       {documents && documents.length > 0 && (
-        <div className="space-y-2" data-testid="documents-list">
-          {documents.map((doc) => (
-            <DocumentListItem key={doc.id} document={doc} />
-          ))}
-        </div>
+        <>
+          <DocumentFilters
+            filters={filters}
+            onChange={setFilters}
+            docTypes={docTypeFacets}
+            people={people}
+          />
+
+          {visibleDocuments.length > 0 ? (
+            <div className="space-y-2" data-testid="documents-list">
+              {visibleDocuments.map((doc) => (
+                <DocumentListItem key={doc.id} document={doc} />
+              ))}
+            </div>
+          ) : (
+            <p
+              className="py-12 text-center text-sm text-gray-500"
+              data-testid="documents-no-matches"
+            >
+              {hasActiveFilters(filters)
+                ? 'No documents match your filters.'
+                : 'No documents to show.'}
+            </p>
+          )}
+        </>
       )}
     </div>
   );
