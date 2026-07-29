@@ -299,6 +299,14 @@ export async function create<T>(
   });
 }
 
+/**
+ * Partial update via AEP-134's HTTP semantics: RFC 7396 JSON Merge Patch, sent
+ * as `application/merge-patch+json`. Only the keys in `body` are touched — omit
+ * a field to leave it unchanged, send it as `null` to clear it, and send a
+ * partial object to merge into an existing object field. There is no
+ * `update_mask` (that is a proto-only FieldMask concept). A `FormData` body
+ * (multipart file update) is sent as-is, not as merge-patch.
+ */
 export async function update<T>(
   plural: string,
   id: string,

@@ -412,7 +412,7 @@ function buildPaths(doc: ResourceDoc, schemaExample: Json | undefined): Record<s
       },
       patch: {
         operationId: `Update${pascal(doc.singular)}`,
-        description: `Updates an existing ${name}. Only the fields provided in the request body are modified.`,
+        description: `Updates an existing ${name} using RFC 7396 JSON Merge Patch: fields present in the body are set, a field sent as null is cleared, omitted fields are left unchanged, and object fields are merged recursively.`,
         tags: [name],
         parameters: parentParams,
         requestBody: {
