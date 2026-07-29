@@ -5,20 +5,15 @@
  * `create_time` desc (newest first).
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import {
+  useResourceList,
+  byCreateTimeDesc,
+} from '@rambleraptor/homestead-core/api/resourceHooks';
 import { RECIPES } from '../resources';
 import type { Recipe } from '../types';
 
 export function useRecipes() {
-  return useQuery({
-    queryKey: queryKeys.app('recipes').resource('recipe').list(),
-    queryFn: async (): Promise<Recipe[]> => {
-      const recipes = await aepbase.list<Recipe>(RECIPES);
-      return recipes.sort((a, b) =>
-        (b.create_time || '').localeCompare(a.create_time || ''),
-      );
-    },
+  return useResourceList<Recipe>('recipes', 'recipe', RECIPES, {
+    sort: byCreateTimeDesc,
   });
 }

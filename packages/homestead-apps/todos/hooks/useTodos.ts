@@ -6,10 +6,11 @@
  * top — todometer-style.
  */
 
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import {
+  useResourceList,
+  byCreateTimeAsc,
+} from '@rambleraptor/homestead-core/api/resourceHooks';
 import { TODOS } from '../resources';
 import {
   MAIN_PROJECT_ID,
@@ -20,14 +21,8 @@ import {
 } from '../types';
 
 export function useTodos() {
-  return useQuery({
-    queryKey: queryKeys.app('todos').resource('todo').list(),
-    queryFn: async (): Promise<Todo[]> => {
-      const todos = await aepbase.list<Todo>(TODOS);
-      return todos.sort((a, b) =>
-        (a.create_time || '').localeCompare(b.create_time || ''),
-      );
-    },
+  return useResourceList<Todo>('todos', 'todo', TODOS, {
+    sort: byCreateTimeAsc,
   });
 }
 

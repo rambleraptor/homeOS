@@ -5,20 +5,15 @@
  * `create_time` desc (newest first).
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import {
+  useResourceList,
+  byCreateTimeDesc,
+} from '@rambleraptor/homestead-core/api/resourceHooks';
 import { GIFT_CARDS } from '../resources';
 import type { GiftCard } from '../types';
 
 export function useGiftCards() {
-  return useQuery({
-    queryKey: queryKeys.app('gift-cards').resource('gift-card').list(),
-    queryFn: async (): Promise<GiftCard[]> => {
-      const cards = await aepbase.list<GiftCard>(GIFT_CARDS);
-      return cards.sort((a, b) =>
-        (b.create_time || '').localeCompare(a.create_time || ''),
-      );
-    },
+  return useResourceList<GiftCard>('gift-cards', 'gift-card', GIFT_CARDS, {
+    sort: byCreateTimeDesc,
   });
 }
