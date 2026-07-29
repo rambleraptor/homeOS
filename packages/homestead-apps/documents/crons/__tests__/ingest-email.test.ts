@@ -68,7 +68,11 @@ beforeEach(() => {
   aepList.mockResolvedValue([]);
   aepCreateMultipart.mockResolvedValue({ id: 'doc-1' } as Document);
   aepbaseFetch.mockResolvedValue(new Response('{}'));
-  provider.getAttachment.mockResolvedValue(Buffer.from('bytes'));
+  // Distinct bytes per attachment by default, so content-hash dedup only fires
+  // in the tests that deliberately supply identical bytes.
+  provider.getAttachment.mockImplementation(async (_msgId: string, attId: string) =>
+    Buffer.from(`bytes-${attId}`),
+  );
   provider.trashMessage.mockResolvedValue(undefined);
 });
 
@@ -96,6 +100,7 @@ describe('documents-ingest-email', () => {
       parse_status: 'pending',
       source_email_id: 'm1',
       source_email_attachment: '0:receipt.pdf',
+      content_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     expect(file).toMatchObject({ filename: 'receipt.pdf', contentType: 'application/pdf' });
     expect(token).toBe('admin-tok');
@@ -106,7 +111,7 @@ describe('documents-ingest-email', () => {
       expect.objectContaining({ method: 'POST', token: 'admin-tok' }),
     );
     expect(provider.trashMessage).toHaveBeenCalledWith('m1');
-    expect(result).toEqual({ messages: 1, uploaded: 1, skipped: 0, trashed: 1 });
+    expect(result).toEqual({ messages: 1, uploaded: 1, skipped: 0, duplicates: 0, trashed: 1 });
   });
 
   it('uses the configured query, defaulting to has:attachment', async () => {
@@ -131,7 +136,43 @@ describe('documents-ingest-email', () => {
 
     expect(aepCreateMultipart).not.toHaveBeenCalled();
     expect(provider.trashMessage).toHaveBeenCalledWith('m1');
-    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 1, trashed: 1 });
+    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 1, duplicates: 0, trashed: 1 });
+  });
+
+  it('hard-blocks an attachment whose content hash already exists, still trashing', async () => {
+    provider.listMessages.mockResolvedValue([{ id: 'm1' }]);
+    provider.getMessage.mockResolvedValue(message());
+    // No same-message provenance match, but an existing doc has the same bytes.
+    aepList.mockImplementation(async (_p: string, _t: string, _parent: unknown, filter?: string) =>
+      filter?.startsWith('content_hash') ? [{ id: 'existing' } as Document] : [],
+    );
+
+    const result = await handler(ctx);
+
+    // Blocked before any upload — the duplicate is not filed again.
+    expect(aepCreateMultipart).not.toHaveBeenCalled();
+    expect(provider.trashMessage).toHaveBeenCalledWith('m1');
+    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, duplicates: 1, trashed: 1 });
+  });
+
+  it('hard-blocks a second identical attachment within the same run', async () => {
+    provider.listMessages.mockResolvedValue([{ id: 'm1' }]);
+    provider.getMessage.mockResolvedValue(
+      message({
+        attachments: [
+          pdfAttachment({ id: 'a1', filename: 'first.pdf' }),
+          pdfAttachment({ id: 'a2', filename: 'second.pdf' }),
+        ],
+      }),
+    );
+    // Both attachments return the same bytes → same hash. Nothing pre-exists.
+    provider.getAttachment.mockResolvedValue(Buffer.from('identical-bytes'));
+
+    const result = await handler(ctx);
+
+    // First filed, second blocked as an in-run duplicate.
+    expect(aepCreateMultipart).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ messages: 1, uploaded: 1, skipped: 0, duplicates: 1, trashed: 1 });
   });
 
   it('uploads both attachments that share a filename (distinct keys)', async () => {
@@ -169,7 +210,7 @@ describe('documents-ingest-email', () => {
 
     expect(aepCreateMultipart).not.toHaveBeenCalled();
     expect(provider.trashMessage).not.toHaveBeenCalled();
-    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, trashed: 0 });
+    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, duplicates: 0, trashed: 0 });
     // An all-zero run must say what it dropped, or it's undiagnosable.
     expect(ctx.log).toHaveBeenCalledWith(
       'message m1: skipping unsupported attachment(s): invite.ics (text/calendar), archive.zip (application/zip)',
@@ -203,7 +244,7 @@ describe('documents-ingest-email', () => {
 
     const result = await handler(ctx);
 
-    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, trashed: 0 });
+    expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, duplicates: 0, trashed: 0 });
     expect(ctx.log).toHaveBeenCalledWith(
       'message m1: no attachment parts found; leaving in place',
     );

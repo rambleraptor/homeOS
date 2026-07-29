@@ -57,6 +57,16 @@ export const documentsResources: ResourceDefinition[] = [
        */
       mime_type: { type: 'string', description: 'The uploaded file’s MIME type.' },
       /**
+       * SHA-256 (lowercase hex) of the uploaded file's bytes, used to detect
+       * duplicate documents. Populated server-side: the email-ingest cron
+       * computes it at ingest and hard-blocks an attachment whose hash already
+       * exists; hand-uploads get it stamped by the file-index gateway trigger.
+       */
+      content_hash: {
+        type: 'string',
+        description: 'SHA-256 (hex) of the file bytes; used to detect duplicate uploads.',
+      },
+      /**
        * Legacy: text now lives in the synthesized `file_text` companion (filled
        * by the platform index pipeline). Kept only so the `full_text → file_text`
        * backfill can read old records; removed in a follow-up once migrated.
