@@ -267,6 +267,43 @@ describe('update (merge-patch)', () => {
     expect(patched.update_time >= created.update_time).toBe(true);
   });
 
+  test('deep-merges object fields per RFC 7396 (sets, merges, clears keys)', async () => {
+    const created = await (
+      await call(t.engine, 'POST', '/books', {
+        token: t.adminToken,
+        body: { title: 'X', metadata: { isbn: '123', lang: 'en', extra: { a: 1 } } },
+      })
+    ).json();
+
+    // Nested keys merge: `lang` changes, `isbn` is untouched, a new key is added,
+    // and a null removes a key — the whole object is not clobbered.
+    const patched = await (
+      await call(t.engine, 'PATCH', `/books/${created.id}`, {
+        token: t.adminToken,
+        body: { metadata: { lang: 'fr', pages: '412', isbn: null, extra: { b: 2 } } },
+      })
+    ).json();
+    expect(patched.metadata).toEqual({ lang: 'fr', pages: '412', extra: { a: 1, b: 2 } });
+  });
+
+  test('null clears an entire object field; arrays replace wholesale', async () => {
+    const created = await (
+      await call(t.engine, 'POST', '/books', {
+        token: t.adminToken,
+        body: { title: 'X', tags: ['a', 'b'], metadata: { isbn: '123' } },
+      })
+    ).json();
+
+    const patched = await (
+      await call(t.engine, 'PATCH', `/books/${created.id}`, {
+        token: t.adminToken,
+        body: { tags: ['c'], metadata: null },
+      })
+    ).json();
+    expect(patched.tags).toEqual(['c']); // arrays are not merged element-wise
+    expect(patched.metadata ?? null).toBeNull(); // whole object cleared
+  });
+
   test('404 for missing resource', async () => {
     const res = await call(t.engine, 'PATCH', '/books/nope', {
       token: t.adminToken,

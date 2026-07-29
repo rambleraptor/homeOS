@@ -349,6 +349,52 @@ function preparePayload(
   return fields;
 }
 
+/**
+ * Recursively apply an RFC 7396 JSON Merge Patch of `patch` onto `target`.
+ * A `null` member removes the corresponding key; nested objects merge
+ * recursively; arrays and scalars replace wholesale. AEP-134 mandates this
+ * for the HTTP `PATCH` surface (the proto-only `update_mask`/`*` FieldMask has
+ * no place here), so `object`-typed fields get a deep merge rather than being
+ * clobbered whole.
+ */
+function mergePatch(target: unknown, patch: unknown): unknown {
+  if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
+    return patch; // scalars, arrays, and null replace/clear wholesale
+  }
+  const base =
+    target !== null && typeof target === 'object' && !Array.isArray(target)
+      ? (target as Record<string, unknown>)
+      : {};
+  const out: Record<string, unknown> = { ...base };
+  for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+    if (value === null) delete out[key];
+    else out[key] = mergePatch(out[key], value);
+  }
+  return out;
+}
+
+/**
+ * Apply a prepared patch onto a resource's fields following RFC 7396. Top-level
+ * scalars/arrays and explicit `null`s replace or clear the field (matching the
+ * column store); a patch value for an `object`-typed field is deep-merged onto
+ * the existing value so partial nested updates and null-key removal work.
+ * Mutates `existing` in place.
+ */
+function applyMergePatch(
+  schema: Schema,
+  existing: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): void {
+  for (const [name, value] of Object.entries(patch)) {
+    const isObjectField = schema.properties?.[name]?.type === 'object';
+    if (isObjectField && value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      existing[name] = mergePatch(existing[name], value);
+    } else {
+      existing[name] = value; // scalars, arrays, and null (clear) replace wholesale
+    }
+  }
+}
+
 // --- handlers ---
 
 export async function handleCreate(
@@ -458,8 +504,8 @@ export async function handleUpdate(
   const { fields: patch, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
   preparePayload(r, patch, uploaded);
 
-  // Merge patch onto existing fields.
-  Object.assign(existing.fields, patch);
+  // RFC 7396 merge patch onto existing fields (AEP-134 HTTP semantics).
+  applyMergePatch(r.schema, existing.fields, patch);
   const now = nowRFC3339();
   existing.update_time = now;
 
@@ -689,18 +735,20 @@ export async function handleSingletonUpdate(
   const now = nowRFC3339();
 
   if (!existing) {
+    const fields: Record<string, unknown> = {};
+    applyMergePatch(r.schema, fields, patch);
     const stored: StoredResource = {
       id: singletonId(r, match.parentIds),
       path,
       create_time: now,
       update_time: now,
-      fields: patch,
+      fields,
     };
     insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
     return jsonResponse(singletonToMap(r, stored));
   }
 
-  Object.assign(existing.fields, patch);
+  applyMergePatch(r.schema, existing.fields, patch);
   existing.update_time = now;
   updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
   return jsonResponse(singletonToMap(r, existing));
