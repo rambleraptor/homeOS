@@ -12,7 +12,8 @@
  * *this* request are re-indexed, so a metadata-only PATCH doesn't touch the file.
  */
 
-import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
+import { authenticate, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { sha256Hex } from '@rambleraptor/homestead-core/server/hash';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { makeOperationLogger } from '@rambleraptor/homestead-core/resources/operations';
 import { runOperationJob } from '@rambleraptor/homestead-core/resources/operation-runner';
@@ -122,7 +123,46 @@ export async function handleCrudWithIndexing(
       userId: auth.user.id,
     });
   }
+
+  // Stamp a content hash for duplicate detection, when the resource opts in by
+  // declaring a `content_hash` field and the write carried a single file. This
+  // is what lets the documents email-ingest cron hard-block an email copy of a
+  // hand-uploaded original — every stored file ends up with a hash regardless of
+  // how it arrived. The cron sets `content_hash` itself on create, so this
+  // no-ops there (the hash already matches). Best-effort: a failure must not
+  // fail an upload whose bytes are already stored.
+  if (def.fields.content_hash && uploaded.length === 1) {
+    const blob = form.get(uploaded[0][0]);
+    if (blob instanceof Blob) {
+      const created = await res.clone().json().catch(() => null);
+      const existing = typeof created?.content_hash === 'string' ? created.content_hash : undefined;
+      void stampContentHash(def, write.plural, recordId, blob, existing, auth.token);
+    }
+  }
   return res;
+}
+
+/**
+ * Compute the SHA-256 of an uploaded file and record it on the resource, unless
+ * it already carries that hash (which is the case for a cron create that set it
+ * inline). Runs as detached background work; on failure it only logs, since the
+ * file itself is already stored.
+ */
+async function stampContentHash(
+  def: ResourceDefinition,
+  plural: string,
+  recordId: string,
+  blob: Blob,
+  existing: string | undefined,
+  token: string,
+): Promise<void> {
+  try {
+    const hash = sha256Hex(new Uint8Array(await blob.arrayBuffer()));
+    if (hash === existing) return;
+    await aepUpdate(plural, recordId, { content_hash: hash }, token);
+  } catch (err) {
+    logFailure('content-hash', def.singular, recordId, err);
+  }
 }
 
 /**

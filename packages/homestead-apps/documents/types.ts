@@ -27,6 +27,8 @@ export interface Document {
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
   mime_type?: string;
+  /** SHA-256 (hex) of the file bytes; used to detect duplicate uploads. */
+  content_hash?: string;
   /** Extracted text, filled by the platform index pipeline. */
   file_text?: string;
   /** @deprecated Legacy field; read only during the file_text backfill. */
