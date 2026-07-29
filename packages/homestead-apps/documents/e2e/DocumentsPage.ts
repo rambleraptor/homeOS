@@ -23,6 +23,45 @@ export class DocumentsPage {
       .setInputFiles({ name, mimeType, buffer: Buffer.from(contents) });
   }
 
+  // --- Redaction ------------------------------------------------------------
+
+  /** Choose a file for the "Redact & upload" path; opens the redaction editor. */
+  async pickRedactFile(name: string, mimeType: string, buffer: Buffer): Promise<void> {
+    await this.page
+      .getByTestId('document-redact-input')
+      .setInputFiles({ name, mimeType, buffer });
+  }
+
+  redactionEditor(): Locator {
+    return this.page.getByTestId('redaction-editor');
+  }
+
+  redactionSurface(): Locator {
+    return this.page.getByTestId('redaction-surface');
+  }
+
+  redactionRects(): Locator {
+    return this.page.getByTestId('redaction-rect');
+  }
+
+  /** Drag a rectangle across the middle of the page to redact a region. */
+  async drawRedaction(): Promise<void> {
+    const box = await this.redactionSurface().boundingBox();
+    if (!box) throw new Error('redaction surface has no bounding box');
+    const x1 = box.x + box.width * 0.25;
+    const y1 = box.y + box.height * 0.25;
+    const x2 = box.x + box.width * 0.7;
+    const y2 = box.y + box.height * 0.6;
+    await this.page.mouse.move(x1, y1);
+    await this.page.mouse.down();
+    await this.page.mouse.move(x2, y2, { steps: 8 });
+    await this.page.mouse.up();
+  }
+
+  async confirmRedaction(): Promise<void> {
+    await this.page.getByTestId('redaction-confirm').click();
+  }
+
   // --- Index rows -----------------------------------------------------------
 
   /** The row whose title matches, regardless of its position in the list. */
