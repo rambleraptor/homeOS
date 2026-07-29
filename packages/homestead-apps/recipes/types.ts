@@ -27,6 +27,8 @@ export interface Recipe {
   path: string;
   title: string;
   source_pointer?: string;
+  /** `documents/{id}` of the document this recipe was derived from, if any. */
+  source_document?: string;
   parsed_ingredients: RecipeIngredient[];
   steps?: string[];
   method?: string;

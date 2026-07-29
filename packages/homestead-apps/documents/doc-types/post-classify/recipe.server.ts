@@ -79,9 +79,13 @@ const handler: PostClassifyHandler = async ({ document, metadata, auth }) => {
   const servings = asString(metadata.servings);
   if (servings) recipeBody.servings = servings;
 
-  // Prefer a printed source; otherwise point back at the originating document.
-  recipeBody.source_pointer =
-    asString(metadata.source_pointer) ?? `${DOCUMENTS}/${document.id}`;
+  // Link back to the originating document — drives cascade delete of this
+  // recipe when the document is deleted.
+  recipeBody.source_document = `${DOCUMENTS}/${document.id}`;
+  // Keep any printed/URL source the model extracted (free-text, separate from
+  // the document back-link).
+  const sourcePointer = asString(metadata.source_pointer);
+  if (sourcePointer) recipeBody.source_pointer = sourcePointer;
   if (document.created_by) recipeBody.created_by = document.created_by;
 
   const created = await aepCreate<Recipe>(RECIPES, recipeBody, auth.token);

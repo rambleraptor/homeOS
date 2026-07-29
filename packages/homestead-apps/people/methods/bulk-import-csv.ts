@@ -21,6 +21,7 @@ import type {
   ParsedItem,
 } from '@rambleraptor/homestead-core/resources/bulk-import/types';
 import { aepCreate, aepList, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { refToId, toRef } from '@rambleraptor/homestead-core/resources/references';
 import { ADDRESSES, PEOPLE, PERSON_SHARED_DATA } from '../resources';
 
 /** A person as it comes from a CSV — flat, one row per person. */
@@ -153,7 +154,11 @@ async function createPerson(
 
   await aepCreate<SharedDataRecord>(
     PERSON_SHARED_DATA,
-    { person_a: person.id, address_id: address.id, created_by: createdBy },
+    {
+      person_a: toRef(PEOPLE, person.id),
+      address_id: toRef(ADDRESSES, address.id),
+      created_by: createdBy,
+    },
     ctx.auth.token,
   );
 
@@ -233,27 +238,32 @@ async function setPartner(
   ctx: BulkImportContext,
 ): Promise<void> {
   const find = (id: string) =>
-    sharedData.find((s) => s.person_a === id || s.person_b === id);
+    sharedData.find((s) => refToId(s.person_a) === id || refToId(s.person_b) === id);
 
   const existing = find(personId) ?? find(partnerId);
   if (!existing) {
     const record = await aepCreate<SharedDataRecord>(
       PERSON_SHARED_DATA,
-      { person_a: personId, person_b: partnerId, created_by: ctx.auth.user.path },
+      {
+        person_a: toRef(PEOPLE, personId),
+        person_b: toRef(PEOPLE, partnerId),
+        created_by: ctx.auth.user.path,
+      },
       ctx.auth.token,
     );
     sharedData.push(record);
     return;
   }
 
-  const other = existing.person_a === personId ? partnerId : personId;
+  const other = refToId(existing.person_a) === personId ? partnerId : personId;
+  const otherRef = toRef(PEOPLE, other);
   await aepUpdate<SharedDataRecord>(
     PERSON_SHARED_DATA,
     existing.id,
-    { person_b: other },
+    { person_b: otherRef },
     ctx.auth.token,
   );
-  existing.person_b = other;
+  existing.person_b = otherRef;
 }
 
 export default createCsvParser(personCsvSchema);

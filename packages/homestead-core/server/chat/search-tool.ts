@@ -18,7 +18,7 @@ import { aepGet } from '../aepbase';
 import { getEmbeddingModelId, isEmbeddingConfigured } from '../ai/config';
 import { aiEmbed, tool } from '../ai/generate';
 import { fileEmbeds } from '../../resources/ai-fields';
-import { referenceFields } from '../../resources/references';
+import { referenceFields, refToId } from '../../resources/references';
 import type { ResourceDefinition } from '../../resources/types';
 import { getVectorStore } from '../vectors/store';
 import type { ChatToolCall } from '../../chat/types';
@@ -194,8 +194,11 @@ export function makeSearchTool(opts: {
           const ids = spec.isArray ? (Array.isArray(raw) ? raw : []) : [raw];
           for (const id of ids) {
             if (typeof id !== 'string' || id.length === 0) continue;
-            const label = await resolveLabel(spec.plural, id);
-            out.push({ field: spec.field, resource: spec.resource, id, ...(label ? { label } : {}) });
+            // Stored as a `{plural}/{id}` path (or a legacy bare id); normalize
+            // before the lookup and report the bare id in the citation.
+            const recordId = refToId(id);
+            const label = await resolveLabel(spec.plural, recordId);
+            out.push({ field: spec.field, resource: spec.resource, id: recordId, ...(label ? { label } : {}) });
           }
         }
         return out.length ? out : undefined;

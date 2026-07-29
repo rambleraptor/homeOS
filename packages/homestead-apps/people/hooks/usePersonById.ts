@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { refToId } from '@rambleraptor/homestead-core/resources/references';
 import { ADDRESSES, PEOPLE } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Person, Address } from '../types';
@@ -45,7 +46,10 @@ export function usePersonById(id: string) {
           : undefined;
         if (primary) addresses.push(primary);
         for (const address of all) {
-          if (address.shared_data_id === sharedData.id && address.id !== sharedData.address_id) {
+          if (
+            refToId(address.shared_data_id) === sharedData.id &&
+            address.id !== sharedData.address_id
+          ) {
             addresses.push(address);
           }
         }

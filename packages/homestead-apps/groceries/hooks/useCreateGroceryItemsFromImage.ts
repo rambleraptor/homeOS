@@ -9,7 +9,8 @@ import { useMemo, useRef, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { GROCERIES } from '../resources';
+import { GROCERIES, STORES } from '../resources';
+import { toRef } from '@rambleraptor/homestead-core/resources/references';
 import { extractGroceryItemsFromImage } from '@rambleraptor/homestead-core/services/gemini';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
@@ -76,7 +77,8 @@ export function useCreateGroceryItemsFromImage() {
               name: extractedItem.name,
               notes: '',
               checked: false,
-              store: storeId,
+              // Standard `stores/{id}` path format (empty → no store).
+              store: storeId ? toRef(STORES, storeId) : '',
             },
           );
           createdItems.push(item);

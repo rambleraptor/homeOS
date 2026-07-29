@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { refToId } from '@rambleraptor/homestead-core/resources/references';
 import { ADDRESSES, PEOPLE, PERSON_SHARED_DATA } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { Person, PersonSharedData, Address } from '../types';
@@ -44,19 +45,22 @@ export function usePeople() {
 
       peopleRecords.sort((a, b) => a.name.localeCompare(b.name));
 
+      // Reference fields (person_a/person_b/address_id/shared_data_id) are
+      // stored as `{plural}/{id}` paths; normalize to bare ids for the joins.
       const sharedByPerson = new Map<string, PersonSharedData>();
       for (const sd of allSharedData) {
-        sharedByPerson.set(sd.person_a, sd);
-        if (sd.person_b) sharedByPerson.set(sd.person_b, sd);
+        sharedByPerson.set(refToId(sd.person_a), sd);
+        if (sd.person_b) sharedByPerson.set(refToId(sd.person_b), sd);
       }
       const addressById = new Map(allAddresses.map((a) => [a.id, a]));
       const recordById = new Map(peopleRecords.map((p) => [p.id, p]));
 
       const addressesFor = (sd?: PersonSharedData): Address[] => {
         if (!sd) return [];
-        const primary = sd.address_id ? addressById.get(sd.address_id) : undefined;
+        const primaryId = refToId(sd.address_id);
+        const primary = primaryId ? addressById.get(primaryId) : undefined;
         const extras = allAddresses.filter(
-          (a) => a.shared_data_id === sd.id && a.id !== sd.address_id,
+          (a) => refToId(a.shared_data_id) === sd.id && a.id !== primaryId,
         );
         return primary ? [primary, ...extras] : extras;
       };
@@ -66,7 +70,9 @@ export function usePeople() {
         const addresses = addressesFor(sharedData);
 
         const partnerId = sharedData
-          ? sharedData.person_a === record.id ? sharedData.person_b : sharedData.person_a
+          ? refToId(sharedData.person_a) === record.id
+            ? refToId(sharedData.person_b)
+            : refToId(sharedData.person_a)
           : undefined;
         const partnerRecord = partnerId ? recordById.get(partnerId) : undefined;
         const partner = partnerRecord

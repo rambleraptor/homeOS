@@ -71,11 +71,22 @@ export function findReferrers(reg: Registry, targetSingular: string): Referrer[]
   return out;
 }
 
+/**
+ * Normalize a stored reference value to the target's bare id. Values are stored
+ * as `{plural}/{id}` paths (the id is the last segment), but legacy rows may
+ * carry a bare id — strip any prefix so matching works for both.
+ */
+export function refId(value: unknown): string | null {
+  if (typeof value !== 'string' || !value) return null;
+  const slash = value.lastIndexOf('/');
+  return slash === -1 ? value : value.slice(slash + 1);
+}
+
 /** Does a stored field value reference `id`? */
 function valueReferences(value: unknown, id: string, isArray: boolean): boolean {
   return isArray
-    ? Array.isArray(value) && value.includes(id)
-    : value === id;
+    ? Array.isArray(value) && value.some((v) => refId(v) === id)
+    : refId(value) === id;
 }
 
 /**

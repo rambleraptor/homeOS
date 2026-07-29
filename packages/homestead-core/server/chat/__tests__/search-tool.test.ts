@@ -160,6 +160,36 @@ describe('makeSearchTool — execute', () => {
     ]);
   });
 
+  it('resolves a path-format reference value to the target label', async () => {
+    const docWithRef: ResourceDefinition = {
+      singular: 'document',
+      plural: 'documents',
+      fields: {
+        file: { type: 'file', ai: { embed: true } },
+        created_by: { type: 'string', reference: { resource: 'user' } },
+      },
+    };
+    setEmbeddingConfig({ provider: 'openai', model: 'm', auth: { apiKey: 'k' } });
+    setVectorStore(fakeStore([hit('d1', 0, 'passage', 0.9)]));
+    vi.mocked(aepGet).mockImplementation(async (plural: string, id: string) => {
+      // The stored value is the standard `users/u-7` path; the resolver must
+      // strip the prefix before looking the user up.
+      if (plural === 'documents' && id === 'd1') return { title: 'W-2', created_by: 'users/u-7' };
+      if (plural === 'users' && id === 'u-7') return { display_name: 'Alice' };
+      throw new Error('404');
+    });
+    const t = makeSearchTool({ defs: [docWithRef], token: 't', record: noop })!;
+
+    const out = (await (t.execute as unknown as (a: { query: string }, o: never) => Promise<unknown>)(
+      { query: 'x' },
+      {} as never,
+    )) as { results: Array<{ references?: unknown }> };
+
+    expect(out.results[0].references).toEqual([
+      { field: 'created_by', resource: 'user', id: 'u-7', label: 'Alice' },
+    ]);
+  });
+
   it('verifies access once per record even across multiple chunks', async () => {
     vi.mocked(aepGet).mockResolvedValue({ title: 'Doc' });
     const { execute } = toolFor([

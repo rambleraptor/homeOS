@@ -185,8 +185,10 @@ describe('recipe post_classify', () => {
     expect(body.tags).toEqual(['dessert']); // null tag dropped
     expect(body.prep_time).toBe('10 mins');
     expect(body.method).toBe('Grease the pan.');
-    expect(body.source_document).toBeUndefined();
-    expect(body.source_pointer).toBe('documents/doc1'); // no printed source → back-link
+    // The document back-link drives cascade delete; source_pointer stays unset
+    // when the model extracted no printed/URL source.
+    expect(body.source_document).toBe('documents/doc1');
+    expect(body.source_pointer).toBeUndefined();
     expect(result).toEqual({ linked_resource: 'recipes/created1' });
   });
 
@@ -199,5 +201,20 @@ describe('recipe post_classify', () => {
     const [, body] = aepCreate.mock.calls[0];
     expect(body.title).toBe('Untitled recipe');
     expect(body.parsed_ingredients).toEqual([]);
+  });
+
+  it('keeps a printed source alongside the document back-link', async () => {
+    await recipeHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'recipe',
+        parsed_ingredients: [],
+        source_pointer: 'https://example.com/banana-bread',
+      },
+      auth,
+    });
+    const [, body] = aepCreate.mock.calls[0];
+    expect(body.source_document).toBe('documents/doc1');
+    expect(body.source_pointer).toBe('https://example.com/banana-bread');
   });
 });

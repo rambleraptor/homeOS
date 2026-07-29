@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { CheckCircle, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import { formatDate } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
+import { refToId } from '@rambleraptor/homestead-core/resources/references';
 import { usePeople } from '../../people/hooks/usePeople';
 import type { HSAStats, HSAReceipt, ReceiptStatus } from '../types';
 import { useHSAReceipts } from '../hooks/useHSAReceipts';
@@ -19,7 +20,7 @@ function personNameFor(
   namesById: Map<string, string>,
 ): string | undefined {
   if (!path) return undefined;
-  return namesById.get(path.replace(/^people\//, ''));
+  return namesById.get(refToId(path));
 }
 
 /**
@@ -47,7 +48,7 @@ function HSAReceiptLink({ receipt }: { receipt: HSAReceipt }) {
     );
   }
   if (receipt.source_document) {
-    const docId = receipt.source_document.split('/').pop();
+    const docId = refToId(receipt.source_document);
     return (
       <a
         href={`/documents/${docId}`}

@@ -292,7 +292,7 @@ describe('dispatchCustomMethod', () => {
         expect.objectContaining({
           token: 'tok',
           method: 'grocery-items:long-task',
-          createdBy: 'u1',
+          createdBy: '/users/u1',
         }),
       );
 

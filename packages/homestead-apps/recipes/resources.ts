@@ -40,6 +40,14 @@ export const recipesResources: ResourceDefinition[] = [
         description:
           "URI or physical reference (e.g. 'https://...' or 'Book: Food Lab pg 124').",
       },
+      // Set when a recipe was created from a classified document. Cascade:
+      // deleting the source document deletes this derived recipe. Distinct from
+      // the free-text `source_pointer`, which holds a printed/URL source.
+      source_document: {
+        type: 'string',
+        reference: { resource: 'document', onDelete: 'cascade' },
+        description: 'The source document this recipe was derived from.',
+      },
       parsed_ingredients: {
         type: 'array',
         description:

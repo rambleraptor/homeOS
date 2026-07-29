@@ -43,10 +43,12 @@ export const hsaResources: ResourceDefinition[] = [
         description: 'Receipt file (jpeg/png/webp/gif/pdf, <=10MB)',
       },
       // When present, `documents/{id}` of the document this receipt was derived
-      // from. Its file stands in for a missing `receipt_file`.
+      // from. Its file stands in for a missing `receipt_file`. Cascade: deleting
+      // the source document deletes this receipt (it has no file of its own).
       source_document: {
         type: 'string',
-        description: 'Path of the source document this receipt was derived from.',
+        reference: { resource: 'document', onDelete: 'cascade' },
+        description: 'The source document this receipt was derived from.',
       },
       notes: { type: 'string' },
       created_by: { type: 'string', reference: { resource: 'user' } },

@@ -6,7 +6,8 @@
  */
 
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { ADDRESSES, PERSON_SHARED_DATA } from '../resources';
+import { refToId, toRef } from '@rambleraptor/homestead-core/resources/references';
+import { ADDRESSES, PEOPLE, PERSON_SHARED_DATA } from '../resources';
 import type { PersonSharedData, Address, AddressFormData } from '../types';
 
 interface AepAddressRecord {
@@ -48,7 +49,8 @@ function mapAddress(rec: AepAddressRecord): Address {
     country: rec.country,
     wifi_network: rec.wifi_network,
     wifi_password: rec.wifi_password,
-    shared_data_id: rec.shared_data_id,
+    // Stored as a reference path; expose the bare id to the domain layer.
+    shared_data_id: rec.shared_data_id ? refToId(rec.shared_data_id) : undefined,
     created_by: rec.created_by || '',
     created: rec.create_time,
     updated: rec.update_time,
@@ -58,9 +60,11 @@ function mapAddress(rec: AepAddressRecord): Address {
 function mapSharedData(rec: AepSharedDataRecord): PersonSharedData {
   return {
     id: rec.id,
-    person_a: rec.person_a,
-    person_b: rec.person_b,
-    address_id: rec.address_id,
+    // Reference fields are stored as `{plural}/{id}` paths; the domain object
+    // carries bare ids (consumers join on bare person/address ids).
+    person_a: refToId(rec.person_a),
+    person_b: rec.person_b ? refToId(rec.person_b) : undefined,
+    address_id: rec.address_id ? refToId(rec.address_id) : undefined,
     created_by: rec.created_by || '',
     created: rec.create_time,
     updated: rec.update_time,
@@ -85,7 +89,7 @@ async function upsertAddress(
     country: addressData.country,
     wifi_network: addressData.wifi_network,
     wifi_password: addressData.wifi_password,
-    shared_data_id: shared_data_id || undefined,
+    shared_data_id: shared_data_id ? toRef(PERSON_SHARED_DATA, shared_data_id) : undefined,
   };
   if (addressData.id) {
     await aepbase.update<AepAddressRecord>(ADDRESSES, addressData.id, body);
@@ -111,7 +115,7 @@ async function syncAddresses(
 
   try {
     const all = await aepbase.list<AepAddressRecord>(ADDRESSES);
-    const existingAdditional = all.filter((a) => a.shared_data_id === sharedDataId);
+    const existingAdditional = all.filter((a) => refToId(a.shared_data_id) === sharedDataId);
     for (const existing of existingAdditional) {
       if (!formAddressIds.has(existing.id)) {
         await aepbase.remove(ADDRESSES, existing.id);
@@ -132,7 +136,9 @@ export async function findSharedDataForPerson(
   personId: string,
 ): Promise<PersonSharedData | null> {
   const all = await aepbase.list<AepSharedDataRecord>(PERSON_SHARED_DATA);
-  const found = all.find((s) => s.person_a === personId || s.person_b === personId);
+  const found = all.find(
+    (s) => refToId(s.person_a) === personId || refToId(s.person_b) === personId,
+  );
   return found ? mapSharedData(found) : null;
 }
 
@@ -149,9 +155,9 @@ export async function createSharedData(data: {
   const created = await aepbase.create<AepSharedDataRecord>(
     PERSON_SHARED_DATA,
     {
-      person_a: data.personId,
+      person_a: toRef(PEOPLE, data.personId),
       person_b: undefined,
-      address_id: primaryAddressId,
+      address_id: primaryAddressId ? toRef(ADDRESSES, primaryAddressId) : undefined,
       created_by: createdByPath(),
     },
   );
@@ -171,7 +177,7 @@ export async function updateSharedData(
   const updated = await aepbase.update<AepSharedDataRecord>(
     PERSON_SHARED_DATA,
     sharedDataId,
-    { address_id: primaryAddressId },
+    { address_id: primaryAddressId ? toRef(ADDRESSES, primaryAddressId) : undefined },
   );
   return mapSharedData(updated);
 }
@@ -192,8 +198,8 @@ export async function setPartner(
       PERSON_SHARED_DATA,
       existingSharedData.id,
       {
-        person_b: partnerId,
-        address_id: primaryAddressId,
+        person_b: toRef(PEOPLE, partnerId),
+        address_id: primaryAddressId ? toRef(ADDRESSES, primaryAddressId) : undefined,
       },
     );
     return mapSharedData(updated);
@@ -207,8 +213,8 @@ export async function setPartner(
       PERSON_SHARED_DATA,
       partnerSharedData.id,
       {
-        person_b: personId,
-        address_id: primaryAddressId,
+        person_b: toRef(PEOPLE, personId),
+        address_id: primaryAddressId ? toRef(ADDRESSES, primaryAddressId) : undefined,
       },
     );
     return mapSharedData(updated);
@@ -225,8 +231,8 @@ export async function setPartner(
       PERSON_SHARED_DATA,
       existingSharedData.id,
       {
-        person_b: partnerId,
-        address_id: primaryAddressId,
+        person_b: toRef(PEOPLE, partnerId),
+        address_id: primaryAddressId ? toRef(ADDRESSES, primaryAddressId) : undefined,
       },
     );
     await aepbase.remove(PERSON_SHARED_DATA, partnerSharedData.id);
@@ -243,9 +249,9 @@ export async function setPartner(
   const created = await aepbase.create<AepSharedDataRecord>(
     PERSON_SHARED_DATA,
     {
-      person_a: personId,
-      person_b: partnerId,
-      address_id: primaryAddressId,
+      person_a: toRef(PEOPLE, personId),
+      person_b: toRef(PEOPLE, partnerId),
+      address_id: primaryAddressId ? toRef(ADDRESSES, primaryAddressId) : undefined,
       created_by: createdByPath(),
     },
   );
@@ -272,9 +278,9 @@ export async function removePartner(
     { person_b: undefined },
   );
   await aepbase.create<AepSharedDataRecord>(PERSON_SHARED_DATA, {
-    person_a: otherPersonId || '',
+    person_a: otherPersonId ? toRef(PEOPLE, otherPersonId) : '',
     person_b: undefined,
-    address_id: sharedData.address_id,
+    address_id: sharedData.address_id ? toRef(ADDRESSES, sharedData.address_id) : undefined,
     created_by: createdByPath(),
   });
 }

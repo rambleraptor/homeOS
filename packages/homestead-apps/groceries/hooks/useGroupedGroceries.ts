@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { refToId } from '@rambleraptor/homestead-core/resources/references';
 import { useGroceries } from './useGroceries';
 import { useStores } from './useStores';
 import type { StoreGroupedGroceries, GroceryStats } from '../types';
@@ -15,7 +16,9 @@ export function useGroupedGroceries() {
     storeMap.set(null, { store: null, items: [], checkedCount: 0, totalCount: 0 });
 
     for (const item of items) {
-      const group = storeMap.get(item.store || null);
+      // `item.store` is a `stores/{id}` path (or a legacy bare id); the map is
+      // keyed by bare store id.
+      const group = storeMap.get(refToId(item.store) || null);
       if (!group) continue;
       group.items.push(item);
       group.totalCount++;

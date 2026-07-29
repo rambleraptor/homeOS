@@ -44,6 +44,11 @@ async function createGrocery(name: string, storeId: string): Promise<string> {
   return (await res.json()).id as string;
 }
 
+/** A reference value in the standard `{plural}/{id}` path format. */
+function storeRef(id: string): string {
+  return `stores/${id}`;
+}
+
 beforeEach(async () => {
   t = await makeEngine();
 });
@@ -107,6 +112,36 @@ describe('bare reference (no onDelete)', () => {
   });
 });
 
+describe('path-format stored values (plural/id)', () => {
+  test('restrict matches a stored path value', async () => {
+    await seedSchema('restrict');
+    const store = await createStore('Costco');
+    await createGrocery('Milk', storeRef(store));
+
+    const blocked = await call(t.engine, 'DELETE', `/stores/${store}`, { token: t.adminToken });
+    expect(blocked.status).toBe(409);
+  });
+
+  test('set-null clears a stored path value', async () => {
+    await seedSchema('set-null');
+    const store = await createStore('Costco');
+    const grocery = await createGrocery('Milk', storeRef(store));
+
+    expect((await call(t.engine, 'DELETE', `/stores/${store}`, { token: t.adminToken })).status).toBe(204);
+    const after = await (await call(t.engine, 'GET', `/groceries/${grocery}`, { token: t.adminToken })).json();
+    expect(after.store ?? null).toBeNull();
+  });
+
+  test('cascade deletes a referrer that stored a path value', async () => {
+    await seedSchema('cascade');
+    const store = await createStore('Costco');
+    const grocery = await createGrocery('Milk', storeRef(store));
+
+    expect((await call(t.engine, 'DELETE', `/stores/${store}`, { token: t.adminToken })).status).toBe(204);
+    expect((await call(t.engine, 'GET', `/groceries/${grocery}`, { token: t.adminToken })).status).toBe(404);
+  });
+});
+
 describe('to-many (array) references', () => {
   test('restrict blocks when an array element points at the target', async () => {
     await defineResource(t, {
@@ -140,5 +175,42 @@ describe('to-many (array) references', () => {
     expect((await blocked.json()).error.message).toMatch(
       /games record\(s\) reference it via "players"/,
     );
+  });
+
+  test('set-null drops a path-format array element pointing at the target', async () => {
+    await defineResource(t, {
+      singular: 'person',
+      plural: 'people',
+      user_settable_create: true,
+      schema: { type: 'object', properties: { name: { type: 'string' } } },
+    });
+    await defineResource(t, {
+      singular: 'game',
+      plural: 'games',
+      user_settable_create: true,
+      schema: {
+        type: 'object',
+        properties: {
+          players: {
+            type: 'array',
+            items: { type: 'string', 'x-aepbase-reference': { resource: 'person', onDelete: 'set-null' } },
+          },
+        },
+      },
+    });
+    const person = async (name: string) =>
+      (await (await call(t.engine, 'POST', '/people', { token: t.adminToken, body: { name } })).json())
+        .id as string;
+    const alice = await person('Alice');
+    const bob = await person('Bob');
+    const game = (await (await call(t.engine, 'POST', '/games', {
+      token: t.adminToken,
+      // Stored in the standard path format.
+      body: { players: [`people/${alice}`, `people/${bob}`] },
+    })).json()).id as string;
+
+    expect((await call(t.engine, 'DELETE', `/people/${alice}`, { token: t.adminToken })).status).toBe(204);
+    const after = await (await call(t.engine, 'GET', `/games/${game}`, { token: t.adminToken })).json();
+    expect(after.players).toEqual([`people/${bob}`]);
   });
 });

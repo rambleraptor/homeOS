@@ -19,7 +19,9 @@ import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { useSendGroceryNotification } from '../hooks/useSendGroceryNotification';
 import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
+import { toRef } from '@rambleraptor/homestead-core/resources/references';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { STORES } from '../resources';
 
 export function GroceriesHome() {
   const [itemName, setItemName] = useState('');
@@ -57,7 +59,8 @@ export function GroceriesHome() {
     // input while offline (the mutation stays paused until reconnect).
     createMutation.mutate({
       name: trimmed,
-      store: storeValue || undefined,
+      // Store the reference in the standard `stores/{id}` path format.
+      store: storeValue ? toRef(STORES, storeValue) : undefined,
     });
     setItemName('');
     inputRef.current?.focus();

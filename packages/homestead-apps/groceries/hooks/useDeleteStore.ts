@@ -3,6 +3,7 @@ import {
   type UseMutationResult,
 } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { refToId } from '@rambleraptor/homestead-core/resources/references';
 import { useResourceDelete } from '@rambleraptor/homestead-core/api/resourceHooks';
 import { useDeleteGroceryItem } from './useDeleteGroceryItem';
 import type { GroceryItem } from '../types';
@@ -24,7 +25,7 @@ export function useDeleteStore(): UseMutationResult<string, Error, string> {
   const cascade = (storeId: string) => {
     const items = queryClient.getQueryData<GroceryItem[]>(ITEMS_KEY) ?? [];
     for (const item of items) {
-      if (item.store === storeId) deleteItem.mutate(item.id);
+      if (refToId(item.store) === storeId) deleteItem.mutate(item.id);
     }
   };
 

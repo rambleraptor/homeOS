@@ -15,6 +15,7 @@ import {
   type ParentPath,
 } from '../aepbase';
 import type { ChatToolCall } from '../../chat/types';
+import { refToId } from '../../resources/references';
 import { parentIdParam, type ToolBinding } from './tools';
 
 /** Cap on records returned to the model from a list call (context safety). */
@@ -63,8 +64,11 @@ async function validateReferences(
     const ids = ref.isArray ? (Array.isArray(value) ? value : []) : [value];
     for (const id of ids) {
       if (typeof id !== 'string' || id.length === 0) continue;
+      // A reference value may be a `{plural}/{id}` path or a bare id (what the
+      // model tends to pass); normalize to the bare id before the lookup.
+      const recordId = refToId(id);
       try {
-        await aepGet(ref.plural, id, token);
+        await aepGet(ref.plural, recordId, token);
       } catch {
         return `no ${ref.plural} record with id "${id}" (referenced by "${ref.field}")`;
       }

@@ -259,7 +259,8 @@ async function dispatchAsync(
       token: ctx.auth.token,
       method: methodName,
       title,
-      createdBy: ctx.auth.user.id,
+      // Standard `users/{id}` reference path, matching `created_by` everywhere.
+      createdBy: ctx.auth.user.path,
       // Created `pending`: it may wait in the runner's queue before a slot
       // frees. `start()` promotes it to `running` right before it executes.
       status: 'pending',

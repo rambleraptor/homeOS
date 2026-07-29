@@ -39,6 +39,7 @@ import {
   checkReferenceRestrict,
   collectReferrers,
   findReferrers,
+  refId,
 } from './references';
 import {
   deleteResource,
@@ -585,7 +586,7 @@ function applyReferenceCleanup(
     for (const row of collectReferrers(reg, ref, id)) {
       if (ref.onDelete === 'set-null') {
         row.fields[ref.field] = ref.isArray
-          ? (row.fields[ref.field] as unknown[]).filter((v) => v !== id)
+          ? (row.fields[ref.field] as unknown[]).filter((v) => refId(v) !== id)
           : null;
         updateResource(reg.db, ref.resource.plural, row.path, row.fields, now, ref.resource.schema);
       } else if (ref.onDelete === 'cascade') {
