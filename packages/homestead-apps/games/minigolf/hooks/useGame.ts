@@ -2,19 +2,10 @@
  * Single game hook. Reads one game by id.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { useResourceItem } from '@rambleraptor/homestead-core/api/resourceHooks';
 import { GAMES } from '../resources';
 import type { Game } from '../types';
 
 export function useGame(gameId: string | null) {
-  return useQuery({
-    queryKey: queryKeys.app('minigolf').detail(gameId || ''),
-    queryFn: async (): Promise<Game | null> => {
-      if (!gameId) return null;
-      return await aepbase.get<Game>(GAMES, gameId);
-    },
-    enabled: !!gameId,
-  });
+  return useResourceItem<Game>('minigolf', GAMES, gameId);
 }
