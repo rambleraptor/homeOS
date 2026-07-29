@@ -3,8 +3,8 @@
  *
  * Reads the *stored* file rather than taking bytes in the body: the method is
  * item-scoped, so it has the record id and can pull the file back over loopback
- * with the caller's token. (HSA's parse-receipt base64s the image into the
- * request because its method is collection-scoped and has no record yet.)
+ * with the caller's token (no need for the caller to base64 the bytes into the
+ * request, as a collection-scoped method with no record yet would have to).
  *
  * Long-running: one vision call over a whole document is slow, so the call
  * returns 202 with an Operation and the work runs in the background. The

@@ -120,7 +120,7 @@ export async function aepCreateMultipart<T>(
 
 /**
  * Invoke an AEP-136/151 custom method, e.g.
- * `postCustomMethod(token, '/hsa-receipts:parse-receipt', { image, mimeType })`.
+ * `postCustomMethod(token, '/documents/abc123:classify')`.
  * Returns the raw Response so callers can assert on status (a 202 carrying an
  * operation for async methods, or a pre-flight rejection).
  */

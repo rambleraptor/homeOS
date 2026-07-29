@@ -19,8 +19,8 @@ export const hsaResources: ResourceDefinition[] = [
         required: true,
       },
       // Free-text name as printed on the receipt. Being phased out in favour of
-      // the canonical `person` link below, but kept for now (and still filled by
-      // the AI parse) so existing receipts keep their label.
+      // the canonical `person` link below, but kept for now so existing receipts
+      // keep their label.
       patient: { type: 'string' },
       // Canonical link to a `person` record. Different receipts can print the
       // same patient's name differently (maiden name, middle name, nickname);
@@ -50,18 +50,6 @@ export const hsaResources: ResourceDefinition[] = [
       },
       notes: { type: 'string' },
       created_by: { type: 'string', reference: { resource: 'user' } },
-    },
-    // AEP-136 custom method on the hsa-receipt collection. Long-running
-    // (AEP-151): returns 202 + a pollable operation rather than blocking on
-    // the AI parse.
-    //   POST /api/aep/hsa-receipts:parse-receipt
-    customMethods: {
-      'parse-receipt': {
-        target: 'collection',
-        async: true,
-        title: 'Parse receipt',
-        load: () => import('./methods/parse-receipt'),
-      },
     },
   },
 ];
