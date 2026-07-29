@@ -8,9 +8,12 @@ import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageH
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
 import { RedactionEditor } from '../redaction/RedactionEditor';
+import { useDeleteDocument } from '../hooks/useUpdateDocument';
 import { usePeople } from '../../people/hooks/usePeople';
+import { findDuplicateUploads } from '../duplicates';
 import { DocumentListItem } from './DocumentListItem';
 import { DocumentFilters } from './DocumentFilters';
+import { DuplicateUploadWarning } from './DuplicateUploadWarning';
 import {
   collectDocTypeFacets,
   collectPeople,
@@ -28,9 +31,14 @@ export function DocumentsHome() {
   const [redactTarget, setRedactTarget] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  // Ids from the most recent upload batch, checked for duplicates once the
+  // server stamps their content hash (which arrives on a later list poll).
+  // Dismissing or deleting a flagged upload drops it from here.
+  const [uploadedIds, setUploadedIds] = useState<string[]>([]);
 
   const { data: documents, isLoading, isError, error } = useDocuments();
   const upload = useUploadDocument();
+  const remove = useDeleteDocument();
   // The people directory resolves extracted names to canonical identities so
   // the person facet follows aliases. Absent (people app disabled / still
   // loading) it's empty, and every name degrades to a by-spelling identity.
@@ -51,14 +59,23 @@ export function DocumentsHome() {
     [documents, filters, directory],
   );
 
+  // Duplicates among the last batch. Recomputes as the list polls, so a match
+  // surfaces as soon as the server-stamped hash lands on the uploaded record.
+  const duplicates = useMemo(
+    () => findDuplicateUploads(documents ?? [], uploadedIds),
+    [documents, uploadedIds],
+  );
+
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     setUploadError(null);
     // Sequential: each upload is a multipart POST plus a classify kick-off, and
     // firing a whole folder at once would stampede the AI provider.
+    const ids: string[] = [];
     for (const file of Array.from(files)) {
       try {
-        await upload.mutateAsync(file);
+        const doc = await upload.mutateAsync(file);
+        ids.push(doc.id);
       } catch (err) {
         setUploadError(
           `Couldn't upload ${file.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
@@ -66,6 +83,7 @@ export function DocumentsHome() {
         break;
       }
     }
+    setUploadedIds(ids);
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -87,6 +105,20 @@ export function DocumentsHome() {
       setRedactTarget(null);
       setUploadError(
         `Couldn't upload ${redacted.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+    }
+  };
+
+  const dismissDuplicate = (id: string) =>
+    setUploadedIds((ids) => ids.filter((i) => i !== id));
+
+  const deleteDuplicate = async (id: string) => {
+    try {
+      await remove.mutateAsync(id);
+      dismissDuplicate(id);
+    } catch (err) {
+      setUploadError(
+        `Couldn't delete the duplicate: ${err instanceof Error ? err.message : 'unknown error'}`,
       );
     }
   };
@@ -162,6 +194,13 @@ export function DocumentsHome() {
           {uploadError}
         </div>
       )}
+
+      <DuplicateUploadWarning
+        duplicates={duplicates}
+        onDelete={(id) => void deleteDuplicate(id)}
+        onDismiss={dismissDuplicate}
+        deletingId={remove.isPending ? remove.variables : undefined}
+      />
 
       {isLoading && (
         <div className="flex justify-center py-12" data-testid="documents-loading">

@@ -30,6 +30,7 @@ import {
   aepCreateMultipart,
   aepList,
 } from '@rambleraptor/homestead-core/server/aepbase';
+import { sha256Hex } from '@rambleraptor/homestead-core/server/hash';
 import type { EmailAttachment } from '@rambleraptor/homestead-core/server/email/types';
 import { DOCUMENTS } from '../resources';
 import type { Document } from '../types';
@@ -50,6 +51,18 @@ function attachmentKey(index: number, att: EmailAttachment): string {
   return `${index}:${att.filename}`;
 }
 
+/**
+ * Does a document with this exact content already exist? The hard-block guard
+ * for the email flow: the same file reaching us twice — a statement forwarded, a
+ * message re-sent, or an email copy of a hand-uploaded document — matches on
+ * content hash even though its per-message attachment key differs. `content_hash`
+ * is hex, so it's safe to inline into the filter expression.
+ */
+async function contentHashExists(token: string, hash: string): Promise<boolean> {
+  const matches = await aepList<Document>(DOCUMENTS, token, undefined, `content_hash == '${hash}'`);
+  return matches.length > 0;
+}
+
 const handler: CronHandler = async ({ token, log }) => {
   if (!isEmailConfigured()) {
     await log('email not configured; skipping');
@@ -64,7 +77,13 @@ const handler: CronHandler = async ({ token, log }) => {
   const aiReady = isAiConfigured();
   let uploaded = 0;
   let skipped = 0;
+  let duplicates = 0;
   let trashed = 0;
+
+  // Content hashes filed during this run, so two identical attachments in the
+  // same firing (across different messages, before the first is queryable)
+  // don't both get filed. Spans the whole run, not just one message.
+  const seenHashes = new Set<string>();
 
   for (const ref of refs) {
     const message = await provider.getMessage(ref.id);
@@ -116,6 +135,24 @@ const handler: CronHandler = async ({ token, log }) => {
       }
       try {
         const bytes = await provider.getAttachment(message.id, att.id);
+        const hash = sha256Hex(bytes);
+
+        // Hard block: an identical file already filed (in an earlier run or
+        // earlier in this one) is a duplicate — don't file it again. The
+        // attachment is still handled, so mark the key filed and let the
+        // message trash normally; we just skip the redundant upload.
+        const isDuplicate = seenHashes.has(hash) || (await contentHashExists(token, hash));
+        seenHashes.add(hash);
+        if (isDuplicate) {
+          duplicates++;
+          filed.add(key);
+          await log(
+            `message ${ref.id}: attachment ${key} duplicates an existing document ` +
+              `(sha256 ${hash.slice(0, 12)}…); not filing`,
+          );
+          continue;
+        }
+
         const doc = await aepCreateMultipart<Document>(
           DOCUMENTS,
           {
@@ -124,6 +161,7 @@ const handler: CronHandler = async ({ token, log }) => {
             parse_status: 'pending',
             source_email_id: ref.id,
             source_email_attachment: key,
+            content_hash: hash,
           },
           { filename: att.filename || 'attachment', contentType: att.mimeType, bytes },
           token,
@@ -175,8 +213,10 @@ const handler: CronHandler = async ({ token, log }) => {
     }
   }
 
-  await log(`uploaded ${uploaded}, skipped ${skipped}, trashed ${trashed}`);
-  return { messages: refs.length, uploaded, skipped, trashed };
+  await log(
+    `uploaded ${uploaded}, skipped ${skipped}, duplicates ${duplicates}, trashed ${trashed}`,
+  );
+  return { messages: refs.length, uploaded, skipped, duplicates, trashed };
 };
 
 export default handler;
