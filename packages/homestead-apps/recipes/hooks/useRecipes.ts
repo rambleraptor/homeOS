@@ -1,24 +1,14 @@
 /**
- * Recipes Query Hook
- *
- * aepbase has no `sort` query param, so we order client-side by
- * `create_time` desc (newest first).
+ * Recipes Query Hook — newest first (`-create_time`), ordered server-side.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { useResourceList } from '@rambleraptor/homestead-core/api/resourceHooks';
 import { RECIPES } from '../resources';
 import type { Recipe } from '../types';
 
 export function useRecipes() {
-  return useQuery({
-    queryKey: queryKeys.app('recipes').resource('recipe').list(),
-    queryFn: async (): Promise<Recipe[]> => {
-      const recipes = await aepbase.list<Recipe>(RECIPES);
-      return recipes.sort((a, b) =>
-        (b.create_time || '').localeCompare(a.create_time || ''),
-      );
-    },
+  return useResourceList<Recipe>('recipes', 'recipe', {
+    plural: RECIPES,
+    orderBy: '-create_time',
   });
 }

@@ -1,21 +1,14 @@
 /**
- * Credit Cards Query Hook.
+ * Credit Cards Query Hook — newest first (`-create_time`), ordered server-side.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { useResourceList } from '@rambleraptor/homestead-core/api/resourceHooks';
 import { CREDIT_CARDS } from '../resources';
 import type { CreditCard } from '../types';
 
 export function useCreditCards() {
-  return useQuery({
-    queryKey: queryKeys.app('credit-cards').resource('credit-card').list(),
-    queryFn: async (): Promise<CreditCard[]> => {
-      const cards = await aepbase.list<CreditCard>(CREDIT_CARDS);
-      return cards.sort((a, b) =>
-        (b.create_time || '').localeCompare(a.create_time || ''),
-      );
-    },
+  return useResourceList<CreditCard>('credit-cards', 'credit-card', {
+    plural: CREDIT_CARDS,
+    orderBy: '-create_time',
   });
 }
