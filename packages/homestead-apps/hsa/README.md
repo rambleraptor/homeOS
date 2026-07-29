@@ -13,20 +13,19 @@ The HSA (Health Savings Account) app helps you track out-of-pocket medical expen
 - Real-time calculation based on stored (unreimbursed) receipts
 - Summary statistics showing stored vs. reimbursed receipts
 
-### 📸 AI-Powered Receipt Parsing
-- Upload receipt images (JPEG, PNG, WebP, GIF) or PDFs
-- Click "Parse Receipt with AI" to automatically extract:
-  - Merchant/Provider name
-  - Service date
-  - Amount paid
-  - Category (Medical, Dental, Vision, Rx)
-  - Patient name (if visible)
-- Powered by Google Gemini 2.5 Flash vision model
+### 📸 Automatic Capture from Documents
+- Upload a receipt in the **Documents** app instead of keying it in here.
+- The documents pipeline classifies it as a `medical-receipt`, extracts the
+  merchant, date, amount, category, and patient, and mirrors the result into
+  HSA Receipts automatically — the created receipt links back to the source
+  document via `source_document` rather than storing a second copy of the file.
+- See `documents/doc-types/medical-receipt.ts` and its `post_classify` hook at
+  `documents/doc-types/post-classify/medical-receipt.server.ts`.
 
 ### 📝 Quick Capture Form
-- Simple, clean form for adding receipts
+- Simple, clean form for adding a receipt by hand.
 - Required fields: Merchant, Service Date, Amount, Category, Receipt File
-- Optional fields: Patient, Notes
+- Optional fields: Patient, Person, Notes
 - File upload with validation (max 10MB)
 - Real-time form validation
 
@@ -72,29 +71,8 @@ When backing up your Homestead data, include the entire
 
 ## API Endpoints
 
-### Parse Receipt
-```
-POST /api/apps/hsa/parse-receipt
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "image": "<base64_encoded_image>",
-  "mimeType": "image/jpeg"
-}
-
-Response:
-{
-  "data": {
-    "merchant": "CVS Pharmacy",
-    "service_date": "2024-01-15",
-    "amount": 45.99,
-    "category": "Rx",
-    "patient": "John Smith"
-  },
-  "message": "Receipt parsed successfully"
-}
-```
+AI extraction is no longer a bespoke HSA endpoint — it's handled by the
+Documents app, which classifies an uploaded receipt and mirrors it into HSA.
 
 ### CRUD Operations
 
@@ -125,11 +103,11 @@ Collection: `hsa_receipts`
 ## Usage
 
 1. **Add a Receipt**:
-   - Click "Add Receipt" in the Quick Capture section
-   - Upload your receipt image or PDF
-   - For images, click "Parse Receipt with AI" to auto-fill fields
-   - Review and adjust the parsed data
-   - Click "Save Receipt"
+   - To capture automatically, upload the receipt in the **Documents** app —
+     it's classified and mirrored into HSA for you.
+   - To add one by hand, click "Add Receipt" in the Quick Capture section,
+     upload the receipt image or PDF, fill in the fields, and click "Save
+     Receipt".
 
 2. **Mark as Reimbursed**:
    - When you withdraw money from your HSA
@@ -171,17 +149,10 @@ make test
 
 ### AI provider
 
-Receipt parsing uses the instance's configured AI provider. Set the `ai` block
-in `homestead.config.ts` (provider, model, auth) and supply the key via the
-environment:
-
-```bash
-# In the project's .env
-AI_API_KEY=your_ai_provider_api_key_here
-```
-
-The model must be vision-capable (e.g. `gpt-4o`, `claude-3-5-sonnet-latest`,
-`gemini-2.5-flash`). See the [AI guide](../../homestead-site/docs/guides/ai.md).
+The HSA app itself no longer calls the AI provider directly — receipt
+extraction is done by the Documents app. Configure the `ai` block in
+`homestead.config.ts` for that pipeline; see the
+[AI guide](../../homestead-site/docs/guides/ai.md).
 
 ### aepbase URL
 
@@ -192,8 +163,8 @@ somewhere other than `http://127.0.0.1:3000/api/aep`.
 
 ## Tips
 
-1. **Better Parsing Results**: Take clear, well-lit photos of receipts with all text visible
-2. **Manual Review**: Always review AI-parsed data before saving
-3. **Organize Receipts**: Use the Patient field to track expenses by family member
+1. **Better Extraction Results**: When capturing via Documents, upload a clear, well-lit scan or photo with all text visible
+2. **Manual Review**: Review a mirrored receipt's fields before marking it reimbursed
+3. **Organize Receipts**: Use the Patient/Person fields to track expenses by family member
 4. **Regular Backups**: Keep receipts stored for IRS audit purposes (typically 3-7 years)
 5. **Notes Field**: Add context like "vision exam" or "prescription refill" for future reference
