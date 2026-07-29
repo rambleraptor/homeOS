@@ -124,6 +124,7 @@ export async function aepList<T>(
   token: string,
   parent?: ParentPath,
   filter?: string,
+  orderBy?: string,
 ): Promise<T[]> {
   const base = pathFor(plural, parent);
   const out: T[] = [];
@@ -133,6 +134,7 @@ export async function aepList<T>(
     qs.set('max_page_size', '200');
     // URLSearchParams encodes the value (quotes/spaces in a filter expression).
     if (filter) qs.set('filter', filter);
+    if (orderBy) qs.set('order_by', orderBy);
     if (pageToken) qs.set('page_token', pageToken);
     const res = await aepbaseFetch(`${base}?${qs}`, { token });
     if (!res.ok) {

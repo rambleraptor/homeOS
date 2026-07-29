@@ -417,6 +417,7 @@ export function handleList(reg: Registry, match: RouteMatch, req: Request): Resp
     if (!Number.isNaN(n) && n > 0) skip = n;
   }
   const filter = url.searchParams.get('filter') ?? '';
+  const orderBy = url.searchParams.get('order_by') ?? '';
 
   let results: StoredResource[];
   let nextPageToken: string;
@@ -430,10 +431,13 @@ export function handleList(reg: Registry, match: RouteMatch, req: Request): Resp
       pageToken,
       skip,
       filter,
+      orderBy,
     ));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('invalid filter')) return errorResponse(400, msg);
+    if (msg.includes('invalid filter') || msg.includes('invalid order_by')) {
+      return errorResponse(400, msg);
+    }
     return errorResponse(500, `database error: ${msg}`);
   }
 

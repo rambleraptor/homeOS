@@ -897,6 +897,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "A comma-separated list of fields to sort by, ascending by default; prefix a field with \"-\" for descending (e.g. \"author,-create_time\").",
+            "example": "-create_time",
+            "in": "query",
+            "name": "order_by",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1490,6 +1499,15 @@
             "example": "author=Orwell",
             "in": "query",
             "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "A comma-separated list of fields to sort by, ascending by default; prefix a field with \"-\" for descending (e.g. \"author,-create_time\").",
+            "example": "-create_time",
+            "in": "query",
+            "name": "order_by",
             "schema": {
               "type": "string"
             }
@@ -2717,6 +2735,15 @@
             "example": "author=Orwell",
             "in": "query",
             "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "A comma-separated list of fields to sort by, ascending by default; prefix a field with \"-\" for descending (e.g. \"author,-create_time\").",
+            "example": "-create_time",
+            "in": "query",
+            "name": "order_by",
             "schema": {
               "type": "string"
             }
