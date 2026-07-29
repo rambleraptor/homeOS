@@ -66,6 +66,12 @@ const PARAM_META: Record<string, { description: string; example: unknown }> = {
     description: 'A filter expression to narrow results (e.g. "author=Orwell").',
     example: 'author=Orwell',
   },
+  order_by: {
+    description:
+      'A comma-separated list of fields to sort by, ascending by default; ' +
+      'prefix a field with "-" for descending (e.g. "author,-create_time").',
+    example: '-create_time',
+  },
   id: {
     description:
       'The ID to use for the new resource definition. If omitted, one is generated automatically.',
@@ -442,7 +448,11 @@ function buildPaths(doc: ResourceDoc, schemaExample: Json | undefined): Record<s
       queryParam('page_token', 'string'),
     ];
     if (doc.methods.list.supportsSkipFilter) {
-      listParams.push(queryParam('skip', 'integer'), queryParam('filter', 'string'));
+      listParams.push(
+        queryParam('skip', 'integer'),
+        queryParam('filter', 'string'),
+        queryParam('order_by', 'string'),
+      );
     }
     const listExample = schemaExample
       ? { results: [schemaExample], next_page_token: '' }

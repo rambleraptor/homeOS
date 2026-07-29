@@ -11,9 +11,9 @@
  *    follows the cursor automatically and returns a flat array.
  *  - PATCH uses `application/merge-patch+json`. Multipart create/update is
  *    used when the caller passes a `FormData` body.
- *  - There is no `sort` query param. Callers that need ordering must
- *    sort client-side (gift-card-style lists are small enough that this
- *    is fine).
+ *  - Server-side ordering is available via the `orderBy` list option (AEP
+ *    `order_by`); without it, results come back in insertion order and a
+ *    caller may sort the returned array itself.
  *  - Parented resources are addressed via nested URLs (`{parent}/{children}`)
  *    rather than via filter strings on a foreign-key field.
  *  - User registration is not supported. `login()` is the only auth call.
@@ -241,6 +241,12 @@ interface ListOptions {
   parent?: ParentPath;
   /** Hard cap. The wrapper follows next_page_token until exhausted. */
   maxPageSize?: number;
+  /**
+   * AEP `order_by`: a comma-separated field list, ascending by default;
+   * prefix a field with `-` for descending (e.g. `-create_time`). The engine
+   * sorts server-side, so callers no longer need to re-sort the result.
+   */
+  orderBy?: string;
 }
 
 interface ListResponse<T> {
@@ -259,12 +265,12 @@ interface ItemOptions {
 }
 
 /**
- * Fetch every record in `plural`, following pagination. aepbase has no sort
- * param — callers that need ordering should sort the returned array client-
- * side.
+ * Fetch every record in `plural`, following pagination. Pass `orderBy` to have
+ * the engine sort server-side (AEP `order_by`); without it, results come back
+ * in insertion order and the caller may sort the returned array itself.
  */
 export async function list<T>(plural: string, options: ListOptions = {}): Promise<T[]> {
-  const { filter, parent, maxPageSize = 100 } = options;
+  const { filter, parent, maxPageSize = 100, orderBy } = options;
   const path = collectionPath(plural, parent);
   const out: T[] = [];
   let pageToken: string | undefined;
@@ -275,6 +281,7 @@ export async function list<T>(plural: string, options: ListOptions = {}): Promis
         max_page_size: maxPageSize,
         page_token: pageToken,
         filter,
+        order_by: orderBy,
       },
     });
     if (page.results) out.push(...page.results);

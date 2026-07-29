@@ -1,7 +1,10 @@
 /**
  * Row storage for dynamic resources — port of pkg/resource/store.go.
  * Pagination contract: cursor = base64(last id), `ORDER BY id`, fetch
- * skip + pageSize + 1 to detect the next page.
+ * skip + pageSize + 1 to detect the next page. When an `order_by` is
+ * supplied the result set is no longer id-ordered, so keyset pagination on
+ * `id` can't apply — that path falls back to offset pagination whose token
+ * carries the running offset instead (see `listResources`).
  */
 
 import type { Database } from './sqlite';
@@ -9,6 +12,7 @@ import type { Schema, StoredResource } from './types';
 import { STANDARD_FIELDS } from './types';
 import { sanitizeTableName } from './db';
 import { compileFilter } from './filter';
+import { compileOrderBy } from './order';
 import { decryptText, encryptionEnabled, encryptText, isEncryptedText } from './crypto';
 
 type SqlValue = string | number | bigint | boolean | null | Uint8Array;
@@ -162,6 +166,7 @@ export function listResources(
   pageToken: string,
   skip: number,
   filter: string,
+  orderBy = '',
 ): { results: StoredResource[]; nextPageToken: string } {
   const tableName = sanitizeTableName(plural);
   const selectCols = ['id', 'path', 'create_time', 'update_time', ...schemaPropertyNames(schema)];
@@ -172,6 +177,24 @@ export function listResources(
   for (const [parentParam, parentId] of Object.entries(parentIds)) {
     whereClauses.push(`${sanitizeTableName(parentParam)} = ?`);
     args.push(parentId);
+  }
+
+  if (filter !== '') {
+    // Throws Error("invalid filter: ...") which the handler maps to 400.
+    const compiled = compileFilter(filter, schema);
+    whereClauses.push(compiled.sql);
+    args.push(...compiled.params);
+  }
+
+  // Throws Error("invalid order_by: ...") which the handler maps to 400.
+  const orderCols = orderBy.trim() === '' ? '' : compileOrderBy(orderBy, schema);
+
+  // Ordered lists can't be paginated by an `id > cursor` keyset — the id
+  // sequence no longer matches result order. Offset pagination is order-
+  // agnostic, so the ordered path uses it (with `id` appended as a stable
+  // tiebreaker); the default path keeps the original keyset scheme untouched.
+  if (orderCols !== '') {
+    return listOrdered(db, tableName, selectCols, whereClauses, args, schema, pageSize, pageToken, skip, orderCols);
   }
 
   if (pageToken !== '') {
@@ -185,13 +208,6 @@ export function listResources(
       whereClauses.push('id > ?');
       args.push(cursor);
     }
-  }
-
-  if (filter !== '') {
-    // Throws Error("invalid filter: ...") which the handler maps to 400.
-    const compiled = compileFilter(filter, schema);
-    whereClauses.push(compiled.sql);
-    args.push(...compiled.params);
   }
 
   const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : '';
@@ -213,6 +229,53 @@ export function listResources(
     const lastId = results[pageSize - 1]!.id;
     nextPageToken = Buffer.from(lastId, 'utf8').toString('base64');
     results = results.slice(0, pageSize);
+  }
+
+  return { results, nextPageToken };
+}
+
+/**
+ * Offset-paginated list for the `order_by` path. The page token base64-encodes
+ * the running offset; the first page's offset is `skip`. `id` is appended to
+ * the ORDER BY so ties resolve deterministically and pages don't overlap.
+ */
+function listOrdered(
+  db: Database,
+  tableName: string,
+  selectCols: string[],
+  whereClauses: string[],
+  args: SqlValue[],
+  schema: Schema,
+  pageSize: number,
+  pageToken: string,
+  skip: number,
+  orderCols: string,
+): { results: StoredResource[]; nextPageToken: string } {
+  let offset = skip;
+  if (pageToken !== '') {
+    try {
+      const n = parseInt(Buffer.from(pageToken, 'base64').toString('utf8'), 10);
+      if (!Number.isNaN(n) && n >= 0) offset = n;
+    } catch {
+      // invalid tokens are ignored, matching the keyset path
+    }
+  }
+
+  // Append `id` as a final tiebreaker unless the caller already ordered by it.
+  const orderSql = /(^|,\s*)id(\s|$)/i.test(orderCols) ? orderCols : `${orderCols}, id`;
+  const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : '';
+  const rows = db
+    .query(
+      `SELECT ${selectCols.join(', ')} FROM ${tableName}${where} ORDER BY ${orderSql} LIMIT ? OFFSET ?`,
+    )
+    .all(...args, pageSize + 1, offset) as Record<string, unknown>[];
+
+  let results = rows.map((row) => rowToStored(row, schema));
+
+  let nextPageToken = '';
+  if (results.length > pageSize) {
+    results = results.slice(0, pageSize);
+    nextPageToken = Buffer.from(String(offset + pageSize), 'utf8').toString('base64');
   }
 
   return { results, nextPageToken };

@@ -243,6 +243,54 @@ describe('list + pagination', () => {
     expect(bad.status).toBe(400);
     expect((await bad.json()).error.message).toContain('invalid filter');
   });
+
+  test('order_by sorts server-side; - prefix descends; bad field is a 400', async () => {
+    // Insert out of natural (insertion/id) order so a real sort is observable.
+    await call(t.engine, 'POST', '/books?id=c', { token: t.adminToken, body: { title: 'Cherry', pages: 300 } });
+    await call(t.engine, 'POST', '/books?id=a', { token: t.adminToken, body: { title: 'Apple', pages: 100 } });
+    await call(t.engine, 'POST', '/books?id=b', { token: t.adminToken, body: { title: 'Banana', pages: 200 } });
+
+    const asc = await (
+      await call(t.engine, 'GET', `/books?order_by=${encodeURIComponent('title')}`, { token: t.adminToken })
+    ).json();
+    expect(asc.results.map((r: { title: string }) => r.title)).toEqual(['Apple', 'Banana', 'Cherry']);
+
+    const desc = await (
+      await call(t.engine, 'GET', `/books?order_by=${encodeURIComponent('-pages')}`, { token: t.adminToken })
+    ).json();
+    expect(desc.results.map((r: { pages: number }) => r.pages)).toEqual([300, 200, 100]);
+
+    const bad = await (
+      await call(t.engine, 'GET', `/books?order_by=${encodeURIComponent('nonfield')}`, { token: t.adminToken })
+    );
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error.message).toContain('invalid order_by');
+  });
+
+  test('order_by paginates without dropping or duplicating rows', async () => {
+    // Titles chosen so sort order differs from id/insertion order.
+    const titles = ['Echo', 'Alpha', 'Delta', 'Bravo', 'Charlie'];
+    for (let i = 0; i < titles.length; i++) {
+      await call(t.engine, 'POST', `/books?id=book-${i}`, {
+        token: t.adminToken,
+        body: { title: titles[i] },
+      });
+    }
+
+    const seen: string[] = [];
+    let token = '';
+    let guard = 0;
+    do {
+      const q = `/books?order_by=title&max_page_size=2${token ? `&page_token=${encodeURIComponent(token)}` : ''}`;
+      const page = await (await call(t.engine, 'GET', q, { token: t.adminToken })).json();
+      seen.push(...page.results.map((r: { title: string }) => r.title));
+      token = page.next_page_token ?? '';
+      if (++guard > 10) throw new Error('pagination did not terminate');
+    } while (token);
+
+    // Every row exactly once, in globally sorted order across page boundaries.
+    expect(seen).toEqual(['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo']);
+  });
 });
 
 describe('update (merge-patch)', () => {
