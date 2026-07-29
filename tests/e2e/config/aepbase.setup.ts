@@ -81,7 +81,7 @@ export async function startAepbase(): Promise<AepbaseAdminCreds> {
     'index.ts',
   );
 
-  // Point AI at a local stub so AI-backed methods (hsa-receipts:parse-receipt)
+  // Point AI at a local stub so AI-backed methods (documents:classify)
   // run for real in e2e without calling a paid model.
   const aiBaseUrl = await startAiStub();
 

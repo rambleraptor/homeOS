@@ -1,9 +1,9 @@
 /**
  * Stub AI provider for e2e.
  *
- * The e2e server points `AI_BASE_URL` here (provider `openai`), so the real
- * `hsa-receipts:parse-receipt` method runs end-to-end without calling a paid
- * model. It speaks just enough of OpenAI's **Responses** API — the shape
+ * The e2e server points `AI_BASE_URL` here (provider `openai`), so AI-backed
+ * methods (`documents:classify`) run end-to-end without calling a paid model.
+ * It speaks just enough of OpenAI's **Responses** API — the shape
  * `@ai-sdk/openai` uses by default — for the AI SDK's `generateObject` to
  * parse a result out of it.
  *
@@ -11,8 +11,8 @@
  *  - a deliberate {@link RESPONSE_DELAY_MS} pause, so the spawned operation
  *    stays `running` long enough for a test to observe the spinner UI. The
  *    delay lives here in the harness — never in product code.
- *  - a request carrying {@link FAIL_IMAGE} gets an empty object back, which
- *    makes the real handler throw ("No receipt data found in image") and the
+ *  - a request carrying the {@link DOC_MARKERS}.fail marker gets a
+ *    schema-violating object back, which makes the real handler throw and the
  *    operation fail for real.
  */
 
@@ -22,27 +22,13 @@ import type { AddressInfo } from 'net';
 /** Long enough to observe "running", short enough to keep tests quick. */
 export const RESPONSE_DELAY_MS = 2500;
 
-/** Base64 image payloads the specs send to steer the stub. */
-export const OK_IMAGE = Buffer.from('ok-receipt').toString('base64');
-export const FAIL_IMAGE = Buffer.from('fail-receipt').toString('base64');
-
-/** The receipt the stub "reads" from OK_IMAGE. */
-export const STUB_RECEIPT = {
-  merchant: 'CVS Pharmacy',
-  service_date: '2026-01-15',
-  amount: 42.5,
-  category: 'Rx',
-  patient: 'Alex',
-};
-
 /**
  * Document classify markers.
  *
  * The `documents:classify` method reads the *stored* file and base64s it into
  * the request, so a document spec uploads a file whose bytes are one of these
  * markers and the stub keys on the base64 appearing in the body. Marker-first
- * routing means the stub needs no knowledge of the classify prompt's wording —
- * a request with no marker falls through to the receipt behaviour untouched.
+ * routing means the stub needs no knowledge of the classify prompt's wording.
  */
 export const DOC_MARKERS = {
   match: 'e2e-document-form-1099-int',
@@ -98,9 +84,8 @@ function payloadForBody(body: string): unknown {
   const has = (marker: string) => body.includes(Buffer.from(marker).toString('base64'));
   if (has(DOC_MARKERS.unknown)) return STUB_DOCUMENT_UNKNOWN;
   if (has(DOC_MARKERS.fail)) return STUB_DOCUMENT_FAIL;
-  if (has(DOC_MARKERS.match)) return STUB_DOCUMENT_1099;
-  // No document marker: the original receipt behaviour, unchanged.
-  return body.includes(FAIL_IMAGE) ? {} : STUB_RECEIPT;
+  // Default (including the `match` marker) reads as a 1099-INT.
+  return STUB_DOCUMENT_1099;
 }
 
 let server: Server | null = null;

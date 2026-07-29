@@ -43,7 +43,7 @@ export interface Operation {
 export interface CreateOperationInput {
   /** Bearer token of the caller — operations are created on their behalf. */
   token: string;
-  /** The `plural:verb` that spawned the operation, e.g. `hsa-receipts:parse-receipt`. */
+  /** The `plural:verb` that spawned the operation, e.g. `documents:classify`. */
   method: string;
   /** Human-readable label; defaults to `method`. */
   title?: string;
