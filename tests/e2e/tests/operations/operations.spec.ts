@@ -132,13 +132,15 @@ test.describe('Operations (AEP-151)', () => {
     // AEP-151: errors that stop the operation starting are ordinary error
     // responses. An unsupported mime type fails `validate` before anything
     // exists — a plain 400, not a 202 followed by a failed operation.
-    const before = await listOperations(userToken);
-
     const doc = await uploadDocument(userToken, 'match', {
       title: 'zip-doc',
       mimeType: 'application/zip',
     });
 
+    // Snapshot immediately before the call, so the window the count spans is
+    // just the classify itself — an unrelated operation (e.g. the cleanup cron's
+    // own) can't slip in between the two reads and skew the delta.
+    const before = await listOperations(userToken);
     const { status } = await classifyDocument(userToken, doc.id);
     expect(status).toBe(400);
 
