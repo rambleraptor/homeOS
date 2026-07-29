@@ -338,14 +338,12 @@ describe('toZodUnion', () => {
 });
 
 describe('the built-in doc types', () => {
-  it('expose the expected ids', () => {
-    expect(BUILTIN_DOC_TYPES.map((t) => t.id).sort()).toEqual([
-      'auto-insurance-policy',
-      'form-1099-int',
-      'form-w2',
-      'medical-receipt',
-      'recipe',
-    ]);
+  it('have globally-unique ids', () => {
+    // ids become the union discriminator and the `getDocType` key, so a
+    // collision would silently shadow one type. An invariant, not a snapshot:
+    // adding a doc type needs no edit here — only a duplicate id fails it.
+    const ids = BUILTIN_DOC_TYPES.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('validate cleanly', () => {
