@@ -70,5 +70,14 @@ export function makeWellKnownRoutes(cfg: AuthServerConfig): Hono {
   app.options('/*', () => new Response(null, { status: 204, headers: CORS_HEADERS }));
   app.get('/oauth-authorization-server', () => json(authorizationServerMetadata(cfg)));
 
+  // Protected-resource metadata (RFC 9728) for the first-party MCP server. This
+  // is the exact path the resource server's `WWW-Authenticate` challenge points
+  // at, so a client can discover the AS from a 401. The root variant is a
+  // fallback for clients that don't append the resource path.
+  const mcpResource = `${cfg.issuerUrl.replace(/\/+$/, '')}/api/mcp`;
+  const mcpPrm = () => json(protectedResourceMetadata(cfg, mcpResource));
+  app.get('/oauth-protected-resource/api/mcp', mcpPrm);
+  app.get('/oauth-protected-resource', mcpPrm);
+
   return app;
 }

@@ -66,6 +66,12 @@ export interface AuthServerConfig {
   refreshTokenTtlSeconds?: number;
   /** Authorization-code lifetime in seconds (default 60). */
   authCodeTtlSeconds?: number;
+  /**
+   * Expose the first-party MCP server at `/api/mcp`. MCP clients authorize
+   * through this authorization server, so it is on by default whenever the AS
+   * is enabled; set false to run the AS without the MCP endpoint.
+   */
+  mcpEnabled?: boolean;
 }
 
 /** Authentication configuration for this instance. */
