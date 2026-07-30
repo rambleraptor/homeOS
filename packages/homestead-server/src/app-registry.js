@@ -70,6 +70,11 @@ export function oauthConfig() {
   return config.auth?.oauth ?? null;
 }
 
+/** The `auth.authServer` block of homestead.config.ts, or null when absent. */
+export function authServerConfig() {
+  return config.auth?.authServer ?? null;
+}
+
 /** The `ai` block of homestead.config.ts, or null when AI is unconfigured. */
 export function aiConfig() {
   return config.ai ?? null;

@@ -24,7 +24,7 @@ export interface ServerOptions {
 export const DEFAULT_PUBLIC_PORT = 3000;
 
 /** Path prefixes owned by the server, never by the SPA/Vite. */
-const SERVER_PREFIXES = ['/api/', '/oauth/', '/health'];
+const SERVER_PREFIXES = ['/api/', '/oauth/', '/oauth2/', '/.well-known/', '/health'];
 
 export function isServerPath(path: string): boolean {
   return SERVER_PREFIXES.some((p) => path === p || path === p.replace(/\/$/, '') || path.startsWith(p));

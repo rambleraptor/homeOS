@@ -2,6 +2,7 @@ import type { ResourceCustomMethod } from '@rambleraptor/homestead-core/resource
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type {
   AiConfig,
+  AuthServerConfig,
   EmailConfig,
   EmbeddingConfig,
 } from '@rambleraptor/homestead-core/apps/config';
@@ -11,6 +12,7 @@ import type { OAuthConfig } from './engine/oauth';
 
 export function appAccessMap(): AppAccessConfig | null;
 export function oauthConfig(): OAuthConfig | null;
+export function authServerConfig(): AuthServerConfig | null;
 export function aiConfig(): AiConfig | null;
 export function embeddingConfig(): EmbeddingConfig | null;
 export function emailConfig(): EmailConfig | null;

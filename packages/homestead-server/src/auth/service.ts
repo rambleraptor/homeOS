@@ -28,9 +28,11 @@ import {
 } from './tokens';
 import {
   createAuthTables,
+  deleteAccessTokenBinding,
   deleteRefreshToken,
   deleteRefreshTokensForAccess,
   getRefreshToken,
+  insertAccessTokenBinding,
   insertRefreshToken,
 } from './storage';
 
@@ -71,6 +73,13 @@ export class AuthService {
   issueSession(userId: string, ctx: SessionContext = {}): Session {
     const accessToken = generateToken();
     insertToken(this.db, accessToken, userId, expiryFromNow(this.accessTtl));
+    insertAccessTokenBinding(this.db, {
+      access_token: accessToken,
+      user_id: userId,
+      client_id: ctx.clientId ?? null,
+      scope: ctx.scope ?? null,
+      audience: ctx.audience ?? null,
+    });
 
     const refreshToken = generateToken();
     insertRefreshToken(this.db, {
@@ -103,6 +112,7 @@ export class AuthService {
     if (isExpired(rec.expires_at)) {
       deleteToken(this.db, token);
       deleteRefreshTokensForAccess(this.db, token);
+      deleteAccessTokenBinding(this.db, token);
       return null;
     }
     return getUserById(this.db, rec.user_id)?.user ?? null;
@@ -119,11 +129,13 @@ export class AuthService {
     if (isExpired(rec.expires_at)) {
       deleteRefreshToken(this.db, refreshToken);
       deleteToken(this.db, rec.access_token);
+      deleteAccessTokenBinding(this.db, rec.access_token);
       return null;
     }
     // Revoke the old pair before minting the new one (rotation).
     deleteRefreshToken(this.db, refreshToken);
     deleteToken(this.db, rec.access_token);
+    deleteAccessTokenBinding(this.db, rec.access_token);
     return this.issueSession(rec.user_id, {
       clientId: rec.client_id,
       scope: rec.scope,
@@ -135,5 +147,6 @@ export class AuthService {
   revokeSession(accessToken: string): void {
     deleteToken(this.db, accessToken);
     deleteRefreshTokensForAccess(this.db, accessToken);
+    deleteAccessTokenBinding(this.db, accessToken);
   }
 }

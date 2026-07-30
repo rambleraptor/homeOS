@@ -19,6 +19,15 @@ export interface RefreshTokenRecord {
   create_time: string;
 }
 
+/** Audience/scope/client binding for an issued access token (RFC 8707). */
+export interface AccessTokenBinding {
+  access_token: string;
+  user_id: string;
+  client_id: string | null;
+  scope: string | null;
+  audience: string | null;
+}
+
 export function createAuthTables(db: Database): void {
   db.run(`CREATE TABLE IF NOT EXISTS _auth_refresh_tokens (
 		refresh_token TEXT PRIMARY KEY,
@@ -30,6 +39,34 @@ export function createAuthTables(db: Database): void {
 		expires_at TEXT NOT NULL,
 		create_time TEXT NOT NULL
 	)`);
+  // Access tokens live in the engine's `_tokens`; this side table records the
+  // OAuth binding (client/scope/audience) so a resource server can enforce
+  // audience. Plain logins get a row with null bindings.
+  db.run(`CREATE TABLE IF NOT EXISTS _auth_access_tokens (
+		access_token TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		client_id TEXT,
+		scope TEXT,
+		audience TEXT,
+		create_time TEXT NOT NULL
+	)`);
+}
+
+export function insertAccessTokenBinding(db: Database, b: AccessTokenBinding): void {
+  db.query(
+    `INSERT INTO _auth_access_tokens (access_token, user_id, client_id, scope, audience, create_time)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(b.access_token, b.user_id, b.client_id, b.scope, b.audience, nowRFC3339());
+}
+
+export function getAccessTokenBinding(db: Database, accessToken: string): AccessTokenBinding | null {
+  return db
+    .query('SELECT access_token, user_id, client_id, scope, audience FROM _auth_access_tokens WHERE access_token = ?')
+    .get(accessToken) as AccessTokenBinding | null;
+}
+
+export function deleteAccessTokenBinding(db: Database, accessToken: string): void {
+  db.query('DELETE FROM _auth_access_tokens WHERE access_token = ?').run(accessToken);
 }
 
 export function insertRefreshToken(

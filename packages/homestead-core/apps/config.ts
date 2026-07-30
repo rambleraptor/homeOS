@@ -41,10 +41,39 @@ export interface OAuthConfig {
   providers: OAuthProviderConfig[];
 }
 
+/**
+ * Homestead-as-OAuth-provider configuration. When enabled, the instance runs
+ * an OAuth 2.1 Authorization Server so third-party client apps can be
+ * authorized against a household account (discovery metadata, dynamic client
+ * registration, `/authorize` + consent, `/token` with PKCE). Distinct from
+ * {@link OAuthConfig}, which is the opposite role (logging *in* to Homestead
+ * via Google/GitHub). Server-side only. Omit to leave the AS disabled.
+ */
+export interface AuthServerConfig {
+  /** Master switch. When false/absent, all AS + discovery routes are unmounted. */
+  enabled: boolean;
+  /**
+   * Externally-reachable origin acting as the OAuth issuer and the base for
+   * every metadata URL, e.g. `https://home.example.com`. Used verbatim (never
+   * derived from the request) so it stays correct behind a reverse proxy.
+   */
+  issuerUrl: string;
+  /** Scopes advertised in metadata. Defaults to a single broad `homestead` scope. */
+  scopesSupported?: string[];
+  /** Access-token lifetime in seconds (default 3600). */
+  accessTokenTtlSeconds?: number;
+  /** Refresh-token lifetime in seconds (default 30 days). */
+  refreshTokenTtlSeconds?: number;
+  /** Authorization-code lifetime in seconds (default 60). */
+  authCodeTtlSeconds?: number;
+}
+
 /** Authentication configuration for this instance. */
 export interface AuthConfig {
-  /** OAuth login. Omit (or omit `providers`) to disable OAuth. */
+  /** OAuth login (Homestead as client). Omit (or omit `providers`) to disable. */
   oauth?: OAuthConfig;
+  /** OAuth authorization server (Homestead as provider). Omit to disable. */
+  authServer?: AuthServerConfig;
 }
 
 /**

@@ -40,32 +40,43 @@ const fromEnv = (key: string): string | undefined =>
 const googleClientId = fromEnv('GOOGLE_OAUTH_CLIENT_ID');
 const googleClientSecret = fromEnv('GOOGLE_OAUTH_CLIENT_SECRET');
 
-const auth: HomesteadConfig['auth'] =
+const oauth: NonNullable<HomesteadConfig['auth']>['oauth'] =
   googleClientId && googleClientSecret
     ? {
-        oauth: {
-          redirectBaseUrl:
-            fromEnv('OAUTH_REDIRECT_BASE_URL') ??
-            'http://localhost:3000/api/aep',
-          successRedirect:
-            fromEnv('OAUTH_SUCCESS_REDIRECT') ??
-            'http://localhost:3000/auth/callback',
-          providers: [
-            {
-              name: 'google',
-              displayName: 'Google',
-              clientId: googleClientId,
-              clientSecret: googleClientSecret,
-              scopes: ['openid', 'email', 'profile'],
-              authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-              tokenUrl: 'https://oauth2.googleapis.com/token',
-              userInfoUrl:
-                'https://openidconnect.googleapis.com/v1/userinfo',
-            },
-          ],
-        },
+        redirectBaseUrl:
+          fromEnv('OAUTH_REDIRECT_BASE_URL') ?? 'http://localhost:3000/api/aep',
+        successRedirect:
+          fromEnv('OAUTH_SUCCESS_REDIRECT') ?? 'http://localhost:3000/auth/callback',
+        providers: [
+          {
+            name: 'google',
+            displayName: 'Google',
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+            scopes: ['openid', 'email', 'profile'],
+            authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+            tokenUrl: 'https://oauth2.googleapis.com/token',
+            userInfoUrl: 'https://openidconnect.googleapis.com/v1/userinfo',
+          },
+        ],
       }
     : undefined;
+
+// The OAuth authorization server (Homestead-as-provider) is opt-in: enabled
+// with OAUTH_SERVER_ENABLED=1. Point OAUTH_SERVER_ISSUER_URL at the instance's
+// externally-reachable origin (used verbatim in all discovery metadata).
+const authServerEnabled = ['1', 'true'].includes(
+  (fromEnv('OAUTH_SERVER_ENABLED') ?? '').toLowerCase(),
+);
+const authServer: NonNullable<HomesteadConfig['auth']>['authServer'] = authServerEnabled
+  ? {
+      enabled: true,
+      issuerUrl: fromEnv('OAUTH_SERVER_ISSUER_URL') ?? 'http://localhost:3000',
+      scopesSupported: ['homestead'],
+    }
+  : undefined;
+
+const auth: HomesteadConfig['auth'] = oauth || authServer ? { oauth, authServer } : undefined;
 
 // AI is opt-in: enabled only when an API key is present in the launcher's
 // environment. Set the key via AI_API_KEY; with no key set, `ai` is undefined

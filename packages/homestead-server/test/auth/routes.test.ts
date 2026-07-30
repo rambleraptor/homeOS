@@ -45,11 +45,13 @@ async function harness(): Promise<Harness> {
 function post(app: Hono, path: string, body?: unknown, token?: string): Promise<Response> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return app.request(path, {
-    method: 'POST',
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  return Promise.resolve(
+    app.request(path, {
+      method: 'POST',
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  );
 }
 
 describe('POST /api/auth/login', () => {

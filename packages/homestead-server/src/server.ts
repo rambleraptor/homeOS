@@ -105,6 +105,14 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // non-expiring token.
   engine.setSessionIssuer((userId) => authService.issueSession(userId));
 
+  // Homestead-as-OAuth-provider (authorization server). Opt-in via
+  // auth.authServer.enabled. When on, create its tables up front.
+  const authServerCfg = registry.authServerConfig();
+  if (authServerCfg?.enabled) {
+    const { createOAuthTables } = await import('./auth/oauth/storage');
+    createOAuthTables(engine.db);
+  }
+
   const setupState = await ensureSuperuser(engine.db);
 
   // --- public app ---
@@ -133,8 +141,18 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   publicApp.route('/api/notifications', notificationsRoute);
   publicApp.route('/api/chat', chatRoute);
   publicApp.route('/api/aep', makeAepGateway(engine, loopbackOrigin));
-  // OAuth redirects arrive on the public origin; the engine serves them.
+  // OAuth login redirects (Homestead as client) arrive on the public origin;
+  // the engine serves them.
   publicApp.all('/oauth/*', (c) => engine.fetch(c.req.raw));
+
+  // OAuth authorization server (Homestead as provider): discovery metadata +
+  // the /oauth2 endpoints. Only mounted when configured.
+  if (authServerCfg?.enabled) {
+    const { makeWellKnownRoutes } = await import('./auth/oauth/metadata');
+    const { makeOAuthServerRoutes } = await import('./auth/oauth/routes');
+    publicApp.route('/.well-known', makeWellKnownRoutes(authServerCfg));
+    publicApp.route('/oauth2', makeOAuthServerRoutes(engine.db, authService, authServerCfg));
+  }
 
   let stopPublic: () => Promise<void> | void;
   if (opts.dev) {
