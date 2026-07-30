@@ -159,23 +159,38 @@ configured and the rest of Homestead works as normal.
 
 ## Connect an MCP client
 
-The community
-[`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) exposes your
-data to any [MCP](https://modelcontextprotocol.io) client, such as Claude.
-Every resource becomes a tool the model can call. The MCP server runs
-separately from Homestead.
+Homestead ships a **built-in [MCP](https://modelcontextprotocol.io) server** at
+`/api/mcp` — no separate process. It exposes the same tools as Chat (create,
+read, update, and delete per resource, plus document search when embeddings are
+configured), and every action runs with the signed-in user's own permissions.
 
-Point it at your instance with two values:
+**Enable it.** MCP clients sign in through Homestead's OAuth authorization
+server, so turn that on in `homestead.config.ts` and restart:
 
-- **API URL** — your instance's engine, at the `/api/aep` prefix
-  (e.g. `http://your-host:3000/api/aep`). The OpenAPI document is at
-  `/api/aep/openapi.json`.
-- **Bearer token** — get one by logging in with your superuser credentials
-  against the engine's login endpoint, the same way
-  `homestead resources --email … --password …` does.
+```bash
+OAUTH_SERVER_ENABLED=1
+OAUTH_SERVER_ISSUER_URL=https://your-host   # the instance's public origin
+```
 
-Follow the `aep-mcp-server` README to configure it, then add it to your MCP
-client. The model can then list, read, and write your household resources.
+The MCP server is on by default whenever the authorization server is enabled
+(set `auth.authServer.mcpEnabled: false` to run the AS without it).
+
+**Connect a client.** Point your MCP client (e.g. Claude Desktop) at:
+
+```
+https://your-host/api/mcp
+```
+
+Authorization is automatic — **no bearer token to copy**. The client discovers
+the authorization server from the endpoint, registers itself, and opens
+Homestead's sign-in and consent screen in your browser; approve it and the
+client is connected. The model can then list, read, and write your household
+resources.
+
+> Prefer an out-of-process option? The community
+> [`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) can still be
+> pointed at the engine's `/api/aep` prefix with a bearer token from
+> `homestead login`.
 
 ---
 

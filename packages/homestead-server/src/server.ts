@@ -152,6 +152,21 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     const { makeOAuthServerRoutes } = await import('./auth/oauth/routes');
     publicApp.route('/.well-known', makeWellKnownRoutes(authServerCfg));
     publicApp.route('/oauth2', makeOAuthServerRoutes(engine.db, authService, authServerCfg));
+    // First-party MCP server. Authorizes through the AS above, so it's on by
+    // default when the AS is enabled (opt out with auth.authServer.mcpEnabled).
+    if (authServerCfg.mcpEnabled !== false) {
+      const { makeMcpRoute } = await import('./routes/mcp');
+      const { BUILTIN_RESOURCE_DEFS } = await import(
+        '@rambleraptor/homestead-core/resources/builtins'
+      );
+      publicApp.route(
+        '/api/mcp',
+        makeMcpRoute(engine, authServerCfg, () => [
+          ...BUILTIN_RESOURCE_DEFS,
+          ...registry.getAllResourceDefs(),
+        ]),
+      );
+    }
   }
 
   let stopPublic: () => Promise<void> | void;
