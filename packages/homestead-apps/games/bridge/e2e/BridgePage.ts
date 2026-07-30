@@ -47,13 +47,23 @@ export class BridgePage {
     await this.page.getByTestId(`direction-${direction}`).click();
   }
 
+  /** Choose which board (1-36) subsequent hands are recorded on. */
+  async selectBoard(board: number) {
+    await this.page.getByTestId('board-select').selectOption(String(board));
+  }
+
   /**
    * Enter all four directions in N/E/S/W order. The hand auto-saves
-   * when the fourth direction is committed.
+   * when the fourth direction is committed. Pass `board` to record the
+   * hand on a specific board first.
    */
   async enterHand(
     bids: Record<Direction, { level?: number; suit: Suit }>,
+    board?: number,
   ) {
+    if (board !== undefined) {
+      await this.selectBoard(board);
+    }
     const order: Direction[] = ['north', 'east', 'south', 'west'];
     for (const dir of order) {
       await this.enterBid(dir, bids[dir].level, bids[dir].suit);
@@ -75,6 +85,12 @@ export class BridgePage {
     await expect(
       card.locator(`[data-testid$="-${direction}-bid"]`),
     ).toHaveText(text);
+  }
+
+  /** Assert the board label shown on the first hand card. */
+  async expectFirstCardBoard(text: string) {
+    const card = this.page.locator('[data-testid^="hand-card-"]').first();
+    await expect(card.locator('[data-testid$="-board"]')).toHaveText(text);
   }
 
   async expectCardCount(count: number) {

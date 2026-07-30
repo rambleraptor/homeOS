@@ -18,19 +18,47 @@ test.describe('Bridge CRUD', () => {
     await bridgePage.goto();
     await bridgePage.expectToBeOnBridgePage();
 
-    await bridgePage.enterHand({
-      north: { level: 3, suit: 'spades' },
-      east: { level: 4, suit: 'no-trump' },
-      south: { level: 2, suit: 'hearts' },
-      west: { level: 7, suit: 'diamonds' },
-    });
+    await bridgePage.enterHand(
+      {
+        north: { level: 3, suit: 'spades' },
+        east: { level: 4, suit: 'no-trump' },
+        south: { level: 2, suit: 'hearts' },
+        west: { level: 7, suit: 'diamonds' },
+      },
+      5,
+    );
 
     await bridgePage.expectHandInList();
     await bridgePage.expectCardCount(1);
+    await bridgePage.expectFirstCardBoard('Board 5');
     await bridgePage.expectFirstCardBid('north', '3♠');
     await bridgePage.expectFirstCardBid('east', '4 NT');
     await bridgePage.expectFirstCardBid('south', '2♥');
     await bridgePage.expectFirstCardBid('west', '7♦');
+  });
+
+  test('records multiple hands on the same board', async () => {
+    await bridgePage.goto();
+
+    await bridgePage.selectBoard(9);
+
+    await bridgePage.enterHand({
+      north: { level: 1, suit: 'clubs' },
+      east: { level: 1, suit: 'clubs' },
+      south: { level: 1, suit: 'clubs' },
+      west: { level: 1, suit: 'clubs' },
+    });
+
+    // Board selection persists, so this hand lands on board 9 too.
+    await bridgePage.enterHand({
+      north: { level: 2, suit: 'hearts' },
+      east: { level: 2, suit: 'hearts' },
+      south: { level: 2, suit: 'hearts' },
+      west: { level: 2, suit: 'hearts' },
+    });
+
+    await bridgePage.expectCardCount(2);
+    await bridgePage.expectFirstCardBoard('Board 9');
   });
 
   test('lists multiple hands newest-first', async () => {

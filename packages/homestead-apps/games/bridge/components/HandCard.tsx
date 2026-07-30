@@ -1,7 +1,7 @@
 /**
  * A single saved hand rendered as a compact 4-row table (N/E/S/W), one
- * row per direction with its final bid. Headed by its board number
- * (assigned in play order — oldest deal is Board 1).
+ * row per direction with its final bid. Headed by the board (1-36) the
+ * hand was recorded on.
  */
 
 import { Trash2 } from 'lucide-react';
@@ -11,7 +11,6 @@ import { DIRECTION_SHORT, DIRECTION_LABEL, formatBid } from '../utils';
 
 interface HandCardProps {
   hand: Hand;
-  boardNumber: number;
   onDelete?: (id: string) => void;
   isDeleting?: boolean;
 }
@@ -29,12 +28,7 @@ function formatDate(iso?: string): string {
   });
 }
 
-export function HandCard({
-  hand,
-  boardNumber,
-  onDelete,
-  isDeleting,
-}: HandCardProps) {
+export function HandCard({ hand, onDelete, isDeleting }: HandCardProps) {
   const bids = bidsFromHand(hand);
   const date = formatDate(hand.played_at || hand.create_time);
 
@@ -45,12 +39,14 @@ export function HandCard({
     >
       <header className="flex items-start justify-between gap-3">
         <div>
-          <div
-            className="font-semibold text-gray-900"
-            data-testid={`hand-${hand.id}-board`}
-          >
-            Board {boardNumber}
-          </div>
+          {hand.board != null && (
+            <div
+              className="font-semibold text-gray-900"
+              data-testid={`hand-${hand.id}-board`}
+            >
+              Board {hand.board}
+            </div>
+          )}
           <div className="text-sm text-gray-500">{date}</div>
         </div>
         {onDelete && (

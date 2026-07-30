@@ -23,6 +23,18 @@ export type BridgeDirection = (typeof BRIDGE_DIRECTIONS)[number];
 export const BRIDGE_LEVELS = [1, 2, 3, 4, 5, 6, 7] as const;
 export type BridgeLevel = (typeof BRIDGE_LEVELS)[number];
 
+/**
+ * Boards are numbered 1-36 (a full session). A single board can hold
+ * many hands, so the number is chosen on the form rather than derived
+ * from position.
+ */
+export const BRIDGE_BOARD_MIN = 1;
+export const BRIDGE_BOARD_MAX = 36;
+export const BRIDGE_BOARDS: number[] = Array.from(
+  { length: BRIDGE_BOARD_MAX - BRIDGE_BOARD_MIN + 1 },
+  (_, i) => BRIDGE_BOARD_MIN + i,
+);
+
 /** A single direction's bid within a hand. Level is absent for a pass. */
 export interface BridgeBid {
   direction: BridgeDirection;
@@ -33,6 +45,8 @@ export interface BridgeBid {
 export interface Hand {
   id: string;
   path: string;
+  /** Which board (1-36) this hand belongs to. Optional for legacy records. */
+  board?: number;
   played_at?: string;
   north_level?: BridgeLevel;
   north_suit: BridgeSuit;
@@ -49,6 +63,7 @@ export interface Hand {
 }
 
 export interface HandFormData {
+  board: number;
   played_at?: string;
   north_level?: BridgeLevel;
   north_suit: BridgeSuit;

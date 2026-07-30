@@ -18,6 +18,7 @@ export function useCreateHand() {
       const hand: Hand = {
         id: newHandId(),
         path: '',
+        board: data.board,
         played_at: data.played_at || now,
         north_level: data.north_level,
         north_suit: data.north_suit,

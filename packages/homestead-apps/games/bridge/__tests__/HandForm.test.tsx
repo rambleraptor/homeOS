@@ -101,6 +101,7 @@ describe('HandForm', () => {
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith({
+      board: 1,
       north_level: 3,
       north_suit: 'spades',
       east_level: 4,
@@ -110,6 +111,33 @@ describe('HandForm', () => {
       west_level: undefined,
       west_suit: 'pass',
     });
+  });
+
+  it('submits the selected board and keeps it across hands', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<HandForm onSubmit={onSubmit} />);
+
+    await user.selectOptions(screen.getByTestId('board-select'), '12');
+
+    for (const dir of ['north', 'east', 'south', 'west'] as const) {
+      await user.click(screen.getByTestId('suit-pass'));
+      await user.click(screen.getByTestId(`direction-${dir}`));
+    }
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ board: 12 });
+
+    // The board stays selected so the next hand lands on the same board.
+    expect(screen.getByTestId('board-select')).toHaveValue('12');
+
+    for (const dir of ['north', 'east', 'south', 'west'] as const) {
+      await user.click(screen.getByTestId('suit-pass'));
+      await user.click(screen.getByTestId(`direction-${dir}`));
+    }
+
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    expect(onSubmit.mock.calls[1][0]).toMatchObject({ board: 12 });
   });
 
   it('resets the direction buttons after submission', async () => {
