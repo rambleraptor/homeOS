@@ -52,6 +52,11 @@ export class BridgePage {
     await this.page.getByTestId('board-select').selectOption(String(board));
   }
 
+  /** Filter the saved-hands list to a single board via the pill row. */
+  async filterByBoard(board: number) {
+    await this.page.getByTestId(`board-filter-${board}`).click();
+  }
+
   /**
    * Enter all four directions in N/E/S/W order. The hand auto-saves
    * when the fourth direction is committed. Pass `board` to record the

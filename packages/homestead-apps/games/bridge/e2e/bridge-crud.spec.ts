@@ -61,6 +61,48 @@ test.describe('Bridge CRUD', () => {
     await bridgePage.expectFirstCardBoard('Board 9');
   });
 
+  test('shows only the selected board\'s hands', async () => {
+    await bridgePage.goto();
+
+    // One hand on board 3...
+    await bridgePage.enterHand(
+      {
+        north: { level: 3, suit: 'spades' },
+        east: { level: 3, suit: 'spades' },
+        south: { level: 3, suit: 'spades' },
+        west: { level: 3, suit: 'spades' },
+      },
+      3,
+    );
+
+    // ...and two on board 7.
+    await bridgePage.enterHand(
+      {
+        north: { level: 1, suit: 'clubs' },
+        east: { level: 1, suit: 'clubs' },
+        south: { level: 1, suit: 'clubs' },
+        west: { level: 1, suit: 'clubs' },
+      },
+      7,
+    );
+    await bridgePage.enterHand({
+      north: { level: 2, suit: 'hearts' },
+      east: { level: 2, suit: 'hearts' },
+      south: { level: 2, suit: 'hearts' },
+      west: { level: 2, suit: 'hearts' },
+    });
+
+    // Entering on board 7 leaves the view on board 7: two hands.
+    await bridgePage.expectCardCount(2);
+    await bridgePage.expectFirstCardBoard('Board 7');
+
+    // Switch the filter to board 3: only its single hand shows.
+    await bridgePage.filterByBoard(3);
+    await bridgePage.expectCardCount(1);
+    await bridgePage.expectFirstCardBoard('Board 3');
+    await bridgePage.expectFirstCardBid('north', '3♠');
+  });
+
   test('lists multiple hands newest-first', async () => {
     await bridgePage.goto();
 
