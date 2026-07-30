@@ -33,8 +33,8 @@ export function UsersHome() {
       await createUser.mutateAsync(data);
       setIsCreateOpen(false);
       toast.success('User created');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create user');
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 
@@ -44,8 +44,8 @@ export function UsersHome() {
       await updateUser.mutateAsync({ id: editingUser.id, data });
       setEditingUser(null);
       toast.success('User updated');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update user');
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 
@@ -55,8 +55,8 @@ export function UsersHome() {
       await deleteUser.mutateAsync(deleteTarget.id);
       setDeleteTarget(null);
       toast.success('User deleted');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete user');
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 

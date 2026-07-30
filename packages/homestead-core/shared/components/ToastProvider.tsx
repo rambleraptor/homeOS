@@ -3,11 +3,18 @@ import type { ReactNode } from 'react';
 import { toast as sonnerToast } from 'sonner';
 import { Toaster } from '@rambleraptor/homestead-core/shared/components/ui/sonner';
 import type { ToastType } from '@rambleraptor/homestead-core/shared/types/toast';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 
 interface ToastContextValue {
   showToast: (type: ToastType, message: string, duration?: number) => void;
   success: (message: string, duration?: number) => void;
-  error: (message: string, duration?: number) => void;
+  /**
+   * Show an error toast. Accepts a plain string, or any thrown value — a
+   * caught `AepbaseError` (or other error) is reduced to its standardized
+   * user-facing message via {@link getAepErrorMessage}, so call sites can pass
+   * the raw error: `catch (err) { toast.error(err); }`.
+   */
+  error: (error: unknown, duration?: number) => void;
   info: (message: string, duration?: number) => void;
   warning: (message: string, duration?: number) => void;
 }
@@ -43,7 +50,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 
   const error = useCallback(
-    (message: string, duration?: number) => showToast('error', message, duration),
+    (error: unknown, duration?: number) =>
+      showToast(
+        'error',
+        typeof error === 'string' ? error : getAepErrorMessage(error),
+        duration
+      ),
     [showToast]
   );
 

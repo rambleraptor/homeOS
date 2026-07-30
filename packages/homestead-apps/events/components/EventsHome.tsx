@@ -19,10 +19,8 @@ export function EventsHome() {
       await createEvent.mutateAsync(data);
       setIsCreateOpen(false);
       toast.success('Event created');
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to create event',
-      );
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 

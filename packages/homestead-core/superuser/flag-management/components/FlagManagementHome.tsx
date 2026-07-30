@@ -6,7 +6,6 @@ import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbo
 import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
-import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
@@ -35,7 +34,6 @@ export function FlagManagementHome() {
   const { record, isLoading: valuesLoading } = useAppFlags();
   const values = unflatten(record, defs);
   const update = useUpdateAppFlag();
-  const toast = useToast();
   const queryClient = useQueryClient();
 
   // If aepbase has no `app-flag` resource definition yet (e.g. the
@@ -74,8 +72,8 @@ export function FlagManagementHome() {
     try {
       await update.mutateAsync({ appId, key, value });
     } catch (error) {
+      // Toast surfaced by the global mutation error handler (queryClient.ts).
       logger.error('Failed to update app flag', error);
-      toast.error('Failed to save flag. Please try again.');
     }
   };
 

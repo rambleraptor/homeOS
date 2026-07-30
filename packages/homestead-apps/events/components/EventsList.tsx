@@ -72,10 +72,8 @@ function EventsListInner({ hasAny }: { hasAny: boolean }) {
       await updateEvent.mutateAsync({ id: editingEvent.id, data });
       setEditingEvent(null);
       toast.success('Event updated');
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to update event',
-      );
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 
@@ -85,10 +83,8 @@ function EventsListInner({ hasAny }: { hasAny: boolean }) {
       await deleteEvent.mutateAsync(confirm.id);
       setConfirm(null);
       toast.success('Event deleted');
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to delete event',
-      );
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 

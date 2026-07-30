@@ -94,6 +94,8 @@ async function buildRequest(
 /** Parse without writing, returning the server's candidate items. */
 export function useBulkImportPreview(plural: string) {
   return useMutation({
+    // The import page shows its own inline error + toast for parse failures.
+    meta: { skipErrorToast: true },
     mutationFn: async (input: BulkImportInputPayload): Promise<BulkImportPreview> => {
       const body = await buildRequest(input, { dryRun: true });
       const operation = await aepbase.customMethod<Operation>(
@@ -124,6 +126,8 @@ export interface RunBulkImportInput extends BulkImportInputPayload {
 export function useBulkImportRun(plural: string, queryKey: readonly unknown[]) {
   const queryClient = useQueryClient();
   return useMutation({
+    // The import page shows its own message for full and partial failures.
+    meta: { skipErrorToast: true },
     mutationFn: async (input: RunBulkImportInput): Promise<BulkImportResult> => {
       const body = await buildRequest(input, {
         selectedIndices: input.selectedIndices,

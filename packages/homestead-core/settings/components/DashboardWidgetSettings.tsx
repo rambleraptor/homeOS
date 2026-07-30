@@ -114,8 +114,8 @@ export function DashboardWidgetSettings() {
       });
       toast.success('Dashboard widgets updated');
     } catch (error) {
+      // Toast surfaced by the global mutation error handler (queryClient.ts).
       logger.error('Failed to update dashboard widgets', error);
-      toast.error('Failed to update dashboard. Please try again.');
     }
   };
 
