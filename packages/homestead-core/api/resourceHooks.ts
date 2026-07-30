@@ -1,16 +1,26 @@
 /**
- * Thin generic hooks that bind to mutation defaults registered via
- * `registerResourceMutationDefaults`. Apps wrap these to expose
- * domain-specific names (e.g. `useCreateCreditCard`).
+ * Thin generic hooks over an AEP resource. Apps wrap these to expose
+ * domain-specific names (e.g. `useCreditCards`, `useCreateCreditCard`,
+ * `useRecipeImageUrl`) while the boilerplate — query keys, pagination,
+ * optimistic mutation lifecycle, blob-URL plumbing — lives here once.
+ *
+ * - Reads: `useResourceList`, `useResourceItem`, `useFileFieldUrl`.
+ * - Writes: `useResourceCreate`, `useResourceUpdate`, `useResourceDelete`
+ *   (bind to the defaults registered via `registerResourceMutationDefaults`).
  */
 
+import { useEffect, useState } from 'react';
 import {
   useMutation,
   useQuery,
   useQueryClient,
   type UseMutationResult,
+  type UseQueryOptions,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { aepbase, type ParentPath } from './aepbase';
+import { logger } from '../utils/logger';
+import { queryKeys } from './queryClient';
 import {
   newTempId,
   resolveParentChainFromCache,
@@ -20,8 +30,16 @@ import {
   type DeleteVars,
   type UpdateVars,
 } from './registerResourceMutationDefaults';
-import { aepbase, type ParentPath } from './aepbase';
-import { queryKeys } from './queryClient';
+
+// ----------------------------------------------------------------------------
+// Reads
+// ----------------------------------------------------------------------------
+
+/** Extra `useQuery` options a caller may layer on (gcTime, refetchInterval…). */
+type ExtraQueryOptions<TData> = Omit<
+  UseQueryOptions<TData, Error>,
+  'queryKey' | 'queryFn' | 'enabled'
+>;
 
 /**
  * Build a client-side comparator equivalent to an AEP `order_by` string, so a
@@ -64,55 +82,158 @@ export function comparatorFromOrderBy<T>(orderBy: string): (a: T, b: T) => numbe
   };
 }
 
-export interface ResourceListOptions<T> {
-  /** aepbase collection (plural) to list, e.g. `GIFT_CARDS`. */
-  plural: string;
+export interface ResourceListOptions<T, R = T> extends ExtraQueryOptions<R[]> {
+  /** aepbase list filter, passed straight through. */
+  filter?: string;
   /**
    * AEP `order_by` (e.g. `-create_time`, `name`). Sent to the engine for
-   * server-side ordering AND applied client-side via
-   * `comparatorFromOrderBy`, so the optimistic row the mutation factory
-   * appends lands in the right place before the next refetch.
+   * server-side ordering AND, when no explicit `sort` is given, applied
+   * client-side via `comparatorFromOrderBy` — so the optimistic row the
+   * mutation factory appends lands in the right place before the next refetch.
    */
   orderBy?: string;
-  /** URL parent chain for a nested resource (`[GIFT_CARDS, giftCardId]`). */
+  /** Parent chain for a nested resource. */
   parent?: ParentPath;
+  /** Per-page cap; the client follows pagination until exhausted. */
+  maxPageSize?: number;
+  /** Per-record transform applied before sorting (e.g. `create_time` → `created`). */
+  map?: (record: T) => R;
   /**
-   * Cache key. Defaults to the factory's `resource(singular).list()` slot so
-   * optimistic writes are visible. Parented lists needing a per-parent slot
-   * pass their own key.
+   * Client-side comparator. Overrides the one derived from `orderBy` (use it
+   * for computed or multi-source sorts). Applied to a copy — the fetched array
+   * is not mutated.
    */
-  queryKey?: readonly unknown[];
-  /** Override the derived comparator with a custom one (computed/multi-source sorts). */
-  sort?: (a: T, b: T) => number;
-  enabled?: boolean;
-  gcTime?: number;
-  staleTime?: number;
+  sort?: (a: R, b: R) => number;
 }
 
 /**
- * Generic list-read hook: the read-side counterpart to `useResourceCreate`.
- * Wraps `useQuery` + `aepbase.list` with the standard cache key and AEP
- * ordering, collapsing the per-app `useXList` boilerplate to one call. Apps
- * wrap it to expose a domain name (e.g. `useGiftCards`).
+ * Fetch a whole collection into `queryKeys.app(appId).resource(singular).list()`
+ * — the exact slot the offline mutation factory writes optimistic updates to,
+ * so list reads and writes stay coherent. Wrap it per app:
+ *
+ * ```ts
+ * export const useRecipes = () =>
+ *   useResourceList<Recipe>('recipes', 'recipe', RECIPES, { orderBy: '-create_time' });
+ * ```
  */
-export function useResourceList<T>(
+export function useResourceList<T, R = T>(
   appId: string,
   singular: string,
-  options: ResourceListOptions<T>,
-): UseQueryResult<T[], Error> {
-  const { plural, orderBy, parent, queryKey, sort, enabled, gcTime, staleTime } = options;
-  const comparator = sort ?? (orderBy ? comparatorFromOrderBy<T>(orderBy) : undefined);
-  return useQuery<T[], Error>({
-    queryKey: queryKey ?? queryKeys.app(appId).resource(singular).list(),
-    queryFn: async (): Promise<T[]> => {
-      const rows = await aepbase.list<T>(plural, { parent, orderBy });
-      return comparator ? [...rows].sort(comparator) : rows;
+  plural: string,
+  options: ResourceListOptions<T, R> = {},
+): UseQueryResult<R[], Error> {
+  const { filter, orderBy, parent, maxPageSize, map, sort, ...queryOptions } = options;
+  const comparator = sort ?? (orderBy ? comparatorFromOrderBy<R>(orderBy) : undefined);
+  return useQuery<R[], Error>({
+    queryKey: queryKeys.app(appId).resource(singular).list(),
+    queryFn: async (): Promise<R[]> => {
+      const records = await aepbase.list<T>(plural, { filter, orderBy, parent, maxPageSize });
+      const mapped = map ? records.map(map) : (records as unknown as R[]);
+      return comparator ? [...mapped].sort(comparator) : mapped;
     },
-    ...(enabled === undefined ? {} : { enabled }),
-    ...(gcTime === undefined ? {} : { gcTime }),
-    ...(staleTime === undefined ? {} : { staleTime }),
+    ...queryOptions,
   });
 }
+
+export interface ResourceItemOptions<T> extends ExtraQueryOptions<T> {
+  /** Parent chain for a nested resource. */
+  parent?: ParentPath;
+}
+
+/**
+ * Fetch a single record by id. The query is disabled while `id` is null, so
+ * detail pages can call it unconditionally. Keyed by
+ * `queryKeys.app(appId).detail(id)`, which the mutation factory's `.all()`
+ * invalidation covers.
+ */
+export function useResourceItem<T>(
+  appId: string,
+  plural: string,
+  id: string | null,
+  options: ResourceItemOptions<T> = {},
+): UseQueryResult<T, Error> {
+  const { parent, ...queryOptions } = options;
+  return useQuery<T, Error>({
+    queryKey: queryKeys.app(appId).detail(id ?? ''),
+    queryFn: async (): Promise<T> => {
+      if (!id) throw new Error('Resource id is required');
+      return aepbase.get<T>(plural, id, { parent });
+    },
+    enabled: !!id,
+    ...queryOptions,
+  });
+}
+
+/**
+ * Resolve a file-field to a blob URL the browser can render. aepbase's
+ * `:download` endpoint is POST-only, so the bytes can't go straight into an
+ * `<img src>` — they're fetched here, blob-URL'd, and revoked on unmount or
+ * when the record/field changes. Wrap it per app:
+ *
+ * ```ts
+ * export const useRecipeImageUrl = (recipe: Recipe | null | undefined) =>
+ *   useFileFieldUrl(RECIPES, recipe?.id, 'image', recipe?.image);
+ * ```
+ *
+ * `filename` is the field's stored value; passing it lets the URL refresh when
+ * a new upload replaces the file. Returns null until the bytes resolve (and
+ * whenever `id`/`filename` are absent).
+ */
+export function useFileFieldUrl(
+  plural: string,
+  id: string | null | undefined,
+  field: string,
+  filename: string | null | undefined,
+  options: { parent?: ParentPath } = {},
+): string | null {
+  const { parent } = options;
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id || !filename) {
+      setUrl(null);
+      return;
+    }
+    let cancelled = false;
+    let createdUrl: string | null = null;
+
+    aepbase
+      .download(plural, id, field, { parent })
+      .then((blob) => {
+        if (cancelled) return;
+        createdUrl = URL.createObjectURL(blob);
+        setUrl(createdUrl);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        logger.error('Failed to download file field', error, { plural, id, field });
+      });
+
+    return () => {
+      cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+    // `parent` is a fresh array each render; callers pass a stable field set,
+    // so key the effect on the primitive inputs that actually change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plural, id, field, filename]);
+
+  return id && filename ? url : null;
+}
+
+/** Newest-first comparator for records carrying aepbase's `create_time`. */
+export function byCreateTimeDesc<T extends { create_time?: string }>(a: T, b: T): number {
+  return (b.create_time || '').localeCompare(a.create_time || '');
+}
+
+/** Oldest-first comparator for records carrying aepbase's `create_time`. */
+export function byCreateTimeAsc<T extends { create_time?: string }>(a: T, b: T): number {
+  return (a.create_time || '').localeCompare(b.create_time || '');
+}
+
+// ----------------------------------------------------------------------------
+// Writes
+// ----------------------------------------------------------------------------
 
 /**
  * Create-mutation wrapper. The hook auto-injects a stable `tempId` on each

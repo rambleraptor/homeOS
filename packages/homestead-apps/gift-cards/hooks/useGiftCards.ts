@@ -7,8 +7,7 @@ import { GIFT_CARDS } from '../resources';
 import type { GiftCard } from '../types';
 
 export function useGiftCards() {
-  return useResourceList<GiftCard>('gift-cards', 'gift-card', {
-    plural: GIFT_CARDS,
+  return useResourceList<GiftCard>('gift-cards', 'gift-card', GIFT_CARDS, {
     orderBy: '-create_time',
   });
 }

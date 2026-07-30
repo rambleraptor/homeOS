@@ -3,8 +3,7 @@ import { EVENTS } from '../resources';
 import type { Event } from '../types';
 
 export function useEvents() {
-  return useResourceList<Event>('events', 'event', {
-    plural: EVENTS,
+  return useResourceList<Event>('events', 'event', EVENTS, {
     orderBy: 'name',
   });
 }

@@ -7,8 +7,7 @@ import { CREDIT_CARDS } from '../resources';
 import type { CreditCard } from '../types';
 
 export function useCreditCards() {
-  return useResourceList<CreditCard>('credit-cards', 'credit-card', {
-    plural: CREDIT_CARDS,
+  return useResourceList<CreditCard>('credit-cards', 'credit-card', CREDIT_CARDS, {
     orderBy: '-create_time',
   });
 }

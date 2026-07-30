@@ -2,10 +2,8 @@
  * Groceries list hook.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { useResourceList } from '@rambleraptor/homestead-core/api/resourceHooks';
 import { GROCERIES } from '../resources';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import type { GroceryItem } from '../types';
 
 interface AepGroceryItem extends GroceryItem {
@@ -15,20 +13,15 @@ interface AepGroceryItem extends GroceryItem {
 }
 
 export function useGroceries() {
-  return useQuery({
-    queryKey: queryKeys.app('groceries').resource('grocery').list(),
-    queryFn: async () => {
-      const items = await aepbase.list<AepGroceryItem>(GROCERIES);
-      return items
-        .map((rec) => ({
-          ...rec,
-          created: rec.create_time || '',
-          updated: rec.update_time || '',
-        }))
-        .sort((a, b) => {
-          if (a.checked !== b.checked) return a.checked ? 1 : -1;
-          return a.name.localeCompare(b.name);
-        });
+  return useResourceList<AepGroceryItem>('groceries', 'grocery', GROCERIES, {
+    map: (rec) => ({
+      ...rec,
+      created: rec.create_time || '',
+      updated: rec.update_time || '',
+    }),
+    sort: (a, b) => {
+      if (a.checked !== b.checked) return a.checked ? 1 : -1;
+      return a.name.localeCompare(b.name);
     },
     // Long enough to survive within the persister's 7-day maxAge window;
     // the global default of 10 minutes would let cache be GC'd before

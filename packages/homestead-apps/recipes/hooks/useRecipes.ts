@@ -7,8 +7,7 @@ import { RECIPES } from '../resources';
 import type { Recipe } from '../types';
 
 export function useRecipes() {
-  return useResourceList<Recipe>('recipes', 'recipe', {
-    plural: RECIPES,
+  return useResourceList<Recipe>('recipes', 'recipe', RECIPES, {
     orderBy: '-create_time',
   });
 }

@@ -6,17 +6,22 @@
  * per-parent cache key. Newest first (`-create_time`), ordered server-side.
  */
 
-import { useResourceList } from '@rambleraptor/homestead-core/api/resourceHooks';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { GIFT_CARDS, GIFT_CARD_TRANSACTIONS } from '../resources';
 import type { GiftCardTransaction } from '../types';
 
 export function useGiftCardTransactions(giftCardId: string | null) {
-  return useResourceList<GiftCardTransaction>('gift-cards', 'transaction', {
-    plural: GIFT_CARD_TRANSACTIONS,
-    orderBy: '-create_time',
-    parent: giftCardId ? [GIFT_CARDS, giftCardId] : undefined,
+  return useQuery({
     queryKey: [...queryKeys.app('gift-cards').all(), 'transactions', giftCardId || ''],
+    queryFn: async () => {
+      if (!giftCardId) return [];
+      return aepbase.list<GiftCardTransaction>(GIFT_CARD_TRANSACTIONS, {
+        parent: [GIFT_CARDS, giftCardId],
+        orderBy: '-create_time',
+      });
+    },
     enabled: !!giftCardId,
   });
 }
