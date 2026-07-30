@@ -41,9 +41,57 @@ type ExtraQueryOptions<TData> = Omit<
   'queryKey' | 'queryFn' | 'enabled'
 >;
 
+/**
+ * Build a client-side comparator equivalent to an AEP `order_by` string, so a
+ * list keeps the server's ordering even for the optimistic row the mutation
+ * factory appends before a refetch confirms it. Same grammar as the wire
+ * param: comma-separated fields, `-` prefix for descending, whitespace
+ * insignificant. Only top-level fields are supported (dotted subfields are
+ * ordered server-side only); unknown fields compare equal and fall through to
+ * the next term.
+ */
+export function comparatorFromOrderBy<T>(orderBy: string): (a: T, b: T) => number {
+  const terms = orderBy
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '')
+    .map((s) => {
+      const desc = s.startsWith('-');
+      return { field: (desc ? s.slice(1) : s).trim(), dir: desc ? -1 : 1 };
+    });
+
+  const cmp = (a: unknown, b: unknown): number => {
+    if (a == null && b == null) return 0;
+    if (a == null) return -1;
+    if (b == null) return 1;
+    if (typeof a === 'string' || typeof b === 'string') {
+      return String(a).localeCompare(String(b));
+    }
+    if (typeof a === 'boolean' || typeof b === 'boolean') {
+      return Number(a) - Number(b);
+    }
+    return a < b ? -1 : a > b ? 1 : 0;
+  };
+
+  return (a, b) => {
+    for (const { field, dir } of terms) {
+      const c = cmp((a as Record<string, unknown>)[field], (b as Record<string, unknown>)[field]);
+      if (c !== 0) return c * dir;
+    }
+    return 0;
+  };
+}
+
 export interface ResourceListOptions<T, R = T> extends ExtraQueryOptions<R[]> {
   /** aepbase list filter, passed straight through. */
   filter?: string;
+  /**
+   * AEP `order_by` (e.g. `-create_time`, `name`). Sent to the engine for
+   * server-side ordering AND, when no explicit `sort` is given, applied
+   * client-side via `comparatorFromOrderBy` — so the optimistic row the
+   * mutation factory appends lands in the right place before the next refetch.
+   */
+  orderBy?: string;
   /** Parent chain for a nested resource. */
   parent?: ParentPath;
   /** Per-page cap; the client follows pagination until exhausted. */
@@ -51,8 +99,9 @@ export interface ResourceListOptions<T, R = T> extends ExtraQueryOptions<R[]> {
   /** Per-record transform applied before sorting (e.g. `create_time` → `created`). */
   map?: (record: T) => R;
   /**
-   * Client-side comparator. aepbase has no `sort` query param, so ordering
-   * happens here. Applied to a copy — the fetched array is not mutated.
+   * Client-side comparator. Overrides the one derived from `orderBy` (use it
+   * for computed or multi-source sorts). Applied to a copy — the fetched array
+   * is not mutated.
    */
   sort?: (a: R, b: R) => number;
 }
@@ -64,7 +113,7 @@ export interface ResourceListOptions<T, R = T> extends ExtraQueryOptions<R[]> {
  *
  * ```ts
  * export const useRecipes = () =>
- *   useResourceList<Recipe>('recipes', 'recipe', RECIPES, { sort: byCreateTimeDesc });
+ *   useResourceList<Recipe>('recipes', 'recipe', RECIPES, { orderBy: '-create_time' });
  * ```
  */
 export function useResourceList<T, R = T>(
@@ -73,13 +122,14 @@ export function useResourceList<T, R = T>(
   plural: string,
   options: ResourceListOptions<T, R> = {},
 ): UseQueryResult<R[], Error> {
-  const { filter, parent, maxPageSize, map, sort, ...queryOptions } = options;
+  const { filter, orderBy, parent, maxPageSize, map, sort, ...queryOptions } = options;
+  const comparator = sort ?? (orderBy ? comparatorFromOrderBy<R>(orderBy) : undefined);
   return useQuery<R[], Error>({
     queryKey: queryKeys.app(appId).resource(singular).list(),
     queryFn: async (): Promise<R[]> => {
-      const records = await aepbase.list<T>(plural, { filter, parent, maxPageSize });
+      const records = await aepbase.list<T>(plural, { filter, orderBy, parent, maxPageSize });
       const mapped = map ? records.map(map) : (records as unknown as R[]);
-      return sort ? [...mapped].sort(sort) : mapped;
+      return comparator ? [...mapped].sort(comparator) : mapped;
     },
     ...queryOptions,
   });
