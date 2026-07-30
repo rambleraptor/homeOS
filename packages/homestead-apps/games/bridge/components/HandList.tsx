@@ -31,10 +31,11 @@ export function HandList({ hands, onDelete, deletingId }: HandListProps) {
       className="grid grid-cols-1 md:grid-cols-2 gap-4"
       data-testid="hand-list"
     >
-      {hands.map((hand) => (
+      {hands.map((hand, index) => (
         <HandCard
           key={hand.id}
           hand={hand}
+          boardNumber={hands.length - index}
           onDelete={onDelete}
           isDeleting={deletingId === hand.id}
         />
