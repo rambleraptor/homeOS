@@ -31,8 +31,8 @@ describe('AuthCallback', () => {
     setHash('');
   });
 
-  it('completes login from the fragment token and navigates to the dashboard', async () => {
-    setHash('#token=tok-1');
+  it('completes login from the fragment session and navigates to the dashboard', async () => {
+    setHash('#access_token=tok-1&refresh_token=ref-1&expires_in=3600');
 
     render(
       <MemoryRouter>
@@ -40,8 +40,32 @@ describe('AuthCallback', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(completeOAuthLogin).toHaveBeenCalledWith('tok-1'));
+    await waitFor(() =>
+      expect(completeOAuthLogin).toHaveBeenCalledWith({
+        accessToken: 'tok-1',
+        refreshToken: 'ref-1',
+        expiresIn: 3600,
+      }),
+    );
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard', { replace: true }));
+  });
+
+  it('still accepts a bare `token` alias from an older server', async () => {
+    setHash('#token=legacy-1');
+
+    render(
+      <MemoryRouter>
+        <AuthCallback />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(completeOAuthLogin).toHaveBeenCalledWith({
+        accessToken: 'legacy-1',
+        refreshToken: undefined,
+        expiresIn: undefined,
+      }),
+    );
   });
 
   it('shows an error when the token is missing', async () => {

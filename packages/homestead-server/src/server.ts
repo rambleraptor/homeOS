@@ -99,6 +99,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const { AuthService } = await import('./auth/service');
   const authService = new AuthService(engine.db);
   engine.setTokenValidator(authService.validateAccessToken);
+  // Federated (Google/GitHub) logins mint their session through the same
+  // service, so an OAuth user gets access + refresh tokens exactly like a
+  // password user. Without an issuer the engine falls back to a bare,
+  // non-expiring token.
+  engine.setSessionIssuer((userId) => authService.issueSession(userId));
 
   const setupState = await ensureSuperuser(engine.db);
 
@@ -109,6 +114,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const { notificationsRoute } = await import('./routes/notifications');
   const { makeSetupRoute } = await import('./routes/setup');
   const { bulkImportTemplateRoute } = await import('./routes/bulk-import-template');
+  const { makeAuthRoutes } = await import('./routes/auth');
 
   // In prod the SPA is served from disk; resolve it up front so /api/app-version
   // can report its current output hash. Dev serves via Vite middleware (no hash).
@@ -123,6 +129,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   publicApp.get('/api/custom-methods', () => customMethodsResponse());
   publicApp.route('/api/bulk-import', bulkImportTemplateRoute);
   publicApp.route('/api/setup', makeSetupRoute(engine.db));
+  publicApp.route('/api/auth', makeAuthRoutes(engine.db, authService));
   publicApp.route('/api/notifications', notificationsRoute);
   publicApp.route('/api/chat', chatRoute);
   publicApp.route('/api/aep', makeAepGateway(engine, loopbackOrigin));

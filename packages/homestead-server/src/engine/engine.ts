@@ -18,7 +18,7 @@ import {
   loadAllDefinitions,
   topoSortDefs,
 } from './meta';
-import { OAuthRoutes, type OAuthConfig } from './oauth';
+import { OAuthRoutes, type OAuthConfig, type SessionIssuer } from './oauth';
 import { buildOpenApi } from './openapi';
 import { Registry } from './registry';
 import { notFoundText, routeDynamic } from './router';
@@ -65,6 +65,8 @@ export interface EngineOptions {
   accessCheck?: AccessCheck;
   /** Overrides the default bearer-token lookup (see {@link TokenValidator}). */
   tokenValidator?: TokenValidator;
+  /** Mints federated-login sessions (see {@link SessionIssuer}). */
+  sessionIssuer?: SessionIssuer;
   /** The `auth.oauth` block of homestead.config.ts (optional). */
   oauth?: OAuthConfig | null;
 }
@@ -75,6 +77,7 @@ export class Engine {
   private corsAllowedOrigins: string[];
   private accessCheck: AccessCheck | null;
   private tokenValidator: TokenValidator | null;
+  private sessionIssuer: SessionIssuer | null;
   private oauth: OAuthRoutes | null;
 
   constructor(opts: EngineOptions) {
@@ -87,6 +90,7 @@ export class Engine {
     this.corsAllowedOrigins = opts.corsAllowedOrigins ?? [];
     this.accessCheck = opts.accessCheck ?? null;
     this.tokenValidator = opts.tokenValidator ?? null;
+    this.sessionIssuer = opts.sessionIssuer ?? null;
     this.oauth = OAuthRoutes.fromConfig(this.db, opts.oauth);
 
     // Restore resource definitions from a previous run, parents first.
@@ -101,6 +105,10 @@ export class Engine {
 
   setTokenValidator(validator: TokenValidator | null): void {
     this.tokenValidator = validator;
+  }
+
+  setSessionIssuer(issuer: SessionIssuer | null): void {
+    this.sessionIssuer = issuer;
   }
 
   /** Make an engine-relative options object for a data dir (convenience). */
@@ -210,7 +218,7 @@ export class Engine {
 
     if (segments[0] === 'oauth') {
       if (!this.oauth) return notFoundText();
-      const res = await this.oauth.handle(req, segments);
+      const res = await this.oauth.handle(req, segments, this.sessionIssuer);
       return res ?? notFoundText();
     }
 

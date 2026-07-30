@@ -6,6 +6,14 @@ export type MapProvider = 'google' | 'apple';
 
 export type UserType = 'superuser' | 'regular';
 
+/** The session an OAuth callback delivers in the URL fragment. */
+export interface OAuthSession {
+  accessToken: string;
+  /** Present when the server issued a refreshable session (the normal case). */
+  refreshToken?: string;
+  expiresIn?: number;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -46,11 +54,11 @@ export interface LoginCredentials {
 export interface AuthContextValue extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
   /**
-   * Finish an OAuth login from the callback page: aepbase's callback handed us
-   * a bare `token`; this resolves the user via whoami, hydrates preferences,
-   * and seeds the auth state, mirroring `login`.
+   * Finish an OAuth login from the callback page: the federated callback handed
+   * us a session in the URL fragment; this resolves the user via whoami,
+   * hydrates preferences, and seeds the auth state, mirroring `login`.
    */
-  completeOAuthLogin: (token: string) => Promise<void>;
+  completeOAuthLogin: (session: OAuthSession) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }

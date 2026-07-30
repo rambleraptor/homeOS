@@ -37,6 +37,18 @@ export interface OAuthConfig {
   providers: OAuthProviderConfig[];
 }
 
+/**
+ * Mints a login session for a user. Injected by the server so federated logins
+ * flow through the auth service (access + refresh tokens with expiry) instead
+ * of a bare, non-expiring token. Returns null-ish only if the caller doesn't
+ * provide one, in which case the callback falls back to a plain token.
+ */
+export type SessionIssuer = (userId: string) => {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+};
+
 /** A fully-resolved provider (redirect URLs composed, validated). */
 export interface Provider {
   name: string;
@@ -264,13 +276,17 @@ export class OAuthRoutes {
   }
 
   /** Dispatch /oauth/* paths; returns null for unmatched shapes. */
-  async handle(req: Request, segments: string[]): Promise<Response | null> {
+  async handle(
+    req: Request,
+    segments: string[],
+    issuer?: SessionIssuer | null,
+  ): Promise<Response | null> {
     if (req.method !== 'GET') return null;
     if (segments.length === 2 && segments[1] === 'providers') return this.listProviders();
     if (segments.length === 3) {
       const name = decodeURIComponent(segments[1]!);
       if (segments[2] === 'start') return this.start(req, name);
-      if (segments[2] === 'callback') return this.callback(req, name);
+      if (segments[2] === 'callback') return this.callback(req, name, issuer);
     }
     return null;
   }
@@ -308,7 +324,11 @@ export class OAuthRoutes {
     });
   }
 
-  private async callback(req: Request, name: string): Promise<Response> {
+  private async callback(
+    req: Request,
+    name: string,
+    issuer?: SessionIssuer | null,
+  ): Promise<Response> {
     const provider = this.providers.get(name);
     if (!provider) return errorResponse(404, `unknown provider "${name}"`);
 
@@ -364,10 +384,23 @@ export class OAuthRoutes {
       return errorResponse(500, `user lookup failed: ${err instanceof Error ? err.message : err}`);
     }
 
-    const token = generateToken();
-    insertToken(this.db, token, user.id);
-
-    const fragment = new URLSearchParams({ token: token });
+    // Prefer a full session (access + refresh) via the injected issuer so
+    // federated users get token expiry + refresh. Fall back to a bare,
+    // non-expiring token when no issuer is wired. The success page reads the
+    // fragment (never logged / never sent in Referer).
+    const fragment = new URLSearchParams();
+    if (issuer) {
+      const session = issuer(user.id);
+      fragment.set('access_token', session.access_token);
+      fragment.set('refresh_token', session.refresh_token);
+      fragment.set('expires_in', String(session.expires_in));
+      // Keep `token` as an alias so older SPA builds still authenticate.
+      fragment.set('token', session.access_token);
+    } else {
+      const token = generateToken();
+      insertToken(this.db, token, user.id);
+      fragment.set('token', token);
+    }
     return new Response(null, {
       status: 302,
       headers: {
