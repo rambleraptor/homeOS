@@ -452,6 +452,11 @@ export function handleList(reg: Registry, match: RouteMatch, req: Request): Resp
   const ps = url.searchParams.get('max_page_size');
   if (ps) {
     const n = parseInt(ps, 10);
+    // AEP-158: a negative page size is an INVALID_ARGUMENT (400), not silently
+    // ignored. A zero/absent value falls back to the default page size.
+    if (!Number.isNaN(n) && n < 0) {
+      return errorResponse(400, 'max_page_size must not be negative');
+    }
     if (!Number.isNaN(n) && n > 0) pageSize = Math.min(n, 1000);
   }
   const pageToken = url.searchParams.get('page_token') ?? '';
@@ -527,21 +532,29 @@ export async function handleApply(
 
   const { fields, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
   preparePayload(r, fields, uploaded);
-  applyDefaults(r.schema, fields);
-  applyDynamicDefaults(reg, r.schema, fields);
-
-  const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
-  if (requiredErr) throw new HttpError(400, requiredErr);
 
   const now = nowRFC3339();
   const existing = getResource(reg.db, r.plural, path, r.schema);
 
   if (existing) {
-    existing.fields = fields;
+    // AEP-137: Apply must reject a request that omits a required field (400),
+    // and must not modify fields the request leaves out — so validate required
+    // against the request itself (before any defaults) and merge the request
+    // onto the stored fields rather than replacing them wholesale.
+    const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
+    if (requiredErr) throw new HttpError(400, requiredErr);
+
+    applyMergePatch(r.schema, existing.fields, fields);
     existing.update_time = now;
-    updateResource(reg.db, r.plural, path, fields, now, r.schema);
+    updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
     return jsonResponse(storedToMap(reg, r, existing));
   }
+
+  // Apply that creates a new resource: fill defaults, then validate required.
+  applyDefaults(r.schema, fields);
+  applyDynamicDefaults(reg, r.schema, fields);
+  const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
+  if (requiredErr) throw new HttpError(400, requiredErr);
 
   const stored: StoredResource = {
     id: match.id,

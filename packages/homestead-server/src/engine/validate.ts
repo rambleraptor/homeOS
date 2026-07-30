@@ -92,7 +92,8 @@ export function validateEnums(
 
 /**
  * Fill in schema-declared `default` values for fields absent from a create
- * (or full-replace apply) payload, in place. Standard, readOnly, and file
+ * (or an apply that creates a new resource) payload, in place. Standard,
+ * readOnly, and file
  * fields never receive defaults; non-primitive defaults are deep-cloned so
  * records don't share mutable references.
  */
