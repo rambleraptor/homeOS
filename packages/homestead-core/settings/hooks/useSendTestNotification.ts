@@ -9,6 +9,9 @@ interface TestNotificationResponse {
 
 export function useSendTestNotification() {
   return useMutation({
+    // SettingsHome shows its own admin-access hint on failure, so skip the
+    // global mutation error toast here.
+    meta: { skipErrorToast: true },
     mutationFn: async () => {
       const token = aepbase.authStore.token;
       const userId = aepbase.getCurrentUser()?.id || '';

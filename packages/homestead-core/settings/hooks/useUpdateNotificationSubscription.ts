@@ -19,6 +19,9 @@ interface AepNotificationSubscription extends NotificationSubscription {
 export function useUpdateNotificationSubscription() {
   const queryClient = useQueryClient();
   return useMutation({
+    // SettingsHome wraps browser push-subscription steps around this write and
+    // shows its own message, so skip the global mutation error toast here.
+    meta: { skipErrorToast: true },
     mutationFn: async (data: UpdateSubscriptionData) => {
       const userId = aepbase.getCurrentUser()?.id;
       if (!userId) throw new Error('User not authenticated');

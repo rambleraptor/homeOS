@@ -5,7 +5,26 @@
  * Used for async state management and caching of aepbase data
  */
 
-import { QueryClient, type DefaultOptions } from '@tanstack/react-query';
+import { MutationCache, QueryClient, type DefaultOptions } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { getAepErrorMessage } from './errorMessage';
+
+/**
+ * Per-mutation opt-outs the global error handler understands. Attach via a
+ * mutation's `meta`, e.g. `useMutation({ meta: { skipErrorToast: true } })`.
+ */
+export interface AppMutationMeta extends Record<string, unknown> {
+  /** Suppress the automatic error toast (the caller shows its own message). */
+  skipErrorToast?: boolean;
+  /** Override the message shown in the automatic error toast. */
+  errorMessage?: string;
+}
+
+declare module '@tanstack/react-query' {
+  interface Register {
+    mutationMeta: AppMutationMeta;
+  }
+}
 
 /**
  * Default query options for all queries
@@ -48,9 +67,25 @@ const defaultQueryOptions: DefaultOptions = {
 };
 
 /**
+ * Every failed mutation surfaces a standardized AEP error toast, so writes
+ * report failures consistently across Homestead without each call site
+ * wiring its own catch. Callers opt out (or override the text) via a
+ * mutation's `meta` (see {@link AppMutationMeta}). Reads are left to their
+ * own inline error UI and are intentionally not toasted here.
+ */
+const mutationCache = new MutationCache({
+  onError: (error, _variables, _context, mutation) => {
+    const meta = mutation.meta;
+    if (meta?.skipErrorToast) return;
+    toast.error(meta?.errorMessage ?? getAepErrorMessage(error));
+  },
+});
+
+/**
  * Create and configure React Query client
  */
 export const queryClient = new QueryClient({
+  mutationCache,
   defaultOptions: defaultQueryOptions,
 });
 

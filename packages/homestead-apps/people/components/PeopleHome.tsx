@@ -22,12 +22,8 @@ export function PeopleHome() {
       await createPerson.mutateAsync(data);
       setIsCreateModalOpen(false);
       toast.success('Person created successfully!');
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to create person. Please try again.'
-      );
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 

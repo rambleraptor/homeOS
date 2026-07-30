@@ -68,12 +68,8 @@ function PeopleListInner({ hasAny }: { hasAny: boolean }) {
       await updatePerson.mutateAsync({ id: editingPerson.id, data });
       setEditingPerson(null);
       toast.success('Person updated successfully!');
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to update person. Please try again.'
-      );
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 
@@ -92,12 +88,8 @@ function PeopleListInner({ hasAny }: { hasAny: boolean }) {
       await deletePerson.mutateAsync(deleteConfirmation.personId);
       setDeleteConfirmation({ isOpen: false, personId: null, personName: null });
       toast.success('Person deleted successfully!');
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : 'Failed to delete person. Please try again.'
-      );
+    } catch {
+      // Error surfaced by the global mutation error toast (queryClient.ts).
     }
   };
 

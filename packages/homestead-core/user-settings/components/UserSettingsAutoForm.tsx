@@ -10,7 +10,6 @@
 
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
-import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { UserSettingDef, UserSettingValue } from '@rambleraptor/homestead-core/apps/types';
 import { useUserSettings } from '../hooks/useUserSettings';
@@ -27,14 +26,13 @@ export function UserSettingsAutoForm({
 }: UserSettingsAutoFormProps) {
   const { values } = useUserSettings();
   const update = useUpdateUserSetting();
-  const toast = useToast();
 
   const handleChange = async (key: string, value: UserSettingValue) => {
     try {
       await update.mutateAsync({ appId, key, value });
     } catch (error) {
+      // Toast surfaced by the global mutation error handler (queryClient.ts).
       logger.error('Failed to update user setting', error);
-      toast.error('Failed to save setting. Please try again.');
     }
   };
 
