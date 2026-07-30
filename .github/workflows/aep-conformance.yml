@@ -118,14 +118,51 @@ jobs:
 
       - name: Run AEP conformance suite
         run: |
-          set -euo pipefail
-          # Exits non-zero on any MUST-level failure, which fails this job.
-          # SHOULD failures are reported but non-blocking (no --strict).
+          set -uo pipefail
+
+          # Run the suite (markdown report -> file). Capture its exit code
+          # WITHOUT aborting (no `set -e`) so we can print the failures to this
+          # log before the step exits. The tool exits non-zero on any MUST-level
+          # failure; SHOULD failures are reported but non-blocking (no --strict).
           "$(go env GOPATH)/bin/aep-conformance-test" test "$BASE_URL" \
             -H "Authorization: Bearer $TOKEN" \
             --output markdown --output-file conformance-report.md
-          echo "--- conformance report ---"
-          cat conformance-report.md
+          status=$?
+
+          # Pull every MUST failure out of the report, tagging each with the
+          # resource it belongs to (the section header) since the failure rows
+          # themselves don't name it.
+          awk '
+            function trim(s){ gsub(/^[ \t]+|[ \t]+$/,"",s); gsub(/`/,"",s); return s }
+            /^## / { section=$0; sub(/^## /,"",section) }
+            /^\| *FAIL/ { printf "%s\t%s\t%s\t%s\n", section, trim($3), trim($5), trim($6) }
+          ' FS='|' conformance-report.md > failures.tsv
+
+          count=$(wc -l < failures.tsv | tr -d ' ')
+          if [ "$count" -gt 0 ]; then
+            echo "=================================================="
+            echo " AEP conformance: ${count} MUST-level failure(s)"
+            echo "=================================================="
+            echo
+            echo "Failures grouped by check:"
+            cut -f2,3 failures.tsv | sort | uniq -c | sort -rn \
+              | awk '{printf "  %3d  %-8s %s\n", $1, $2, $3}'
+            echo
+            echo "::group::All failures (resource | AEP | check | detail)"
+            awk -F'\t' '{printf "%-26s %-8s %-32s %s\n", $1, $2, $3, $4}' failures.tsv
+            echo "::endgroup::"
+            # Also emit GitHub error annotations so failures surface on the run
+            # summary, not only in the log.
+            while IFS="$(printf '\t')" read -r section aep check detail; do
+              echo "::error title=${aep} ${check} (${section})::${detail}"
+            done < failures.tsv
+          else
+            echo "No MUST-level failures. 🎉"
+          fi
+
+          echo
+          echo "Full report: the job summary and the 'aep-conformance-report' artifact."
+          exit "$status"
 
       - name: Publish report to job summary
         if: always()
