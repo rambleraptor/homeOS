@@ -4,7 +4,7 @@
  * parent only needs to handle persistence + errors.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -13,18 +13,43 @@ import { useCreateHand } from '../hooks/useCreateHand';
 import { useDeleteHand } from '../hooks/useDeleteHand';
 import { HandList } from './HandList';
 import { HandForm } from './HandForm';
+import { BoardFilter } from './BoardFilter';
+import { distinctBoards, handBoard, type BoardFilterValue } from '../utils';
 import type { HandFormData } from '../types';
 
 export function BridgeHome() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // `undefined` means "no explicit pick yet" — fall back to the newest
+  // hand's board. `null` is the legacy "no board" bucket.
+  const [selectedBoard, setSelectedBoard] = useState<BoardFilterValue | undefined>(
+    undefined,
+  );
 
   const { data: hands, isLoading, isError, error } = useHands();
   const createHand = useCreateHand();
   const deleteHand = useDeleteHand();
 
+  // Boards that actually have hands, and the one currently shown. Hands
+  // arrive newest-first, so the newest hand's board is the default view.
+  const boards = useMemo(() => distinctBoards(hands ?? []), [hands]);
+  const activeBoard = useMemo<BoardFilterValue | undefined>(() => {
+    if (boards.length === 0) return undefined;
+    if (selectedBoard !== undefined && boards.includes(selectedBoard)) {
+      return selectedBoard;
+    }
+    return hands && hands.length > 0 ? handBoard(hands[0]) : boards[0];
+  }, [boards, selectedBoard, hands]);
+
+  const visibleHands = useMemo(
+    () => (hands ?? []).filter((hand) => handBoard(hand) === activeBoard),
+    [hands, activeBoard],
+  );
+
   const handleSubmit = async (data: HandFormData) => {
     try {
       await createHand.mutateAsync(data);
+      // Jump the view to the board the new hand landed on so it's visible.
+      setSelectedBoard(data.board);
     } catch (err) {
       logger.error('Failed to save bridge hand', err);
     }
@@ -77,8 +102,14 @@ export function BridgeHome() {
         isSubmitting={createHand.isPending}
       />
 
+      <BoardFilter
+        boards={boards}
+        selected={activeBoard ?? null}
+        onSelect={setSelectedBoard}
+      />
+
       <HandList
-        hands={hands ?? []}
+        hands={visibleHands}
         onDelete={handleDelete}
         deletingId={deletingId}
       />
