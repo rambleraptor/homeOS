@@ -458,7 +458,8 @@ function buildPaths(doc: ResourceDoc, schemaExample: Json | undefined): Record<s
       ? { results: [schemaExample], next_page_token: '' }
       : undefined;
     collectionOps.get = {
-      operationId: `List${pascal(doc.singular)}`,
+      // AEP-130: List operations are named List{Plural}, e.g. ListGiftCards.
+      operationId: `List${pascal(doc.plural)}`,
       description: `Returns a paginated list of ${listPlural}.`,
       tags: [name],
       parameters: listParams,

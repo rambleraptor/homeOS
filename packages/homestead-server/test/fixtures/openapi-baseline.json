@@ -402,7 +402,7 @@
     "/aep-resource-definitions": {
       "get": {
         "description": "Returns a paginated list of aepResourceDefinitions.",
-        "operationId": "ListAepResourceDefinition",
+        "operationId": "ListAepResourceDefinitions",
         "parameters": [
           {
             "description": "The maximum number of results to return per page.",
@@ -860,7 +860,7 @@
     "/gift-cards": {
       "get": {
         "description": "Returns a paginated list of giftCards.",
-        "operationId": "ListGiftCard",
+        "operationId": "ListGiftCards",
         "parameters": [
           {
             "description": "The maximum number of results to return per page.",
@@ -1455,7 +1455,7 @@
     "/gift-cards/{gift_card_id}/transactions": {
       "get": {
         "description": "Returns a paginated list of transactions.",
-        "operationId": "ListTransaction",
+        "operationId": "ListTransactions",
         "parameters": [
           {
             "description": "The ID of the gift_card.",
@@ -2193,7 +2193,7 @@
     "/users": {
       "get": {
         "description": "Returns a paginated list of users.",
-        "operationId": "ListUser",
+        "operationId": "ListUsers",
         "parameters": [
           {
             "description": "The maximum number of results to return per page.",
@@ -2691,7 +2691,7 @@
     "/users/{user_id}/notifications": {
       "get": {
         "description": "Returns a paginated list of notifications.",
-        "operationId": "ListNotification",
+        "operationId": "ListNotifications",
         "parameters": [
           {
             "description": "The ID of the user.",
