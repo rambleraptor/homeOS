@@ -28,8 +28,21 @@ export function createUserTables(db: Database): void {
   db.run(`CREATE TABLE IF NOT EXISTS _tokens (
 		token TEXT PRIMARY KEY,
 		user_id TEXT NOT NULL,
-		create_time TEXT NOT NULL
+		create_time TEXT NOT NULL,
+		expires_at TEXT
 	)`);
+  // Upgrade older databases whose _tokens predates the expiry column. A row's
+  // NULL expires_at means "never expires" — the semantics existing tokens
+  // already have — so this migration is transparent to live sessions.
+  ensureColumn(db, '_tokens', 'expires_at', 'TEXT');
+}
+
+/** Add a column if the table doesn't already have it (idempotent migration). */
+function ensureColumn(db: Database, table: string, column: string, decl: string): void {
+  const cols = db.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some((c) => c.name === column)) {
+    db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${decl}`);
+  }
 }
 
 interface UserRow {
@@ -73,11 +86,15 @@ export function getUserByEmail(db: Database, email: string): { user: User; hash:
 }
 
 export function getUserByToken(db: Database, token: string): User | null {
+  // An access token is valid only while unexpired. NULL expires_at = never
+  // expires (leased admin mints, and every token issued before the expiry
+  // column existed). RFC3339 UTC timestamps of identical width compare
+  // correctly as strings.
   const row = db
     .query(
-      `SELECT u.id, u.path, u.email, u.display_name, u.type, u.create_time, u.update_time FROM _users u INNER JOIN _tokens t ON u.id = t.user_id WHERE t.token = ?`,
+      `SELECT u.id, u.path, u.email, u.display_name, u.type, u.create_time, u.update_time FROM _users u INNER JOIN _tokens t ON u.id = t.user_id WHERE t.token = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`,
     )
-    .get(token) as UserRow | null;
+    .get(token, nowRFC3339()) as UserRow | null;
   return row ? rowToUser(row) : null;
 }
 
@@ -101,12 +118,34 @@ export function insertUser(db: Database, u: User, passwordHash: string): void {
   );
 }
 
-export function insertToken(db: Database, token: string, userId: string): void {
-  db.query('INSERT INTO _tokens (token, user_id, create_time) VALUES (?, ?, ?)').run(
+/**
+ * Insert an access token. `expiresAt` is an RFC3339 UTC timestamp after which
+ * the token stops validating; pass null (the default) for a token that never
+ * expires — used by the leased admin mints and by every caller predating the
+ * auth service.
+ */
+export function insertToken(
+  db: Database,
+  token: string,
+  userId: string,
+  expiresAt: string | null = null,
+): void {
+  db.query('INSERT INTO _tokens (token, user_id, create_time, expires_at) VALUES (?, ?, ?, ?)').run(
     token,
     userId,
     nowRFC3339(),
+    expiresAt,
   );
+}
+
+/** Raw token row (used by the auth service to distinguish expired from absent). */
+export function getTokenRecord(
+  db: Database,
+  token: string,
+): { user_id: string; expires_at: string | null } | null {
+  return db
+    .query('SELECT user_id, expires_at FROM _tokens WHERE token = ?')
+    .get(token) as { user_id: string; expires_at: string | null } | null;
 }
 
 export function deleteToken(db: Database, token: string): void {

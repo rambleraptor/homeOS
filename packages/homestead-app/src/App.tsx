@@ -4,6 +4,7 @@ import { Providers } from './providers';
 import { AppShell } from '@rambleraptor/homestead-core/layout/AppShell';
 import { Login } from '@rambleraptor/homestead-core/router/Login';
 import { AuthCallback } from '@rambleraptor/homestead-core/router/AuthCallback';
+import { Authorize } from '@rambleraptor/homestead-core/router/Authorize';
 import { AppRoute } from './apps/AppRoute';
 
 /**
@@ -48,6 +49,20 @@ export function App() {
               }
             >
               <AuthCallback />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/authorize"
+          element={
+            <Suspense
+              fallback={
+                <div className="min-h-screen flex items-center justify-center">
+                  Loading...
+                </div>
+              }
+            >
+              <Authorize />
             </Suspense>
           }
         />

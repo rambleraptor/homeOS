@@ -19,6 +19,7 @@ import type {
   AuthState,
   LoginCredentials,
   MapProvider,
+  OAuthSession,
   User,
 } from './types';
 import { AuthContext } from './context';
@@ -209,10 +210,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
-  const completeOAuthLogin = useCallback(async (token: string) => {
+  const completeOAuthLogin = useCallback(async (session: OAuthSession) => {
     setState((prev) => ({ ...prev, isLoading: true }));
     try {
-      const baseUser = await aepbase.completeOAuthLogin(token);
+      const baseUser = await aepbase.completeOAuthLogin(session);
       const hydrated = await hydrateUserPreferences(baseUser);
       aepbase.authStore.save(aepbase.authStore.token, hydrated);
       await queryClient.invalidateQueries();

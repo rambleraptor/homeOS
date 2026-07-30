@@ -19,11 +19,17 @@
  *  - User registration is not supported. `login()` is the only auth call.
  */
 
-import type { User, UserType } from '../auth/types';
+import type { OAuthSession, User, UserType } from '../auth/types';
 
 const AEP_BASE = '/api/aep';
+/** First-party session endpoints (login/refresh/logout) — not under /api/aep. */
+const AUTH_BASE = '/api/auth';
 const AUTH_TOKEN_KEY = 'aepbase_auth_token';
 const AUTH_USER_KEY = 'aepbase_auth_user';
+const AUTH_REFRESH_KEY = 'aepbase_refresh_token';
+const AUTH_EXPIRES_KEY = 'aepbase_token_expires_at';
+/** Renew the access token this many ms before it actually expires. */
+const RENEW_SKEW_MS = 30_000;
 
 // ----------------------------------------------------------------------------
 // Errors
@@ -73,14 +79,28 @@ function mapAepUser(raw: RawAepUser): User {
 
 type AuthChangeListener = (token: string, user: User | null) => void;
 
+/** A freshly-issued session from /api/auth/{login,refresh}. */
+export interface Session {
+  accessToken: string;
+  refreshToken: string;
+  /** Access-token lifetime in seconds. */
+  expiresIn: number;
+}
+
 class AuthStore {
   private _token: string | null = null;
+  private _refreshToken: string | null = null;
+  /** Epoch ms at which the access token expires; null = unknown/never. */
+  private _expiresAt: number | null = null;
   private _user: User | null = null;
   private listeners = new Set<AuthChangeListener>();
 
   constructor() {
     if (typeof window !== 'undefined') {
       this._token = window.localStorage.getItem(AUTH_TOKEN_KEY);
+      this._refreshToken = window.localStorage.getItem(AUTH_REFRESH_KEY);
+      const rawExpires = window.localStorage.getItem(AUTH_EXPIRES_KEY);
+      this._expiresAt = rawExpires ? Number(rawExpires) || null : null;
       const rawUser = window.localStorage.getItem(AUTH_USER_KEY);
       if (rawUser) {
         try {
@@ -96,8 +116,18 @@ class AuthStore {
     return this._token || '';
   }
 
+  get refreshToken(): string {
+    return this._refreshToken || '';
+  }
+
   get isValid(): boolean {
     return !!this._token;
+  }
+
+  /** True when we hold a refresh token and the access token is near/at expiry. */
+  get needsRenewal(): boolean {
+    if (!this._token || !this._refreshToken || this._expiresAt === null) return false;
+    return Date.now() >= this._expiresAt - RENEW_SKEW_MS;
   }
 
   /** Callers read `authStore.model` for the current user. */
@@ -105,26 +135,51 @@ class AuthStore {
     return this._user;
   }
 
+  /**
+   * Update the access token and/or user while preserving the refresh token and
+   * expiry (used to swap in a hydrated user object after login). Passing an
+   * empty token clears everything.
+   */
   save(token: string, user: User | null): void {
+    if (!token) {
+      this.clear();
+      return;
+    }
     this._token = token;
     this._user = user;
-    if (typeof window !== 'undefined') {
-      if (token) {
-        window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-      } else {
-        window.localStorage.removeItem(AUTH_TOKEN_KEY);
-      }
-      if (user) {
-        window.localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-      } else {
-        window.localStorage.removeItem(AUTH_USER_KEY);
-      }
-    }
+    this.persist();
+    this.emit();
+  }
+
+  /** Persist a full session (access + refresh + expiry) plus the user. */
+  saveSession(session: Session, user: User | null): void {
+    this._token = session.accessToken;
+    this._refreshToken = session.refreshToken;
+    this._expiresAt = Date.now() + session.expiresIn * 1000;
+    this._user = user;
+    this.persist();
     this.emit();
   }
 
   clear(): void {
-    this.save('', null);
+    this._token = null;
+    this._refreshToken = null;
+    this._expiresAt = null;
+    this._user = null;
+    this.persist();
+    this.emit();
+  }
+
+  private persist(): void {
+    if (typeof window === 'undefined') return;
+    const set = (key: string, value: string | null) => {
+      if (value) window.localStorage.setItem(key, value);
+      else window.localStorage.removeItem(key);
+    };
+    set(AUTH_TOKEN_KEY, this._token);
+    set(AUTH_REFRESH_KEY, this._refreshToken);
+    set(AUTH_EXPIRES_KEY, this._expiresAt !== null ? String(this._expiresAt) : null);
+    set(AUTH_USER_KEY, this._user ? JSON.stringify(this._user) : null);
   }
 
   onChange(listener: AuthChangeListener): () => void {
@@ -142,6 +197,67 @@ class AuthStore {
 }
 
 export const authStore = new AuthStore();
+
+// ----------------------------------------------------------------------------
+// Token refresh (single-flight)
+// ----------------------------------------------------------------------------
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+interface RefreshResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+/**
+ * Exchange the stored refresh token for a fresh session. Returns true on
+ * success. A definitive rejection (non-ok response — the refresh token is
+ * revoked/expired) clears the session; a network error leaves it intact so a
+ * later call can retry.
+ */
+async function performRefresh(): Promise<boolean> {
+  const refreshToken = authStore.refreshToken;
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${AUTH_BASE}/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) {
+      authStore.clear();
+      return false;
+    }
+    const data = (await res.json()) as RefreshResponse;
+    authStore.saveSession(
+      {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresIn: data.expires_in,
+      },
+      authStore.model,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Refresh the session, de-duplicating concurrent callers onto one request. */
+export function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+/** Proactively renew the access token if it is at/near expiry. */
+async function ensureFreshToken(): Promise<void> {
+  if (authStore.needsRenewal) await refreshSession();
+}
 
 // ----------------------------------------------------------------------------
 // HTTP core
@@ -168,23 +284,33 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     if (qs) url += `?${qs}`;
   }
 
-  const headers: Record<string, string> = {};
-  if (authStore.token) {
-    headers.Authorization = `Bearer ${authStore.token}`;
-  }
+  const send = (): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (authStore.token) {
+      headers.Authorization = `Bearer ${authStore.token}`;
+    }
+    const init: RequestInit = { method, headers };
+    if (body instanceof FormData) {
+      init.body = body;
+      // Let the browser set the multipart boundary.
+    } else if (body !== undefined) {
+      headers['Content-Type'] = mergePatch
+        ? 'application/merge-patch+json'
+        : 'application/json';
+      init.body = JSON.stringify(body);
+    }
+    return fetch(url, init);
+  };
 
-  const init: RequestInit = { method, headers };
-  if (body instanceof FormData) {
-    init.body = body;
-    // Let the browser set the multipart boundary.
-  } else if (body !== undefined) {
-    headers['Content-Type'] = mergePatch
-      ? 'application/merge-patch+json'
-      : 'application/json';
-    init.body = JSON.stringify(body);
+  // Renew a near-expired access token before spending it, then send. If the
+  // server still rejects the token (401) and we hold a refresh token, refresh
+  // once and retry — this is the global handler that keeps a session alive
+  // across access-token expiry without the caller noticing.
+  await ensureFreshToken();
+  let res = await send();
+  if (res.status === 401 && authStore.refreshToken && (await refreshSession())) {
+    res = await send();
   }
-
-  const res = await fetch(url, init);
 
   if (res.status === 204) {
     return undefined as T;
@@ -354,6 +480,7 @@ export async function download(
   field: string,
   options: ItemOptions = {},
 ): Promise<Blob> {
+  await ensureFreshToken();
   const url = `${AEP_BASE}${itemPath(plural, id, options.parent)}:download`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -406,6 +533,7 @@ export async function customMethod<T>(
   body?: unknown,
   options: CustomMethodOptions = {},
 ): Promise<T> {
+  await ensureFreshToken();
   const base = options.id
     ? itemPath(plural, options.id, options.parent)
     : collectionPath(plural, options.parent);
@@ -457,29 +585,68 @@ export async function customMethod<T>(
 // ----------------------------------------------------------------------------
 
 interface LoginResponse {
-  token: string;
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
   user: RawAepUser;
 }
 
 /**
- * Authenticate against aepbase. The only unauthenticated endpoint —
- * `POST /users/:login` — exchanges email + password for a Bearer token.
- * On success the token + user are persisted in the auth store and any
- * `onChange` listeners fire.
+ * Authenticate through the auth service (`POST /api/auth/login`), which
+ * exchanges email + password for a short-lived access token plus a refresh
+ * token. On success the full session + user are persisted and any `onChange`
+ * listeners fire. (The engine's own `/users:login` still exists for the CLI,
+ * which wants a long-lived token; the SPA uses this refreshable path.)
  */
 export async function login(email: string, password: string): Promise<User> {
-  const res = await request<LoginResponse>('/users/:login', {
+  const res = await fetch(`${AUTH_BASE}/login`, {
     method: 'POST',
-    body: { email, password },
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
   });
-  const user = mapAepUser(res.user);
-  authStore.save(res.token, user);
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : undefined;
+  } catch {
+    parsed = undefined;
+  }
+  if (!res.ok) {
+    const envelope = parsed as { error?: string | { message?: string } } | undefined;
+    const message =
+      (typeof envelope?.error === 'string' ? envelope.error : envelope?.error?.message) ??
+      `HTTP ${res.status}`;
+    throw new AepbaseError(res.status, message, `${AUTH_BASE}/login`);
+  }
+  const data = parsed as LoginResponse;
+  const user = mapAepUser(data.user);
+  authStore.saveSession(
+    {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in,
+    },
+    user,
+  );
   return user;
 }
 
-/** Clear the in-memory + persisted token. */
+/**
+ * Clear the session locally and best-effort revoke it server-side
+ * (`POST /api/auth/logout`). Synchronous for callers; the revocation is
+ * fire-and-forget so a network hiccup never blocks signing out.
+ */
 export function logout(): void {
+  const token = authStore.token;
   authStore.clear();
+  if (token && typeof fetch !== 'undefined') {
+    void fetch(`${AUTH_BASE}/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {
+      // Local session is already gone; a failed server revoke is non-fatal.
+    });
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -517,15 +684,18 @@ export function startOAuth(providerName: string): void {
 }
 
 /**
- * Finish an OAuth login. aepbase's callback handed us a bare `token` in the URL
- * fragment; we resolve the user via the `/users/me` whoami endpoint and persist
- * both, mirroring the tail of `login()`. The fetch uses the token explicitly
- * (rather than the auth store) so we don't emit a transient null-user state
- * before the real user lands.
+ * Finish an OAuth login. The federated callback handed us the session in the
+ * URL fragment; we resolve the user via the `/users/me` whoami endpoint and
+ * persist both, mirroring the tail of `login()`. The fetch uses the access
+ * token explicitly (rather than the auth store) so we don't emit a transient
+ * null-user state before the real user lands. When a refresh token is present
+ * the full session is stored (so it renews like a password login); an older
+ * server that only returns a bare token still works, just without refresh.
  */
-export async function completeOAuthLogin(token: string): Promise<User> {
+export async function completeOAuthLogin(session: OAuthSession): Promise<User> {
+  const { accessToken } = session;
   const url = `${AEP_BASE}/users/me`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) {
     let message = `HTTP ${res.status}`;
     try {
@@ -538,7 +708,14 @@ export async function completeOAuthLogin(token: string): Promise<User> {
   }
   const raw = (await res.json()) as RawAepUser;
   const user = mapAepUser(raw);
-  authStore.save(token, user);
+  if (session.refreshToken) {
+    authStore.saveSession(
+      { accessToken, refreshToken: session.refreshToken, expiresIn: session.expiresIn ?? 0 },
+      user,
+    );
+  } else {
+    authStore.save(accessToken, user);
+  }
   return user;
 }
 

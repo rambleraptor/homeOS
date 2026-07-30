@@ -1,17 +1,18 @@
 /**
  * OAuth callback page
  *
- * aepbase finishes the authorization-code exchange and 302-redirects the
- * browser here with a bare token in the URL *fragment* (so it never lands in
- * server logs or the Referer header):
+ * The federated callback finishes the authorization-code exchange and
+ * 302-redirects the browser here with the session in the URL *fragment* (so it
+ * never lands in server logs or the Referer header):
  *
- *   /auth/callback#token=…   (success)
+ *   /auth/callback#access_token=…&refresh_token=…&expires_in=…   (success)
  *
- * On success we hand the token to AuthContext (which resolves the user via the
- * whoami endpoint and hydrates preferences, same as password login) and
- * navigate to the dashboard. Provider/registration failures are rendered by
- * aepbase's callback as a JSON error before this page loads, so here we only
- * need to handle a missing token.
+ * (`token` is also sent as an alias for the access token so older builds keep
+ * working.) On success we hand the session to AuthContext (which resolves the
+ * user via the whoami endpoint and hydrates preferences, same as password
+ * login) and navigate to the dashboard. Provider/registration failures are
+ * rendered by the callback as a JSON error before this page loads, so here we
+ * only need to handle a missing token.
  */
 
 import { useEffect, useState } from 'react';
@@ -32,15 +33,20 @@ export function AuthCallback() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = parseFragment().get('token');
+    const params = parseFragment();
+    const accessToken = params.get('access_token') ?? params.get('token');
 
-    if (!token) {
+    if (!accessToken) {
       setError('Sign-in failed: the response was missing a token. Please try again.');
       return;
     }
 
+    const refreshToken = params.get('refresh_token') ?? undefined;
+    const expiresInRaw = params.get('expires_in');
+    const expiresIn = expiresInRaw ? Number(expiresInRaw) : undefined;
+
     let active = true;
-    completeOAuthLogin(token)
+    completeOAuthLogin({ accessToken, refreshToken, expiresIn })
       .then(() => {
         if (active) navigate('/dashboard', { replace: true });
       })
