@@ -8,6 +8,7 @@ import type { Hand } from '../types';
 const BASE: Hand = {
   id: 'hand-1',
   path: 'hands/hand-1',
+  board: 7,
   create_time: '2026-04-20T12:00:00Z',
   update_time: '2026-04-20T12:00:00Z',
   north_level: 3,
@@ -23,35 +24,41 @@ const BASE: Hand = {
 
 describe('HandCard', () => {
   it('renders every direction with its formatted bid', () => {
-    render(<HandCard hand={BASE} boardNumber={1} />);
+    render(<HandCard hand={BASE} />);
     expect(screen.getByTestId('hand-hand-1-north-bid')).toHaveTextContent('3♠');
     expect(screen.getByTestId('hand-hand-1-south-bid')).toHaveTextContent('4♥');
     expect(screen.getByTestId('hand-hand-1-east-bid')).toHaveTextContent('2 NT');
     expect(screen.getByTestId('hand-hand-1-west-bid')).toHaveTextContent('1♣');
   });
 
-  it('labels the card with its board number', () => {
-    render(<HandCard hand={BASE} boardNumber={7} />);
+  it('labels the card with the hand\'s board number', () => {
+    render(<HandCard hand={BASE} />);
     expect(screen.getByTestId('hand-hand-1-board')).toHaveTextContent(
       'Board 7',
     );
   });
 
+  it('omits the board label for a legacy hand without a board', () => {
+    const hand: Hand = { ...BASE, board: undefined };
+    render(<HandCard hand={hand} />);
+    expect(screen.queryByTestId('hand-hand-1-board')).toBeNull();
+  });
+
   it('renders notes when present', () => {
-    render(<HandCard hand={BASE} boardNumber={1} />);
+    render(<HandCard hand={BASE} />);
     expect(screen.getByTestId('hand-hand-1-notes')).toHaveTextContent('doubled');
   });
 
   it('fires onDelete with the hand id', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
-    render(<HandCard hand={BASE} boardNumber={1} onDelete={onDelete} />);
+    render(<HandCard hand={BASE} onDelete={onDelete} />);
     await user.click(screen.getByTestId('hand-hand-1-delete'));
     expect(onDelete).toHaveBeenCalledWith('hand-1');
   });
 
   it('hides the delete button when no handler is provided', () => {
-    render(<HandCard hand={BASE} boardNumber={1} />);
+    render(<HandCard hand={BASE} />);
     expect(screen.queryByTestId('hand-hand-1-delete')).toBeNull();
   });
 
@@ -61,7 +68,7 @@ describe('HandCard', () => {
       west_level: undefined,
       west_suit: 'pass',
     };
-    render(<HandCard hand={hand} boardNumber={1} />);
+    render(<HandCard hand={hand} />);
     expect(screen.getByTestId('hand-hand-1-west-bid')).toHaveTextContent('Pass');
   });
 });

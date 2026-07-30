@@ -1,11 +1,14 @@
 /**
- * Quick-entry hand form. Three button rows at the top: level (1-7), suit
- * (clubs/diamonds/hearts/spades/no-trump/pass), and direction (N/E/S/W).
+ * Quick-entry hand form. A board picker (1-36) sits above three button
+ * rows: level (1-7), suit (clubs/diamonds/hearts/spades/no-trump/pass),
+ * and direction (N/E/S/W).
  *
- * Flow: pick a level + suit (or just pass), then tap a direction to commit
- * that bid. Level and suit clear between directions so every direction is
- * entered fresh. Direction buttons disable once used. When the fourth
- * direction is tapped all four bids are submitted and the form resets.
+ * Flow: choose the board you're on, then pick a level + suit (or just
+ * pass) and tap a direction to commit that bid. Level and suit clear
+ * between directions so every direction is entered fresh. Direction
+ * buttons disable once used. When the fourth direction is tapped all
+ * four bids are submitted and the bid rows reset — the board stays put,
+ * since a board can hold many hands.
  */
 
 import { useState } from 'react';
@@ -16,6 +19,8 @@ import type {
   HandFormData,
 } from '../types';
 import {
+  BRIDGE_BOARDS,
+  BRIDGE_BOARD_MIN,
   BRIDGE_DIRECTIONS,
   BRIDGE_LEVELS,
   BRIDGE_SUITS,
@@ -34,8 +39,12 @@ interface DirBid {
 
 const DIRECTION_ORDER: BridgeDirection[] = ['north', 'east', 'south', 'west'];
 
-function toFormData(entered: Record<BridgeDirection, DirBid>): HandFormData {
+function toFormData(
+  board: number,
+  entered: Record<BridgeDirection, DirBid>,
+): HandFormData {
   return {
+    board,
     north_level: entered.north.level,
     north_suit: entered.north.suit,
     east_level: entered.east.level,
@@ -48,6 +57,7 @@ function toFormData(entered: Record<BridgeDirection, DirBid>): HandFormData {
 }
 
 export function HandForm({ onSubmit, isSubmitting }: HandFormProps) {
+  const [board, setBoard] = useState<number>(BRIDGE_BOARD_MIN);
   const [level, setLevel] = useState<BridgeLevel | null>(null);
   const [suit, setSuit] = useState<BridgeSuit | null>(null);
   const [entered, setEntered] = useState<Partial<Record<BridgeDirection, DirBid>>>({});
@@ -61,7 +71,7 @@ export function HandForm({ onSubmit, isSubmitting }: HandFormProps) {
     const next = { ...entered, [dir]: bid };
     const complete = BRIDGE_DIRECTIONS.every((d) => next[d]);
     if (complete) {
-      onSubmit(toFormData(next as Record<BridgeDirection, DirBid>));
+      onSubmit(toFormData(board, next as Record<BridgeDirection, DirBid>));
       setEntered({});
       setLevel(null);
       setSuit(null);
@@ -77,6 +87,29 @@ export function HandForm({ onSubmit, isSubmitting }: HandFormProps) {
       data-testid="hand-form"
       className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-4"
     >
+      <div className="space-y-2">
+        <label
+          htmlFor="board-select"
+          className="text-xs font-medium text-gray-600"
+        >
+          Board
+        </label>
+        <select
+          id="board-select"
+          value={board}
+          onChange={(e) => setBoard(Number(e.target.value))}
+          disabled={isSubmitting}
+          data-testid="board-select"
+          className="h-12 w-full rounded-md border border-gray-300 bg-white px-3 text-base font-semibold text-gray-700 disabled:opacity-40"
+        >
+          {BRIDGE_BOARDS.map((n) => (
+            <option key={n} value={n}>
+              Board {n}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="space-y-2">
         <div className="text-xs font-medium text-gray-600">Level</div>
         <div
