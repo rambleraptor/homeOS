@@ -91,6 +91,15 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     engine.setAccessCheck(makeAccessCheck(engine.db, accessMap, accessCacheTtlMs(opts)));
   }
 
+  // The auth service owns the token lifecycle (expiry, refresh, revocation).
+  // Wiring its validator into the engine makes every /api/aep request — and,
+  // transitively, the custom-method gateway's authenticate() — honor token
+  // expiry. Non-expiring mints (mintAdminToken, pre-existing tokens) keep
+  // working: their _tokens.expires_at is NULL.
+  const { AuthService } = await import('./auth/service');
+  const authService = new AuthService(engine.db);
+  engine.setTokenValidator(authService.validateAccessToken);
+
   const setupState = await ensureSuperuser(engine.db);
 
   // --- public app ---

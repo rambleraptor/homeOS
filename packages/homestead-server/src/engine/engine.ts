@@ -46,6 +46,14 @@ export type AccessCheck = (
   caller: User | null,
 ) => Response | null;
 
+/**
+ * Resolves a bearer token to the calling user (or null if invalid/expired).
+ * Injected the same way as {@link AccessCheck} so the auth service can own the
+ * token lifecycle (expiry, revocation) without the engine knowing the rules.
+ * When none is set the engine falls back to a plain {@link getUserByToken}.
+ */
+export type TokenValidator = (token: string) => Promise<User | null> | User | null;
+
 export interface EngineOptions {
   /** Path to the sqlite file (or ":memory:"). */
   dbPath: string;
@@ -55,6 +63,8 @@ export interface EngineOptions {
   serverUrl: string;
   corsAllowedOrigins?: string[];
   accessCheck?: AccessCheck;
+  /** Overrides the default bearer-token lookup (see {@link TokenValidator}). */
+  tokenValidator?: TokenValidator;
   /** The `auth.oauth` block of homestead.config.ts (optional). */
   oauth?: OAuthConfig | null;
 }
@@ -64,6 +74,7 @@ export class Engine {
   readonly registry: Registry;
   private corsAllowedOrigins: string[];
   private accessCheck: AccessCheck | null;
+  private tokenValidator: TokenValidator | null;
   private oauth: OAuthRoutes | null;
 
   constructor(opts: EngineOptions) {
@@ -75,6 +86,7 @@ export class Engine {
     });
     this.corsAllowedOrigins = opts.corsAllowedOrigins ?? [];
     this.accessCheck = opts.accessCheck ?? null;
+    this.tokenValidator = opts.tokenValidator ?? null;
     this.oauth = OAuthRoutes.fromConfig(this.db, opts.oauth);
 
     // Restore resource definitions from a previous run, parents first.
@@ -85,6 +97,10 @@ export class Engine {
 
   setAccessCheck(check: AccessCheck | null): void {
     this.accessCheck = check;
+  }
+
+  setTokenValidator(validator: TokenValidator | null): void {
+    this.tokenValidator = validator;
   }
 
   /** Make an engine-relative options object for a data dir (convenience). */
@@ -165,7 +181,9 @@ export class Engine {
       if (token === '') {
         return errorResponse(401, 'missing or invalid Authorization header');
       }
-      caller = getUserByToken(this.db, token);
+      caller = this.tokenValidator
+        ? await this.tokenValidator(token)
+        : getUserByToken(this.db, token);
       if (!caller) return errorResponse(401, 'invalid token');
     }
 
