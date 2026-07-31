@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check type-check-cli type-check-server build test test-cli test-node test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
+.PHONY: help install clean lint type-check type-check-cli type-check-server type-check-client build test test-cli test-node test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
 
 # Release target platforms (filename arch follows Bun's convention: x64/arm64).
 RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
@@ -9,6 +9,7 @@ RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
 FRONTEND_DIR := packages/homestead-app
 CLI_DIR := packages/homestead-cli
 SERVER_DIR := packages/homestead-server
+CLIENT_DIR := packages/homestead-client
 BUN := $(shell command -v bun || echo $$HOME/.bun/bin/bun)
 
 help: ## Show this help message
@@ -31,9 +32,13 @@ lint: ## Run ESLint
 	@echo "Running ESLint..."
 	cd $(FRONTEND_DIR) && npm run lint
 
-type-check: type-check-cli type-check-server ## Run TypeScript type checking (frontend + CLI + server)
+type-check: type-check-cli type-check-server type-check-client ## Run TypeScript type checking (frontend + CLI + server + client)
 	@echo "Running TypeScript type check..."
 	cd $(FRONTEND_DIR) && npm run type-check
+
+type-check-client: ## Type-check the standalone client library
+	@echo "Type-checking homestead-client..."
+	npx tsc -p $(CLIENT_DIR)/tsconfig.json
 
 type-check-cli: ## Type-check the homestead CLI package
 	@echo "Type-checking homestead CLI..."
