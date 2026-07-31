@@ -296,6 +296,13 @@ export class Registry {
     for (const col of added) {
       if (STANDARD_FIELDS.has(col.name)) continue;
       if (rebuildDerived && col.generatedFrom) continue; // the recreate covers it
+      // A field promoted from a union variant to a real top-level field (a real
+      // column always wins the name clash) already has a physical column in the
+      // live table — it was that variant's derived column. Its disappearance
+      // from newDerived forced rebuildDerived above, so the recreate redeclares
+      // it as a real column and copies the data. ALTER ADD here would hit the
+      // still-present derived column ("duplicate column name").
+      if (oldDerived.has(col.name)) continue;
       addColumn(this.db, def.plural, col);
     }
     if (removed.length > 0 || rebuildDerived) {

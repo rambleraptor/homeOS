@@ -367,6 +367,39 @@ describe('evolving a union (an operator edits a doc-type YAML)', () => {
     expect(body.results[0].full_text).toBe('ally 1099');
   });
 
+  test('promoting a variant field to a top-level field is non-destructive', async () => {
+    // A union variant declares `tags`, so the live table has a derived `tags`
+    // column. Then a real top-level `tags` field is added — a real column wins
+    // the name clash, so the derived column is dropped and the top-level one
+    // takes over. The PATCH must not try to ALTER ADD a column that already
+    // exists as the derived one ("duplicate column name: tags").
+    const t = await makeEngine();
+    await defineResource(t, defWith({ tags: { type: 'array' } }));
+    await call(t.engine, 'POST', '/documents', {
+      token: t.adminToken,
+      body: {
+        full_text: 'ally 1099',
+        metadata: { doc_type: 'form-1099-int', payer_name: 'Ally Bank', tags: ['x'] },
+      },
+    });
+
+    const withTopLevelTags = defWith({ tags: { type: 'array' } }) as any;
+    withTopLevelTags.schema.properties.tags = { type: 'array' };
+    const patched = await call(t.engine, 'PATCH', '/aep-resource-definitions/document', {
+      token: t.adminToken,
+      body: withTopLevelTags,
+      contentType: 'application/merge-patch+json',
+    });
+    expect(patched.status).toBe(200);
+
+    // The record — and its union blob — survive the table recreate untouched.
+    const list = await call(t.engine, 'GET', '/documents', { token: t.adminToken });
+    const body = (await list.json()) as { results: any[] };
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0].metadata.payer_name).toBe('Ally Bank');
+    expect(body.results[0].full_text).toBe('ally 1099');
+  });
+
   test('adding a whole new doc type keeps existing documents intact', async () => {
     const t = await makeEngine();
     await defineResource(t, defWith({ box_1_interest: { type: 'number' } }));

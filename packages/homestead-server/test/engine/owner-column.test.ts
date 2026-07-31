@@ -5,7 +5,12 @@
  */
 
 import { beforeEach, describe, expect, test } from 'vitest';
-import { OWNER_COLUMN, backfillOwnerFromCreatedBy } from '../../src/engine/db';
+import {
+  OWNER_COLUMN,
+  backfillOwnerFromCreatedBy,
+  createResourceTable,
+  ensureOwnerColumn,
+} from '../../src/engine/db';
 import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const DOC_DEF = {
@@ -77,6 +82,35 @@ describe('_owner column (permissions Phase 0)', () => {
 
     backfillOwnerFromCreatedBy(t.engine.db, 'docs', true);
     expect(ownerOf(t, 'docs', 'd1')).toBe('legacy123');
+  });
+
+  test('boot recreates _owner column + index on a legacy pre-permissions table', () => {
+    const db = t.engine.db;
+    const has = (pragma: string, name: string, table: string): boolean =>
+      (db.query(`PRAGMA ${pragma}(${table})`).all() as { name: string }[]).some(
+        (r) => r.name === name,
+      );
+
+    // A table created before the permissions phase: no _owner column, no index.
+    db.run(`CREATE TABLE legacies (
+      id TEXT PRIMARY KEY,
+      path TEXT NOT NULL UNIQUE,
+      create_time TEXT NOT NULL,
+      update_time TEXT NOT NULL,
+      title TEXT
+    )`);
+    expect(has('table_info', OWNER_COLUMN, 'legacies')).toBe(false);
+
+    // Boot path: createResourceTable is a no-op here (IF NOT EXISTS on the
+    // existing table), so it must NOT index the not-yet-present _owner column.
+    expect(() =>
+      createResourceTable(db, 'legacies', [], [{ name: 'title', sqlType: 'TEXT' }]),
+    ).not.toThrow();
+
+    // ensureOwnerColumn then adds the column and its index.
+    ensureOwnerColumn(db, 'legacies');
+    expect(has('table_info', OWNER_COLUMN, 'legacies')).toBe(true);
+    expect(has('index_list', 'idx_legacies_owner', 'legacies')).toBe(true);
   });
 
   test('backfill handles a bare-id created_by and leaves stamped rows alone', async () => {
