@@ -949,11 +949,20 @@ the app-level gate rolls out independently of the record-level enforcement.
   use) — pure UX polish; `useCan()` is already available for list hooks to call.
 
 ### Phase 7 — Admin & sharing UI *(depends on 6)*
-- Roles/Groups management screens; per-record **Share** affordance
-  (`can('manage', …)` → create/revoke `access-grant`s); the accessible-resources
-  report (§6.1); retire the account-tag UI.
-- **Verify:** e2e for share/unshare and admin CRUD of roles/groups. **Risk:**
-  low; all CRUD over resources that already exist and enforce server-side.
+- **Data layer ✅ done.** `permissions/hooks.ts` — react-query hooks over the
+  four resources: `useRoles`, `useGroups`, `useGroupMemberships`,
+  `useAccessGrants` (with a record-scoped filter for "who can see this?"), and
+  the mutations `useShareRecord` (record-scope grant), `useRevokeGrant`,
+  `useCreateGroup`, `useAddGroupMember`. Thin wrappers over the aepbase client;
+  the server enforces the manage-on-target write rule (§15.3), so a disallowed
+  mutation surfaces as an error. *Verified by 5 hook tests.*
+- **Remaining (UI screens):** the Roles/Groups management page, the per-record
+  **Share** dialog wired to `useShareRecord`/`useRevokeGrant` (shown when
+  `can('manage', …)`), the accessible-resources report (§6.1), and retiring the
+  account-tag UI. These are React screens on top of the data layer above — a
+  product-surface effort best shaped with UX input.
+- **Risk:** low; all CRUD over resources that already exist and enforce
+  server-side.
 
 ### Cross-cutting
 - **Kill-switch** (`PERMISSIONS_ENFORCED`) + **shadow mode** are the safety net
