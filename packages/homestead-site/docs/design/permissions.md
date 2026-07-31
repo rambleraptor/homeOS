@@ -233,12 +233,39 @@ evaluation time (as SQL parameters, never interpolated):
 
 So `owner == subject.id` compiles to `owner = ?` with the caller's id bound —
 "records you own." `created_by == subject.id && status != 'archived'` — "your
-non-archived records." The tokenizer already reads dotted idents as one token;
-the only change is `parseOperand` resolving a `subject.<attr>` (from a fixed
-allowlist) to a bound parameter instead of a column. Everything else — the
-parser, the parameterization, the SQL shape — is unchanged. Group/role
-membership tests (`team in subject.groups`) need an `in` operator the subset
-lacks; that's §11 #7, not v1.
+non-archived records." Group/role membership tests (`team in subject.groups`)
+need an `in` operator the subset lacks; that's §11 #7, not v1.
+
+### 3.6.1 One filter compiler, shared by List and permissions
+
+**Decision: extend the existing minimal subset in place — never fork it.** The
+whole point of reusing List's grammar is that there is exactly **one**
+`compileFilter` (`engine/filter.ts`); List and permission grants are two callers
+of it, so any future operator (`in`, `contains`, standard-field comparisons)
+added for one **immediately benefits the other**, and the two can never drift
+into subtly different dialects.
+
+To keep it a single code path while adding the caller binding safely,
+`compileFilter` gains **one optional argument** — a subject context — rather than
+a parallel function:
+
+```ts
+// today:   compileFilter(filter, schema)
+// becomes: compileFilter(filter, schema, opts?: { subject?: SubjectBindings })
+```
+
+- **List** calls it exactly as today (no `subject`). With no subject context, a
+  `subject.*` operand is an **unknown field → the same 400** List already
+  returns — so List's surface is unchanged and can't be widened by accident.
+- **Permission grants** pass `{ subject }`, enabling the `subject.<attr>`
+  allowlist to resolve to bound parameters.
+
+That's the only permission-specific seam. Everything structural — the tokenizer,
+operator table, parser, parameterization, SQL shape, field validation, the
+encrypted-field guard — stays shared and untouched. New grammar (§11 #7) is a
+change to that shared core, so it lands once and lifts both callers. The
+`subject.*` allowlist lives beside the compiler (not inside each caller) so it,
+too, has a single definition.
 
 ---
 
@@ -652,17 +679,16 @@ The server is authoritative; the client mirrors for UX (same discipline as
    groups soon.
 6. **`owner` reassignment / co-owners.** Single `_owner` v1; multiple owners
    expressed as `manage` grants. Confirm that's sufficient.
-7. **Filter grammar scope (§3.6).** v1 reuses List's exact subset + the
-   `subject.*` binding. Which extensions do we actually need, and when?
-   Candidates, in likely-need order: (a) **`in` / list membership** —
-   required for group/role tests like `team in subject.groups` and for
-   `status in ['a','b']`; (b) **standard-field comparisons** (`create_time`,
-   `id`) — List excludes them today, but "records created after X" is a
-   plausible access rule; (c) **`contains` / string ops** for array and
-   substring fields. *Recommendation: ship v1 with just `subject.*`; add `in`
-   as the first extension the moment a real rule needs group membership, since
-   it also unlocks the cleanest "member of these groups" filters. Extending the
-   subset also improves List for everyone — same compiler.*
+7. **Filter grammar scope (§3.6).** **Decided:** extend the existing minimal
+   subset in place — no separate CEL library. Every grammar addition lands in
+   the one shared `compileFilter`, so List and permissions grow together and can
+   never diverge (§3.6.1). v1 ships with just the `subject.*` binding; further
+   operators are added only when a real rule needs them. Likely order when they
+   come: (a) **`in` / list membership** — for group/role tests like
+   `team in subject.groups` and `status in ['a','b']`; (b) **standard-field
+   comparisons** (`create_time`, `id`) — for rules like "records created after
+   X"; (c) **`contains` / string ops** for array and substring fields. Each is a
+   drop-in to the shared compiler that also improves List for everyone.
 
 ---
 
@@ -679,10 +705,12 @@ Each step is independently shippable behind the kill-switch.
 4. **Wire enforcement**: `checkRecordAccess` replaces `checkUserScope`; CREATE
    stamps owner; LIST visibility predicate. Behind the kill-switch, default
    `household` everywhere ⇒ green e2e.
-5. **Filter-scoped grants (§3.6)**: add the `subject.*` binding to
-   `compileFilter`, compile+validate a grant's `filter` at write time, and feed
-   its predicate into the §4.1 visibility clauses and single-record guards.
-   Unlocks "records you own / created / are assigned" without enumerating ids.
+5. **Filter-scoped grants (§3.6)**: give `compileFilter` its optional
+   `subject` context (§3.6.1) — a backward-compatible signature change with List
+   untouched — compile+validate a grant's `filter` at write time, and feed its
+   predicate into the §4.1 visibility clauses and single-record guards. Unlocks
+   "records you own / created / are assigned" without enumerating ids. Any later
+   grammar operator (§11 #7) is a change to this one shared compiler.
 6. **`access.model` authoring field** + translator marker; opt one real
    resource (e.g. a private notes/HSA case) into `owner` as the first proof.
 7. **Client**: `can()` helper, hydration, `permission` gate, nav/list filter.
