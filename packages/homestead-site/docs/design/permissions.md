@@ -403,11 +403,11 @@ first-boot bootstrap), not something any grant can revoke. This mirrors how the
 app gate's `none` already blocks regular users while the engine keeps a
 superuser path open for recovery (`homestead admin reset-password`).
 
-> **Open sub-question (§11 #1a).** Should even the app gate's `none` / a
-> `deny` be able to block a superuser (true "deny always wins, no exceptions")?
-> Recommendation: **no** — keep the superuser break-glass, because a household
-> with no recovery path is a support nightmare. Flagged so the "always" is a
-> conscious choice, not an accident.
+> **Decided (§11 #1a).** The superuser account type has **full access to
+> everything** — no grant, deny, or app-gate `none` can block it. This is the
+> single, deliberate exception to "deny always wins," and it guarantees a
+> recovery path. The `admin` *role* is unaffected by this and stays beatable by
+> a deny.
 
 ---
 
@@ -712,12 +712,11 @@ The server is authoritative; the client mirrors for UX (same discipline as
    owner grant, role, or more-specific grant. Precedence and the SQL treatment
    are in §4 / §4.1. This is what makes the "everyone-except" case (§9.1)
    expressible under a blanket `member` role.
-   - **1a. Break-glass exception (§4.2) — open, recommend keep.** The one rung
-     above deny is the superuser *account type*, so a misconfigured
-     `deny * manage everyone` can't permanently brick the install. The `admin`
-     *role* is ordinary data and remains beatable by a deny. Recommendation:
-     keep the break-glass; confirm you're comfortable that "always wins" has
-     this single, account-level exception.
+   - **1a. Break-glass exception (§4.2) — DECIDED.** The superuser *account
+     type* has full access to everything: no grant, deny, or app-gate `none`
+     blocks it, so a misconfigured `deny * manage everyone` can't permanently
+     brick the install. This is the single, deliberate exception to "deny always
+     wins." The `admin` *role* is ordinary data and remains beatable by a deny.
 2. **Delete as its own capability** vs. folding into `write`? *Recommendation:
    keep separate — cheap, and "edit but don't delete" is a real household case.*
 3. **Roles as data vs. config.** Data (editable in UI, proposed) vs. defined in
