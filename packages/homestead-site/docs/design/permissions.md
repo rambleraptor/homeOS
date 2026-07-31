@@ -798,32 +798,91 @@ The server is authoritative; the client mirrors for UX (same discipline as
 
 ---
 
-## 12. Suggested build order (once the design is approved)
+## 12. Phased build plan
 
-Each step is independently shippable behind the kill-switch.
+Eight phases, each an independently shippable, reviewable PR. The organizing
+principle: **everything up to Phase 3 is invisible** (data and code land with no
+behavior change), Phase 3 is the single moment enforcement turns on (and, thanks
+to the seeded open grant, still changes nothing observable), and Phases 4–7 add
+capability on top. A `PERMISSIONS_ENFORCED` env kill-switch gates the resolver
+so every phase can merge to main dark, and enforcement can be flipped on — or
+back off — without a redeploy of code.
 
-1. **Engine `_owner` column** + stamp on create + backfill migration. No
-   behavior change (nothing reads it yet).
-2. **`engine/permissions.ts`** resolver + `PermissionStore` + unit tests
-   against the §4 truth table. Not yet wired.
-3. **New resources** (`role`, `group`, `group-membership`, `access-grant`) +
-   schema-sync + seed role definitions + seed the `everyone → write *` open
-   grant + migrate `account-tag`s to groups, then retire `account-tag`.
-4. **Wire enforcement**: `checkRecordAccess` replaces `checkUserScope`; CREATE
-   stamps owner; LIST visibility predicate; app gate reads group membership
-   instead of `account_tags`. Behind the kill-switch, default `household`
-   everywhere ⇒ green e2e.
-5. **Filter-scoped grants (§3.6)**: give `compileFilter` its optional
-   `subject` context (§3.6.1) — a backward-compatible signature change with List
-   untouched — compile+validate a grant's `filter` at write time, and feed its
-   predicate into the §4.1 visibility clauses and single-record guards. Unlocks
-   "records you own / created / are assigned" without enumerating ids. Any later
-   grammar operator (§11 #7) is a change to this one shared compiler.
-6. **`access.model` authoring field** + translator marker; opt one real
-   resource (e.g. a private notes/HSA case) into `owner` as the first proof.
-7. **Client**: `can()` helper, hydration, `permission` gate, nav/list filter.
-8. **Admin + sharing UI**: Roles/Groups management, per-record Share, and an
-   "accessible resources" report (§6.1).
+**Dependency spine:** 0 → 1 → 2 → 3 are strictly ordered (each needs the prior).
+4, 5, 6 all depend on 3 but are independent of each other. 7 depends on 6.
+
+### Phase 0 — Owner foundations *(no behavior change)*
+- Add the `_owner` column to every resource table (`engine/db.ts`); stamp it
+  from `caller` in `handleCreate`; backfill from `created_by` (`users/{id}` → id).
+- Add the `PERMISSIONS_ENFORCED` kill-switch (default **off**).
+- **Verify:** existing suite + e2e stay green; `_owner` populates but nothing
+  reads it. **Risk:** ~nil (additive column). **Rollback:** drop the column.
+
+### Phase 1 — The resolver, in isolation *(not wired)*
+- `engine/permissions.ts`: pure `resolve()`, `visibilityPredicate()`, and a
+  TTL-cached `PermissionStore` (mirrors `AccessStore`).
+- **Verify:** unit tests against the §4 truth table (allow/deny precedence,
+  scope hierarchy, owner, break-glass, empty-store fail-open). **Risk:** nil
+  (nothing calls it). **Rollback:** delete the module.
+
+### Phase 2 — Data model, seed & migration *(enforcement still off)*
+- Define `role`, `group`, `group-membership`, `access-grant` (§6); schema-sync
+  applies them. Seed the role definitions + the `everyone → write *` open grant.
+  Migrate `account-tag`s → groups and retire `account-tag` (§9.2).
+- The special access-grant write rules (§15.3) land here too.
+- **Verify:** schema-sync + OpenAPI wire-contract tests; CLI smoke
+  (`homestead resources access-grant …`); a migration test asserting each tag
+  became a group. **Risk:** low (data only; resolver still dark). **Rollback:**
+  the migration is forward-only, so gate it behind the same flag and keep the
+  `account-tag` read path until Phase 3 proves out.
+
+### Phase 3 — Turn enforcement on *(the pivotal phase)*
+- Replace `checkUserScope` with `checkRecordAccess`; CREATE checks collection
+  `write` + stamps owner; LIST folds in `visibilityPredicate`; the app gate reads
+  **group membership** instead of `account_tags`. Flip `PERMISSIONS_ENFORCED` on.
+- Because every resource still defaults to `access.model: 'household'` and the
+  `everyone → write *` grant is seeded, **observable behavior is unchanged**.
+- **Ship dark-first:** run one release in **shadow mode** (resolve + log what
+  *would* be denied, but don't deny) to catch surprises against real data before
+  enforcing. **Verify:** full e2e with enforcement on; shadow-mode logs clean.
+  **Risk:** highest of the plan — this is where a bug denies real access.
+  **Rollback:** flip the flag off (instant, no redeploy).
+
+### Phase 4 — Filter-scoped grants *(depends on 3)*
+- Give `compileFilter` its optional `subject` context (§3.6.1); compile+validate
+  a grant's `filter` at write time; feed its predicate into the §4.1 visibility
+  clauses and single-record guards.
+- **Verify:** filter-grant unit tests + an e2e ("I see only recipes I created");
+  List's own filter path stays byte-for-byte unchanged. **Risk:** low, additive.
+
+### Phase 5 — Opt-in strictness *(depends on 3)*
+- Add the `access.model` authoring field + `x-homestead-access` translator marker
+  + schema-sync validation; opt one real resource (e.g. a private HSA/notes case)
+  into `owner` as the first proof.
+- **Verify:** the chosen resource is private-by-owner; every other resource is
+  untouched. **Risk:** low, scoped to one resource.
+
+### Phase 6 — Client mirror *(depends on 3)*
+- `can()` helper; login hydration of group memberships + conferred roles +
+  addressed grants; the `permission` route gate; nav + list filtering.
+- **Verify:** component tests for `can()`; e2e that hidden nav/records don't
+  flash. **Risk:** UX-only (server already enforces); a client bug can't grant
+  access, only mis-hide.
+
+### Phase 7 — Admin & sharing UI *(depends on 6)*
+- Roles/Groups management screens; per-record **Share** affordance
+  (`can('manage', …)` → create/revoke `access-grant`s); the accessible-resources
+  report (§6.1); retire the account-tag UI.
+- **Verify:** e2e for share/unshare and admin CRUD of roles/groups. **Risk:**
+  low; all CRUD over resources that already exist and enforce server-side.
+
+### Cross-cutting
+- **Kill-switch** (`PERMISSIONS_ENFORCED`) + **shadow mode** are the safety net
+  for Phase 3; keep both until a release has run enforced without incident.
+- **e2e** already boots the real server, so each phase updates specs alongside
+  code — the suite is the regression gate at every step.
+- **No silent truncation:** the account-tag migration (Phase 2) logs any tag it
+  can't cleanly map so nothing is dropped quietly.
 
 ---
 
