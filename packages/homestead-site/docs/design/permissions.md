@@ -731,10 +731,14 @@ The server is authoritative; the client mirrors for UX (same discipline as
    UI, and the household can add its own.
 4. **Default `guest` scope.** Nothing until granted (safe) vs. read-only on a
    curated set of apps? *Recommendation: nothing until granted.*
-5. **Group nesting.** Flat groups v1 (proposed) — confirm we don't need nested
-   groups soon.
-6. **`owner` reassignment / co-owners.** Single `_owner` v1; multiple owners
-   expressed as `manage` grants. Confirm that's sufficient.
+5. **Group nesting — DECIDED: flat for v1.** A group is a list of users; no
+   groups-of-groups. Principal expansion stays direct (no transitive closure or
+   cycle detection). Nesting remains a clean additive extension later (a `group`
+   field on `group-membership`), foreclosed by nothing here.
+6. **Co-owners — DECIDED: single `_owner` + `manage` grants.** Each record has
+   exactly one `_owner`; additional full-control users get a `manage` grant.
+   Keeps stamp-on-create simple and the owner concept singular; "shared with
+   everyone" is just an ACL entry, not a second owner model.
 7. **Filter grammar scope (§3.6).** **Decided:** extend the existing minimal
    subset in place — no separate CEL library. Every grammar addition lands in
    the one shared `compileFilter`, so List and permissions grow together and can
