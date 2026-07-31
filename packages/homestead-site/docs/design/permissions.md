@@ -1021,18 +1021,24 @@ instances, so retirement is kept as a dedicated follow-up.
   server enforces the manage-on-target write rule (§15.3), so a disallowed
   mutation surfaces as an error. *Verified by 5 hook tests.*
 - **Groups & roles admin page ✅ done.** A new superuser child app
-  (`permissions/app.config.ts` → `/superuser/permissions`, surfaced on the
-  Superuser landing) with `PermissionsHome`: create/delete **groups**, expand a
-  group to add/remove **members** (with an optional role), and a read-only view
-  of the built-in **roles** with a plain-language summary of each one's grants.
-  This is the knob that makes Phase 3c usable — groups are the app-gating
-  audience — and the foundation for grant management. *Verified by a component
-  test* (lists groups/roles, create-group flow, expand + add/remove member).
+  (`permissions/app.config.ts` → `/superuser/permissions`, hard `superuser`-gated,
+  surfaced on the Superuser landing) with `PermissionsHome`: create/delete
+  **groups**, expand a group to add/remove **members** (with an optional role),
+  and a **roles** section. This is the knob that makes Phase 3c usable — groups
+  are the app-gating audience — and the foundation for grant management.
+- **Role editor ✅ done.** `RoleForm` creates/edits/deletes roles: a name,
+  description, and a repeatable list of grant rows (`capability` × scope — all /
+  an app / a collection, with an optional `subject.*` filter for collection
+  scope). App and resource pickers are populated from the client app registry;
+  empty scope-specific fields are stripped on submit. So "create a new role" is
+  now a first-class in-app action rather than a hand-written JSON POST.
+  *Verified by component tests* (list groups/roles, create-group + member
+  flows, and create/edit/delete-role flows).
 - **Remaining (UI screens):** the per-record **Share** dialog wired to
   `useShareRecord`/`useRevokeGrant` (shown when `can('manage', …)`), the
-  accessible-resources report (§6.1), a role *editor* (roles are read-only for
-  now), and retiring the account-tag UI. React screens on top of the same data
-  layer.
+  accessible-resources report (§6.1), inline role editing for an existing
+  member, group rename, and retiring the account-tag UI. React screens on top of
+  the same data layer.
 - **Risk:** low; all CRUD over resources that already exist and enforce
   server-side.
 
