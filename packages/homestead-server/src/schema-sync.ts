@@ -12,6 +12,8 @@
 import type { Database } from './engine/sqlite';
 import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/sync';
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
+import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
+import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import { syncUserSettingsSchema } from '@rambleraptor/homestead-core/user-settings/sync';
 import { sweepStaleOperations } from '@rambleraptor/homestead-core/server/operations';
@@ -37,7 +39,11 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
   try {
     let resourcesSynced = false;
     try {
-      const defs = [...BUILTIN_RESOURCE_DEFS, ...getAllResourceDefs()];
+      const defs = [
+        ...BUILTIN_RESOURCE_DEFS,
+        ...PERMISSION_RESOURCE_DEFS,
+        ...getAllResourceDefs(),
+      ];
       const result = await syncResourceDefinitions({ aepbaseUrl, token, defs });
       if (!result.created.length && !result.updated.length) {
         console.info(
@@ -59,6 +65,20 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
       } catch (error) {
         console.error('[migrations] migration pass failed', error);
       }
+    }
+
+    // Seed the permissions baseline (roles + open grant) once the definitions
+    // exist. Idempotent: seeds each collection only when empty (§8).
+    try {
+      const seeded = await seedPermissions(aepbaseUrl, token);
+      if (seeded.rolesSeeded || seeded.openGrantSeeded) {
+        console.info(
+          `[permissions] seeded ${seeded.rolesSeeded} role(s)` +
+            `${seeded.openGrantSeeded ? ' + open-household grant' : ''}`,
+        );
+      }
+    } catch (error) {
+      console.error('[permissions] baseline seed failed', error);
     }
 
     // Fail operations orphaned by a restart (must run after the `operations`

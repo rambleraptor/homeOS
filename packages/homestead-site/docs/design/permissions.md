@@ -811,14 +811,14 @@ back off — without a redeploy of code.
 **Dependency spine:** 0 → 1 → 2 → 3 are strictly ordered (each needs the prior).
 4, 5, 6 all depend on 3 but are independent of each other. 7 depends on 6.
 
-### Phase 0 — Owner foundations *(no behavior change)*
+### Phase 0 — Owner foundations *(no behavior change)* ✅ done
 - Add the `_owner` column to every resource table (`engine/db.ts`); stamp it
   from `caller` in `handleCreate`; backfill from `created_by` (`users/{id}` → id).
 - Add the `PERMISSIONS_ENFORCED` kill-switch (default **off**).
 - **Verify:** existing suite + e2e stay green; `_owner` populates but nothing
   reads it. **Risk:** ~nil (additive column). **Rollback:** drop the column.
 
-### Phase 1 — The resolver, in isolation *(not wired)*
+### Phase 1 — The resolver, in isolation *(not wired)* ✅ done
 - `engine/permissions.ts`: the pure decision core — `resolve()` (single-record /
   create) and `computeVisibility()` (the LIST predicate, returning a structured
   `all | none | all-except | only` verdict the SQL layer consumes later) — plus
@@ -831,24 +831,33 @@ back off — without a redeploy of code.
   scope hierarchy, owner, break-glass, default deny) and the §4.1 visibility
   modes. **Risk:** nil (nothing calls it). **Rollback:** delete the module.
 
-### Phase 2 — Data model, seed & migration *(enforcement still off)*
+### Phase 2 — Data model, seed & store *(enforcement still off)* ✅ done
 - Define `role`, `group`, `group-membership`, `access-grant` (§6); schema-sync
-  applies them. Seed the role definitions + the `everyone → write *` open grant.
-  Migrate `account-tag`s → groups and retire `account-tag` (§9.2).
+  applies them alongside the builtins. Seed the role definitions + the
+  `everyone → write *` open grant, idempotently (seed-when-empty, so a tightened
+  household is never re-opened on reboot).
 - Build the TTL-cached `PermissionStore` (mirrors `AccessStore`) that loads
   grants/groups/memberships/roles from these tables, expands role bundles into
   caller-addressed grants, and feeds `resolve()` / `computeVisibility()`.
-- The special access-grant write rules (§15.3) land here too.
-- **Verify:** schema-sync + OpenAPI wire-contract tests; CLI smoke
-  (`homestead resources access-grant …`); a migration test asserting each tag
-  became a group. **Risk:** low (data only; resolver still dark). **Rollback:**
-  the migration is forward-only, so gate it behind the same flag and keep the
-  `account-tag` read path until Phase 3 proves out.
+- All four resources ship `superuser_write` for now; the special access-grant
+  manage-on-target write rule (§15.3) lands in Phase 3 with enforcement.
+- **The account-tag → group migration and account-tag retirement move to
+  Phase 3**, bundled atomically with the app gate switching from `account_tags`
+  to group membership — retiring the tag path while the gate still reads it
+  would break app-gating between phases.
+- **Verify:** resource-def validation + reference-target tests; a seed
+  integration test (real defs through the meta API, idempotent seed); a store
+  unit test (principal assembly, role expansion, deny-wins, TTL). A real boot
+  shows `31 created` + `seeded 3 role(s) + open-household grant`. **Risk:** low
+  (data only; resolver still dark). **Rollback:** drop the four tables.
 
 ### Phase 3 — Turn enforcement on *(the pivotal phase)*
 - Replace `checkUserScope` with `checkRecordAccess`; CREATE checks collection
   `write` + stamps owner; LIST folds in `visibilityPredicate`; the app gate reads
-  **group membership** instead of `account_tags`. Flip `PERMISSIONS_ENFORCED` on.
+  **group membership** instead of `account_tags`, and the `account-tag` →
+  group migration + retirement (§9.2) happens here, atomically with that switch.
+  Add the access-grant manage-on-target write rule (§15.3). Flip
+  `PERMISSIONS_ENFORCED` on.
 - Because every resource still defaults to `access.model: 'household'` and the
   `everyone → write *` grant is seeded, **observable behavior is unchanged**.
 - **Ship dark-first:** run one release in **shadow mode** (resolve + log what
