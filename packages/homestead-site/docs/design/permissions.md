@@ -941,8 +941,12 @@ the app-level gate rolls out independently of the record-level enforcement.
   or context is missing (UI never hides more than the server denies); superuser
   always true; filter grants aren't evaluated client-side (conservative).
 - **Verify:** 7 client `canWith` tests + 2 `permissionContext` tests.
-- **Deferred to 6b:** the `permission` route gate (needs a parameterized gate in
-  `AppRoute`) and nav/list `can()` filtering — pure UX polish on top of `can()`.
+- **6b — `permission` route gate ✅ done.** `PermissionGate` guards a route on
+  `can(verb, resourceType)` (redirect to `/dashboard` otherwise). Declared as a
+  parameterized `gates: ['permission:<verb>:<resourceType>']`; `wrapWithGate`
+  parses it in `AppRoute`'s gate loop. Verified by 2 component tests.
+- **Deferred:** nav/list `can()` filtering (hiding apps/rows the caller can't
+  use) — pure UX polish; `useCan()` is already available for list hooks to call.
 
 ### Phase 7 — Admin & sharing UI *(depends on 6)*
 - Roles/Groups management screens; per-record **Share** affordance

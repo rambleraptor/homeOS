@@ -93,9 +93,10 @@ export interface AppRoute {
 
   /**
    * Optional gates wrapping the component. Names resolve to wrapper
-   * components in `homestead-core/apps/router/gates`.
+   * components in `homestead-core/apps/router/gates`. The parameterized
+   * `permission:<verb>:<resourceType>` form guards on `can(verb, resourceType)`.
    */
-  gates?: Array<'enabled' | 'superuser'>;
+  gates?: Array<'enabled' | 'superuser' | `permission:${'read' | 'write' | 'manage'}:${string}`>;
 
   /**
    * True when the path uses dynamic params (`:id`) and should not be

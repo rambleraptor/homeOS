@@ -7,14 +7,14 @@
  * `(app)/[...slug]/page.tsx` server component.
  */
 
-import { Suspense, useMemo } from 'react';
+import { Suspense, useMemo, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getAllApps } from '@/apps/registry';
 import {
   buildRouteEntries,
   matchRoute,
 } from '@rambleraptor/homestead-core/apps/router/match';
-import { gateComponents } from '@rambleraptor/homestead-core/apps/router/gates';
+import { wrapWithGate } from '@rambleraptor/homestead-core/apps/router/gates';
 import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 import { NotFound } from '@rambleraptor/homestead-core/router/NotFound';
 
@@ -35,15 +35,14 @@ export function AppRoute() {
   if (!match) return <NotFound />;
 
   const Component = getLazyComponent(match.route.component);
-  let element = (
+  let element: ReactNode = (
     <Suspense key={pathname} fallback={<RouteFallback />}>
       <Component params={match.params} />
     </Suspense>
   );
 
   for (const gateName of match.route.gates ?? []) {
-    const Gate = gateComponents[gateName];
-    element = <Gate appId={match.app.id}>{element}</Gate>;
+    element = wrapWithGate(gateName, match.app.id, element);
   }
 
   return element;
