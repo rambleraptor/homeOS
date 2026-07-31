@@ -38,8 +38,9 @@ at both collection and record (row) granularity.
   partition *within* a household; they are not tenants.
 - **Realtime propagation.** Grants take effect within the existing access-cache
   TTL, same as app flags today.
-- **Replacing account-tags wholesale.** Tag-based app visibility keeps working;
-  §9 describes how it relates to (and can later fold into) groups.
+- **Keeping account-tags.** They are **removed** and migrated to groups (§9.2) —
+  a tag was just a weak, single-purpose group. This is in-scope for v1, not a
+  non-goal.
 
 ---
 
@@ -89,11 +90,16 @@ A request's `caller` expands to a **principal set** used for matching grants:
 principals(caller) = {
   user:<caller.id>,
   group:<g> for each group the caller belongs to,
-  role:<r> for each role the caller holds (via direct assignment or group),
+  role:<r> for each role conferred by one of those group memberships,
   everyone,                       // any authenticated user
   owner        // pseudo-principal, only when caller owns the record in question
 }
 ```
+
+**Roles are held only via group membership in v1** (decision §11 #8): a user
+gets a role because a `group-membership` names it, never by a direct
+user→role assignment. Direct assignment is deferred to v2. So the caller's
+roles are exactly the roles conferred by their group memberships.
 
 Superusers are a hard override: they resolve to full control everywhere and
 skip evaluation (preserving today's behavior).
@@ -158,18 +164,26 @@ role := {
 ```
 
 Roles are **data** (a superuser-managed resource), not hardcoded config, so the
-household can add "Teen" or "Guest" without a code change. Three roles ship
-built-in and are seeded on migration (§8). With the four scope levels from
-§3.3, each collapses to a single grant:
+household can add "Teen" or "Guest" without a code change. Three role
+*definitions* ship seeded (§8), used by putting people in a group whose
+membership names the role. With the four scope levels from §3.3, each collapses
+to a single grant:
 
-- **`admin`** — `manage` on `*` (scope `all`). The former `superuser`. (The
-  engine still recognizes `caller.type === 'superuser'` as the ultimate
-  override; the `admin` role is the assignable, data-driven equivalent for
-  everyone else.)
-- **`member`** — `write` on `*` (scope `all`; write covers delete). This is what every
-  existing `regular` user becomes, so **upgrade is behavior-preserving**.
-- **`guest`** — no `*` grant; `read` at the `app` scope on whichever apps are
-  shared with them (default: none until an admin grants one).
+- **`admin`** — `manage` on `*` (scope `all`). Full control **without** being a
+  superuser account. (The engine still recognizes `caller.type === 'superuser'`
+  as the ultimate break-glass override, §4.2; the `admin` role is the
+  data-driven, group-conferrable equivalent — and, unlike the account type, it
+  is beatable by a deny.)
+- **`member`** — `write` on `*` (scope `all`; write covers delete). The "full
+  household participant" bundle.
+- **`guest`** — an empty bundle by default: no grants until an admin adds some
+  (or shares specific apps/records with the guest's group). See §11 #4.
+
+**Important:** these are inert templates until assigned via a group. The
+*default open household* (everyone reads/writes everything, today's behavior) is
+**not** produced by auto-assigning `member` — it's a single seeded
+`everyone → write on *` grant (§8). Roles + groups are how a household
+*tightens* from that baseline, not how the baseline itself is expressed.
 
 ### 3.5 Groups
 
@@ -277,10 +291,10 @@ Given `(caller, verb, resource_type, resource_id?)`:
 1. **Superuser break-glass.** `caller.type === 'superuser'` ⇒ allow,
    unconditionally — the one rung above deny (§4.2). This is the account *type*,
    not the `admin` *role* (which is ordinary data and stays beatable by a deny).
-2. **App gate first.** The existing `AccessCheck` app-visibility gate runs
-   unchanged (none/all/superusers/tagged). If it denies, stop — no point
-   evaluating record rules for an app the caller can't open. (Ordering: app
-   gate → permission resolver.)
+2. **App gate first.** The `AccessCheck` app-visibility gate runs
+   (`none`/`all`/`superusers`/group-audience, §9.1). If it denies, stop — no
+   point evaluating record rules for an app the caller can't open. (Ordering:
+   app gate → permission resolver.)
 3. **Collect applicable grants.** From all grants whose `subject` is in
    `principals(caller)` and whose target matches the request at **any of the
    four scope levels**, gather:
@@ -443,8 +457,8 @@ Mirrors the existing `engine/access.ts` structure:
 
 The pipeline order becomes: **auth → app-access gate → permission resolver →
 route**. The app-access gate keeps its role as the fast, hard outer wall
-(§9.1); the only change to it is broadening its audience to accept
-group/role/tag allowlists.
+(§9.1); the only change to it is swapping its `tagged` audience for a **group**
+allowlist (§9.2).
 
 - **Replace `checkUserScope`** with a general
   `checkRecordAccess(match, caller, verb)` in `crud.ts`, called from the same
@@ -523,6 +537,7 @@ management UI for free. Declared in a new core module (e.g.
 { singular: 'access-grant', plural: 'access-grants',
   fields: {
     subject_type:  { type: 'string', enum: ['user','group','role','everyone'], required: true },
+    //             'role' is provisional — §11 #10 recommends dropping it (clean split)
     subject_id:    { type: 'string' },                    // omitted for 'everyone'
     target_scope:  { type: 'string', enum: ['all','app','collection','record'], required: true },
     target_app:    { type: 'string' },                    // app id, when target_scope = 'app'
@@ -600,27 +615,39 @@ code.
 
 ## 8. Migration & backward compatibility
 
-The upgrade must be invisible to a running household.
+The upgrade must be invisible to a running household. No direct role assignment
+is involved (§11 #8) — backward compatibility rests on a single open grant, not
+on per-user roles.
 
-1. **Seed built-in roles** (`admin`, `member`, `guest`) on first boot after
-   upgrade (idempotent, like schema-sync).
-2. **Assign roles from existing `type`:** every `regular` user → `member`;
-   every `superuser` → `admin` (superuser override still applies regardless).
-3. **Backfill `_owner`** from `created_by` where present (`users/{id}` → id).
-   Rows with no `created_by` get a null owner (visible to all members under the
-   default `household` model, so nothing disappears).
-4. **All resources default to `access.model: 'household'`** ⇒ members continue
-   to read/write everything. No collection becomes stricter until an app opts
-   in or an admin adds a grant.
-5. **Enforcement kill-switch** (env var) lets operators roll out in shadow mode
+1. **Seed the open-household grant.** One idempotent
+   `everyone → write on *` `access-grant`. This alone reproduces today's
+   behavior: every authenticated user reads and writes everything. Deleting or
+   narrowing this grant is how a household later opts into stricter access.
+2. **Seed role *definitions*** (`admin`, `member`, `guest`) as data — inert
+   until a household assigns them via a group. Nothing is auto-assigned.
+3. **Superusers** keep the account-type break-glass (§4.2) — full access
+   regardless of grants; no role needed.
+4. **Migrate account-tags → groups** (§9.2): each distinct tag becomes a
+   `group`, each tagged user a `group-membership`, and every app gated
+   `enabled='tagged'` with tag `T` is rewritten to `enabled={ groups:[<group T>] }`.
+   Then the `account-tag` resource and the `account_tags` table are retired.
+5. **Backfill `_owner`** from `created_by` where present (`users/{id}` → id).
+   Rows with no `created_by` get a null owner (visible to everyone under the
+   open grant, so nothing disappears).
+6. **All resources default to `access.model: 'household'`** ⇒ nothing becomes
+   stricter until an app opts in or an admin narrows the open grant / adds a
+   deny.
+7. **Enforcement kill-switch** (env var) lets operators roll out in shadow mode
    and lets e2e run with the current model until specs are updated.
 
-Net effect: on upgrade, `member`s see exactly what they saw before; admins keep
-full control; nothing is hidden until someone deliberately tightens a resource.
+Net effect: on upgrade everyone sees exactly what they saw before (via the open
+grant), superusers keep full control, tag-based app gating is preserved as
+group-based gating, and nothing is hidden until someone deliberately tightens a
+resource.
 
 ---
 
-## 9. Blocking an app, app visibility & account-tags
+## 9. Blocking an app & app visibility
 
 ### 9.1 How to block an entire app
 
@@ -638,48 +665,43 @@ the app's `enabled` visibility:
 |---|---|---|
 | Off for everyone (even admins) | `none` | no |
 | Admins only | `superusers` | no |
-| Only a specific set of people | group / role / tag audience (below) | no |
+| Only a specific set of people | a **group** audience (below) | no |
 | Open to the household | `all` (default) | no |
-| Everyone **except** specific people | app-scope `deny` grant, or a narrower role | **yes** (or role modeling) |
+| Everyone **except** specific people | app-scope `deny` grant | **yes** |
 
-**Extending the gate's audience to groups & roles.** Today the gate's only
-person-differentiating audience is `tagged` (a free-form account tag). We extend
-`AppVisibility` so the audience can be a **group** or **role**, not just a tag —
-the gate's `decide()` already intersects the caller's principals against an
-allowed set, so this is a natural generalization:
+**The gate's audience is a group.** Today the gate's only person-differentiating
+audience is `tagged` (a free-form account tag). Since account-tags are being
+replaced by groups (§9.2), the audience becomes a **group** — the gate's
+`decide()` already intersects the caller's principals against an allowed set, so
+a group id drops straight in:
 
 ```
-enabled: none | all | superusers | audience
-audience := { groups?: [<id>...], roles?: [<id>...], tags?: [<name>...] }
+enabled: none | all | superusers | { groups: [<id>...] }
 ```
 
-This makes "only these people can see this app" a first-class allowlist without
-touching the resolver. `tagged` becomes the special case `audience.tags`.
+"Only these people can see this app" is thus a first-class allowlist (put them
+in a group, name the group) without touching the resolver.
 
 **The one case the gate can't express: "everyone except Bob."** An allowlist
-can't subtract. Because `member` carries a blanket `*` allow (backward compat),
-blocking one person from one otherwise-open app requires either:
+can't subtract. Under the open-household baseline (an `everyone → write *`
+grant, §8) everyone can reach every app, so blocking one person from one app is
+an **`app`-scope `deny` grant** for that user — deny wins in resolution (§4).
+This is the household-realistic case that made deny non-optional (§11 #1).
 
-- an **`app`-scope `deny` grant** for that user (deny wins in resolution, §4) — the
-  clean, targeted option **if we adopt deny semantics**; or
-- **not giving that person `member`** — model them with a narrower role (e.g.
-  `guest`) whose `app`-scope allow grants simply omit the blocked app.
+### 9.2 Account-tags are replaced by groups (decision)
 
-This is exactly why the "everyone-except" case is the deciding factor for open
-decision #1 (§11) — allow-only cannot subtract from a blanket grant.
+`account-tag` (superuser-write child of `user`) exists today **only** to feed
+`enabled='tagged'`. A tag *is* a group — "a named set of users" — just a weaker,
+single-purpose one. Groups strictly supersede it, so **account-tags are removed**
+and the app gate speaks groups instead of tags:
 
-### 9.2 Account-tags convergence
-
-`account-tag` (superuser-write child of `user`) currently exists **only** to feed
-`enabled='tagged'`. Once the gate accepts groups (§9.1), tags and groups are the
-same idea ("a named set of users"), so:
-
-- Short term: keep tags working; `audience.tags` is a supported audience.
-- Medium term: **groups become the primary grouping primitive**; a tag is just a
-  single-purpose group. New setups use groups; existing tag-based gates keep
-  running untouched.
-- We avoid painting into a corner by having the gate speak the same
-  group/role/tag vocabulary as the resolver from day one.
+- **Migration** (§8 step 4): each distinct tag → a `group`; each tagged user →
+  a `group-membership`; every `enabled='tagged'` app → `enabled={ groups:[…] }`.
+- After migration the `account-tag` resource and the `account_tags` table are
+  **retired**, and the engine access gate reads **group membership** where it
+  used to read `account_tags` (`engine/access.ts` `userTags()` → group lookup).
+- One primitive for "a set of people" everywhere — the gate and the resolver
+  both speak `group`, nothing speaks `tag`.
 
 ---
 
@@ -688,10 +710,10 @@ same idea ("a named set of users"), so:
 The server is authoritative; the client mirrors for UX (same discipline as
 `decide()` ↔ `resolveVisibility()` today).
 
-- **Hydrate on login.** Alongside the existing tag/preferences hydration in
-  `AuthContext`, fetch the caller's roles, group memberships, and the grants
-  addressed to their principals. (Record-level grant *ids* can be lazy-loaded
-  per collection to keep the login payload small.)
+- **Hydrate on login.** In `AuthContext` (which today hydrates account-tags —
+  now removed), fetch the caller's **group memberships** (and the roles they
+  confer) plus the grants addressed to their principals. (Record-level grant
+  *ids* can be lazy-loaded per collection to keep the login payload small.)
 - **`can(verb, resourceType, recordId?)` helper** in the auth layer — the first
   centralized capability check (there is none today; checks are ad-hoc
   `user.type === 'superuser'`). Backed by a TS port of the §4 resolver.
@@ -729,8 +751,11 @@ The server is authoritative; the client mirrors for UX (same discipline as
    superuser-managed resource (§6), not `homestead.config.ts` config. The three
    built-ins (`admin`/`member`/`guest`) are seeded rows, editable in the admin
    UI, and the household can add its own.
-4. **Default `guest` scope.** Nothing until granted (safe) vs. read-only on a
-   curated set of apps? *Recommendation: nothing until granted.*
+4. **Default `guest` bundle.** Empty until granted (safe) vs. read on a curated
+   set of apps? Since a role is now a capability bundle assigned via a group, an
+   empty `guest` means a guest sees nothing until an admin adds grants to the
+   guest bundle or shares specific apps/records with the guest's group.
+   *Recommendation: empty bundle.* (Still open.)
 5. **Group nesting — DECIDED: flat for v1.** A group is a list of users; no
    groups-of-groups. Principal expansion stays direct (no transitive closure or
    cycle detection). Nesting remains a clean additive extension later (a `group`
@@ -749,6 +774,24 @@ The server is authoritative; the client mirrors for UX (same discipline as
    comparisons** (`create_time`, `id`) — for rules like "records created after
    X"; (c) **`contains` / string ops** for array and substring fields. Each is a
    drop-in to the shared compiler that also improves List for everyone.
+8. **Role assignment — DECIDED: via groups only in v1; direct assignment is
+   v2.** A user holds a role solely because a `group-membership` names it. No
+   `role-assignment` (user→role) resource ships in v1. Consequence: the
+   open-household baseline is a seeded `everyone → write *` grant (§8), not
+   auto-assigned `member`. Direct user→role assignment (a `role-assignment`
+   child of `user`, mirroring the retired `account-tag`) is deferred to v2.
+9. **Account-tags — DECIDED: removed, replaced by groups.** A tag is a weaker
+   single-purpose group; groups supersede it. The `account-tag` resource and
+   `account_tags` table are retired and migrated to groups (§9.2), and the app
+   gate speaks `group` instead of `tag`.
+10. **Is a `role` a grant *subject*? — OPEN (recommend: no / "clean split").**
+    A **group** is a set of *people* (a subject you grant to); a **role** is a
+    set of *capabilities* (a bundle you assign via a group). If a role were also
+    addressable as a subject, "grant to role R" would duplicate "put the grant in
+    R's bundle" — redundant. *Recommendation: drop `role` from `SubjectType`*
+    (subjects = `user | group | everyone`), keeping role = capabilities and group
+    = people crisp. If adopted, the `subject_type` enum (§6) and `SubjectType`
+    (§14) lose `role`. Left as-is pending your call.
 
 ---
 
@@ -761,10 +804,12 @@ Each step is independently shippable behind the kill-switch.
 2. **`engine/permissions.ts`** resolver + `PermissionStore` + unit tests
    against the §4 truth table. Not yet wired.
 3. **New resources** (`role`, `group`, `group-membership`, `access-grant`) +
-   schema-sync + seed built-in roles + role assignment migration.
+   schema-sync + seed role definitions + seed the `everyone → write *` open
+   grant + migrate `account-tag`s to groups, then retire `account-tag`.
 4. **Wire enforcement**: `checkRecordAccess` replaces `checkUserScope`; CREATE
-   stamps owner; LIST visibility predicate. Behind the kill-switch, default
-   `household` everywhere ⇒ green e2e.
+   stamps owner; LIST visibility predicate; app gate reads group membership
+   instead of `account_tags`. Behind the kill-switch, default `household`
+   everywhere ⇒ green e2e.
 5. **Filter-scoped grants (§3.6)**: give `compileFilter` its optional
    `subject` context (§3.6.1) — a backward-compatible signature change with List
    untouched — compile+validate a grant's `filter` at write time, and feed its
@@ -783,15 +828,20 @@ Each step is independently shippable behind the kill-switch.
 
 The design layers three requested mechanisms on the engine's existing seams:
 
-- **Roles** replace the binary `superuser`/`regular` with data-driven,
-  assignable capability bundles (`admin`/`member`/`guest` seeded).
-- **Groups** are lists of users, memberships optionally carrying a role.
-- **Per-resource ACLs** (`access-grant`) grant a capability to a user, group,
-  role, or everyone — at `all`, `app`, `collection`, or `record` scope.
+- **Roles** replace the binary `superuser`/`regular` with data-driven capability
+  bundles (`admin`/`member`/`guest` seeded), held **via group membership** in v1
+  (direct assignment is v2, §11 #8).
+- **Groups** are flat lists of users; a membership optionally carries a role.
+  Groups also **replace account-tags** (§9.2) as the one "set of people"
+  primitive, including for app-gate audiences.
+- **Per-resource ACLs** (`access-grant`) grant a capability to a user, group, or
+  everyone — at `all`, `app`, `collection`, or `record` scope.
 - **Filter-scoped grants** express the allowed set as a **filter** in the same
   subset List already accepts (plus a `subject.*` binding for caller
   attributes), compiled to SQL — so "which resources someone can access" is
   computed dynamically, not enumerated.
+- **Backward compatibility** rests on a single seeded `everyone → write *` grant
+  (§8), not on per-user roles — so an upgraded install behaves exactly as today.
 
 Enforcement is authoritative in the engine via a new `permissions.ts` resolver
 wired at the existing `crud.ts`/`router.ts` chokepoint, backed by a stored
@@ -819,6 +869,8 @@ type Scope      = 'all' | 'app' | 'collection' | 'record';
 // ────────────────────────── Principals ──────────────────────────
 
 type SubjectType = 'user' | 'group' | 'role' | 'everyone';
+//   'role' is provisional — open decision §11 #10 recommends dropping it
+//   (clean split: assign a role, don't grant *to* one) → 'user' | 'group' | 'everyone'.
 
 /** The principal a grant is addressed to. */
 interface Subject {
@@ -887,13 +939,11 @@ interface ResourceAccess {
 }
 // ResourceDefinition gains:  access?: ResourceAccess
 
-// ─────────────── App gate audience (extended, §9.1) ───────────────
+// ─────────────── App gate audience (§9.1) ───────────────
 
 type AppVisibility = 'none' | 'all' | 'superusers' | AppAudience;
-interface AppAudience {          // allowlist — any match grants app visibility
-  groups?: string[];
-  roles?: string[];
-  tags?: string[];               // 'tagged' today becomes AppAudience.tags
+interface AppAudience {          // allowlist — caller in any listed group ⇒ app visible
+  groups: string[];              // account-tags removed (§9.2); the gate speaks groups
 }
 
 // ────────────────────── Engine resolver (server) ──────────────────────
