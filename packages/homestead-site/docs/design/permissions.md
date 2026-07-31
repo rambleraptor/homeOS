@@ -116,7 +116,8 @@ items," and separating it costs nothing.
 
 ### 3.3 Grants
 
-A **grant** ties a principal to a capability over a target:
+A **grant** ties a principal to a capability over a target. The target sits at
+one of **four scope levels**, from broadest to narrowest:
 
 ```
 grant := {
@@ -124,16 +125,25 @@ grant := {
   capability: read | write | delete | manage,
   effect:     allow | deny,                              // deny optional; see §4
   target: {
-    resource_type: <collection singular>,               // e.g. 'gift-card'
-    resource_id?:  <record id>                           // omitted ⇒ collection-wide
+    scope:          all | app | collection | record,
+    app?:           <app id>,           // when scope = 'app'      e.g. 'credit-cards'
+    resource_type?: <collection singular>,  // when scope = 'collection' | 'record'
+    resource_id?:   <record id>         // when scope = 'record'
   }
 }
 ```
 
-- `resource_id` **omitted** ⇒ **collection-level** grant ("guests read all
-  recipes").
-- `resource_id` **set** ⇒ **record-level** grant ("share todo #42 with Bob,
-  read-only").
+| Scope | Target | Example |
+|---|---|---|
+| `all` | the whole household | `member` → `write` on `*` |
+| `app` | every collection an app owns | `read` on the `groceries` app |
+| `collection` | one resource type | `read` on all `recipe`s |
+| `record` | one row | share `todo #42` with Bob, read-only |
+
+The `app` level matters because households think in apps, not collections:
+"share the groceries app" is one grant, not one per (`grocery`, `store`)
+collection. The engine expands an app-scoped grant to the app's collections via
+the same `collectionToApp` map the app-access gate already uses.
 
 ### 3.4 Roles
 
@@ -148,14 +158,17 @@ role := {
 
 Roles are **data** (a superuser-managed resource), not hardcoded config, so the
 household can add "Teen" or "Guest" without a code change. Three roles ship
-built-in and are seeded on migration (§8):
+built-in and are seeded on migration (§8). With the four scope levels from
+§3.3, each collapses to a single grant:
 
-- **`admin`** — `manage` on everything. The former `superuser`. (The engine
-  still recognizes `caller.type === 'superuser'` as the ultimate override; the
-  `admin` role is the assignable, data-driven equivalent for everyone else.)
-- **`member`** — `write` + `delete` on every household collection. This is what
-  every existing `regular` user becomes, so **upgrade is behavior-preserving**.
-- **`guest`** — `read` on a configurable subset (default: none until granted).
+- **`admin`** — `manage` on `*` (scope `all`). The former `superuser`. (The
+  engine still recognizes `caller.type === 'superuser'` as the ultimate
+  override; the `admin` role is the assignable, data-driven equivalent for
+  everyone else.)
+- **`member`** — `write` + `delete` on `*` (scope `all`). This is what every
+  existing `regular` user becomes, so **upgrade is behavior-preserving**.
+- **`guest`** — no `*` grant; `read` at the `app` scope on whichever apps are
+  shared with them (default: none until an admin grants one).
 
 ### 3.5 Groups
 
@@ -184,10 +197,14 @@ Given `(caller, verb, resource_type, resource_id?)`:
    evaluating record rules for an app the caller can't open. (Ordering: app
    gate → permission resolver.)
 3. **Collect applicable grants.** From all grants whose `subject` is in
-   `principals(caller)` and whose target matches, gather:
-   - record-level grants for this `resource_id` (if any),
-   - collection-level grants for this `resource_type`,
-   - role-derived collection grants (expanded from the caller's roles),
+   `principals(caller)` and whose target matches the request at **any of the
+   four scope levels**, gather:
+   - `all`-scope grants,
+   - `app`-scope grants for the app that owns `resource_type`,
+   - `collection`-scope grants for this `resource_type`,
+   - `record`-scope grants for this `resource_id` (if any),
+   - role-derived grants (expanded from the caller's roles, at whatever scope
+     the role declares),
    - the implicit **owner ⇒ `manage`** grant if `caller` owns the record,
    - the implicit **`everyone`** grants.
 4. **Reduce.** Map the required `verb` to a capability (`GET`→`read`,
@@ -200,16 +217,19 @@ Given `(caller, verb, resource_type, resource_id?)`:
 
 **Precedence, stated plainly:** `superuser` > explicit `deny` > `owner` /
 explicit `allow` / `role` / `everyone` (highest capability wins among these) >
-default-deny. Specificity (record vs collection) does **not** override effect —
-a collection-wide `deny read` beats a record `allow read`. This keeps the model
-predictable ("a deny is a deny") and is easy to explain in the UI.
+default-deny. **Scope specificity does not override effect** — a broad
+`app`-scope `deny read` beats a narrow `record`-scope `allow read`. Deny always
+wins, at any scope. This keeps the model predictable ("a deny is a deny") and is
+what makes the "everyone-except-Bob" case (§9.1) expressible: a blanket `member`
+`*` allow plus an `app`-scope `deny` for one user cleanly blocks that user from
+that app while everyone else keeps it.
 
-> **v1 simplification option.** Explicit `deny` adds real cognitive and
-> implementation weight. We can ship **allow-only** first (drop step 4's
-> `denyRank`; grants are purely additive, `none` is just the absence of a
-> grant) and add `deny` in v2. Recommendation: **allow-only for v1**, with the
-> `effect` column reserved in the schema so v2 is additive. This is called out
-> as an open decision in §11.
+> **Deny scope in v1.** Explicit `deny` adds cognitive and implementation
+> weight, so v1 keeps it **narrow**: support `deny` only at `app` and
+> `collection` scope — enough for the household-realistic "everyone-except-Bob"
+> case (§9.1) — and defer record-scope deny. An allow-only fallback (drop
+> `denyRank` entirely) stays possible but can't express "everyone-except"
+> without abandoning the blanket `member` role. See open decision §11 #1.
 
 ### 4.1 The LIST problem (the hard part)
 
@@ -220,9 +240,9 @@ scope and we must not fetch-then-filter (it breaks pagination and counts).
 The resolver therefore computes a **visibility predicate** the store folds into
 SQL:
 
-- If the caller has a **collection-level `read`** (via role or a collection
-  grant) and no collection-level `deny` → **no restriction** (today's behavior;
-  the common member case, zero overhead).
+- If the caller has a **broad `read`** at `all`, `app`, or `collection` scope
+  (via role or grant) and no `deny` that applies to the collection → **no
+  restriction** (today's behavior; the common member case, zero overhead).
 - Otherwise → restrict to the union the caller *can* see:
   ```sql
   WHERE owner = :caller
@@ -268,8 +288,10 @@ Mirrors the existing `engine/access.ts` structure:
 
 ### 5.3 Wiring into the request pipeline
 
-The pipeline order becomes: **auth → app-access gate (unchanged) → permission
-resolver → route**.
+The pipeline order becomes: **auth → app-access gate → permission resolver →
+route**. The app-access gate keeps its role as the fast, hard outer wall
+(§9.1); the only change to it is broadening its audience to accept
+group/role/tag allowlists.
 
 - **Replace `checkUserScope`** with a general
   `checkRecordAccess(match, caller, verb)` in `crud.ts`, called from the same
@@ -339,16 +361,18 @@ management UI for free. Declared in a new core module (e.g.
     role: { type: 'string', reference: { resource: 'role' } },   // optional
   } }
 
-// access-grant — the ACL entry. Collection- or record-level.
+// access-grant — the ACL entry. Targets one of four scope levels (§3.3).
 // Writes are gated by the engine (manage-on-target), NOT plain superuser_write.
 { singular: 'access-grant', plural: 'access-grants',
   fields: {
     subject_type:  { type: 'string', enum: ['user','group','role','everyone'], required: true },
     subject_id:    { type: 'string' },                    // omitted for 'everyone'
-    resource_type: { type: 'string', required: true },    // target collection singular
-    resource_id:   { type: 'string' },                    // omitted ⇒ collection-wide
+    target_scope:  { type: 'string', enum: ['all','app','collection','record'], required: true },
+    target_app:    { type: 'string' },                    // app id, when target_scope = 'app'
+    resource_type: { type: 'string' },                    // collection singular, when 'collection' | 'record'
+    resource_id:   { type: 'string' },                    // record id, when 'record'
     capability:    { type: 'string', enum: ['read','write','delete','manage'], required: true },
-    effect:        { type: 'string', enum: ['allow','deny'] },   // default 'allow' (v1: allow-only)
+    effect:        { type: 'string', enum: ['allow','deny'] },   // default 'allow'; see §11 #1
   } }
 ```
 
@@ -418,21 +442,66 @@ full control; nothing is hidden until someone deliberately tightens a resource.
 
 ---
 
-## 9. Relationship to account-tags & app visibility
+## 9. Blocking an app, app visibility & account-tags
 
-Today `account-tag` (superuser-write child of `user`) + per-app
-`enabled='tagged'` gate *which apps a user sees*. That stays — it's a coarse,
-app-level gate and complements record ACLs rather than competing with them.
+### 9.1 How to block an entire app
 
-Longer term, tags and groups overlap conceptually (both are "a named set of
-users"). The intended convergence:
+There are **two complementary controls**, and they answer different questions.
+The division of labor: the **app gate** decides *visibility* (is the app on, and
+for which broad audience) as a fast, hard outer wall; the **resolver** decides
+*capability* (read vs. write vs. manage) and expresses *subtractions* (block one
+person from an otherwise-open app).
 
-- Keep app-visibility (`none/all/superusers/tagged`) as the **app gate** (step 2
-  of resolution). It's cheap and already enforced.
-- Let **groups** become the richer grouping primitive for *data* access.
-- Optionally, later, allow an app's `enabled_tags` to reference a **group**
-  instead of a free-form tag, unifying the two. Not required for v1; noted so we
-  don't paint ourselves into a corner.
+**The app gate (visibility, allowlist).** The existing `AccessCheck` runs first
+and short-circuits, so nothing downstream can re-open an app it closes. Setting
+the app's `enabled` visibility:
+
+| Goal | Setting | Needs `deny`? |
+|---|---|---|
+| Off for everyone (even admins) | `none` | no |
+| Admins only | `superusers` | no |
+| Only a specific set of people | group / role / tag audience (below) | no |
+| Open to the household | `all` (default) | no |
+| Everyone **except** specific people | app-scope `deny` grant, or a narrower role | **yes** (or role modeling) |
+
+**Extending the gate's audience to groups & roles.** Today the gate's only
+person-differentiating audience is `tagged` (a free-form account tag). We extend
+`AppVisibility` so the audience can be a **group** or **role**, not just a tag —
+the gate's `decide()` already intersects the caller's principals against an
+allowed set, so this is a natural generalization:
+
+```
+enabled: none | all | superusers | audience
+audience := { groups?: [<id>...], roles?: [<id>...], tags?: [<name>...] }
+```
+
+This makes "only these people can see this app" a first-class allowlist without
+touching the resolver. `tagged` becomes the special case `audience.tags`.
+
+**The one case the gate can't express: "everyone except Bob."** An allowlist
+can't subtract. Because `member` carries a blanket `*` allow (backward compat),
+blocking one person from one otherwise-open app requires either:
+
+- an **`app`-scope `deny` grant** for that user (deny wins in resolution, §4) — the
+  clean, targeted option **if we adopt deny semantics**; or
+- **not giving that person `member`** — model them with a narrower role (e.g.
+  `guest`) whose `app`-scope allow grants simply omit the blocked app.
+
+This is exactly why the "everyone-except" case is the deciding factor for open
+decision #1 (§11) — allow-only cannot subtract from a blanket grant.
+
+### 9.2 Account-tags convergence
+
+`account-tag` (superuser-write child of `user`) currently exists **only** to feed
+`enabled='tagged'`. Once the gate accepts groups (§9.1), tags and groups are the
+same idea ("a named set of users"), so:
+
+- Short term: keep tags working; `audience.tags` is a supported audience.
+- Medium term: **groups become the primary grouping primitive**; a tag is just a
+  single-purpose group. New setups use groups; existing tag-based gates keep
+  running untouched.
+- We avoid painting into a corner by having the gate speak the same
+  group/role/tag vocabulary as the resolver from day one.
 
 ---
 
@@ -464,9 +533,18 @@ The server is authoritative; the client mirrors for UX (same discipline as
 
 ## 11. Open decisions (need your call)
 
-1. **Deny semantics.** Allow-only in v1 (simpler, additive) vs. allow+deny from
-   the start (more expressive, more foot-guns)? *Recommendation: allow-only
-   v1, `effect` column reserved.*
+1. **Deny semantics.** Allow-only (simpler, additive) vs. allow+deny (more
+   expressive, more foot-guns)? The deciding factor is the **"everyone-except"**
+   case (§9.1): with a blanket `member` `*` allow, blocking one person from one
+   app/resource has *no allow-only expression* — you'd have to strip their
+   `member` role and re-grant everything else. *Revised recommendation: support
+   `deny`, but scope it tightly in v1 — allow deny only at `app` and
+   `collection` scope (the household-realistic cases), defer record-scope deny.
+   Keep the precedence dead simple: deny always wins.* If we'd rather not ship
+   deny at all in v1, the fallback is to **not** hand out a blanket `member`
+   role and instead compose access from narrower grants — but that makes the
+   common "everyone sees everything" default verbose. This is the one open
+   decision that materially changes the model; see §9.1.
 2. **Delete as its own capability** vs. folding into `write`? *Recommendation:
    keep separate — cheap, and "edit but don't delete" is a real household case.*
 3. **Roles as data vs. config.** Data (editable in UI, proposed) vs. defined in
