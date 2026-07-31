@@ -6,7 +6,10 @@ import type {
   EmailConfig,
   EmbeddingConfig,
 } from '@rambleraptor/homestead-core/apps/config';
-import type { RegisteredCronHook } from '@rambleraptor/homestead-core/apps/registry';
+import type {
+  RegisteredCronHook,
+  RegisteredMigration,
+} from '@rambleraptor/homestead-core/apps/registry';
 import type { AppAccessConfig } from './engine/access';
 import type { OAuthConfig } from './engine/oauth';
 
@@ -26,4 +29,5 @@ export function getAllResourceDefs(): ResourceDefinition[];
 export function getAllAppFlagDefs(): Record<string, unknown>;
 export function getAllUserSettingDefs(): Record<string, unknown>;
 export function getAllCronHooks(): RegisteredCronHook[];
+export function getAllMigrations(): RegisteredMigration[];
 export function handleChat(request: Request): Promise<Response>;

@@ -31,6 +31,7 @@ import type {
   UserSettingDef,
 } from './types';
 import type { CronHook } from './cron';
+import type { Migration } from './migrations';
 import type {
   ResourceCustomMethod,
   ResourceDefinition,
@@ -556,6 +557,44 @@ export function getAllCronHooks(): RegisteredCronHook[] {
       }
       seen.add(hook.id);
       out.push({ ...hook, appId: mod.id });
+    }
+    for (const child of mod.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const mod of getAppRegistry().apps) {
+    visit(mod);
+  }
+  return out;
+}
+
+/**
+ * A migration paired with the id of the app that declared it. The appId rides
+ * along so the runner can label log output and hand it to the handler's
+ * context without a separate migration→app index.
+ */
+export type RegisteredMigration = Migration & { appId: string };
+
+/**
+ * Collect every data migration declared by registered apps — top-level and
+ * nested — in declaration order. Consumed by the server's migration runner on
+ * boot. Ids must be unique across all apps: a migration whose id was already
+ * seen is dropped with a warning, so the ledger key stays unambiguous.
+ */
+export function getAllMigrations(): RegisteredMigration[] {
+  const out: RegisteredMigration[] = [];
+  const seen = new Set<string>();
+  const visit = (mod: AppConfig): void => {
+    for (const migration of mod.migrations ?? []) {
+      if (seen.has(migration.id)) {
+        logger.warn(
+          `Duplicate migration id "${migration.id}" (app "${mod.id}") ignored`,
+          { appId: mod.id, migrationId: migration.id },
+        );
+        continue;
+      }
+      seen.add(migration.id);
+      out.push({ ...migration, appId: mod.id });
     }
     for (const child of mod.children ?? []) {
       visit(child);
