@@ -706,9 +706,16 @@ and the app gate speaks groups instead of tags:
 
 - **Migration** (§8 step 4): each distinct tag → a `group`; each tagged user →
   a `group-membership`; every `enabled='tagged'` app → `enabled={ groups:[…] }`.
-- After migration the `account-tag` resource and the `account_tags` table are
-  **retired**, and the engine access gate reads **group membership** where it
-  used to read `account_tags` (`engine/access.ts` `userTags()` → group lookup).
+  The data half of this is **implemented** as a boot-time data migration
+  (`users-account-tags-to-groups`, declared on the users app —
+  `superuser/users/migrations/account-tags-to-groups.ts`): it runs once through
+  the migration runner after the schema sync, lifting every existing tag into a
+  group + membership. It is idempotent and *additive* — it never deletes an
+  `account-tag`, so the legacy gate keeps working until it's switched over.
+- After the app gate is switched (Phase 3c), the `account-tag` resource and the
+  `account_tags` table are **retired**, and the engine access gate reads **group
+  membership** where it used to read `account_tags` (`engine/access.ts`
+  `userTags()` → group lookup).
 - One primitive for "a set of people" everywhere — the gate and the resolver
   both speak `group`, nothing speaks `tag`.
 
@@ -892,11 +899,18 @@ hydration). When the system is off, the legacy `superuser_write` gate still
 applies. *Verified by 6 tests* (owner-share, non-owner denied, member can't make
 broad grants, admin-role-via-group can, no-grants-on-grants, superuser + delete).
 
-**Phase 3c — app-gate & account-tags *(pending)*.** Switch the app gate from
-`account_tags` to **group membership**, run the `account-tag` → group migration
-+ retirement (§9.2) atomically with that switch. This is a larger cross-cutting
-change (server gate + the flag-management/users frontend + e2e) kept separate so
-the app-level gate rolls out independently of the record-level enforcement.
+**Phase 3c — app-gate & account-tags *(partly done)*.** The **data migration**
+is shipped: `users-account-tags-to-groups` (declared on the users app, handler
+under `superuser/users/migrations/`) runs once at boot through the migration
+runner and lifts every existing `account-tag` into a `group` +
+`group-membership`. It is idempotent and additive — it doesn't touch the tags,
+so nothing breaks before the gate is switched. *Verified by an end-to-end test*
+(shared-tag dedup, per-user membership, ledger summary, re-run is a no-op).
+**Still pending:** switching the app gate itself from `account_tags` to **group
+membership** and then retiring the `account-tag` resource + `account_tags` table
+(§9.2). That remainder is a larger cross-cutting change (server gate + the
+flag-management/users frontend + e2e) kept separate so the app-level gate rolls
+out independently of the record-level enforcement.
 
 ### Phase 4 — Filter-scoped grants *(depends on 3a)* ✅ done
 - `compileFilter` gained its optional `subject` context (§3.6.1): a
@@ -974,8 +988,9 @@ the app-level gate rolls out independently of the record-level enforcement.
   for Phase 3; keep both until a release has run enforced without incident.
 - **e2e** already boots the real server, so each phase updates specs alongside
   code — the suite is the regression gate at every step.
-- **No silent truncation:** the account-tag migration (Phase 2) logs any tag it
-  can't cleanly map so nothing is dropped quietly.
+- **No silent truncation:** the account-tag migration (Phase 3c) logs its tally
+  (tags scanned, groups + memberships created) and skips only empty tag names, so
+  nothing is dropped quietly.
 
 ---
 

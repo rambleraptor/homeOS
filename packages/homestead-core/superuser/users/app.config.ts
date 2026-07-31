@@ -23,6 +23,15 @@ export const usersApp: AppConfig = {
   description: 'Create and manage user accounts.',
   defaultEnabled: 'superusers',
   resources: usersResources,
+  migrations: [
+    {
+      // Lift legacy account-tags into permission groups so existing cohorts
+      // survive the permissions rollout (additive — tags are left in place).
+      id: 'users-account-tags-to-groups',
+      title: 'Migrate account tags into permission groups',
+      load: () => import('./migrations/account-tags-to-groups'),
+    },
+  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.UserCog),
     basePath: '/superuser/users',
