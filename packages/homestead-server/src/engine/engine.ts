@@ -23,7 +23,7 @@ import { buildOpenApi } from './openapi';
 import { Registry } from './registry';
 import { notFoundText, routeDynamic } from './router';
 import { PermissionStore, permissionCacheTtlMs } from './permission-store';
-import { permissionMode } from './permissions';
+import { permissionMode, type Grant } from './permissions';
 import type { EnforceContext } from './enforce';
 import type { User } from './types';
 import {
@@ -120,6 +120,20 @@ export class Engine {
       store: this.permissionStore,
       appIdFor: (plural) => this.collectionToApp[plural] ?? null,
       mode: permissionMode(),
+    };
+  }
+
+  /**
+   * The caller's permission context for the client `can()` mirror: their group
+   * ids and every applicable grant (role bundles already expanded), plus whether
+   * enforcement is actually on (the client only restricts the UI when it is).
+   */
+  permissionContext(userId: string): { enforced: boolean; groupIds: string[]; grants: Grant[] } {
+    const { principals, grants } = this.permissionStore.gatherFor(userId);
+    return {
+      enforced: permissionMode() === 'on',
+      groupIds: [...principals.groupIds],
+      grants,
     };
   }
 

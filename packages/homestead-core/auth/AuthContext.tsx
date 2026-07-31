@@ -28,6 +28,7 @@ import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
 import { ACCOUNT_TAGS } from '../superuser/users/resources';
+import { fetchPermissionContext } from '../permissions/client';
 
 interface AccountTagRecord {
   id: string;
@@ -111,7 +112,7 @@ async function fetchAccountTags(userId: string): Promise<string[] | undefined> {
 }
 
 async function hydrateUserPreferences(user: User): Promise<User> {
-  const [prefsResult, tags] = await Promise.all([
+  const [prefsResult, tags, permissions] = await Promise.all([
     (async () => {
       try {
         return await aepbase.list<UserPreferenceRecord>(USER_PREFERENCES, {
@@ -123,9 +124,10 @@ async function hydrateUserPreferences(user: User): Promise<User> {
       }
     })(),
     fetchAccountTags(user.id),
+    fetchPermissionContext(aepbase.authStore.token),
   ]);
 
-  let merged: User = { ...user, tags };
+  let merged: User = { ...user, tags, permissions };
 
   if (prefsResult.length > 0) {
     const record = prefsResult[0];

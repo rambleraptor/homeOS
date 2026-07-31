@@ -122,6 +122,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const { makeAepGateway } = await import('./routes/aep-gateway');
   const { chatRoute } = await import('./routes/chat');
   const { notificationsRoute } = await import('./routes/notifications');
+  const { makePermissionsRoute } = await import('./routes/permissions');
   const { makeSetupRoute } = await import('./routes/setup');
   const { bulkImportTemplateRoute } = await import('./routes/bulk-import-template');
   const { makeAuthRoutes } = await import('./routes/auth');
@@ -141,6 +142,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   publicApp.route('/api/setup', makeSetupRoute(engine.db));
   publicApp.route('/api/auth', makeAuthRoutes(engine.db, authService));
   publicApp.route('/api/notifications', notificationsRoute);
+  publicApp.route('/api/permissions', makePermissionsRoute(engine));
   publicApp.route('/api/chat', chatRoute);
   publicApp.route('/api/aep', makeAepGateway(engine, loopbackOrigin));
   // OAuth login redirects (Homestead as client) arrive on the public origin;

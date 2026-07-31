@@ -926,12 +926,23 @@ the app-level gate rolls out independently of the record-level enforcement.
   despite it, a collection grant opens an owner resource, acl ignores the open
   grant but honors a collection grant.
 
-### Phase 6 — Client mirror *(depends on 3)*
-- `can()` helper; login hydration of group memberships + conferred roles +
-  addressed grants; the `permission` route gate; nav + list filtering.
-- **Verify:** component tests for `can()`; e2e that hidden nav/records don't
-  flash. **Risk:** UX-only (server already enforces); a client bug can't grant
-  access, only mis-hide.
+### Phase 6 — Client mirror *(depends on 3a)* ✅ core done
+- **Shared resolver.** The pure `resolve`/`computeVisibility` moved into
+  `@rambleraptor/homestead-core/permissions/resolve`; the engine re-exports it.
+  The client now runs the *exact same code* the server enforces with — no more
+  hand-synced `decide()` ↔ `resolveVisibility()`.
+- **Context endpoint.** `GET /api/permissions/me` (`engine.permissionContext`)
+  returns the caller's `{ enforced, groupIds, grants }` (role bundles expanded),
+  because the client can't enumerate its own group memberships over REST.
+- **Hydration.** `AuthContext` fetches it on login/refresh and stashes it on
+  `User.permissions` (like `tags`).
+- **`can()`.** `useCan()` returns a memoized `can(verb, resourceType, opts?)`
+  backed by `canWith` + the shared resolver. Permissive when enforcement is off
+  or context is missing (UI never hides more than the server denies); superuser
+  always true; filter grants aren't evaluated client-side (conservative).
+- **Verify:** 7 client `canWith` tests + 2 `permissionContext` tests.
+- **Deferred to 6b:** the `permission` route gate (needs a parameterized gate in
+  `AppRoute`) and nav/list `can()` filtering — pure UX polish on top of `can()`.
 
 ### Phase 7 — Admin & sharing UI *(depends on 6)*
 - Roles/Groups management screens; per-record **Share** affordance
