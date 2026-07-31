@@ -18,8 +18,9 @@
  * bundle. Runs headless with a short-lived admin token from the scheduler.
  */
 
+import { createHomesteadClient, bearerToken } from '@rambleraptor/homestead-client';
 import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
-import { aepList, aepRemove } from '@rambleraptor/homestead-core/server/aepbase';
+import { AEPBASE_URL } from '@rambleraptor/homestead-core/server/aepbase';
 import { OPERATIONS } from '@rambleraptor/homestead-core/resources/operations';
 
 /** Delete finished operations older than this many days. */
@@ -37,7 +38,10 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   // Anchor "now" to the firing time so the cutoff is deterministic.
   const cutoff = new Date(new Date(firedAt).getTime() - RETENTION_MS);
 
-  const all = await aepList<StoredOperation>(OPERATIONS, token);
+  const hs = createHomesteadClient({ baseUrl: AEPBASE_URL, auth: bearerToken(token) });
+  const operations = hs.collection<StoredOperation>(OPERATIONS);
+
+  const all = await operations.listAll();
   const stale = all.filter(
     (op) => op.done && op.create_time && new Date(op.create_time) < cutoff,
   );
@@ -48,7 +52,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   let deleted = 0;
   for (const op of stale) {
     try {
-      await aepRemove(OPERATIONS, op.id, token);
+      await operations.record(op.id).delete();
       deleted++;
     } catch (error) {
       // Best-effort: a single failed delete shouldn't abort the sweep.
