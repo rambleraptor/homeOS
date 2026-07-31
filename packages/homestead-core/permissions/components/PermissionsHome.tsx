@@ -3,7 +3,6 @@ import { Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
-import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
@@ -17,21 +16,25 @@ import {
   useDeleteRole,
   useGroups,
   useRoles,
+  useUpdateGroup,
   useUpdateRole,
+  type GroupInput,
+  type GroupRecord,
   type RoleInput,
   type RoleRecord,
 } from '../hooks';
 import { GroupCard } from './GroupCard';
+import { GroupForm } from './GroupForm';
 import { RoleForm } from './RoleForm';
 
 /**
  * Superuser page to manage the permissions data model: **groups** (create,
- * delete, and manage membership) and a read-only view of the built-in **roles**.
+ * edit, delete, and manage membership + their conferred role) and **roles**
+ * (create/edit/delete grant bundles).
  *
  * Groups are the "set of people" primitive used by both app-access gating
  * (`tagged` audience, §9.2) and access-grants, so this is the main knob an admin
- * turns. Roles are seeded (admin/member/guest) and shown for reference; editing
- * their grants is a later increment.
+ * turns. Each group confers one role on all its members.
  */
 export function PermissionsHome() {
   const toast = useToast();
@@ -39,17 +42,32 @@ export function PermissionsHome() {
   const { data: roles, isLoading: rolesLoading } = useRoles();
   const { data: users } = useAllUsers();
   const createGroup = useCreateGroup();
+  const updateGroup = useUpdateGroup();
   const createRole = useCreateRole();
   const updateRole = useUpdateRole();
   const deleteRole = useDeleteRole();
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  // Group editor: `null` closed, `'new'` create, a record edit.
+  const [groupModal, setGroupModal] = useState<GroupRecord | 'new' | null>(null);
 
-  // Role editor: `null` closed, `{}` create, a record edit; plus a delete target.
+  // Role editor: `null` closed, `'new'` create, a record edit; plus a delete target.
   const [roleModal, setRoleModal] = useState<RoleRecord | 'new' | null>(null);
   const [roleDeleteTarget, setRoleDeleteTarget] = useState<RoleRecord | null>(null);
+
+  const handleGroupSubmit = async (data: GroupInput) => {
+    try {
+      if (groupModal && groupModal !== 'new') {
+        await updateGroup.mutateAsync({ id: groupModal.id, ...data });
+        toast.success('Group updated');
+      } else {
+        await createGroup.mutateAsync(data);
+        toast.success('Group created');
+      }
+      setGroupModal(null);
+    } catch {
+      // Global mutation error toast (queryClient.ts) surfaces the reason.
+    }
+  };
 
   const handleRoleSubmit = async (data: RoleInput) => {
     try {
@@ -77,19 +95,6 @@ export function PermissionsHome() {
     }
   };
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    try {
-      await createGroup.mutateAsync({ name: name.trim(), description: description.trim() || undefined });
-      setName('');
-      setDescription('');
-      setIsCreateOpen(false);
-      toast.success('Group created');
-    } catch {
-      // Global mutation error toast (queryClient.ts) surfaces the reason.
-    }
-  };
-
   return (
     <div className="space-y-8">
       <PageHeader
@@ -101,7 +106,7 @@ export function PermissionsHome() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Groups</h2>
-          <Button onClick={() => setIsCreateOpen(true)} data-testid="add-group-button">
+          <Button onClick={() => setGroupModal('new')} data-testid="add-group-button">
             <Plus className="w-4 h-4 mr-2" />
             New group
           </Button>
@@ -121,7 +126,13 @@ export function PermissionsHome() {
         ) : (
           <div className="space-y-3" data-testid="groups-list">
             {groups.map((g) => (
-              <GroupCard key={g.id} group={g} users={users ?? []} roles={roles ?? []} />
+              <GroupCard
+                key={g.id}
+                group={g}
+                users={users ?? []}
+                roles={roles ?? []}
+                onEdit={setGroupModal}
+              />
             ))}
           </div>
         )}
@@ -192,36 +203,20 @@ export function PermissionsHome() {
         )}
       </section>
 
-      <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="New group">
-        <div className="space-y-4">
-          <Input
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Adults, Kids, Guests"
-            data-testid="group-name-input"
-            autoFocus
+      <Modal
+        isOpen={groupModal !== null}
+        onClose={() => setGroupModal(null)}
+        title={groupModal && groupModal !== 'new' ? 'Edit group' : 'New group'}
+      >
+        {groupModal !== null && (
+          <GroupForm
+            initialGroup={groupModal === 'new' ? undefined : groupModal}
+            roles={roles ?? []}
+            onSubmit={handleGroupSubmit}
+            onCancel={() => setGroupModal(null)}
+            isSubmitting={createGroup.isPending || updateGroup.isPending}
           />
-          <Input
-            label="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="What is this group for?"
-            data-testid="group-description-input"
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setIsCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!name.trim() || createGroup.isPending}
-              data-testid="group-create-submit"
-            >
-              Create
-            </Button>
-          </div>
-        </div>
+        )}
       </Modal>
 
       <Modal

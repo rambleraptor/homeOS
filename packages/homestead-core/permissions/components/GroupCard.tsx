@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
@@ -21,6 +21,7 @@ interface Props {
   group: GroupRecord;
   users: UserLite[];
   roles: RoleRecord[];
+  onEdit: (group: GroupRecord) => void;
 }
 
 function userLabel(users: UserLite[], userRef: string): string {
@@ -30,22 +31,22 @@ function userLabel(users: UserLite[], userRef: string): string {
 }
 
 /**
- * One group: name/description, a member count, and an expandable panel to add or
- * remove members (with an optional role). Deleting the group removes its
- * memberships first (see `useDeleteGroup`).
+ * One group: name/description, its **conferred role** (applied to all members),
+ * and an expandable panel to add or remove members. Every member has the same
+ * access — the group's role — so there is no per-member role control.
  */
-export function GroupCard({ group, users, roles }: Props) {
+export function GroupCard({ group, users, roles, onEdit }: Props) {
   const toast = useToast();
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pickUser, setPickUser] = useState('');
-  const [pickRole, setPickRole] = useState('');
 
   const { data: members, isLoading } = useGroupMemberships(expanded ? group.id : '');
   const addMember = useAddGroupMember();
   const removeMember = useRemoveGroupMember();
   const deleteGroup = useDeleteGroup();
 
+  const roleName = group.role ? roles.find((r) => r.id === bareId(group.role!))?.name : undefined;
   const memberUserIds = useMemo(
     () => new Set((members ?? []).map((m) => bareId(m.user))),
     [members],
@@ -55,9 +56,8 @@ export function GroupCard({ group, users, roles }: Props) {
   const handleAdd = async () => {
     if (!pickUser) return;
     try {
-      await addMember.mutateAsync({ groupId: group.id, userId: pickUser, role: pickRole });
+      await addMember.mutateAsync({ groupId: group.id, userId: pickUser });
       setPickUser('');
-      setPickRole('');
       toast.success('Member added');
     } catch {
       // Global mutation error toast (queryClient.ts) surfaces the reason.
@@ -99,21 +99,37 @@ export function GroupCard({ group, users, roles }: Props) {
           )}
           <Users className="w-5 h-5 text-gray-500 flex-shrink-0" />
           <div className="min-w-0">
-            <span className="font-medium text-gray-900 truncate">{group.name}</span>
+            <span className="flex items-center gap-2">
+              <span className="font-medium text-gray-900 truncate">{group.name}</span>
+              <Badge variant={roleName ? 'info' : 'neutral'}>
+                {roleName ? `role: ${roleName}` : 'no role'}
+              </Badge>
+            </span>
             {group.description && (
               <p className="text-sm text-gray-600 truncate">{group.description}</p>
             )}
           </div>
         </button>
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={() => setConfirmDelete(true)}
-          title="Delete group"
-          data-testid={`delete-group-${group.id}`}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onEdit(group)}
+            title="Edit group"
+            data-testid={`edit-group-${group.id}`}
+          >
+            <Pencil className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setConfirmDelete(true)}
+            title="Delete group"
+            data-testid={`delete-group-${group.id}`}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {expanded && (
@@ -126,33 +142,20 @@ export function GroupCard({ group, users, roles }: Props) {
             <>
               {members && members.length > 0 ? (
                 <ul className="space-y-2" data-testid={`group-members-${group.id}`}>
-                  {members.map((m) => {
-                    const roleName = m.role
-                      ? roles.find((r) => r.id === bareId(m.role!))?.name
-                      : undefined;
-                    return (
-                      <li
-                        key={m.id}
-                        className="flex items-center justify-between gap-2 text-sm"
+                  {members.map((m) => (
+                    <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="truncate text-gray-900">{userLabel(users, m.user)}</span>
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-red-600"
+                        onClick={() => handleRemove(m.id)}
+                        title="Remove member"
+                        data-testid={`remove-member-${m.id}`}
                       >
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span className="truncate text-gray-900">
-                            {userLabel(users, m.user)}
-                          </span>
-                          {roleName && <Badge variant="info">{roleName}</Badge>}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-gray-400 hover:text-red-600"
-                          onClick={() => handleRemove(m.id)}
-                          title="Remove member"
-                          data-testid={`remove-member-${m.id}`}
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </li>
-                    );
-                  })}
+                        <X className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               ) : (
                 <p className="text-sm text-gray-500">No members yet.</p>
@@ -171,22 +174,6 @@ export function GroupCard({ group, users, roles }: Props) {
                     {addableUsers.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.display_name || u.email || u.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col text-xs text-gray-600">
-                  Role (optional)
-                  <select
-                    className="mt-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-                    value={pickRole}
-                    onChange={(e) => setPickRole(e.target.value)}
-                    data-testid={`add-member-role-${group.id}`}
-                  >
-                    <option value="">No role</option>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
                       </option>
                     ))}
                   </select>

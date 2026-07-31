@@ -64,19 +64,25 @@ export const PERMISSION_RESOURCE_DEFS: ResourceDefinition[] = [
     fields: {
       name: { type: 'string', required: true },
       description: { type: 'string' },
+      // The role conferred on *every* member of this group. Group-level (not
+      // per-member) by design: everyone in a group has the same access, so a
+      // person's access is simply the union of their groups' roles (§11 #8).
+      role: {
+        type: 'string',
+        reference: { resource: 'role' },
+        description: 'Role conferred on every member of this group.',
+      },
     },
   },
   {
     singular: 'group-membership',
     plural: GROUP_MEMBERSHIPS,
     description:
-      "A user's membership in a group. An optional role is conferred on the " +
-      'member while in this group.',
+      "A user's membership in a group. Every member receives the group's role.",
     parents: ['group'],
     superuser_write: true,
     fields: {
       user: { type: 'string', reference: { resource: 'user' }, required: true },
-      role: { type: 'string', reference: { resource: 'role' } },
     },
   },
   {

@@ -13,6 +13,7 @@ import { ACCESS_GRANTS, GROUPS, GROUP_MEMBERSHIPS } from '../resources';
 import {
   useAccessGrants,
   useAddGroupMember,
+  useCreateGroup,
   useGroups,
   useRevokeGrant,
   useRoles,
@@ -78,13 +79,23 @@ describe('permission data hooks', () => {
     expect(aepbase.remove).toHaveBeenCalledWith(ACCESS_GRANTS, 'g1');
   });
 
-  it('useAddGroupMember creates a membership under the group', async () => {
+  it('useAddGroupMember creates a membership under the group (no per-member role)', async () => {
     const { result } = renderHook(() => useAddGroupMember(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ groupId: 'g1', userId: 'bob', role: 'member' });
+    await result.current.mutateAsync({ groupId: 'g1', userId: 'bob' });
     expect(aepbase.create).toHaveBeenCalledWith(
       GROUP_MEMBERSHIPS,
-      { user: 'bob', role: 'member' },
+      { user: 'bob' },
       { parent: [GROUPS, 'g1'] },
     );
+  });
+
+  it('useCreateGroup carries the conferred role', async () => {
+    const { result } = renderHook(() => useCreateGroup(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({ name: 'Adults', role: 'admin' });
+    expect(aepbase.create).toHaveBeenCalledWith(GROUPS, {
+      name: 'Adults',
+      description: undefined,
+      role: 'admin',
+    });
   });
 });

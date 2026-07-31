@@ -19,7 +19,7 @@ function mutation(mutateAsync = vi.fn().mockResolvedValue(undefined)) {
 }
 
 const GROUPS = [
-  { id: 'g-adults', name: 'Adults', description: 'Grown-ups' },
+  { id: 'g-adults', name: 'Adults', description: 'Grown-ups', role: 'admin' },
   { id: 'g-kids', name: 'Kids' },
 ];
 const ROLES = [
@@ -33,6 +33,7 @@ const USERS = [
 
 describe('PermissionsHome', () => {
   const createGroup = vi.fn().mockResolvedValue(undefined);
+  const updateGroup = vi.fn().mockResolvedValue(undefined);
   const addMember = vi.fn().mockResolvedValue(undefined);
   const removeMember = vi.fn().mockResolvedValue(undefined);
   const createRole = vi.fn().mockResolvedValue(undefined);
@@ -41,8 +42,8 @@ describe('PermissionsHome', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    [createGroup, addMember, removeMember, createRole, updateRole, deleteRole].forEach((m) =>
-      m.mockClear(),
+    [createGroup, updateGroup, addMember, removeMember, createRole, updateRole, deleteRole].forEach(
+      (m) => m.mockClear(),
     );
 
     vi.spyOn(toast, 'useToast').mockReturnValue({
@@ -53,37 +54,56 @@ describe('PermissionsHome', () => {
     vi.spyOn(hooks, 'useRoles').mockReturnValue(query(ROLES));
     vi.spyOn(hooks, 'useAllUsers').mockReturnValue(query(USERS));
     vi.spyOn(hooks, 'useCreateGroup').mockReturnValue(mutation(createGroup));
+    vi.spyOn(hooks, 'useUpdateGroup').mockReturnValue(mutation(updateGroup));
     vi.spyOn(hooks, 'useAddGroupMember').mockReturnValue(mutation(addMember));
     vi.spyOn(hooks, 'useRemoveGroupMember').mockReturnValue(mutation(removeMember));
     vi.spyOn(hooks, 'useDeleteGroup').mockReturnValue(mutation());
     vi.spyOn(hooks, 'useCreateRole').mockReturnValue(mutation(createRole));
     vi.spyOn(hooks, 'useUpdateRole').mockReturnValue(mutation(updateRole));
     vi.spyOn(hooks, 'useDeleteRole').mockReturnValue(mutation(deleteRole));
-    // Adults has one member (Alice, with the admin role); Kids has none.
+    // Adults has one member (Alice); Kids has none. Roles are group-level now.
     vi.spyOn(hooks, 'useGroupMemberships').mockImplementation((groupId: string) =>
-      query(groupId === 'g-adults' ? [{ id: 'm1', user: 'users/u1', role: 'admin' }] : []),
+      query(groupId === 'g-adults' ? [{ id: 'm1', user: 'users/u1' }] : []),
     );
   });
 
-  it('lists groups and roles (with a grant summary)', () => {
+  it('lists groups (with their conferred role) and roles (with a grant summary)', () => {
     render(<PermissionsHome />);
     expect(screen.getByText('Adults')).toBeInTheDocument();
     expect(screen.getByText('Kids')).toBeInTheDocument();
-    expect(screen.getByText('Admin')).toBeInTheDocument();
-    // summarizeRoleGrants ran for real:
+    // Adults confers the admin role; Kids confers none.
+    expect(screen.getByText('role: Admin')).toBeInTheDocument();
+    expect(screen.getByText('no role')).toBeInTheDocument();
+    // summarizeRoleGrants ran for real in the Roles section:
     expect(screen.getByText('manage on everything')).toBeInTheDocument();
     expect(screen.getByText('No access')).toBeInTheDocument();
   });
 
-  it('creates a group through the modal', async () => {
+  it('creates a group with a conferred role through the modal', async () => {
     render(<PermissionsHome />);
     fireEvent.click(screen.getByTestId('add-group-button'));
     fireEvent.change(screen.getByTestId('group-name-input'), { target: { value: 'Guests' } });
-    fireEvent.click(screen.getByTestId('group-create-submit'));
-    expect(createGroup).toHaveBeenCalledWith({ name: 'Guests', description: undefined });
+    fireEvent.change(screen.getByTestId('group-role-select'), { target: { value: 'guest' } });
+    fireEvent.click(screen.getByTestId('group-submit'));
+    expect(createGroup).toHaveBeenCalledWith({
+      name: 'Guests',
+      description: undefined,
+      role: 'guest',
+    });
   });
 
-  it('expands a group, shows its members, and adds/removes one', async () => {
+  it('edits a group (pre-filled role) and saves', () => {
+    render(<PermissionsHome />);
+    fireEvent.click(screen.getByTestId('edit-group-g-adults'));
+    const roleSelect = screen.getByTestId('group-role-select') as HTMLSelectElement;
+    expect(roleSelect.value).toBe('admin'); // pre-filled from the group's conferred role
+    fireEvent.click(screen.getByTestId('group-submit'));
+    expect(updateGroup).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'g-adults', name: 'Adults', role: 'admin' }),
+    );
+  });
+
+  it('expands a group, shows its members, and adds/removes one (no per-member role)', async () => {
     render(<PermissionsHome />);
 
     // Expand Adults → its one member (Alice) shows, resolved from users/u1.
@@ -91,10 +111,10 @@ describe('PermissionsHome', () => {
     const members = await screen.findByTestId('group-members-g-adults');
     expect(within(members).getByText('Alice')).toBeInTheDocument();
 
-    // Add Bob to Adults.
+    // Add Bob to Adults — no role picker; the group's role applies to all.
     fireEvent.change(screen.getByTestId('add-member-user-g-adults'), { target: { value: 'u2' } });
     fireEvent.click(screen.getByTestId('add-member-submit-g-adults'));
-    expect(addMember).toHaveBeenCalledWith({ groupId: 'g-adults', userId: 'u2', role: '' });
+    expect(addMember).toHaveBeenCalledWith({ groupId: 'g-adults', userId: 'u2' });
 
     // Remove the existing membership.
     fireEvent.click(screen.getByTestId('remove-member-m1'));

@@ -42,10 +42,14 @@ describe('engine.permissionContext', () => {
 
   test('returns group ids, expanded grants, and the enforced flag', async () => {
     const alice = await seedUser(t.engine, { email: 'alice@example.com' });
-    await call(t.engine, 'POST', '/groups?id=parents', { token: t.adminToken, body: { name: 'Parents' } });
+    // The group confers the `member` role on all its members (group-level role).
+    await call(t.engine, 'POST', '/groups?id=parents', {
+      token: t.adminToken,
+      body: { name: 'Parents', role: 'member' },
+    });
     await call(t.engine, 'POST', '/groups/parents/group-memberships?id=m1', {
       token: t.adminToken,
-      body: { user: alice.user.id, role: 'member' },
+      body: { user: alice.user.id },
     });
 
     process.env.PERMISSIONS_ENFORCED = 'on';

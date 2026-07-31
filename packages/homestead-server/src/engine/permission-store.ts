@@ -47,7 +47,6 @@ interface GrantRow {
 interface MembershipRow {
   group_id: string;
   user: string;
-  role: string | null;
 }
 
 interface RoleRow {
@@ -84,6 +83,7 @@ export class PermissionStore {
   private memberships: MembershipRow[] | null = null;
   private rolesById: Map<string, Grant[]> | null = null; // role id → expanded grants (targets only)
   private groupNameById: Map<string, string> | null = null; // group id → name
+  private groupRoleById: Map<string, string> | null = null; // group id → conferred role id
   private loadedAt = 0;
 
   constructor(
@@ -97,6 +97,7 @@ export class PermissionStore {
     this.memberships = null;
     this.rolesById = null;
     this.groupNameById = null;
+    this.groupRoleById = null;
     this.loadedAt = 0;
   }
 
@@ -108,7 +109,7 @@ export class PermissionStore {
     ).map(toGrant);
 
     this.memberships = this.query<MembershipRow>(
-      'SELECT group_id, user, role FROM group_memberships',
+      'SELECT group_id, user FROM group_memberships',
     );
 
     const roles = new Map<string, Grant[]>();
@@ -118,12 +119,15 @@ export class PermissionStore {
     this.rolesById = roles;
 
     const groupNames = new Map<string, string>();
-    for (const g of this.query<{ id: string; name: string | null }>(
-      'SELECT id, name FROM "groups"',
+    const groupRoles = new Map<string, string>();
+    for (const g of this.query<{ id: string; name: string | null; role: string | null }>(
+      'SELECT id, name, role FROM "groups"',
     )) {
       if (g.name) groupNames.set(g.id, g.name);
+      if (g.role) groupRoles.set(g.id, bareId(g.role));
     }
     this.groupNameById = groupNames;
+    this.groupRoleById = groupRoles;
 
     this.loadedAt = Date.now();
   }
@@ -174,11 +178,16 @@ export class PermissionStore {
   gatherFor(userId: string): { principals: Principals; grants: Grant[] } {
     this.load();
     const groupIds = new Set<string>();
-    const roleIds = new Set<string>();
     for (const m of this.memberships ?? []) {
       if (bareId(m.user) !== userId) continue;
       groupIds.add(bareId(m.group_id));
-      if (m.role) roleIds.add(bareId(m.role));
+    }
+    // Roles are conferred by the group, not the membership: a member holds
+    // every role of every group they belong to (§9.x — group-conferred roles).
+    const roleIds = new Set<string>();
+    for (const groupId of groupIds) {
+      const roleId = this.groupRoleById?.get(groupId);
+      if (roleId) roleIds.add(roleId);
     }
 
     const grants: Grant[] = [...(this.grants ?? [])];
