@@ -273,7 +273,9 @@ too, has a single definition.
 
 Given `(caller, verb, resource_type, resource_id?)`:
 
-1. **Superuser / admin short-circuit.** `caller.type === 'superuser'` ⇒ allow.
+1. **Superuser break-glass.** `caller.type === 'superuser'` ⇒ allow,
+   unconditionally — the one rung above deny (§4.2). This is the account *type*,
+   not the `admin` *role* (which is ordinary data and stays beatable by a deny).
 2. **App gate first.** The existing `AccessCheck` app-visibility gate runs
    unchanged (none/all/superusers/tagged). If it denies, stop — no point
    evaluating record rules for an app the caller can't open. (Ordering: app
@@ -300,21 +302,32 @@ Given `(caller, verb, resource_type, resource_id?)`:
      `requiredRank > denyRank` (an explicit deny at ≥ the required rank wins).
 5. **Default deny** if nothing matched.
 
-**Precedence, stated plainly:** `superuser` > explicit `deny` > `owner` /
-explicit `allow` / `role` / `everyone` (highest capability wins among these) >
-default-deny. **Scope specificity does not override effect** — a broad
-`app`-scope `deny read` beats a narrow `record`-scope `allow read`. Deny always
-wins, at any scope. This keeps the model predictable ("a deny is a deny") and is
-what makes the "everyone-except-Bob" case (§9.1) expressible: a blanket `member`
-`*` allow plus an `app`-scope `deny` for one user cleanly blocks that user from
-that app while everyone else keeps it.
+**Precedence, stated plainly — deny always wins:**
 
-> **Deny scope in v1.** Explicit `deny` adds cognitive and implementation
-> weight, so v1 keeps it **narrow**: support `deny` only at `app` and
-> `collection` scope — enough for the household-realistic "everyone-except-Bob"
-> case (§9.1) — and defer record-scope deny. An allow-only fallback (drop
-> `denyRank` entirely) stays possible but can't express "everyone-except"
-> without abandoning the blanket `member` role. See open decision §11 #1.
+```
+superuser account (break-glass, §4.2)
+  > any deny  (at ANY scope: all / app / collection / record)
+    > owner / allow / role / everyone  (highest capability wins among these)
+      > default-deny
+```
+
+**Deny is absolute.** A deny that applies to the caller at the required
+capability blocks the request, full stop — no allow, owner grant, role, or more
+specific grant can override it. **Scope specificity does not override effect:** a
+broad `all`- or `app`-scope `deny read` beats a narrow `record`-scope
+`allow read`. There is exactly one thing above a deny — the superuser
+break-glass in §4.2 — and it exists only so an install can't be permanently
+locked out. This keeps the model trivially predictable ("a deny is a deny") and
+makes the "everyone-except-Bob" case (§9.1) expressible: a blanket `member` `*`
+allow plus a `deny` for one user cleanly blocks that user while everyone else
+keeps access.
+
+> **Decided (§11 #1): deny ships in v1, at all four scopes.** Earlier drafts
+> considered limiting deny to `app`/`collection` scope or shipping allow-only;
+> both are dropped. Deny is a first-class effect at `all`, `app`, `collection`,
+> and `record` scope, and always wins. Note that because `owner ⇒ manage` is an
+> *allow*, an owner also loses to a deny — owning a record does not exempt you
+> from a deny that targets you.
 
 ### 4.1 The LIST problem (the hard part)
 
@@ -322,25 +335,36 @@ Single-record ops are easy — resolve, then allow/deny. **LIST** is where recor
 ACLs get expensive, because today `store.listResources` returns every row in
 scope and we must not fetch-then-filter (it breaks pagination and counts).
 
-The resolver therefore computes a **visibility predicate** the store folds into
-SQL:
+The resolver computes a **visibility predicate** — an **allow half** ORed
+together, then a **deny half** ANDed as `NOT (…)`. Because deny always wins
+(§4), the deny half is applied in *both* branches below.
 
-- If the caller has a **broad `read`** at `all`, `app`, or `collection` scope
-  (via role or grant) and no `deny` that applies to the collection → **no
-  restriction** (today's behavior; the common member case, zero overhead).
-- Otherwise → restrict to the union the caller *can* see, assembled as OR-ed
-  SQL clauses:
-  ```sql
-  WHERE owner = :caller                                   -- rows you own
-     OR id IN (:record_ids_granted_to_caller_principals)  -- enumerated record grants
-     OR (<compiled filter-grant #1>)                      -- e.g. created_by = :caller
-     OR (<compiled filter-grant #2>)                      -- e.g. status = 'shared'
-  ```
-  The record-id set comes from one indexed lookup of `record`-scope grants whose
-  subject ∈ `principals(caller)`. Each **filter-grant** (§3.6) contributes its
-  `compileFilter` output — a `(sql, params)` pair — as one more OR clause, with
-  `subject.*` operands bound to the caller. `deny` grants (including deny
-  *filters*) subtract: `… AND NOT (<deny predicate>)`.
+1. **Allow half.**
+   - If the caller has a **broad `read`** at `all`/`app`/`collection` scope that
+     survives its own denies → start from **all rows** (`WHERE 1=1`; today's
+     behavior, the common member case).
+   - Otherwise → the union the caller *can* see:
+     ```sql
+     ( owner = :caller                                    -- rows you own
+       OR id IN (:record_ids_granted_to_caller)           -- enumerated record grants
+       OR (<compiled allow filter-grant #1>)              -- e.g. created_by = :caller
+       OR (<compiled allow filter-grant #2>) )            -- e.g. status = 'shared'
+     ```
+     The record-id set is one indexed lookup of `record`-scope allow grants whose
+     subject ∈ `principals(caller)`; each **filter-grant** (§3.6) contributes its
+     `compileFilter` `(sql, params)` as one more OR clause, `subject.*` bound to
+     the caller.
+2. **Deny half (always applied).** Any deny that targets the caller subtracts —
+   including record-scope denies, so they're removed even on the broad-read fast
+   path:
+   ```sql
+   AND id NOT IN (:record_ids_denied_to_caller)   -- enumerated record denies
+   AND NOT (<compiled deny filter-grant>)          -- e.g. NOT (sensitive = 1)
+   ```
+   (A surviving `all`/`app`/`collection`-scope *allow* already accounts for
+   same-or-broader denies in step 1 — if such a deny existed the caller wouldn't
+   have the broad read — so the deny half here is about the *narrower* denies
+   that carve holes in an otherwise-broad allow.)
 
 This is the payoff of reusing List's filter engine: the whole predicate stays in
 SQL and **fully paginated** — no per-row evaluation, no fetch-then-filter. It
@@ -358,6 +382,32 @@ This requires two additive things the store doesn't have today: the **stored
 predicate as a guard — `SELECT 1 FROM <table> WHERE id = ? AND (<filter>)` —
 so single-record and LIST semantics are identical by construction (no risk of a
 row being listable but not gettable, or vice-versa).
+
+### 4.2 The superuser break-glass (the one thing above a deny)
+
+Because deny always wins, we need a guarantee that an install can never be
+permanently locked out — e.g. an admin fat-fingers a `deny * manage` on
+`everyone`. The backstop is deliberately **outside the grant system**:
+
+- The **superuser *account type*** (`caller.type === 'superuser'`, the
+  bootstrapped account and any account a superuser promotes) short-circuits
+  resolution at step 1 and is **never** subject to grants, denies, roles, or the
+  app gate's record rules. It is the break-glass.
+- The **`admin` *role*** (§3.4) is ordinary data — a bundle of `manage` allows —
+  and therefore **is** beatable by a deny, like any allow. Handing someone the
+  `admin` role is not the same as making their account a superuser.
+
+So the precedence ladder has exactly one rung above deny, and it's an
+account-level property that can only be set by an existing superuser (or the
+first-boot bootstrap), not something any grant can revoke. This mirrors how the
+app gate's `none` already blocks regular users while the engine keeps a
+superuser path open for recovery (`homestead admin reset-password`).
+
+> **Open sub-question (§11 #1a).** Should even the app gate's `none` / a
+> `deny` be able to block a superuser (true "deny always wins, no exceptions")?
+> Recommendation: **no** — keep the superuser break-glass, because a household
+> with no recovery path is a support nightmare. Flagged so the "always" is a
+> conscious choice, not an accident.
 
 ---
 
@@ -656,18 +706,18 @@ The server is authoritative; the client mirrors for UX (same discipline as
 
 ## 11. Open decisions (need your call)
 
-1. **Deny semantics.** Allow-only (simpler, additive) vs. allow+deny (more
-   expressive, more foot-guns)? The deciding factor is the **"everyone-except"**
-   case (§9.1): with a blanket `member` `*` allow, blocking one person from one
-   app/resource has *no allow-only expression* — you'd have to strip their
-   `member` role and re-grant everything else. *Revised recommendation: support
-   `deny`, but scope it tightly in v1 — allow deny only at `app` and
-   `collection` scope (the household-realistic cases), defer record-scope deny.
-   Keep the precedence dead simple: deny always wins.* If we'd rather not ship
-   deny at all in v1, the fallback is to **not** hand out a blanket `member`
-   role and instead compose access from narrower grants — but that makes the
-   common "everyone sees everything" default verbose. This is the one open
-   decision that materially changes the model; see §9.1.
+1. **Deny semantics. — DECIDED.** Deny ships in v1, at **all four scopes**
+   (`all`/`app`/`collection`/`record`), and **always wins**: a deny that targets
+   the caller at the required capability blocks the request, over any allow,
+   owner grant, role, or more-specific grant. Precedence and the SQL treatment
+   are in §4 / §4.1. This is what makes the "everyone-except" case (§9.1)
+   expressible under a blanket `member` role.
+   - **1a. Break-glass exception (§4.2) — open, recommend keep.** The one rung
+     above deny is the superuser *account type*, so a misconfigured
+     `deny * manage everyone` can't permanently brick the install. The `admin`
+     *role* is ordinary data and remains beatable by a deny. Recommendation:
+     keep the break-glass; confirm you're comfortable that "always wins" has
+     this single, account-level exception.
 2. **Delete as its own capability** vs. folding into `write`? *Recommendation:
    keep separate — cheap, and "edit but don't delete" is a real household case.*
 3. **Roles as data vs. config.** Data (editable in UI, proposed) vs. defined in
