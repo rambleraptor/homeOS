@@ -931,10 +931,19 @@ out independently of the record-level enforcement.
   it joins the visibility clause; for single-record ops it runs the same
   predicate as a `SELECT 1 … WHERE path = ? AND (filter)` guard, so the two can't
   drift. Allow-filters widen the `only`/`all-except` set; deny-filters subtract.
-- **Deferred:** *write-time* filter validation. A grant's filter is compiled at
-  enforcement time; an un-compilable one is dropped and logged (an allow grants
-  nothing, a deny is skipped). Validating at grant-write (compile against the
-  target schema, reject on 400) is a follow-up so bad filters fail fast.
+- **Write-time filter validation ✅ done.** A collection-scope grant's `filter`
+  is compiled against its target collection's schema at grant create/update
+  (`validateGrantFilter` in `enforce.ts`, called from `routeGrant`); a filter
+  that can't compile — bad syntax, or a field the schema lacks after a rename —
+  is rejected with a **400** rather than being discovered (and silently dropped,
+  failing a deny-filter open) at enforcement time. The compile is subject-aware
+  (`subject.*` binds to a throwaway subject, since only well-formedness matters)
+  and runs after the manage-on-target authz check but independent of it, so even
+  the break-glass superuser gets a 400 on a malformed filter. Enforcement-time
+  compilation still tolerates a bad filter defensively (logged per-distinct
+  filter), but a valid write can no longer produce one. *Verified by 6 tests*
+  (valid filter, `subject.*` bind, unknown field, syntax error, PATCH drift,
+  non-collection scope left un-validated).
 - **Verify:** compiler subject-binding unit tests (List unaffected) + filter-grant
   enforcement tests (author-scoped read+list consistency, deny-filter subtraction).
 
