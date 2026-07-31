@@ -852,21 +852,36 @@ back off — without a redeploy of code.
   (data only; resolver still dark). **Rollback:** drop the four tables.
 
 ### Phase 3 — Turn enforcement on *(the pivotal phase)*
-- Replace `checkUserScope` with `checkRecordAccess`; CREATE checks collection
-  `write` + stamps owner; LIST folds in `visibilityPredicate`; the app gate reads
-  **group membership** instead of `account_tags`, and the `account-tag` →
-  group migration + retirement (§9.2) happens here, atomically with that switch.
-  Add the access-grant manage-on-target write rule (§15.3). Flip
-  `PERMISSIONS_ENFORCED` on.
-- Because every resource still defaults to `access.model: 'household'` and the
-  `everyone → write *` grant is seeded, **observable behavior is unchanged**.
-- **Ship dark-first:** run one release in **shadow mode** (resolve + log what
-  *would* be denied, but don't deny) to catch surprises against real data before
-  enforcing. **Verify:** full e2e with enforcement on; shadow-mode logs clean.
-  **Risk:** highest of the plan — this is where a bug denies real access.
-  **Rollback:** flip the flag off (instant, no redeploy).
 
-### Phase 4 — Filter-scoped grants *(depends on 3)*
+Split into **3a** (core enforcement, done) and **3b** (app-gate switch, pending).
+
+**Phase 3a — core record/list enforcement ✅ done.**
+- `enforce.ts` bridges the request path to the resolver. In the router, single-
+  record ops (GET/PATCH/PUT/DELETE/`:download`), singleton ops, and CREATE go
+  through `enforceRecordAccess`; collection GET folds `listVisibilityClause`
+  into `store.listResources`. All gated behind the three-valued
+  `PERMISSIONS_ENFORCED` (`off`/`shadow`/`on`); `off` keeps the legacy path.
+- `checkUserScope` is now **always** applied (not just when off): user-parented
+  subtrees stay owner-only regardless of the blanket open grant, so the grant
+  system only *adds* restriction to the shared top-level resources. This was a
+  real bug caught in review — the open grant would otherwise have widened
+  access to another user's notifications/preferences.
+- With the seeded `everyone → write *` grant, ordinary CRUD is unchanged; remove
+  or narrow it and records isolate to owners + explicit grants.
+- **Shadow mode** resolves and logs would-be denials without denying, and never
+  trims lists — for a safe rollout.
+- **Verify:** 7 enforcement unit tests (open-grant CRUD, owner isolation,
+  record-scope share, deny-beats-owner, superuser break-glass, user-parent
+  isolation, shadow). **Risk:** the flag defaults off, so nothing changes until
+  flipped. **Rollback:** flip the flag off (instant, no redeploy).
+
+**Phase 3b — app-gate & account-tags *(pending)*.** Switch the app gate from
+`account_tags` to **group membership**, run the `account-tag` → group migration
++ retirement (§9.2) atomically with that switch, and add the access-grant
+manage-on-target write rule (§15.3). Kept separate from 3a so the app-level gate
+and the record-level enforcement roll out independently.
+
+### Phase 4 — Filter-scoped grants *(depends on 3a)*
 - Give `compileFilter` its optional `subject` context (§3.6.1); compile+validate
   a grant's `filter` at write time; feed its predicate into the §4.1 visibility
   clauses and single-record guards.

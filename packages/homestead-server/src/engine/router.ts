@@ -6,6 +6,7 @@
  */
 
 import {
+  buildResourcePath,
   checkSuperuserWrite,
   checkUserScope,
   handleApply,
@@ -20,6 +21,11 @@ import {
   type RouteMatch,
 } from './crud';
 import { errorResponse } from './errors';
+import {
+  enforceRecordAccess,
+  listVisibilityClause,
+  type EnforceContext,
+} from './enforce';
 import type { RegisteredResource, Registry } from './registry';
 import type { User } from './types';
 
@@ -114,18 +120,42 @@ export async function routeDynamic(
   req: Request,
   segments: string[],
   caller: User | null,
+  ctx?: EnforceContext,
 ): Promise<Response | null> {
   const resolved = resolve(reg, segments);
   if (!resolved) return null;
 
   const { match, rawId } = resolved;
   const r: RegisteredResource = match.resource;
+  const enforcing = ctx !== undefined && ctx.mode !== 'off';
+
+  // User-subtree isolation always applies: a child of `user` stays owner-only,
+  // preserving the privacy of notifications/preferences/etc. The grant system
+  // layers *additional* restriction on top for the shared, top-level resources
+  // (where checkUserScope is a no-op). The blanket open grant must not be able
+  // to widen access to another user's subtree.
   checkUserScope(match, caller);
 
+  const enforce = (verb: 'read' | 'write', recordId?: string, recordPath?: string): void => {
+    if (!enforcing) return;
+    enforceRecordAccess(ctx, reg.db, {
+      caller,
+      verb,
+      resourceType: r.singular,
+      plural: r.plural,
+      recordId,
+      recordPath,
+    });
+  };
+
   if (match.kind === 'singleton') {
-    if (req.method === 'GET') return handleSingletonGet(reg, match);
+    if (req.method === 'GET') {
+      enforce('read');
+      return handleSingletonGet(reg, match);
+    }
     if (req.method === 'PATCH') {
       checkSuperuserWrite(match, caller);
+      enforce('write');
       return handleSingletonUpdate(reg, match, req);
     }
     return methodNotAllowed();
@@ -134,9 +164,15 @@ export async function routeDynamic(
   if (match.kind === 'collection') {
     if (req.method === 'POST') {
       checkSuperuserWrite(match, caller);
+      enforce('write');
       return handleCreate(reg, match, req, caller);
     }
-    if (req.method === 'GET') return handleList(reg, match, req);
+    if (req.method === 'GET') {
+      const visibility = enforcing
+        ? listVisibilityClause(ctx, { caller, resourceType: r.singular, plural: r.plural })
+        : null;
+      return handleList(reg, match, req, visibility);
+    }
     return methodNotAllowed();
   }
 
@@ -149,29 +185,35 @@ export async function routeDynamic(
   } else {
     match.id = rawId;
   }
+  const recordPath = buildResourcePath(r, match.parentIds, match.id);
 
   switch (req.method) {
     case 'GET':
       if (match.verb !== '') {
         return errorResponse(404, `custom method "${match.verb}" not found`);
       }
+      enforce('read', match.id, recordPath);
       return handleGet(reg, match);
     case 'POST':
       if (match.verb === '') {
         return errorResponse(405, 'POST is not allowed on individual resources; use PATCH to update');
       }
       if (match.verb === 'download' && r.fileFields.size > 0) {
+        enforce('read', match.id, recordPath);
         return handleDownload(reg, match, req);
       }
       return errorResponse(404, `custom method "${match.verb}" not found`);
     case 'PATCH':
       checkSuperuserWrite(match, caller);
+      enforce('write', match.id, recordPath);
       return handleUpdate(reg, match, req);
     case 'PUT':
       checkSuperuserWrite(match, caller);
+      enforce('write', match.id, recordPath);
       return handleApply(reg, match, req, caller);
     case 'DELETE':
       checkSuperuserWrite(match, caller);
+      enforce('write', match.id, recordPath);
       return handleDelete(reg, match, req);
     default:
       return methodNotAllowed();

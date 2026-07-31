@@ -114,7 +114,7 @@ function directParentIds(
 }
 
 /** AEP path like "publishers/pub1/books/book1" from pattern + ids. */
-function buildResourcePath(
+export function buildResourcePath(
   r: RegisteredResource,
   parentIds: Record<string, string>,
   id: string,
@@ -454,7 +454,12 @@ export function handleGet(reg: Registry, match: RouteMatch): Response {
   return jsonResponse(storedToMap(reg, r, stored));
 }
 
-export function handleList(reg: Registry, match: RouteMatch, req: Request): Response {
+export function handleList(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+  visibility: { sql: string; params: (string | number)[] } | null = null,
+): Response {
   const r = match.resource;
   const url = new URL(req.url);
 
@@ -493,6 +498,7 @@ export function handleList(reg: Registry, match: RouteMatch, req: Request): Resp
       skip,
       filter,
       orderBy,
+      visibility,
     ));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -22,6 +22,9 @@ import { OAuthRoutes, type OAuthConfig, type SessionIssuer } from './oauth';
 import { buildOpenApi } from './openapi';
 import { Registry } from './registry';
 import { notFoundText, routeDynamic } from './router';
+import { PermissionStore, permissionCacheTtlMs } from './permission-store';
+import { permissionMode } from './permissions';
+import type { EnforceContext } from './enforce';
 import type { User } from './types';
 import {
   createUserTables,
@@ -79,10 +82,14 @@ export class Engine {
   private tokenValidator: TokenValidator | null;
   private sessionIssuer: SessionIssuer | null;
   private oauth: OAuthRoutes | null;
+  private readonly permissionStore: PermissionStore;
+  /** Collection plural → owning app id, for app-scope grant matching. */
+  private collectionToApp: Record<string, string> = {};
 
   constructor(opts: EngineOptions) {
     this.db = openDb(opts.dbPath);
     createUserTables(this.db);
+    this.permissionStore = new PermissionStore(this.db, permissionCacheTtlMs());
     this.registry = new Registry(this.db, {
       filesDir: opts.filesDir,
       serverUrl: opts.serverUrl,
@@ -101,6 +108,19 @@ export class Engine {
 
   setAccessCheck(check: AccessCheck | null): void {
     this.accessCheck = check;
+  }
+
+  /** Wire the collection→app map so app-scope grants can be matched. */
+  setPermissionAppMap(collectionToApp: Record<string, string>): void {
+    this.collectionToApp = collectionToApp;
+  }
+
+  private enforceContext(): EnforceContext {
+    return {
+      store: this.permissionStore,
+      appIdFor: (plural) => this.collectionToApp[plural] ?? null,
+      mode: permissionMode(),
+    };
   }
 
   setTokenValidator(validator: TokenValidator | null): void {
@@ -222,7 +242,13 @@ export class Engine {
       return res ?? notFoundText();
     }
 
-    const dynamicRes = await routeDynamic(this.registry, req, segments, caller);
+    const dynamicRes = await routeDynamic(
+      this.registry,
+      req,
+      segments,
+      caller,
+      this.enforceContext(),
+    );
     if (dynamicRes) return dynamicRes;
 
     return notFoundText();

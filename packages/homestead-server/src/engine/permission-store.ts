@@ -20,6 +20,18 @@ import type {
 
 export const DEFAULT_PERMISSION_CACHE_TTL_MS = 5000;
 
+/**
+ * Cache TTL, overridable via `PERMISSION_CACHE_TTL_MS` (0 = always reload).
+ * Grant/role/group changes take effect within this window; e2e/tests set it low
+ * so a just-created grant is honored immediately.
+ */
+export function permissionCacheTtlMs(): number {
+  const raw = process.env.PERMISSION_CACHE_TTL_MS;
+  if (raw === undefined || raw === '') return DEFAULT_PERMISSION_CACHE_TTL_MS;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_PERMISSION_CACHE_TTL_MS;
+}
+
 interface GrantRow {
   subject_type: string;
   subject_id: string | null;
