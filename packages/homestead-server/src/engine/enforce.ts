@@ -56,22 +56,6 @@ export interface EnforceContext {
   mode: PermissionMode;
 }
 
-/** The capability a method requires (delete folds into write; §3.2). */
-export function verbForMethod(method: string, isDownload = false): Verb {
-  if (isDownload) return 'read';
-  switch (method) {
-    case 'GET':
-      return 'read';
-    case 'POST':
-    case 'PATCH':
-    case 'PUT':
-    case 'DELETE':
-      return 'write';
-    default:
-      return 'read';
-  }
-}
-
 function ownerOf(db: Database, plural: string, path: string): string | null {
   try {
     const row = db
@@ -371,10 +355,21 @@ export function enforceGrantWrite(
   deny('no-manage-on-target');
 }
 
-let warnedInvalidFilter = false;
+/**
+ * De-dupe warnings *per distinct filter*, not globally: an un-compilable filter
+ * is fail-open for a deny grant (the deny silently stops applying), so every
+ * different broken filter must surface at least once — a single process-wide
+ * flag would hide the second one entirely. Bounded so a pathological stream of
+ * distinct broken filters can't grow it without limit; past the cap we warn
+ * every time rather than going quiet.
+ */
+const warnedInvalidFilters = new Set<string>();
+const WARNED_INVALID_FILTER_CAP = 256;
 function logInvalidFilter(filter: string): void {
-  if (warnedInvalidFilter) return;
-  warnedInvalidFilter = true;
+  if (warnedInvalidFilters.size < WARNED_INVALID_FILTER_CAP) {
+    if (warnedInvalidFilters.has(filter)) return;
+    warnedInvalidFilters.add(filter);
+  }
   console.warn(`[permissions] ignoring un-compilable grant filter: ${JSON.stringify(filter)}`);
 }
 

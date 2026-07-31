@@ -157,6 +157,14 @@ A few rules of thumb make the whole system predictable:
 
 - **Roles ride on groups.** In this version you give someone a role by adding
   them to a group with that role, not by assigning it to them directly.
+- **The rules themselves are visible to the household.** Anyone signed in can
+  read the grants, groups, and roles (only superusers and a record's owner can
+  *change* them). This is intentional — it keeps the household transparent about
+  who can do what, and the apps need it to show you the right screens. One
+  consequence: a deny rule is discoverable, so "who is blocked from the finances
+  app" isn't a secret. Permissions control *access to your data*, not *knowledge
+  of the rules* — if you need someone's very existence in a rule kept private,
+  this isn't the tool for that.
 - **Changes are near-instant.** New rules take effect within a few seconds
   (there's a short cache), no restart needed.
 - **Owner-only apps.** A developer can mark a whole resource *owner-private* in

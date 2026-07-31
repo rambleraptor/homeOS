@@ -737,6 +737,10 @@ export function handleSingletonGet(reg: Registry, match: RouteMatch): Response {
       update_time: now,
       fields: {},
     };
+    // No owner: a singleton is one household-wide row, so per-user ownership
+    // (access model 'owner') doesn't apply to it — `_owner` stays null. If a
+    // singleton ever opts into owner-model access, this is the gap to close
+    // (thread `caller` through and pass `ownerFor(caller)` like handleCreate).
     insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
   }
   return jsonResponse(singletonToMap(r, stored));
@@ -778,6 +782,8 @@ export async function handleSingletonUpdate(
       update_time: now,
       fields,
     };
+    // Ownerless by design — see handleSingletonGet: a singleton is household-
+    // wide, so owner-model access doesn't apply and `_owner` stays null.
     insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
     return jsonResponse(singletonToMap(r, stored));
   }
