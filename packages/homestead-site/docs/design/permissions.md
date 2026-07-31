@@ -909,12 +909,22 @@ the app-level gate rolls out independently of the record-level enforcement.
 - **Verify:** compiler subject-binding unit tests (List unaffected) + filter-grant
   enforcement tests (author-scoped read+list consistency, deny-filter subtraction).
 
-### Phase 5 — Opt-in strictness *(depends on 3)*
-- Add the `access.model` authoring field + `x-homestead-access` translator marker
-  + schema-sync validation; opt one real resource (e.g. a private HSA/notes case)
-  into `owner` as the first proof.
-- **Verify:** the chosen resource is private-by-owner; every other resource is
-  untouched. **Risk:** low, scoped to one resource.
+### Phase 5 — Opt-in strictness *(depends on 3a)* ✅ done
+- `ResourceDefinition.access?: { model }` (`household` | `owner` | `acl`,
+  default `household`), validated by `validateResourceDefinition`. It rides to
+  the engine as an `x-homestead-access` marker on the **schema root**, so it
+  round-trips through the definition store's `schema_json` with no new column;
+  the registry reads it into `RegisteredResource.accessModel`.
+- Enforcement (`enforce.ts scopedGrants`) applies it to **row** access only
+  (CREATE keeps the full grant set — people can always add records they'll own):
+  `household` honors every grant scope; `acl` drops the all-scope (open) grant;
+  `owner` drops all- *and* app-scope allow grants, leaving owner + collection/
+  record. Denies are kept at every scope.
+- No real resource is opted in yet — that's an operator/product choice (safe
+  since enforcement is off by default). The mechanism is proven by tests.
+- **Verify:** 4 tests — household shares via the open grant, owner is private
+  despite it, a collection grant opens an owner resource, acl ignores the open
+  grant but honors a collection grant.
 
 ### Phase 6 — Client mirror *(depends on 3)*
 - `can()` helper; login hydration of group memberships + conferred roles +

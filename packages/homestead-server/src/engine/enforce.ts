@@ -21,6 +21,7 @@ import {
   resolve,
   type AccessRequest,
   type FilterEval,
+  type Grant,
   type PermissionMode,
   type Verb,
   type Visibility,
@@ -29,6 +30,23 @@ import {
 /** Caller attributes exposed to a grant filter as `subject.*` (§3.6.1). */
 function subjectOf(caller: User): FilterSubject {
   return { id: caller.id, email: caller.email, display_name: caller.display_name };
+}
+
+export type AccessModel = 'household' | 'owner' | 'acl';
+
+/**
+ * Apply a resource's access model (§7) to the grant set used for *row* access:
+ *   - household → all grant scopes apply (the blanket open grant included).
+ *   - acl       → the all-scope (open) grant is ignored; app/collection/record apply.
+ *   - owner     → all- and app-scope grants ignored; only collection/record apply
+ *                 (owner⇒manage still comes from the resolver itself).
+ * Denies are always kept — deny wins at every scope. CREATE never calls this
+ * (people can always add records they'll own).
+ */
+function scopedGrants(grants: Grant[], model: AccessModel): Grant[] {
+  if (model === 'household') return grants;
+  const droppedAllowScopes = model === 'owner' ? new Set(['all', 'app']) : new Set(['all']);
+  return grants.filter((g) => g.effect === 'deny' || !droppedAllowScopes.has(g.target.scope));
 }
 
 export interface EnforceContext {
@@ -80,6 +98,7 @@ export function enforceRecordAccess(
     resourceType: string;
     plural: string;
     schema: Schema;
+    accessModel: AccessModel;
     recordId?: string;
     recordPath?: string;
   },
@@ -87,7 +106,11 @@ export function enforceRecordAccess(
   const { caller } = opts;
   if (!caller) return; // no auth context (unit tests); auth middleware enforces presence
 
-  const { principals, grants } = ctx.store.gatherFor(caller.id);
+  const gathered = ctx.store.gatherFor(caller.id);
+  const { principals } = gathered;
+  // The access model restricts *row* access (recordPath set); CREATE keeps the
+  // full grant set so people can add records they'll own.
+  const grants = opts.recordPath ? scopedGrants(gathered.grants, opts.accessModel) : gathered.grants;
   const recordOwner = opts.recordPath ? ownerOf(db, opts.plural, opts.recordPath) : undefined;
 
   // A collection-scope grant filter (§3.6) matches iff the addressed record
@@ -154,13 +177,21 @@ function recordMatchesFilter(
  */
 export function listVisibilityClause(
   ctx: EnforceContext,
-  opts: { caller: User | null; resourceType: string; plural: string; schema: Schema },
+  opts: {
+    caller: User | null;
+    resourceType: string;
+    plural: string;
+    schema: Schema;
+    accessModel: AccessModel;
+  },
 ): { sql: string; params: (string | number)[] } | null {
   const { caller } = opts;
   if (ctx.mode !== 'on' || !caller) return null;
   if (caller.type === TYPE_SUPERUSER) return null; // break-glass: sees everything
 
-  const { principals, grants } = ctx.store.gatherFor(caller.id);
+  const gathered = ctx.store.gatherFor(caller.id);
+  const { principals } = gathered;
+  const grants = scopedGrants(gathered.grants, opts.accessModel);
   const visibility = computeVisibility(
     { resourceType: opts.resourceType, appId: ctx.appIdFor(opts.plural) },
     principals,

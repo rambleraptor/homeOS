@@ -156,6 +156,7 @@ export async function routeDynamic(
       resourceType: r.singular,
       plural: r.plural,
       schema: r.schema,
+      accessModel: r.accessModel,
       recordId,
       recordPath,
     });
@@ -187,6 +188,7 @@ export async function routeDynamic(
             resourceType: r.singular,
             plural: r.plural,
             schema: r.schema,
+            accessModel: r.accessModel,
           })
         : null;
       return handleList(reg, match, req, visibility);
