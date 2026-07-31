@@ -91,11 +91,41 @@ const COMPARISON_OPS: Record<string, string> = {
 };
 
 /**
+ * Caller attributes a filter may reference as `subject.<attr>` (permissions
+ * §3.6.1). Bound as SQL parameters, never interpolated. Only these keys are
+ * addressable; anything else under `subject.` is an error.
+ */
+export interface FilterSubject {
+  id: string;
+  email?: string;
+  display_name?: string;
+}
+
+const SUBJECT_KEYS = new Set<keyof FilterSubject>(['id', 'email', 'display_name']);
+
+export interface CompileOptions {
+  /**
+   * Enables the `subject.*` operand namespace, bound to these values. Omitted by
+   * the List endpoint (its `subject.*` then resolves as an unknown field → 400),
+   * supplied by permission filter-grants.
+   */
+  subject?: FilterSubject;
+}
+
+/**
  * Compile a filter expression to a parameterized SQL fragment. Throws
  * Error("invalid filter: ...") on parse failures or unknown fields, which
  * the list handler maps to a 400 — same contract as the Go server.
+ *
+ * The single filter compiler shared by List and permission filter-grants: any
+ * grammar added here lifts both. `opts.subject` is the one permission-specific
+ * seam (List calls it with no opts).
  */
-export function compileFilter(filter: string, schema: Schema): CompiledFilter {
+export function compileFilter(
+  filter: string,
+  schema: Schema,
+  opts: CompileOptions = {},
+): CompiledFilter {
   try {
     const tokens = tokenize(filter);
     const fields = new Set(
@@ -124,6 +154,16 @@ export function compileFilter(filter: string, schema: Schema): CompiledFilter {
       if (!t) throw new FilterError('unexpected end of filter');
       switch (t.kind) {
         case 'ident': {
+          // `subject.<attr>` binds a caller attribute as a parameter, when a
+          // subject context is supplied (permission filter-grants only).
+          if (t.value.startsWith('subject.')) {
+            const attr = t.value.slice('subject.'.length) as keyof FilterSubject;
+            if (!opts.subject || !SUBJECT_KEYS.has(attr)) {
+              throw new FilterError(`unknown field ${JSON.stringify(t.value)}`);
+            }
+            params.push(opts.subject[attr] ?? '');
+            return { sql: '?', isField: false };
+          }
           const column = fields.has(t.value) ? t.value : derived.get(t.value);
           if (!column) {
             throw new FilterError(`unknown field ${JSON.stringify(t.value)}`);

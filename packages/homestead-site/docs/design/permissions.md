@@ -881,12 +881,21 @@ Split into **3a** (core enforcement, done) and **3b** (app-gate switch, pending)
 manage-on-target write rule (§15.3). Kept separate from 3a so the app-level gate
 and the record-level enforcement roll out independently.
 
-### Phase 4 — Filter-scoped grants *(depends on 3a)*
-- Give `compileFilter` its optional `subject` context (§3.6.1); compile+validate
-  a grant's `filter` at write time; feed its predicate into the §4.1 visibility
-  clauses and single-record guards.
-- **Verify:** filter-grant unit tests + an e2e ("I see only recipes I created");
-  List's own filter path stays byte-for-byte unchanged. **Risk:** low, additive.
+### Phase 4 — Filter-scoped grants *(depends on 3a)* ✅ done
+- `compileFilter` gained its optional `subject` context (§3.6.1): a
+  `subject.<attr>` operand (id / email / display_name) binds to the caller as a
+  parameter. With no subject supplied (List's path) `subject.*` is an unknown
+  field → 400, so List is unchanged.
+- `enforce.ts` compiles a collection-scope grant's `filter` into SQL — for LIST
+  it joins the visibility clause; for single-record ops it runs the same
+  predicate as a `SELECT 1 … WHERE path = ? AND (filter)` guard, so the two can't
+  drift. Allow-filters widen the `only`/`all-except` set; deny-filters subtract.
+- **Deferred:** *write-time* filter validation. A grant's filter is compiled at
+  enforcement time; an un-compilable one is dropped and logged (an allow grants
+  nothing, a deny is skipped). Validating at grant-write (compile against the
+  target schema, reject on 400) is a follow-up so bad filters fail fast.
+- **Verify:** compiler subject-binding unit tests (List unaffected) + filter-grant
+  enforcement tests (author-scoped read+list consistency, deny-filter subtraction).
 
 ### Phase 5 — Opt-in strictness *(depends on 3)*
 - Add the `access.model` authoring field + `x-homestead-access` translator marker

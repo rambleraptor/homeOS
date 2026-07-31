@@ -12,15 +12,22 @@
 import type { Database } from './sqlite';
 import { HttpError } from './errors';
 import { OWNER_COLUMN, sanitizeTableName } from './db';
-import { TYPE_SUPERUSER, type User } from './types';
+import { compileFilter, type FilterSubject } from './filter';
+import { TYPE_SUPERUSER, type Schema, type User } from './types';
 import type { PermissionStore } from './permission-store';
 import {
   computeVisibility,
   resolve,
+  type FilterEval,
   type PermissionMode,
   type Verb,
   type Visibility,
 } from './permissions';
+
+/** Caller attributes exposed to a grant filter as `subject.*` (§3.6.1). */
+function subjectOf(caller: User): FilterSubject {
+  return { id: caller.id, email: caller.email, display_name: caller.display_name };
+}
 
 export interface EnforceContext {
   store: PermissionStore;
@@ -70,6 +77,7 @@ export function enforceRecordAccess(
     verb: Verb;
     resourceType: string;
     plural: string;
+    schema: Schema;
     recordId?: string;
     recordPath?: string;
   },
@@ -79,6 +87,13 @@ export function enforceRecordAccess(
 
   const { principals, grants } = ctx.store.gatherFor(caller.id);
   const recordOwner = opts.recordPath ? ownerOf(db, opts.plural, opts.recordPath) : undefined;
+
+  // A collection-scope grant filter (§3.6) matches iff the addressed record
+  // satisfies it — evaluated as a SQL guard so it can't drift from LIST.
+  const filterEval: FilterEval = (filter) => {
+    if (!opts.recordPath) return false; // create/collection: no row to match
+    return recordMatchesFilter(db, opts.plural, opts.recordPath, filter, opts.schema, subjectOf(caller));
+  };
 
   const decision = resolve(
     { isSuperuser: caller.type === TYPE_SUPERUSER },
@@ -91,6 +106,7 @@ export function enforceRecordAccess(
     },
     principals,
     grants,
+    filterEval,
   );
 
   if (decision.allow) return;
@@ -102,6 +118,33 @@ export function enforceRecordAccess(
   throw new HttpError(403, 'you do not have access to this resource');
 }
 
+/** True iff the addressed row satisfies `filter` (subject.* bound to the caller). */
+function recordMatchesFilter(
+  db: Database,
+  plural: string,
+  recordPath: string,
+  filter: string,
+  schema: Schema,
+  subject: FilterSubject,
+): boolean {
+  let compiled;
+  try {
+    compiled = compileFilter(filter, schema, { subject });
+  } catch {
+    logInvalidFilter(filter);
+    return false; // a broken filter grants nothing
+  }
+  try {
+    const table = sanitizeTableName(plural);
+    const row = db
+      .query(`SELECT 1 FROM ${table} WHERE path = ? AND (${compiled.sql}) LIMIT 1`)
+      .get(recordPath, ...compiled.params);
+    return !!row;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Compute the LIST visibility clause for the current caller, or `null` for no
  * restriction. Only applied when the mode is `on`; `shadow`/superuser return
@@ -109,7 +152,7 @@ export function enforceRecordAccess(
  */
 export function listVisibilityClause(
   ctx: EnforceContext,
-  opts: { caller: User | null; resourceType: string; plural: string },
+  opts: { caller: User | null; resourceType: string; plural: string; schema: Schema },
 ): { sql: string; params: (string | number)[] } | null {
   const { caller } = opts;
   if (ctx.mode !== 'on' || !caller) return null;
@@ -121,55 +164,88 @@ export function listVisibilityClause(
     principals,
     grants,
   );
-  return visibilityToSql(visibility, caller.id);
+  return visibilityToSql(visibility, caller.id, opts.schema, subjectOf(caller));
+}
+
+/** Compile a grant filter to `(sql, params)`, or null if it can't compile. */
+function compiledFilterClause(
+  filter: string,
+  schema: Schema,
+  subject: FilterSubject,
+): { sql: string; params: (string | number)[] } | null {
+  try {
+    const c = compileFilter(filter, schema, { subject });
+    return { sql: c.sql, params: [...c.params] };
+  } catch {
+    logInvalidFilter(filter);
+    return null;
+  }
 }
 
 /**
- * Translate a Visibility verdict into a SQL fragment over the resource table.
- * Filter clauses (allow/deny) are Phase 4 — none exist from the baseline, so
- * they're logged and skipped here (conservatively for `only`, permissively for
- * `all-except`).
+ * Translate a Visibility verdict into a SQL fragment over the resource table,
+ * compiling any filter-grant clauses (§3.6) with `subject.*` bound to the caller.
+ * A filter that can't compile is dropped (an allow grants nothing; a deny is
+ * skipped and logged) — write-time validation should prevent this.
  */
 function visibilityToSql(
   v: Visibility,
   callerId: string,
+  schema: Schema,
+  subject: FilterSubject,
 ): { sql: string; params: (string | number)[] } | null {
+  const compileMany = (filters: string[]) =>
+    filters.map((f) => compiledFilterClause(f, schema, subject)).filter((c): c is NonNullable<typeof c> => c !== null);
+
   switch (v.mode) {
     case 'all':
       return null;
     case 'none':
       return { sql: '0', params: [] };
     case 'all-except': {
-      if (v.denyFilters.length) warnFilters();
-      if (v.denyRecordIds.length === 0) return null;
-      const qs = v.denyRecordIds.map(() => '?').join(', ');
-      return { sql: `id NOT IN (${qs})`, params: [...v.denyRecordIds] };
+      const parts: string[] = [];
+      const params: (string | number)[] = [];
+      if (v.denyRecordIds.length) {
+        parts.push(`id NOT IN (${v.denyRecordIds.map(() => '?').join(', ')})`);
+        params.push(...v.denyRecordIds);
+      }
+      for (const c of compileMany(v.denyFilters)) {
+        parts.push(`NOT (${c.sql})`);
+        params.push(...c.params);
+      }
+      if (parts.length === 0) return null;
+      return { sql: parts.join(' AND '), params };
     }
     case 'only': {
-      if (v.allowFilters.length || v.denyFilters.length) warnFilters();
+      const orParts: string[] = [`${OWNER_COLUMN} = ?`];
       const params: (string | number)[] = [callerId];
-      let base = `${OWNER_COLUMN} = ?`;
       if (v.allowRecordIds.length) {
-        base += ` OR id IN (${v.allowRecordIds.map(() => '?').join(', ')})`;
+        orParts.push(`id IN (${v.allowRecordIds.map(() => '?').join(', ')})`);
         params.push(...v.allowRecordIds);
       }
-      let sql = `(${base})`;
+      for (const c of compileMany(v.allowFilters)) {
+        orParts.push(`(${c.sql})`);
+        params.push(...c.params);
+      }
+      let sql = `(${orParts.join(' OR ')})`;
       if (v.denyRecordIds.length) {
         sql += ` AND id NOT IN (${v.denyRecordIds.map(() => '?').join(', ')})`;
         params.push(...v.denyRecordIds);
+      }
+      for (const c of compileMany(v.denyFilters)) {
+        sql += ` AND NOT (${c.sql})`;
+        params.push(...c.params);
       }
       return { sql, params };
     }
   }
 }
 
-let warnedFilters = false;
-function warnFilters(): void {
-  if (warnedFilters) return;
-  warnedFilters = true;
-  console.warn(
-    '[permissions] filter-scoped grants are not evaluated yet (Phase 4); ignoring filter clauses',
-  );
+let warnedInvalidFilter = false;
+function logInvalidFilter(filter: string): void {
+  if (warnedInvalidFilter) return;
+  warnedInvalidFilter = true;
+  console.warn(`[permissions] ignoring un-compilable grant filter: ${JSON.stringify(filter)}`);
 }
 
 function logShadow(

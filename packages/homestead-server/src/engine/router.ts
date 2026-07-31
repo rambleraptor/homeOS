@@ -143,6 +143,7 @@ export async function routeDynamic(
       verb,
       resourceType: r.singular,
       plural: r.plural,
+      schema: r.schema,
       recordId,
       recordPath,
     });
@@ -169,7 +170,12 @@ export async function routeDynamic(
     }
     if (req.method === 'GET') {
       const visibility = enforcing
-        ? listVisibilityClause(ctx, { caller, resourceType: r.singular, plural: r.plural })
+        ? listVisibilityClause(ctx, {
+            caller,
+            resourceType: r.singular,
+            plural: r.plural,
+            schema: r.schema,
+          })
         : null;
       return handleList(reg, match, req, visibility);
     }
