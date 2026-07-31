@@ -819,16 +819,25 @@ back off — without a redeploy of code.
   reads it. **Risk:** ~nil (additive column). **Rollback:** drop the column.
 
 ### Phase 1 — The resolver, in isolation *(not wired)*
-- `engine/permissions.ts`: pure `resolve()`, `visibilityPredicate()`, and a
-  TTL-cached `PermissionStore` (mirrors `AccessStore`).
+- `engine/permissions.ts`: the pure decision core — `resolve()` (single-record /
+  create) and `computeVisibility()` (the LIST predicate, returning a structured
+  `all | none | all-except | only` verdict the SQL layer consumes later) — plus
+  the types and the kill-switch.
+- The TTL-cached `PermissionStore` is deferred to **Phase 2**, where its tables
+  exist: building it here would mean guessing the grant/role/group column names
+  before the resources are defined. Keeping Phase 1 to pure functions makes it
+  drift-free and exhaustively unit-testable.
 - **Verify:** unit tests against the §4 truth table (allow/deny precedence,
-  scope hierarchy, owner, break-glass, empty-store fail-open). **Risk:** nil
-  (nothing calls it). **Rollback:** delete the module.
+  scope hierarchy, owner, break-glass, default deny) and the §4.1 visibility
+  modes. **Risk:** nil (nothing calls it). **Rollback:** delete the module.
 
 ### Phase 2 — Data model, seed & migration *(enforcement still off)*
 - Define `role`, `group`, `group-membership`, `access-grant` (§6); schema-sync
   applies them. Seed the role definitions + the `everyone → write *` open grant.
   Migrate `account-tag`s → groups and retire `account-tag` (§9.2).
+- Build the TTL-cached `PermissionStore` (mirrors `AccessStore`) that loads
+  grants/groups/memberships/roles from these tables, expands role bundles into
+  caller-addressed grants, and feeds `resolve()` / `computeVisibility()`.
 - The special access-grant write rules (§15.3) land here too.
 - **Verify:** schema-sync + OpenAPI wire-contract tests; CLI smoke
   (`homestead resources access-grant …`); a migration test asserting each tag
