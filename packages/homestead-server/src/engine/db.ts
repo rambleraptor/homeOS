@@ -204,6 +204,9 @@ export function createResourceTable(
     'path TEXT NOT NULL UNIQUE',
     'create_time TEXT NOT NULL',
     'update_time TEXT NOT NULL',
+    // Engine-managed owner (permissions). Stamped from the caller on create;
+    // never a schema field, so reads/inserts of user fields ignore it.
+    `${OWNER_COLUMN} TEXT`,
   ];
   for (const p of parents) {
     cols.push(`${sanitizeTableName(p)}_id TEXT NOT NULL`);
@@ -216,7 +219,61 @@ export function createResourceTable(
     const colName = `${sanitizeTableName(p)}_id`;
     db.run(`CREATE INDEX IF NOT EXISTS idx_${tableName}_${colName} ON ${tableName}(${colName})`);
   }
+  indexOwnerColumn(db, tableName);
   indexGeneratedColumns(db, tableName, columns);
+}
+
+/**
+ * The engine-managed owner column added to every dynamic-resource table.
+ * Leading underscore keeps it out of the schema-field namespace (field names
+ * are snake_case without a leading underscore), so it never collides with a
+ * user-declared field and the store's schema-driven column list ignores it.
+ */
+export const OWNER_COLUMN = '_owner';
+
+function indexOwnerColumn(db: Database, tableName: string): void {
+  db.run(
+    `CREATE INDEX IF NOT EXISTS idx_${tableName}_owner ON ${tableName}(${OWNER_COLUMN})`,
+  );
+}
+
+/**
+ * Ensure the owner column exists on an already-created table (databases that
+ * predate the permissions work). Idempotent: the ADD COLUMN throws once the
+ * column is present, which we swallow — matching the meta-table migration
+ * pattern above.
+ */
+export function ensureOwnerColumn(db: Database, plural: string): void {
+  const tableName = sanitizeTableName(plural);
+  try {
+    db.run(`ALTER TABLE ${tableName} ADD COLUMN ${OWNER_COLUMN} TEXT`);
+  } catch {
+    // column already present — already migrated
+  }
+  indexOwnerColumn(db, tableName);
+}
+
+/**
+ * One-time backfill of `_owner` from a resource's `created_by` field, for rows
+ * that predate owner-stamping. `created_by` holds a `users/{id}` path (or a
+ * bare id); we normalize to the bare id. Idempotent and cheap on later boots:
+ * only rows with a null owner are touched, and new rows are always stamped.
+ * No-ops for resources without a `created_by` column.
+ */
+export function backfillOwnerFromCreatedBy(
+  db: Database,
+  plural: string,
+  hasCreatedBy: boolean,
+): void {
+  if (!hasCreatedBy) return;
+  const tableName = sanitizeTableName(plural);
+  db.run(
+    `UPDATE ${tableName}
+        SET ${OWNER_COLUMN} = replace(created_by, 'users/', '')
+      WHERE ${OWNER_COLUMN} IS NULL
+        AND created_by IS NOT NULL
+        AND created_by != ''`,
+  );
 }
 
 /**
@@ -259,8 +316,10 @@ export function removeColumns(
     'path TEXT NOT NULL UNIQUE',
     'create_time TEXT NOT NULL',
     'update_time TEXT NOT NULL',
+    // Preserve the engine-managed owner column across a field-drop rebuild.
+    `${OWNER_COLUMN} TEXT`,
   ];
-  const colNames = ['id', 'path', 'create_time', 'update_time'];
+  const colNames = ['id', 'path', 'create_time', 'update_time', OWNER_COLUMN];
   for (const p of parents) {
     const colName = `${sanitizeTableName(p)}_id`;
     cols.push(`${colName} TEXT NOT NULL`);
@@ -287,6 +346,7 @@ export function removeColumns(
         `CREATE INDEX IF NOT EXISTS idx_${tableName}_${colName} ON ${tableName}(${colName})`,
       );
     }
+    indexOwnerColumn(db, tableName);
     indexGeneratedColumns(db, tableName, keepColumns);
   });
   tx();

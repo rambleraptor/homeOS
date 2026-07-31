@@ -114,7 +114,7 @@ function directParentIds(
 }
 
 /** AEP path like "publishers/pub1/books/book1" from pattern + ids. */
-function buildResourcePath(
+export function buildResourcePath(
   r: RegisteredResource,
   parentIds: Record<string, string>,
   id: string,
@@ -401,6 +401,7 @@ export async function handleCreate(
   reg: Registry,
   match: RouteMatch,
   req: Request,
+  caller: User | null = null,
 ): Promise<Response> {
   const r = match.resource;
   const url = new URL(req.url);
@@ -425,7 +426,7 @@ export async function handleCreate(
   };
 
   try {
-    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema, ownerFor(caller));
   } catch (err) {
     if (isUniqueConstraintError(err)) {
       return errorResponse(409, `resource "${path}" already exists`);
@@ -436,6 +437,15 @@ export async function handleCreate(
   return jsonResponse(storedToMap(reg, r, stored), 201);
 }
 
+/**
+ * The owner to stamp on a newly created record: the authenticated caller's id,
+ * or null when there's no auth context (unit tests, system-issued writes).
+ * Phase 0 only records it — nothing reads `_owner` yet.
+ */
+function ownerFor(caller: User | null): string | null {
+  return caller ? caller.id : null;
+}
+
 export function handleGet(reg: Registry, match: RouteMatch): Response {
   const r = match.resource;
   const path = buildResourcePath(r, match.parentIds, match.id);
@@ -444,7 +454,12 @@ export function handleGet(reg: Registry, match: RouteMatch): Response {
   return jsonResponse(storedToMap(reg, r, stored));
 }
 
-export function handleList(reg: Registry, match: RouteMatch, req: Request): Response {
+export function handleList(
+  reg: Registry,
+  match: RouteMatch,
+  req: Request,
+  visibility: { sql: string; params: (string | number)[] } | null = null,
+): Response {
   const r = match.resource;
   const url = new URL(req.url);
 
@@ -483,6 +498,7 @@ export function handleList(reg: Registry, match: RouteMatch, req: Request): Resp
       skip,
       filter,
       orderBy,
+      visibility,
     ));
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -526,6 +542,7 @@ export async function handleApply(
   reg: Registry,
   match: RouteMatch,
   req: Request,
+  caller: User | null = null,
 ): Promise<Response> {
   const r = match.resource;
   const path = buildResourcePath(r, match.parentIds, match.id);
@@ -563,7 +580,7 @@ export async function handleApply(
     update_time: now,
     fields,
   };
-  insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+  insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema, ownerFor(caller));
   return jsonResponse(storedToMap(reg, r, stored), 201);
 }
 

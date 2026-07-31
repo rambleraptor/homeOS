@@ -2,6 +2,8 @@
  * Core Authentication Types for Homestead
  */
 
+import type { PermissionContext } from '../permissions/client';
+
 export type MapProvider = 'google' | 'apple';
 
 export type UserType = 'superuser' | 'regular';
@@ -37,6 +39,12 @@ export interface User {
    * the `account-tag` child resource (see `users/resources.ts`).
    */
   tags?: string[];
+  /**
+   * The caller's permission context (group ids + expanded grants + whether
+   * enforcement is on), hydrated on login from `/api/permissions/me`. Feeds the
+   * client `can()` mirror (design §10). UX only — the engine is authoritative.
+   */
+  permissions?: PermissionContext;
 }
 
 export interface AuthState {

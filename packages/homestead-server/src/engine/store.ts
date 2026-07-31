@@ -10,7 +10,7 @@
 import type { Database } from './sqlite';
 import type { Schema, StoredResource } from './types';
 import { STANDARD_FIELDS } from './types';
-import { sanitizeTableName } from './db';
+import { OWNER_COLUMN, sanitizeTableName } from './db';
 import { compileFilter } from './filter';
 import { compileOrderBy } from './order';
 import { decryptText, encryptionEnabled, encryptText, isEncryptedText } from './crypto';
@@ -122,10 +122,11 @@ export function insertResource(
   r: StoredResource,
   parentIds: Record<string, string>,
   schema: Schema,
+  owner: string | null = null,
 ): void {
   const tableName = sanitizeTableName(plural);
-  const colNames = ['id', 'path', 'create_time', 'update_time'];
-  const values: SqlValue[] = [r.id, r.path, r.create_time, r.update_time];
+  const colNames = ['id', 'path', 'create_time', 'update_time', OWNER_COLUMN];
+  const values: SqlValue[] = [r.id, r.path, r.create_time, r.update_time, owner];
 
   for (const [parentParam, parentId] of Object.entries(parentIds)) {
     colNames.push(sanitizeTableName(parentParam));
@@ -167,6 +168,7 @@ export function listResources(
   skip: number,
   filter: string,
   orderBy = '',
+  visibility: { sql: string; params: (string | number)[] } | null = null,
 ): { results: StoredResource[]; nextPageToken: string } {
   const tableName = sanitizeTableName(plural);
   const selectCols = ['id', 'path', 'create_time', 'update_time', ...schemaPropertyNames(schema)];
@@ -184,6 +186,14 @@ export function listResources(
     const compiled = compileFilter(filter, schema);
     whereClauses.push(compiled.sql);
     args.push(...compiled.params);
+  }
+
+  // Permission visibility predicate (design §4.1). AND-ed like the user filter,
+  // so a caller only ever sees the intersection of what they filtered for and
+  // what they're allowed to read.
+  if (visibility) {
+    whereClauses.push(`(${visibility.sql})`);
+    args.push(...visibility.params);
   }
 
   // Throws Error("invalid order_by: ...") which the handler maps to 400.

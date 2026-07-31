@@ -27,7 +27,7 @@ const SERVER_STUB_ID = '\0homestead-server-only-stub';
  */
 function stubServerOnlyModules(): Plugin {
   const SERVER_ONLY_RE =
-    /homestead-apps[/\\].*(?:[/\\](?:methods|crons|migrations)[/\\][^/\\]+|\.server\.[jt]sx?)$/;
+    /homestead-(?:apps|core)[/\\].*(?:[/\\](?:methods|crons|migrations)[/\\][^/\\]+|\.server\.[jt]sx?)$/;
   return {
     name: 'homestead:stub-server-only',
     enforce: 'pre',

@@ -432,6 +432,24 @@ export interface ResourceCustomMethod {
   }>;
 }
 
+/**
+ * How a resource's rows are governed by the permissions system (design §7):
+ *   - `household` (default) — every caller with access to the collection sees
+ *     all rows; the blanket open grant applies. Today's behavior.
+ *   - `owner` — rows are private to their `_owner`; others need an explicit
+ *     grant. All- and app-scope grants (incl. the open grant) don't confer row
+ *     access; only owner + collection/record grants do.
+ *   - `acl` — the blanket open (all-scope) grant is ignored, but app/collection/
+ *     record grants govern normally: pure explicit-ACL control.
+ * Row-visibility only — CREATE stays governed by the normal collection-write
+ * grant so people can always add records they'll own.
+ */
+export type ResourceAccessModel = 'household' | 'owner' | 'acl';
+
+export interface ResourceAccess {
+  model: ResourceAccessModel;
+}
+
 export interface ResourceDefinition {
   /** Kebab-case singular form, e.g. `gift-card`. Globally unique. */
   singular: string;
@@ -439,6 +457,11 @@ export interface ResourceDefinition {
   plural: string;
   description?: string;
   user_settable_create?: boolean;
+  /**
+   * Per-resource permission model (design §7). Defaults to `household`.
+   * Emitted to the wire schema as `x-homestead-access` and read by the engine.
+   */
+  access?: ResourceAccess;
   /**
    * When true, only superusers may create, update, or delete records of
    * this resource; regular users still read within their normal scope
