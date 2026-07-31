@@ -3,8 +3,10 @@
  *
  * Surfaces the admin UI for the permissions data model: groups (create, delete,
  * manage membership) and a read-only view of the built-in roles. Sidebar
- * placement is owned by the parent (`superuserApp`); the page is gated by this
- * app's own `enabled` flag, defaulting to `'superusers'`.
+ * placement is owned by the parent (`superuserApp`). Managing groups/roles is a
+ * superuser-only concern, so the route carries the hard `superuser` gate (like
+ * the Users app) in addition to the `enabled` flag — a superuser flipping the
+ * flag to `'all'` still can't expose it to regular users.
  *
  * The underlying `role` / `group` / `group-membership` / `access-grant`
  * collections are declared centrally (`permissions/resources.ts`) and applied by
@@ -27,7 +29,7 @@ export const permissionsApp: AppConfig = {
         index: true,
         component: () =>
           import('./components/PermissionsHome').then((m) => m.PermissionsHome),
-        gates: ['enabled'],
+        gates: ['superuser', 'enabled'],
       },
     ],
   },
