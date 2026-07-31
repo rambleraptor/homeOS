@@ -185,6 +185,22 @@ describe('validateDocType', () => {
     ).toThrow(/person must be a boolean/);
   });
 
+  it('accepts a category and preserves it', () => {
+    const parsed = validateDocType({ ...wellFormed, category: 'tax' }, 'x.ts');
+    expect(parsed.category).toBe('tax');
+  });
+
+  it('omits category entirely when none is declared', () => {
+    // Kept absent (not '') so `toEqual(wellFormed)` on an uncategorized type holds.
+    expect(validateDocType(wellFormed, 'x.ts')).not.toHaveProperty('category');
+  });
+
+  it('rejects a non-kebab-case category', () => {
+    expect(() => validateDocType({ ...wellFormed, category: 'Tax' }, 'x.ts')).toThrow(
+      /must be a lowercase kebab-case string/,
+    );
+  });
+
   it('accepts an optional post_classify function and rejects a non-function', () => {
     const hook = () => Promise.resolve({ default: async () => undefined });
     expect(() =>
@@ -353,8 +369,22 @@ describe('the built-in doc types', () => {
   });
 
   it('compile to variants without a field-type conflict', () => {
-    // The types share no field names today; this guards the next one added.
+    // The tax forms deliberately share columns (payer_name, recipient_name,
+    // box_4_federal_tax_withheld, ...); this guards that every type using a
+    // shared name agrees on its type, and catches the next one that doesn't.
     expect(() => toVariants(BUILTIN_DOC_TYPES)).not.toThrow();
+  });
+
+  it('categorize every tax form as "tax"', () => {
+    // The tax document types are one category — the taxonomy that groups them.
+    // A tax form added without the category (or a typo'd one) falls out of the
+    // group silently, so pin it here.
+    const taxForms = BUILTIN_DOC_TYPES.filter(
+      (t) => t.id.startsWith('form-') || t.id === 'schedule-k-1' || t.id === 'property-tax-statement',
+    );
+    for (const t of taxForms) {
+      expect(t.category, t.id).toBe('tax');
+    }
   });
 
   it('carry a description on every field — the lever on extraction quality', () => {

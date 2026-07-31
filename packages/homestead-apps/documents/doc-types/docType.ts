@@ -97,6 +97,13 @@ export interface DocType {
    * `web.icon`, e.g. `() => import('lucide-react').then((m) => m.Landmark)`.
    */
   icon: LazyIcon;
+  /**
+   * Optional category grouping related types, e.g. `'tax'` on every tax form.
+   * Unlike a field, it describes the *type* itself (not a value the model
+   * extracts), so it's fixed at authoring time — the taxonomy every tax form
+   * shares one label. Lowercase kebab-case, from a small shared vocabulary.
+   */
+  category?: string;
   fields: Record<string, DocField>;
   /**
    * Optional server-only hook run after a document matches this type. Lazily
@@ -165,15 +172,33 @@ export function validateDocType(input: unknown, source: string): DocType {
     return fail('post_classify must be a function (a lazy import of the hook)');
   }
 
+  const category = parseCategory(doc.category, fail);
   const parsed = parseFields(fields, '', fail);
   return {
     id,
     label,
     description,
     icon: icon as LazyIcon,
+    ...(category ? { category } : {}),
     fields: parsed,
     ...(post_classify ? { post_classify: post_classify as DocType['post_classify'] } : {}),
   };
+}
+
+/**
+ * Parse and validate the optional `category`. Absent → undefined (the type is
+ * uncategorized); present → one lowercase kebab-case label. Same casing rule as
+ * ids so a shared category ("tax") is one bucket, not "tax" and "Tax" split.
+ */
+function parseCategory(
+  input: unknown,
+  fail: (message: string) => never,
+): string | undefined {
+  if (input === undefined) return undefined;
+  if (typeof input !== 'string' || !KEBAB_RE.test(input)) {
+    return fail(`category ${JSON.stringify(input)} must be a lowercase kebab-case string`);
+  }
+  return input;
 }
 
 /**

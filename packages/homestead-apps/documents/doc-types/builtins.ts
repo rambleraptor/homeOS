@@ -10,17 +10,58 @@
 
 import type { DocType } from './docType';
 import autoInsurancePolicy from './auto-insurance-policy';
+import form1095A from './form-1095-a';
+import form1098 from './form-1098';
+import form1098E from './form-1098-e';
+import form1098T from './form-1098-t';
+import form1099B from './form-1099-b';
+import form1099C from './form-1099-c';
+import form1099Div from './form-1099-div';
+import form1099G from './form-1099-g';
 import form1099Int from './form-1099-int';
+import form1099K from './form-1099-k';
+import form1099Misc from './form-1099-misc';
+import form1099Nec from './form-1099-nec';
+import form1099Oid from './form-1099-oid';
+import form1099R from './form-1099-r';
+import form1099Sa from './form-1099-sa';
+import form5498 from './form-5498';
+import form5498Sa from './form-5498-sa';
+import formSsa1099 from './form-ssa-1099';
 import formW2 from './form-w2';
+import formW2G from './form-w-2g';
 import homeInsurancePolicy from './home-insurance-policy';
 import medicalReceipt from './medical-receipt';
+import propertyTaxStatement from './property-tax-statement';
 import recipe from './recipe';
+import scheduleK1 from './schedule-k-1';
 
 export const BUILTIN_DOC_TYPES: DocType[] = [
   autoInsurancePolicy,
-  form1099Int,
-  formW2,
   homeInsurancePolicy,
   medicalReceipt,
   recipe,
+  // Personal tax documents (category "tax").
+  form1095A,
+  form1098,
+  form1098E,
+  form1098T,
+  form1099B,
+  form1099C,
+  form1099Div,
+  form1099G,
+  form1099Int,
+  form1099K,
+  form1099Misc,
+  form1099Nec,
+  form1099Oid,
+  form1099R,
+  form1099Sa,
+  form5498,
+  form5498Sa,
+  formSsa1099,
+  formW2,
+  formW2G,
+  propertyTaxStatement,
+  scheduleK1,
 ];
