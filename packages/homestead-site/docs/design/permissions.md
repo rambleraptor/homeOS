@@ -90,16 +90,21 @@ A request's `caller` expands to a **principal set** used for matching grants:
 principals(caller) = {
   user:<caller.id>,
   group:<g> for each group the caller belongs to,
-  role:<r> for each role conferred by one of those group memberships,
   everyone,                       // any authenticated user
   owner        // pseudo-principal, only when caller owns the record in question
 }
 ```
 
+A **grant's subject** is one of these principals — `user`, `group`, or
+`everyone` (there is no `role` subject; §11 #10). **Roles are not principals**:
+a role is a *bundle of grants*, so a caller who holds a role contributes that
+role's grants directly to the applicable set during resolution (§4 step 3),
+rather than matching a grant addressed "to the role."
+
 **Roles are held only via group membership in v1** (decision §11 #8): a user
-gets a role because a `group-membership` names it, never by a direct
-user→role assignment. Direct assignment is deferred to v2. So the caller's
-roles are exactly the roles conferred by their group memberships.
+gets a role because a `group-membership` names it, never by a direct user→role
+assignment (deferred to v2). So the caller's roles are exactly the roles
+conferred by their group memberships, and each expands to its bundle.
 
 Superusers are a hard override: they resolve to full control everywhere and
 skip evaluation (preserving today's behavior).
@@ -128,7 +133,7 @@ one of **four scope levels**, from broadest to narrowest:
 
 ```
 grant := {
-  subject:   { type: user|group|role|everyone, id? },   // id omitted for `everyone`
+  subject:   { type: user|group|everyone, id? },        // id omitted for `everyone`; no `role` subject (§11 #10)
   capability: read | write | manage,          // write covers create/update/delete
   effect:     allow | deny,                              // deny optional; see §4
   target: {
@@ -536,8 +541,7 @@ management UI for free. Declared in a new core module (e.g.
 // Writes are gated by the engine (manage-on-target), NOT plain superuser_write.
 { singular: 'access-grant', plural: 'access-grants',
   fields: {
-    subject_type:  { type: 'string', enum: ['user','group','role','everyone'], required: true },
-    //             'role' is provisional — §11 #10 recommends dropping it (clean split)
+    subject_type:  { type: 'string', enum: ['user','group','everyone'], required: true },
     subject_id:    { type: 'string' },                    // omitted for 'everyone'
     target_scope:  { type: 'string', enum: ['all','app','collection','record'], required: true },
     target_app:    { type: 'string' },                    // app id, when target_scope = 'app'
@@ -751,11 +755,10 @@ The server is authoritative; the client mirrors for UX (same discipline as
    superuser-managed resource (§6), not `homestead.config.ts` config. The three
    built-ins (`admin`/`member`/`guest`) are seeded rows, editable in the admin
    UI, and the household can add its own.
-4. **Default `guest` bundle.** Empty until granted (safe) vs. read on a curated
-   set of apps? Since a role is now a capability bundle assigned via a group, an
-   empty `guest` means a guest sees nothing until an admin adds grants to the
-   guest bundle or shares specific apps/records with the guest's group.
-   *Recommendation: empty bundle.* (Still open.)
+4. **Default `guest` bundle — DECIDED: empty until granted.** `guest` ships as
+   a role with no grants; a guest sees nothing until an admin adds grants to the
+   guest bundle or shares specific apps/records with the guest's group. Safe by
+   default, no assumption baked in about what's non-sensitive.
 5. **Group nesting — DECIDED: flat for v1.** A group is a list of users; no
    groups-of-groups. Principal expansion stays direct (no transitive closure or
    cycle detection). Nesting remains a clean additive extension later (a `group`
@@ -784,14 +787,14 @@ The server is authoritative; the client mirrors for UX (same discipline as
    single-purpose group; groups supersede it. The `account-tag` resource and
    `account_tags` table are retired and migrated to groups (§9.2), and the app
    gate speaks `group` instead of `tag`.
-10. **Is a `role` a grant *subject*? — OPEN (recommend: no / "clean split").**
-    A **group** is a set of *people* (a subject you grant to); a **role** is a
-    set of *capabilities* (a bundle you assign via a group). If a role were also
-    addressable as a subject, "grant to role R" would duplicate "put the grant in
-    R's bundle" — redundant. *Recommendation: drop `role` from `SubjectType`*
-    (subjects = `user | group | everyone`), keeping role = capabilities and group
-    = people crisp. If adopted, the `subject_type` enum (§6) and `SubjectType`
-    (§14) lose `role`. Left as-is pending your call.
+10. **Is a `role` a grant *subject*? — DECIDED: no ("clean split").** A **group**
+    is a set of *people* (a subject you grant to); a **role** is a set of
+    *capabilities* (a bundle you assign via a group). `SubjectType` is
+    `user | group | everyone` — no `role`. A role never appears as a grant
+    subject; instead the caller's held roles expand to their bundle's grants
+    during resolution (§4 step 3). This keeps role = capabilities and group =
+    people crisp, with no overlap between "a role's bundle" and "grants addressed
+    to a role."
 
 ---
 
@@ -868,9 +871,10 @@ type Scope      = 'all' | 'app' | 'collection' | 'record';
 
 // ────────────────────────── Principals ──────────────────────────
 
-type SubjectType = 'user' | 'group' | 'role' | 'everyone';
-//   'role' is provisional — open decision §11 #10 recommends dropping it
-//   (clean split: assign a role, don't grant *to* one) → 'user' | 'group' | 'everyone'.
+type SubjectType = 'user' | 'group' | 'everyone';
+//   WHO a grant is addressed to. No 'role' (§11 #10, clean split): a role is a
+//   bundle you assign via a group, not something you grant *to*. Roles contribute
+//   their grants during resolution; they are not grant subjects.
 
 /** The principal a grant is addressed to. */
 interface Subject {
