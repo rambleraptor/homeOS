@@ -63,6 +63,46 @@ export function useRoles() {
   return useQuery({ queryKey: keys.roles, queryFn: () => aepbase.list<RoleRecord>(ROLES) });
 }
 
+export interface RoleInput {
+  name: string;
+  description?: string;
+  grants: RoleGrantRow[];
+}
+
+export function useCreateRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RoleInput) =>
+      aepbase.create<RoleRecord>(ROLES, {
+        name: input.name,
+        description: input.description,
+        grants: input.grants,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.roles }),
+  });
+}
+
+export function useUpdateRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: RoleInput & { id: string }) =>
+      aepbase.update<RoleRecord>(ROLES, id, {
+        name: input.name,
+        description: input.description ?? '',
+        grants: input.grants,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.roles }),
+  });
+}
+
+export function useDeleteRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roleId: string) => aepbase.remove(ROLES, roleId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.roles }),
+  });
+}
+
 export function useGroups() {
   return useQuery({ queryKey: keys.groups, queryFn: () => aepbase.list<GroupRecord>(GROUPS) });
 }

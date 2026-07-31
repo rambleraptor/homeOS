@@ -1,21 +1,28 @@
 import { useState } from 'react';
-import { Plus, ShieldCheck } from 'lucide-react';
+import { Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import {
   summarizeRoleGrants,
   useAllUsers,
   useCreateGroup,
+  useCreateRole,
+  useDeleteRole,
   useGroups,
   useRoles,
+  useUpdateRole,
+  type RoleInput,
+  type RoleRecord,
 } from '../hooks';
 import { GroupCard } from './GroupCard';
+import { RoleForm } from './RoleForm';
 
 /**
  * Superuser page to manage the permissions data model: **groups** (create,
@@ -32,10 +39,43 @@ export function PermissionsHome() {
   const { data: roles, isLoading: rolesLoading } = useRoles();
   const { data: users } = useAllUsers();
   const createGroup = useCreateGroup();
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const deleteRole = useDeleteRole();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+
+  // Role editor: `null` closed, `{}` create, a record edit; plus a delete target.
+  const [roleModal, setRoleModal] = useState<RoleRecord | 'new' | null>(null);
+  const [roleDeleteTarget, setRoleDeleteTarget] = useState<RoleRecord | null>(null);
+
+  const handleRoleSubmit = async (data: RoleInput) => {
+    try {
+      if (roleModal && roleModal !== 'new') {
+        await updateRole.mutateAsync({ id: roleModal.id, ...data });
+        toast.success('Role updated');
+      } else {
+        await createRole.mutateAsync(data);
+        toast.success('Role created');
+      }
+      setRoleModal(null);
+    } catch {
+      // Global mutation error toast (queryClient.ts) surfaces the reason.
+    }
+  };
+
+  const handleRoleDelete = async () => {
+    if (!roleDeleteTarget) return;
+    try {
+      await deleteRole.mutateAsync(roleDeleteTarget.id);
+      setRoleDeleteTarget(null);
+      toast.success('Role deleted');
+    } catch {
+      /* surfaced globally */
+    }
+  };
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -87,12 +127,18 @@ export function PermissionsHome() {
         )}
       </section>
 
-      {/* ── Roles (read-only) ── */}
+      {/* ── Roles ── */}
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Roles</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Roles</h2>
+          <Button onClick={() => setRoleModal('new')} data-testid="add-role-button">
+            <Plus className="w-4 h-4 mr-2" />
+            New role
+          </Button>
+        </div>
         <p className="text-sm text-gray-600">
           A role is a bundle of access conferred on a group member. Assign one when
-          adding someone to a group. These are managed by the system.
+          adding someone to a group.
         </p>
         {rolesLoading ? (
           <div className="flex justify-center py-8">
@@ -106,16 +152,38 @@ export function PermissionsHome() {
           <div className="space-y-3" data-testid="roles-list">
             {roles.map((r) => (
               <Card key={r.id} data-testid={`role-card-${r.id}`}>
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{r.name}</span>
-                      <Badge variant="info">{summarizeRoleGrants(r.grants)}</Badge>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <ShieldCheck className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-900">{r.name}</span>
+                        <Badge variant="info">{summarizeRoleGrants(r.grants)}</Badge>
+                      </div>
+                      {r.description && (
+                        <p className="text-sm text-gray-600 mt-0.5">{r.description}</p>
+                      )}
                     </div>
-                    {r.description && (
-                      <p className="text-sm text-gray-600 mt-0.5">{r.description}</p>
-                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setRoleModal(r)}
+                      title="Edit role"
+                      data-testid={`edit-role-${r.id}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setRoleDeleteTarget(r)}
+                      title="Delete role"
+                      data-testid={`delete-role-${r.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -155,6 +223,32 @@ export function PermissionsHome() {
           </div>
         </div>
       </Modal>
+
+      <Modal
+        isOpen={roleModal !== null}
+        onClose={() => setRoleModal(null)}
+        title={roleModal && roleModal !== 'new' ? 'Edit role' : 'New role'}
+      >
+        {roleModal !== null && (
+          <RoleForm
+            initialRole={roleModal === 'new' ? undefined : roleModal}
+            onSubmit={handleRoleSubmit}
+            onCancel={() => setRoleModal(null)}
+            isSubmitting={createRole.isPending || updateRole.isPending}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={!!roleDeleteTarget}
+        onClose={() => setRoleDeleteTarget(null)}
+        onConfirm={handleRoleDelete}
+        title="Delete role"
+        message={`Delete the "${roleDeleteTarget?.name}" role? Members who were assigned it stop receiving its access. This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={deleteRole.isPending}
+      />
     </div>
   );
 }

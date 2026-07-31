@@ -35,12 +35,15 @@ describe('PermissionsHome', () => {
   const createGroup = vi.fn().mockResolvedValue(undefined);
   const addMember = vi.fn().mockResolvedValue(undefined);
   const removeMember = vi.fn().mockResolvedValue(undefined);
+  const createRole = vi.fn().mockResolvedValue(undefined);
+  const updateRole = vi.fn().mockResolvedValue(undefined);
+  const deleteRole = vi.fn().mockResolvedValue(undefined);
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    createGroup.mockClear();
-    addMember.mockClear();
-    removeMember.mockClear();
+    [createGroup, addMember, removeMember, createRole, updateRole, deleteRole].forEach((m) =>
+      m.mockClear(),
+    );
 
     vi.spyOn(toast, 'useToast').mockReturnValue({
       showToast: vi.fn(), success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn(),
@@ -53,6 +56,9 @@ describe('PermissionsHome', () => {
     vi.spyOn(hooks, 'useAddGroupMember').mockReturnValue(mutation(addMember));
     vi.spyOn(hooks, 'useRemoveGroupMember').mockReturnValue(mutation(removeMember));
     vi.spyOn(hooks, 'useDeleteGroup').mockReturnValue(mutation());
+    vi.spyOn(hooks, 'useCreateRole').mockReturnValue(mutation(createRole));
+    vi.spyOn(hooks, 'useUpdateRole').mockReturnValue(mutation(updateRole));
+    vi.spyOn(hooks, 'useDeleteRole').mockReturnValue(mutation(deleteRole));
     // Adults has one member (Alice, with the admin role); Kids has none.
     vi.spyOn(hooks, 'useGroupMemberships').mockImplementation((groupId: string) =>
       query(groupId === 'g-adults' ? [{ id: 'm1', user: 'users/u1', role: 'admin' }] : []),
@@ -93,5 +99,42 @@ describe('PermissionsHome', () => {
     // Remove the existing membership.
     fireEvent.click(screen.getByTestId('remove-member-m1'));
     expect(removeMember).toHaveBeenCalledWith({ groupId: 'g-adults', membershipId: 'm1' });
+  });
+
+  it('creates a role with a grant through the editor', async () => {
+    render(<PermissionsHome />);
+    fireEvent.click(screen.getByTestId('add-role-button'));
+    fireEvent.change(screen.getByTestId('role-name-input'), { target: { value: 'Cook' } });
+
+    // Add a grant and make it "manage on everything".
+    fireEvent.click(screen.getByTestId('role-add-grant'));
+    fireEvent.change(screen.getByLabelText('capability'), { target: { value: 'manage' } });
+    fireEvent.change(screen.getByLabelText('scope'), { target: { value: 'all' } });
+
+    fireEvent.click(screen.getByTestId('role-submit'));
+    expect(createRole).toHaveBeenCalledWith({
+      name: 'Cook',
+      description: undefined,
+      grants: [{ target_scope: 'all', capability: 'manage' }],
+    });
+  });
+
+  it('edits an existing role (pre-filled) and saves', () => {
+    render(<PermissionsHome />);
+    fireEvent.click(screen.getByTestId('edit-role-admin'));
+    const nameInput = screen.getByTestId('role-name-input') as HTMLInputElement;
+    expect(nameInput.value).toBe('Admin'); // pre-filled from the record
+    fireEvent.change(nameInput, { target: { value: 'Administrator' } });
+    fireEvent.click(screen.getByTestId('role-submit'));
+    expect(updateRole).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'admin', name: 'Administrator' }),
+    );
+  });
+
+  it('deletes a role after confirmation', () => {
+    render(<PermissionsHome />);
+    fireEvent.click(screen.getByTestId('delete-role-guest'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(deleteRole).toHaveBeenCalledWith('guest');
   });
 });
