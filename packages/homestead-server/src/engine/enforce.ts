@@ -15,9 +15,11 @@ import { OWNER_COLUMN, sanitizeTableName } from './db';
 import { compileFilter, type FilterSubject } from './filter';
 import { TYPE_SUPERUSER, type Schema, type User } from './types';
 import type { PermissionStore } from './permission-store';
+import type { Registry } from './registry';
 import {
   computeVisibility,
   resolve,
+  type AccessRequest,
   type FilterEval,
   type PermissionMode,
   type Verb,
@@ -239,6 +241,103 @@ function visibilityToSql(
       return { sql, params };
     }
   }
+}
+
+// ─────────────── access-grant self-governance (§15.3) ───────────────
+
+/** The ACL machinery governs itself — no grant may target these collections. */
+const PROTECTED_GRANT_TARGET_TYPES = new Set([
+  'access-grant',
+  'role',
+  'group',
+  'group-membership',
+]);
+
+export interface GrantTargetSpec {
+  scope?: string;
+  app?: string;
+  resource_type?: string;
+  resource_id?: string;
+}
+
+function ownerOfById(db: Database, plural: string, id: string): string | null {
+  try {
+    const row = db
+      .query(`SELECT ${OWNER_COLUMN} AS owner FROM ${sanitizeTableName(plural)} WHERE id = ?`)
+      .get(id) as { owner: string | null } | null;
+    return row?.owner ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The "manage on the grant's target" request, shaped by the target's scope. */
+function manageRequestForTarget(
+  ctx: EnforceContext,
+  reg: Registry,
+  db: Database,
+  target: GrantTargetSpec,
+): AccessRequest {
+  const pluralOf = (singular?: string) => (singular ? reg.get(singular)?.plural ?? '' : '');
+  switch (target.scope) {
+    case 'record': {
+      const plural = pluralOf(target.resource_type);
+      return {
+        verb: 'manage',
+        resourceType: target.resource_type ?? '',
+        appId: ctx.appIdFor(plural),
+        recordId: target.resource_id,
+        recordOwner: target.resource_id ? ownerOfById(db, plural, target.resource_id) : undefined,
+      };
+    }
+    case 'collection': {
+      const plural = pluralOf(target.resource_type);
+      return { verb: 'manage', resourceType: target.resource_type ?? '', appId: ctx.appIdFor(plural) };
+    }
+    case 'app':
+      return { verb: 'manage', resourceType: '', appId: target.app ?? null };
+    default: // 'all' (or unspecified): manage over everything
+      return { verb: 'manage', resourceType: '', appId: null };
+  }
+}
+
+/**
+ * Authorize a write to an `access-grant` (§15.3): superuser, or a caller with
+ * `manage` on the grant's target. No grant may target the ACL machinery itself
+ * (no grants-on-grants). Requiring manage-on-target also prevents privilege
+ * escalation — you can only grant over what you already fully control.
+ */
+export function enforceGrantWrite(
+  ctx: EnforceContext,
+  reg: Registry,
+  db: Database,
+  caller: User | null,
+  target: GrantTargetSpec,
+): void {
+  if (!caller) return;
+  if (caller.type === TYPE_SUPERUSER) return; // break-glass
+
+  const deny = (reason: string): boolean => {
+    if (ctx.mode === 'shadow') {
+      console.info(`[permissions] shadow: would deny grant-write for ${caller.id} (${reason})`);
+      return true; // allow through in shadow
+    }
+    throw new HttpError(403, 'you do not have permission to write this grant');
+  };
+
+  if (target.resource_type && PROTECTED_GRANT_TARGET_TYPES.has(target.resource_type)) {
+    if (deny('grants-on-grants')) return;
+  }
+
+  const { principals, grants } = ctx.store.gatherFor(caller.id);
+  const decision = resolve(
+    { isSuperuser: false },
+    manageRequestForTarget(ctx, reg, db, target),
+    principals,
+    grants,
+  );
+  if (decision.allow) return;
+  deny('no-manage-on-target');
 }
 
 let warnedInvalidFilter = false;

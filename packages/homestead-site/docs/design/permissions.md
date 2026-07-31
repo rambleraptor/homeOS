@@ -875,11 +875,23 @@ Split into **3a** (core enforcement, done) and **3b** (app-gate switch, pending)
   isolation, shadow). **Risk:** the flag defaults off, so nothing changes until
   flipped. **Rollback:** flip the flag off (instant, no redeploy).
 
-**Phase 3b — app-gate & account-tags *(pending)*.** Switch the app gate from
+**Phase 3b — grant self-governance ✅ done.** The access-grant manage-on-target
+write rule (§15.3): when enforcing, `access-grant` writes bypass the generic
+resolve/`superuser_write` path and go through `routeGrant` → `enforceGrantWrite`,
+which requires the caller to hold `manage` on the *grant's target* (owner⇒manage
+covers "share my own record"), rejects any grant targeting the ACL machinery
+itself (no grants-on-grants), and — because manage is the ceiling and is
+required — inherently blocks privilege escalation. Superuser bypasses; reads
+stay open to authenticated callers (household transparency, needed for client
+hydration). When the system is off, the legacy `superuser_write` gate still
+applies. *Verified by 6 tests* (owner-share, non-owner denied, member can't make
+broad grants, admin-role-via-group can, no-grants-on-grants, superuser + delete).
+
+**Phase 3c — app-gate & account-tags *(pending)*.** Switch the app gate from
 `account_tags` to **group membership**, run the `account-tag` → group migration
-+ retirement (§9.2) atomically with that switch, and add the access-grant
-manage-on-target write rule (§15.3). Kept separate from 3a so the app-level gate
-and the record-level enforcement roll out independently.
++ retirement (§9.2) atomically with that switch. This is a larger cross-cutting
+change (server gate + the flag-management/users frontend + e2e) kept separate so
+the app-level gate rolls out independently of the record-level enforcement.
 
 ### Phase 4 — Filter-scoped grants *(depends on 3a)* ✅ done
 - `compileFilter` gained its optional `subject` context (§3.6.1): a

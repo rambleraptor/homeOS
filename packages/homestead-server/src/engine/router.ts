@@ -22,12 +22,17 @@ import {
 } from './crud';
 import { errorResponse } from './errors';
 import {
+  enforceGrantWrite,
   enforceRecordAccess,
   listVisibilityClause,
   type EnforceContext,
+  type GrantTargetSpec,
 } from './enforce';
+import { sanitizeTableName } from './db';
 import type { RegisteredResource, Registry } from './registry';
 import type { User } from './types';
+
+const ACCESS_GRANTS_PLURAL = 'access-grants';
 
 /** Go's http.ServeMux fallback for unrouted paths. */
 export function notFoundText(): Response {
@@ -136,6 +141,13 @@ export async function routeDynamic(
   // to widen access to another user's subtree.
   checkUserScope(match, caller);
 
+  // `access-grant` governs its own writes by the manage-on-target rule (§15.3)
+  // rather than the generic resolve/superuser_write path. When the system is
+  // off, it falls through to the legacy superuser_write gate below.
+  if (r.plural === ACCESS_GRANTS_PLURAL && ctx && ctx.mode !== 'off') {
+    return routeGrant(reg, req, match, rawId, caller, ctx);
+  }
+
   const enforce = (verb: 'read' | 'write', recordId?: string, recordPath?: string): void => {
     if (!enforcing) return;
     enforceRecordAccess(ctx, reg.db, {
@@ -224,4 +236,111 @@ export async function routeDynamic(
     default:
       return methodNotAllowed();
   }
+}
+
+/**
+ * Route a request to the `access-grant` collection under the manage-on-target
+ * write rule (§15.3). Reads are open to any authenticated caller (household
+ * transparency); writes require `manage` on the grant's target, enforced by
+ * `enforceGrantWrite`. Superuser bypass and shadow mode are handled inside it.
+ */
+async function routeGrant(
+  reg: Registry,
+  req: Request,
+  match: RouteMatch,
+  rawId: string,
+  caller: User | null,
+  ctx: EnforceContext,
+): Promise<Response> {
+  const r = match.resource;
+
+  if (match.kind === 'collection') {
+    if (req.method === 'GET') return handleList(reg, match, req, null);
+    if (req.method === 'POST') {
+      const { bodyText, target } = await readGrantTarget(req);
+      enforceGrantWrite(ctx, reg, reg.db, caller, target);
+      return handleCreate(reg, match, remakeJsonRequest(req, bodyText), caller);
+    }
+    return methodNotAllowed();
+  }
+
+  match.id = rawId;
+  const path = buildResourcePath(r, match.parentIds, match.id);
+
+  switch (req.method) {
+    case 'GET':
+      return handleGet(reg, match);
+    case 'PATCH': {
+      const { bodyText, target } = await readGrantTarget(req, storedGrantTarget(reg, r.plural, path));
+      enforceGrantWrite(ctx, reg, reg.db, caller, target);
+      return handleUpdate(reg, match, remakeJsonRequest(req, bodyText));
+    }
+    case 'PUT': {
+      const { bodyText, target } = await readGrantTarget(req, storedGrantTarget(reg, r.plural, path));
+      enforceGrantWrite(ctx, reg, reg.db, caller, target);
+      return handleApply(reg, match, remakeJsonRequest(req, bodyText), caller);
+    }
+    case 'DELETE':
+      enforceGrantWrite(ctx, reg, reg.db, caller, storedGrantTarget(reg, r.plural, path));
+      return handleDelete(reg, match, req);
+    default:
+      return methodNotAllowed();
+  }
+}
+
+/** The grant's effective target = the request body overlaid on any stored row. */
+async function readGrantTarget(
+  req: Request,
+  base: GrantTargetSpec = {},
+): Promise<{ bodyText: string; target: GrantTargetSpec }> {
+  const bodyText = await req.text();
+  let body: Record<string, unknown> = {};
+  if (bodyText) {
+    try {
+      const parsed = JSON.parse(bodyText);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // let the handler surface the invalid-JSON 400
+    }
+  }
+  const pick = (k: string, fallback?: string): string | undefined =>
+    typeof body[k] === 'string' ? (body[k] as string) : fallback;
+  return {
+    bodyText,
+    target: {
+      scope: pick('target_scope', base.scope),
+      app: pick('target_app', base.app),
+      resource_type: pick('resource_type', base.resource_type),
+      resource_id: pick('resource_id', base.resource_id),
+    },
+  };
+}
+
+function storedGrantTarget(reg: Registry, plural: string, path: string): GrantTargetSpec {
+  try {
+    const row = reg.db
+      .query(
+        `SELECT target_scope, target_app, resource_type, resource_id FROM ${sanitizeTableName(plural)} WHERE path = ?`,
+      )
+      .get(path) as Record<string, string | null> | null;
+    if (!row) return {};
+    return {
+      scope: row.target_scope ?? undefined,
+      app: row.target_app ?? undefined,
+      resource_type: row.resource_type ?? undefined,
+      resource_id: row.resource_id ?? undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function remakeJsonRequest(req: Request, bodyText: string): Request {
+  return new Request(req.url, {
+    method: req.method,
+    headers: req.headers,
+    body: bodyText.length ? bodyText : undefined,
+  });
 }
