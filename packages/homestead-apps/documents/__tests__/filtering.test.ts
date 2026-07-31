@@ -10,10 +10,13 @@ import { describe, expect, it } from 'vitest';
 import {
   collectDocTypeFacets,
   collectPeople,
+  collectTagFacets,
+  EMPTY_FILTERS,
   filterDocuments,
   hasActiveFilters,
   personIdentity,
   UNRECOGNISED_TYPE,
+  type DocumentFilters,
 } from '../filtering';
 import { getDocumentPeople } from '../doc-types/people';
 import type { Document } from '../types';
@@ -63,6 +66,11 @@ const all = [w2, receipt, policy, unknown, pending];
 
 /** No people directory — every name resolves to a by-spelling identity. */
 const NO_DIRECTORY: Person[] = [];
+
+/** Build a full filter set, overriding only the fields a test cares about. */
+function filters(partial: Partial<DocumentFilters> = {}): DocumentFilters {
+  return { ...EMPTY_FILTERS, ...partial };
+}
 
 describe('getDocumentPeople', () => {
   it('pulls the person-flagged scalar field', () => {
@@ -164,40 +172,52 @@ describe('collectDocTypeFacets', () => {
   });
 });
 
+describe('collectTagFacets', () => {
+  it('lists every distinct tag in use, sorted, deduped across documents', () => {
+    const a = doc({ doc_type: 'form-w2' }, { tags: ['taxes', 'urgent'] });
+    const b = doc({ doc_type: 'medical-receipt' }, { tags: ['urgent', 'reimburse'] });
+    const c = doc({ doc_type: UNRECOGNISED_TYPE });
+    expect(collectTagFacets([a, b, c])).toEqual(['reimburse', 'taxes', 'urgent']);
+  });
+
+  it('is empty when no document has tags', () => {
+    expect(collectTagFacets(all)).toEqual([]);
+  });
+});
+
 describe('filterDocuments', () => {
+  const taxDoc = doc({ doc_type: 'form-w2', employee_name: 'Pat Lee' }, { tags: ['taxes'] });
+  const withTags = [...all, taxDoc];
+
   it('returns everything with empty filters', () => {
-    expect(
-      filterDocuments(all, { search: '', docType: '', person: '' }, NO_DIRECTORY),
-    ).toEqual(all);
+    expect(filterDocuments(all, filters(), NO_DIRECTORY)).toEqual(all);
   });
 
   it('filters by document type', () => {
-    expect(
-      filterDocuments(all, { search: '', docType: 'form-w2', person: '' }, NO_DIRECTORY),
-    ).toEqual([w2]);
+    expect(filterDocuments(all, filters({ docType: 'form-w2' }), NO_DIRECTORY)).toEqual([w2]);
   });
 
   it('filters by the Unrecognised type', () => {
     expect(
-      filterDocuments(
-        all,
-        { search: '', docType: UNRECOGNISED_TYPE, person: '' },
-        NO_DIRECTORY,
-      ),
+      filterDocuments(all, filters({ docType: UNRECOGNISED_TYPE }), NO_DIRECTORY),
     ).toEqual([unknown]);
+  });
+
+  it('filters by an exact tag', () => {
+    expect(filterDocuments(withTags, filters({ tag: 'taxes' }), NO_DIRECTORY)).toEqual([
+      taxDoc,
+    ]);
+    // A tag no document carries matches nothing.
+    expect(filterDocuments(withTags, filters({ tag: 'missing' }), NO_DIRECTORY)).toEqual([]);
   });
 
   it('filters by a by-name identity across scalar and array fields', () => {
     // Jane Doe is the W-2 employee and both the insured + a driver on the policy.
     const jane = personIdentity('Jane Doe', NO_DIRECTORY).value;
-    expect(
-      filterDocuments(all, { search: '', docType: '', person: jane }, NO_DIRECTORY),
-    ).toEqual([w2, policy]);
+    expect(filterDocuments(all, filters({ person: jane }), NO_DIRECTORY)).toEqual([w2, policy]);
 
     const sam = personIdentity('Sam Doe', NO_DIRECTORY).value;
-    expect(
-      filterDocuments(all, { search: '', docType: '', person: sam }, NO_DIRECTORY),
-    ).toEqual([policy]);
+    expect(filterDocuments(all, filters({ person: sam }), NO_DIRECTORY)).toEqual([policy]);
   });
 
   it('filters by a directory person across every alias, on any document', () => {
@@ -205,49 +225,44 @@ describe('filterDocuments', () => {
     // docs naming her canonically — the whole point of alias-aware filtering.
     const aliasDoc = doc({ doc_type: 'medical-receipt', patient: 'Janey' });
     const directory = [person('p1', 'Jane Doe', ['Janey'])];
-    const key = 'person:p1';
     const result = filterDocuments(
       [w2, receipt, policy, aliasDoc],
-      { search: '', docType: '', person: key },
+      filters({ person: 'person:p1' }),
       directory,
     );
     expect(result).toEqual([w2, policy, aliasDoc]);
   });
 
   it('searches titles', () => {
-    expect(
-      filterDocuments(all, { search: 'mystery', docType: '', person: '' }, NO_DIRECTORY),
-    ).toEqual([unknown]);
+    expect(filterDocuments(all, filters({ search: 'mystery' }), NO_DIRECTORY)).toEqual([unknown]);
+  });
+
+  it('searches tags', () => {
+    expect(filterDocuments(withTags, filters({ search: 'taxes' }), NO_DIRECTORY)).toEqual([
+      taxDoc,
+    ]);
   });
 
   it('searches parsed metadata values', () => {
+    expect(filterDocuments(all, filters({ search: 'geico' }), NO_DIRECTORY)).toEqual([policy]);
     expect(
-      filterDocuments(all, { search: 'geico', docType: '', person: '' }, NO_DIRECTORY),
-    ).toEqual([policy]);
-    expect(
-      filterDocuments(
-        all,
-        { search: 'city pharmacy', docType: '', person: '' },
-        NO_DIRECTORY,
-      ),
+      filterDocuments(all, filters({ search: 'city pharmacy' }), NO_DIRECTORY),
     ).toEqual([receipt]);
   });
 
   it('searches the type label', () => {
-    expect(
-      filterDocuments(all, { search: 'insurance', docType: '', person: '' }, NO_DIRECTORY),
-    ).toEqual([policy]);
+    expect(filterDocuments(all, filters({ search: 'insurance' }), NO_DIRECTORY)).toEqual([policy]);
   });
 
   it('ANDs the filters together', () => {
     expect(
-      filterDocuments(all, { search: 'policy', docType: 'form-w2', person: '' }, NO_DIRECTORY),
+      filterDocuments(all, filters({ search: 'policy', docType: 'form-w2' }), NO_DIRECTORY),
     ).toEqual([]);
     const sam = personIdentity('Sam Doe', NO_DIRECTORY).value;
     expect(
       filterDocuments(
         all,
-        { search: 'auto', docType: 'auto-insurance-policy', person: sam },
+        filters({ search: 'auto', docType: 'auto-insurance-policy', person: sam }),
         NO_DIRECTORY,
       ),
     ).toEqual([policy]);
@@ -256,10 +271,11 @@ describe('filterDocuments', () => {
 
 describe('hasActiveFilters', () => {
   it('is false only when every filter is blank', () => {
-    expect(hasActiveFilters({ search: '', docType: '', person: '' })).toBe(false);
-    expect(hasActiveFilters({ search: '  ', docType: '', person: '' })).toBe(false);
-    expect(hasActiveFilters({ search: 'x', docType: '', person: '' })).toBe(true);
-    expect(hasActiveFilters({ search: '', docType: 'form-w2', person: '' })).toBe(true);
-    expect(hasActiveFilters({ search: '', docType: '', person: 'person:p1' })).toBe(true);
+    expect(hasActiveFilters(filters())).toBe(false);
+    expect(hasActiveFilters(filters({ search: '  ' }))).toBe(false);
+    expect(hasActiveFilters(filters({ search: 'x' }))).toBe(true);
+    expect(hasActiveFilters(filters({ docType: 'form-w2' }))).toBe(true);
+    expect(hasActiveFilters(filters({ person: 'person:p1' }))).toBe(true);
+    expect(hasActiveFilters(filters({ tag: 'taxes' }))).toBe(true);
   });
 });

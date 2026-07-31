@@ -17,6 +17,7 @@ import { DuplicateUploadWarning } from './DuplicateUploadWarning';
 import {
   collectDocTypeFacets,
   collectPeople,
+  collectTagFacets,
   EMPTY_FILTERS,
   filterDocuments,
   hasActiveFilters,
@@ -54,6 +55,7 @@ export function DocumentsHome() {
     () => collectPeople(documents ?? [], directory ?? []),
     [documents, directory],
   );
+  const tagFacets = useMemo(() => collectTagFacets(documents ?? []), [documents]);
   const visibleDocuments = useMemo(
     () => filterDocuments(documents ?? [], filters, directory ?? []),
     [documents, filters, directory],
@@ -228,6 +230,7 @@ export function DocumentsHome() {
             onChange={setFilters}
             docTypes={docTypeFacets}
             people={people}
+            tags={tagFacets}
           />
 
           {visibleDocuments.length > 0 ? (

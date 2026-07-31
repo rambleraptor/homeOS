@@ -51,6 +51,17 @@ export const documentsResources: ResourceDefinition[] = [
         description: 'True once a human has edited the title; stops AI from overwriting it.',
       },
       /**
+       * Free-form labels a person attaches by hand to organise and find
+       * documents. Deliberately top-level rather than in `metadata`: classify
+       * and a manual doc-type switch both replace the whole `metadata` object,
+       * so tags kept there would be lost — here they survive both.
+       */
+      tags: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Free-form labels for organising and finding documents.',
+      },
+      /**
        * Recorded at upload because `:download` serves every file as
        * `application/octet-stream` — the classify handler can't recover the
        * real type from the bytes it reads back, and the model needs it.

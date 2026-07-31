@@ -17,6 +17,7 @@ const people = [
   { value: 'name:alex stephen', label: 'Alex Stephen' },
   { value: 'person:p1', label: 'Jane Doe' },
 ];
+const tags = ['reimburse', 'taxes'];
 
 function setup(filters: Filters = EMPTY_FILTERS) {
   const onChange = vi.fn();
@@ -26,6 +27,7 @@ function setup(filters: Filters = EMPTY_FILTERS) {
       onChange={onChange}
       docTypes={docTypes}
       people={people}
+      tags={tags}
     />,
   );
   return { onChange };
@@ -62,17 +64,27 @@ describe('DocumentFilters', () => {
     expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, person: 'person:p1' });
   });
 
-  it('hides the type and person selects when there are no facets', () => {
+  it('renders a tag option per facet and reports a chosen tag', async () => {
+    const user = userEvent.setup();
+    const { onChange } = setup();
+    expect(screen.getByRole('option', { name: 'taxes' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByTestId('document-tag-filter'), 'taxes');
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_FILTERS, tag: 'taxes' });
+  });
+
+  it('hides the type, person, and tag selects when there are no facets', () => {
     render(
       <DocumentFilters
         filters={EMPTY_FILTERS}
         onChange={vi.fn()}
         docTypes={[]}
         people={[]}
+        tags={[]}
       />,
     );
     expect(screen.queryByTestId('document-type-filter')).not.toBeInTheDocument();
     expect(screen.queryByTestId('document-person-filter')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('document-tag-filter')).not.toBeInTheDocument();
   });
 
   it('hides Clear when no filter is active', () => {
@@ -82,8 +94,8 @@ describe('DocumentFilters', () => {
 
   it('shows Clear when a filter is active and resets everything', async () => {
     const user = userEvent.setup();
-    const { onChange } = setup({ search: 'x', docType: 'form-w2', person: '' });
+    const { onChange } = setup({ ...EMPTY_FILTERS, search: 'x', docType: 'form-w2' });
     await user.click(screen.getByTestId('document-filters-clear'));
-    expect(onChange).toHaveBeenCalledWith({ search: '', docType: '', person: '' });
+    expect(onChange).toHaveBeenCalledWith(EMPTY_FILTERS);
   });
 });

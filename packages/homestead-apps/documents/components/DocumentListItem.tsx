@@ -7,6 +7,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
+import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { getDocType } from '../doc-types/registry';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import type { Document } from '../types';
@@ -36,6 +37,15 @@ export function DocumentListItem({ document }: { document: Document }) {
         <p className="mt-1 text-xs text-gray-500" data-testid="document-type">
           {docType?.label ?? 'Unrecognised document'}
         </p>
+        {document.tags && document.tags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5" data-testid="document-card-tags">
+            {document.tags.map((tag) => (
+              <Badge key={tag} variant="neutral" data-testid={`document-card-tag-${tag}`}>
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
       {showTypeIcon ? (
         <span
