@@ -928,3 +928,115 @@ Notes:
   resolver reads `caller.id`/`caller.type`/`caller.email` and the row's `_owner`.
 - **`CompiledFilter`** (`{ sql: string; params: (string|number)[] }`) is the
   existing `engine/filter.ts` type — reused verbatim.
+
+---
+
+## 15. Grants as a first-class AEP resource
+
+`role`, `group`, `group-membership`, and `access-grant` are ordinary resource
+definitions (§6), so they ride the **entire AEP resource machinery** with no
+bespoke API, client, or CLI. This is the main reason to model them as resources
+rather than a side table.
+
+### 15.1 What comes for free
+
+Declaring the `access-grant` definition and letting the boot-time schema sync
+apply it yields, with zero extra code:
+
+- **Standard AEP REST**, same as every other collection, under the `/api/aep`
+  prefix:
+
+  | Method | Verb | Notes |
+  |---|---|---|
+  | `GET /api/aep/access-grants` | List | supports `?filter=…`, `?order_by=…`, pagination |
+  | `GET /api/aep/access-grants/{id}` | Get | |
+  | `POST /api/aep/access-grants` | Create | |
+  | `PATCH /api/aep/access-grants/{id}` | Update | |
+  | `DELETE /api/aep/access-grants/{id}` | Delete | |
+
+- **List filtering via the same `compileFilter`** (§3.6.1) — so querying the ACL
+  is itself expressible: `filter=subject_id == 'users/alice' && capability == 'manage'`.
+  The introspection in §6.1 is largely just List with a filter.
+- **OpenAPI**: the generator (`engine/openapi.ts`) emits paths + schemas for
+  `access-grants` automatically; it also lands in the frozen wire-contract test.
+- **CLI** (`homestead resources`) — a fully dynamic client that reads the
+  server's live definitions and synthesizes verbs. Nothing to add:
+
+  ```bash
+  homestead resources                              # index — lists access-grant among resources
+  homestead resources access-grant                 # help: fields + supported verbs
+  homestead resources access-grant list --filter "resource_type == 'recipe'"
+  homestead resources access-grant create \
+      --subject_type user --subject_id users/alice \
+      --target_scope collection --resource_type recipe --capability read
+  homestead resources access-grant get <id>
+  homestead resources access-grant delete <id>
+  ```
+
+  The CLI authenticates as the **logged-in profile** and sends that bearer token
+  (`homestead login`), so every call is subject to the same engine enforcement
+  as the SPA — a regular user can only create grants they're actually allowed to
+  (§15.3). No admin backdoor.
+- **Chat tools**: the tool builder generates `read_*` / `create_*` tools from the
+  definition, and `reference` annotations tell the model that `subject_id` points
+  at a `user` and `resource_id` at the target resource.
+- **`onDelete` cleanup, e2e seed helpers, resource-reference validation** — all
+  the usual resource benefits, unchanged.
+
+### 15.2 Custom methods for the meta-operations
+
+Two operations don't fit plain CRUD; both are declared as AEP-136
+`customMethods` on the `access-grant` resource, which makes them **first-class
+CLI verbs and gateway routes for free** (`POST /api/aep/access-grants:<verb>`):
+
+```ts
+customMethods: {
+  // "Can subject X do Y on Z?" → returns a Decision. Read-only, sync.
+  check: { target: 'collection', load: () => import('./methods/check') },
+  // §6.1 introspection: "what can user X access?" → per-collection allowed sets.
+  accessible: { target: 'collection', load: () => import('./methods/accessible') },
+}
+```
+
+```bash
+homestead resources access-grant check --@data ./q.json
+# q.json: { "subject": {"type":"user","id":"users/alice"}, "verb":"write", "resource_type":"recipe", "resource_id":"..." }
+```
+
+Each handler receives the authenticated caller (`ctx.auth.user`) and calls the
+same `resolve()` the engine uses, so the answer can never drift from
+enforcement. `accessible` is admin/self-only (a caller can always ask about
+themselves; asking about *another* user requires `manage`).
+
+### 15.3 The self-referential wrinkle (and how it's contained)
+
+`access-grant` is the one resource whose *own* access can't use a stock model:
+
+- **Not `household`** — that would let anyone rewrite anyone's access
+  (privilege escalation).
+- **Not plain `superuser_write`** — that would stop a normal member from sharing
+  a record they own.
+
+So `access-grant` (and `role`/`group`/`group-membership`) use a **built-in,
+non-configurable access model** enforced directly in `permissions.ts`, not the
+generic flags:
+
+- **Read a grant:** superuser · the grant's **subject** (you may see grants about
+  you) · anyone with **`manage` on the grant's target**.
+- **Write a grant (create/update/delete):** superuser · anyone with **`manage`
+  on the grant's target** — bounded by two anti-escalation rules:
+  1. **You cannot grant a capability higher than you hold** on that target
+     (can't hand out `manage` unless you have `manage`).
+  2. **No grants-on-grants:** a grant whose `target` is the `access-grant`,
+     `role`, `group`, or `group-membership` collection is rejected. This closes
+     the meta-loop — access to the ACL machinery itself is governed only by the
+     built-in rule above and the superuser break-glass (§4.2), never by
+     user-authored grants, so there's no infinite regress and no way to grant
+     yourself grant-editing power.
+- **`role` / `group` / `group-membership` writes** stay **`superuser_write`**
+  (household-structure changes are an admin act); their reads are open to
+  authenticated users so the client can compute `can()`.
+
+Net: grants get the full AEP surface (REST, CLI, OpenAPI, chat, custom methods)
+for free, while the single sensitive part — who may edit the ACL — is a small,
+fixed rule in the resolver rather than anything a user can reconfigure.
