@@ -106,13 +106,14 @@ A small, totally-ordered ladder. Higher implies lower.
 |---|---|---|---|
 | `none` | 0 | — | explicitly no access |
 | `read` | 1 | — | GET / LIST / `:download` |
-| `write` | 2 | read | create / update (PATCH/PUT) |
-| `delete` | 3 | write, read | delete |
-| `manage` | 4 | delete, write, read | full control **+ may grant/revoke others' access** to the target |
+| `write` | 2 | read | create / update / **delete** (POST / PATCH / PUT / DELETE) |
+| `manage` | 3 | write, read | full control **+ may grant/revoke others' access** to the target |
 
-Rationale for `delete` as its own rank (rather than folding into `write`): a
-common household case is "you can edit the shared grocery list but not delete
-items," and separating it costs nothing.
+**Decided (§11 #2): `delete` is folded into `write`.** A single mutate
+capability keeps the ladder to four rungs and the mental model simple — if you
+can edit a record you can remove it. (A separate "edit but not delete" tier can
+be added later as its own rank if a real need appears; nothing here forecloses
+it.)
 
 ### 3.3 Grants
 
@@ -122,7 +123,7 @@ one of **four scope levels**, from broadest to narrowest:
 ```
 grant := {
   subject:   { type: user|group|role|everyone, id? },   // id omitted for `everyone`
-  capability: read | write | delete | manage,
+  capability: read | write | manage,          // write covers create/update/delete
   effect:     allow | deny,                              // deny optional; see §4
   target: {
     scope:          all | app | collection | record,
@@ -165,7 +166,7 @@ built-in and are seeded on migration (§8). With the four scope levels from
   engine still recognizes `caller.type === 'superuser'` as the ultimate
   override; the `admin` role is the assignable, data-driven equivalent for
   everyone else.)
-- **`member`** — `write` + `delete` on `*` (scope `all`). This is what every
+- **`member`** — `write` on `*` (scope `all`; write covers delete). This is what every
   existing `regular` user becomes, so **upgrade is behavior-preserving**.
 - **`guest`** — no `*` grant; `read` at the `app` scope on whichever apps are
   shared with them (default: none until an admin grants one).
@@ -295,7 +296,7 @@ Given `(caller, verb, resource_type, resource_id?)`:
    - the implicit **owner ⇒ `manage`** grant if `caller` owns the record,
    - the implicit **`everyone`** grants.
 4. **Reduce.** Map the required `verb` to a capability (`GET`→`read`,
-   `POST`/`PATCH`/`PUT`→`write`, `DELETE`→`delete`, sharing→`manage`).
+   `POST`/`PATCH`/`PUT`/`DELETE`→`write`, sharing→`manage`).
    - `allowRank` = max rank among matching **allow** grants.
    - `denyRank`  = max rank among matching **deny** grants.
    - **Decision:** allow iff `requiredRank ≤ allowRank` **and**
@@ -487,16 +488,20 @@ management UI for free. Declared in a new core module (e.g.
 `getAllResourceDefs()` like every other schema.
 
 ```ts
-// role — superuser_write; readable by authenticated users
+// role — data-driven, stored in the DB (decision §11 #3). superuser_write;
+// readable by authenticated users. Grants use the same target shape as
+// access-grant (typically scope 'all' | 'app' | 'collection').
 {
   singular: 'role', plural: 'roles', superuser_write: true,
   fields: {
     name:        { type: 'string', required: true },
     description: { type: 'string' },
-    // collection-level grants this role confers, as structured rows:
     grants:      { type: 'array', items: { type: 'object', properties: {
-      resource_type: { type: 'string' },
-      capability:    { type: 'string', enum: ['read','write','delete','manage'] },
+      target_scope:  { type: 'string', enum: ['all','app','collection'] },
+      target_app:    { type: 'string' },   // when target_scope = 'app'
+      resource_type: { type: 'string' },   // when target_scope = 'collection'
+      filter:        { type: 'string' },   // §3.6, only with 'collection'
+      capability:    { type: 'string', enum: ['read','write','manage'] },
     } } },
   },
 }
@@ -524,7 +529,7 @@ management UI for free. Declared in a new core module (e.g.
     resource_type: { type: 'string' },                    // collection singular, when 'collection' | 'record'
     resource_id:   { type: 'string' },                    // record id, when 'record'
     filter:        { type: 'string' },                    // §3.6, only with target_scope = 'collection'
-    capability:    { type: 'string', enum: ['read','write','delete','manage'], required: true },
+    capability:    { type: 'string', enum: ['read','write','manage'], required: true },
     effect:        { type: 'string', enum: ['allow','deny'] },   // default 'allow'; see §11 #1
   } }
 ```
@@ -717,11 +722,13 @@ The server is authoritative; the client mirrors for UX (same discipline as
      blocks it, so a misconfigured `deny * manage everyone` can't permanently
      brick the install. This is the single, deliberate exception to "deny always
      wins." The `admin` *role* is ordinary data and remains beatable by a deny.
-2. **Delete as its own capability** vs. folding into `write`? *Recommendation:
-   keep separate — cheap, and "edit but don't delete" is a real household case.*
-3. **Roles as data vs. config.** Data (editable in UI, proposed) vs. defined in
-   `homestead.config.ts` (operator-owned, reviewable in git)? *Recommendation:
-   data, with the three built-ins seeded.*
+2. **Delete capability — DECIDED: folded into `write`.** One mutate capability
+   (create/update/delete); the ladder is `none < read < write < manage`. See
+   §3.2.
+3. **Roles as data — DECIDED: stored in the DB.** `role` is a data-driven,
+   superuser-managed resource (§6), not `homestead.config.ts` config. The three
+   built-ins (`admin`/`member`/`guest`) are seeded rows, editable in the admin
+   UI, and the household can add its own.
 4. **Default `guest` scope.** Nothing until granted (safe) vs. read-only on a
    curated set of apps? *Recommendation: nothing until granted.*
 5. **Group nesting.** Flat groups v1 (proposed) — confirm we don't need nested
@@ -788,3 +795,136 @@ wired at the existing `crud.ts`/`router.ts` chokepoint, backed by a stored
 `compileFilter`. A default install behaves exactly as it does today; strictness
 is opt-in per resource, and the whole system sits behind a kill-switch for safe
 rollout.
+
+---
+
+## 14. Interface reference (consolidated)
+
+The authoritative type shapes, gathered in one place. These are the **logical**
+TypeScript interfaces (the mental model + what the client/engine pass around);
+the stored resources flatten them to snake_case wire fields per §6.
+
+```ts
+// ────────────────────────── Primitives ──────────────────────────
+
+/** write covers create/update/delete; manage adds granting others' access. */
+type Capability = 'read' | 'write' | 'manage';        // ordered: read < write < manage
+type Effect     = 'allow' | 'deny';                   // default 'allow'; deny always wins (§4)
+type Scope      = 'all' | 'app' | 'collection' | 'record';
+
+// ────────────────────────── Principals ──────────────────────────
+
+type SubjectType = 'user' | 'group' | 'role' | 'everyone';
+
+/** The principal a grant is addressed to. */
+interface Subject {
+  type: SubjectType;
+  id?: string;              // required except when type === 'everyone'
+}
+
+// ─────────────────────── Grant target & grant ───────────────────────
+
+/** Where a grant applies. Narrowest set field wins the shape. */
+interface GrantTarget {
+  scope: Scope;
+  app?: string;             // app id            — when scope === 'app'
+  resource_type?: string;   // collection singular — when scope === 'collection' | 'record'
+  resource_id?: string;     // record id         — when scope === 'record'
+  filter?: string;          // §3.6 attribute expr — only when scope === 'collection'
+}
+
+/** The ACL entry. Stored as the `access-grant` resource. */
+interface AccessGrant {
+  id: string;
+  subject: Subject;
+  capability: Capability;
+  effect: Effect;           // default 'allow'
+  target: GrantTarget;
+}
+
+// ────────────────────────── Roles & groups ──────────────────────────
+
+/** A role confers a bundle of allow-grants. Stored as the `role` resource (in DB, §11 #3). */
+interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  grants: RoleGrant[];      // allow-only; typically scope 'all' | 'app' | 'collection'
+}
+interface RoleGrant {
+  target: GrantTarget;      // record scope unusual but permitted
+  capability: Capability;
+}
+
+/** Stored as the `group` resource. */
+interface Group { id: string; name: string; description?: string; }
+
+/** Stored as the `group-membership` resource (child of group; group_id in URL path). */
+interface GroupMembership {
+  id: string;
+  user: string;             // reference → user
+  role?: string;            // reference → role (optional; "this member acts as <role> in this group")
+}
+
+// ─────────────────── Filter subject binding (§3.6.1) ───────────────────
+
+/** Caller attributes exposed to a grant filter as `subject.*` operands. */
+interface SubjectBindings {
+  id: string;
+  email: string;
+  display_name?: string;
+}
+
+// ─────────────── Per-resource opt-in model (authoring, §7) ───────────────
+
+/** Added to ResourceDefinition (resources/types.ts). */
+interface ResourceAccess {
+  model: 'household' | 'owner' | 'acl';   // default 'household'
+}
+// ResourceDefinition gains:  access?: ResourceAccess
+
+// ─────────────── App gate audience (extended, §9.1) ───────────────
+
+type AppVisibility = 'none' | 'all' | 'superusers' | AppAudience;
+interface AppAudience {          // allowlist — any match grants app visibility
+  groups?: string[];
+  roles?: string[];
+  tags?: string[];               // 'tagged' today becomes AppAudience.tags
+}
+
+// ────────────────────── Engine resolver (server) ──────────────────────
+
+type Verb = 'read' | 'write' | 'manage';
+interface Decision { allow: boolean; reason?: string; }
+
+/** Superuser account short-circuits to allow (break-glass, §4.2). */
+function resolve(
+  caller: User, verb: Verb, resourceType: string, record?: StoredRow,
+): Decision;
+
+/** LIST: null ⇒ no restriction (broad-read fast path); else a WHERE fragment. */
+function visibilityPredicate(
+  caller: User, resourceType: string,
+): CompiledFilter | null;         // { sql, params } — folded into store.listResources
+
+/** The ONE shared filter compiler, extended with an optional subject context (§3.6.1). */
+function compileFilter(
+  filter: string, schema: Schema, opts?: { subject?: SubjectBindings },
+): CompiledFilter;                // List calls it with no opts, unchanged
+
+// ────────────────────────── Client mirror (§10) ──────────────────────────
+
+/** Centralized capability check; TS port of resolve(). */
+function can(verb: Verb, resourceType: string, recordId?: string): boolean;
+```
+
+Notes:
+- **Wire vs. logical.** aepbase stores flat snake_case fields, so `Subject`
+  becomes `subject_type`/`subject_id` and `GrantTarget` becomes
+  `target_scope`/`target_app`/`resource_type`/`resource_id`/`filter` on the
+  `access-grant` resource (§6). The nested interfaces above are how code models
+  them; a thin (de)serializer bridges the two.
+- **`User` and `StoredRow`** are existing engine types (`engine/types.ts`); the
+  resolver reads `caller.id`/`caller.type`/`caller.email` and the row's `_owner`.
+- **`CompiledFilter`** (`{ sql: string; params: (string|number)[] }`) is the
+  existing `engine/filter.ts` type — reused verbatim.
