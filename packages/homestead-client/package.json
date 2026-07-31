@@ -1,0 +1,21 @@
+{
+  "name": "@rambleraptor/homestead-client",
+  "version": "0.2.0",
+  "description": "Isomorphic TypeScript client for a Homestead (AEP over SQLite) server.",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "license": "MIT",
+  "homepage": "https://github.com/rambleraptor/homestead#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambleraptor/homestead.git",
+    "directory": "packages/homestead-client"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "type-check": "tsc -p tsconfig.json"
+  }
+}
