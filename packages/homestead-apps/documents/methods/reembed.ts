@@ -10,9 +10,10 @@
  * legacy `full_text` field is removed.
  */
 
+import { createHomesteadClient, bearerToken } from '@rambleraptor/homestead-client';
 import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
 import { isEmbeddingConfigured } from '@rambleraptor/homestead-core/server/ai/config';
-import { aepGet, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { AEPBASE_URL } from '@rambleraptor/homestead-core/server/aepbase';
 import { embedTextIntoStore } from '@rambleraptor/homestead-core/server/vectors/index-file';
 import {
   DEFAULT_CHUNK_SIZE,
@@ -35,9 +36,14 @@ const handler: CustomMethodHandler = async ({ id, auth }) => {
     );
   }
 
+  const documents = createHomesteadClient({
+    baseUrl: AEPBASE_URL,
+    auth: bearerToken(auth.token),
+  }).collection<Document>(DOCUMENTS);
+
   let doc: Document;
   try {
-    doc = await aepGet<Document>(DOCUMENTS, id, auth.token);
+    doc = await documents.get(id);
   } catch {
     return Response.json(
       { error: 'Not found', message: `document ${id} not found` },
@@ -49,7 +55,7 @@ const handler: CustomMethodHandler = async ({ id, auth }) => {
 
   // Bring the companion up to date if it's still empty but legacy text exists.
   if (text && doc.file_text !== text) {
-    await aepUpdate<Document>(DOCUMENTS, id, { file_text: text }, auth.token);
+    await documents.record(id).update({ file_text: text });
   }
 
   const chunks = await embedTextIntoStore(
