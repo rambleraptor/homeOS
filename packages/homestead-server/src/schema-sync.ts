@@ -17,10 +17,12 @@ import { syncUserSettingsSchema } from '@rambleraptor/homestead-core/user-settin
 import { sweepStaleOperations } from '@rambleraptor/homestead-core/server/operations';
 import {
   getAllAppFlagDefs,
+  getAllMigrations,
   getAllResourceDefs,
   getAllUserSettingDefs,
 } from './app-registry';
 import { mintAdminToken } from './bootstrap';
+import { runMigrations } from './migrations';
 
 export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void> {
   let admin;
@@ -33,6 +35,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
 
   const token = admin.token;
   try {
+    let resourcesSynced = false;
     try {
       const defs = [...BUILTIN_RESOURCE_DEFS, ...getAllResourceDefs()];
       const result = await syncResourceDefinitions({ aepbaseUrl, token, defs });
@@ -41,8 +44,21 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
           `[resources] schema already in sync (${result.unchanged.length} definitions)`,
         );
       }
+      resourcesSynced = true;
     } catch (error) {
       console.error('[resources] schema sync failed', error);
+    }
+
+    // Run data migrations once the collections they target exist. Skipped if
+    // the resource sync failed — migrating against a half-applied schema would
+    // only record spurious failures. The runner is idempotent (a succeeded
+    // migration is remembered), so a later boot retries anything still pending.
+    if (resourcesSynced) {
+      try {
+        await runMigrations(db, { token, migrations: getAllMigrations() });
+      } catch (error) {
+        console.error('[migrations] migration pass failed', error);
+      }
     }
 
     // Fail operations orphaned by a restart (must run after the `operations`

@@ -417,6 +417,23 @@ sync by construction.
 3. If the change is to an existing definition, the runner emits a
    PATCH automatically.
 
+### Data migrations
+
+The schema sync reconciles a collection's **shape**; it never touches the
+**data** in existing rows. When a schema change needs existing records
+rewritten — backfilling a new field, renaming an enum value, splitting a
+field — declare a one-shot data migration. An app declares
+`migrations: Migration[]` on its `AppConfig` (mirroring `crons`), each with a
+stable globally-unique `id` and a lazily-imported handler kept under the app's
+`migrations/` directory. At boot, after the schema sync, the runner
+(`packages/homestead-server/src/migrations.ts`) applies each pending migration
+once and records the outcome in the `_homestead_migrations` ledger table, so a
+succeeded migration is skipped forever after (a failed or interrupted one is
+retried next boot). Handlers get a short-lived admin token and rewrite data
+through the `@rambleraptor/homestead-core/server/aepbase` helpers — write them
+idempotent, and never rename a shipped migration `id` (it's the ledger key).
+See [`packages/homestead-site/docs/guides/migrations.md`](packages/homestead-site/docs/guides/migrations.md).
+
 ### Rules (aepbase constraints, not TS-specific)
 
 1. **Singular/plural must be kebab-case.** `gift-card`, not `giftCard`.

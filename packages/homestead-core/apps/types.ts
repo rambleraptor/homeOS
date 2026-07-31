@@ -11,8 +11,10 @@ import type { AppFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
 import type { AppVisibility } from '../settings/visibility';
 import type { CronHook } from './cron';
+import type { Migration } from './migrations';
 
 export type { CronContext, CronHandler, CronHook } from './cron';
+export type { MigrationContext, MigrationHandler, Migration } from './migrations';
 
 /**
  * A lazily-loaded React component. The thunk resolves to either a module
@@ -304,6 +306,18 @@ export interface AppConfig {
    * children) via `getAllCronHooks()` at server boot.
    */
   crons?: CronHook[];
+
+  /**
+   * Optional one-shot data migrations this app ships (see {@link Migration}).
+   * The server's migration runner applies each pending one exactly once at
+   * boot, after the schema sync, and records the outcome in a ledger so a
+   * succeeded migration is skipped on every later boot. Use these to backfill a
+   * newly-added field, rewrite an enum value, or correct existing rows — the
+   * schema sync reconciles a collection's *shape*, migrations reconcile its
+   * *data*. Aggregated across apps (and nested children) via
+   * `getAllMigrations()`.
+   */
+  migrations?: Migration[];
 
   /**
    * Web / presentation config: routing, navigation placement, the UI
