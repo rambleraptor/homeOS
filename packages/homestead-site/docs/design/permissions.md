@@ -185,6 +185,61 @@ group applies), and (b) any `role` named on their membership (so
 `group:<Parents>` membership with `role:manage-finances` grants those role
 capabilities). Groups do **not** nest in v1 (flagged as a possible extension).
 
+### 3.6 Filter-scoped grants (attribute-based)
+
+Enumerating record ids doesn't scale for rules like "everyone can see the
+recipes they wrote" or "the kids can read events tagged `family`." For these, a
+`collection`-scope grant may carry a **filter** — an expression in **the same
+subset the List endpoint already accepts** — that dynamically selects the
+records the grant covers:
+
+```
+grant := { subject, capability, effect,
+           target: { scope: collection, resource_type: <x>, filter: <expr> } }
+```
+
+Semantics: the subject gets `capability` on records of `resource_type` **where
+`filter` matches**. A `collection`-scope grant with **no** filter still means
+*all* records (the current broad case); a filter narrows it to a dynamic subset.
+This is the ABAC middle ground between `collection` scope (everything) and
+`record` scope (one enumerated id), and it's what answers the household's "show
+which resources someone is allowed access to" — the allowed set is *computed*,
+not listed.
+
+**Reusing Homestead's filter engine.** The engine's `compileFilter` (today only
+List uses it, `engine/filter.ts`) parses that subset — comparisons
+(`== != < <= > >=`) on schema fields, combined with `&& || ()` — and **compiles
+to a parameterized SQL `WHERE` fragment**. That output is exactly what
+enforcement needs, so filter-grants reuse it verbatim. Fields are validated
+against the target collection's schema at grant-write time (unknown field →
+reject, same 400 contract List gives).
+
+> Note on "CEL": the historical Go server accepted full CEL, but this engine
+> implements only the practical subset above (see the `engine/filter.ts` header).
+> Filter-grants inherit that subset — not full CEL. §11 #7 tracks the grammar
+> extensions (`in`, `contains`, standard-field comparisons) worth adding, driven
+> by real access rules rather than speculatively.
+
+**The `subject.*` binding — the one extension needed.** List filters only
+reference *record* fields. Access rules also need to reference the *caller*, so
+we add a reserved `subject` namespace whose members bind to the caller at
+evaluation time (as SQL parameters, never interpolated):
+
+| Operand | Binds to |
+|---|---|
+| `subject.id` | `caller.id` |
+| `subject.email` | `caller.email` |
+| `subject.display_name` | `caller.display_name` |
+
+So `owner == subject.id` compiles to `owner = ?` with the caller's id bound —
+"records you own." `created_by == subject.id && status != 'archived'` — "your
+non-archived records." The tokenizer already reads dotted idents as one token;
+the only change is `parseOperand` resolving a `subject.<attr>` (from a fixed
+allowlist) to a bound parameter instead of a column. Everything else — the
+parser, the parameterization, the SQL shape — is unchanged. Group/role
+membership tests (`team in subject.groups`) need an `in` operator the subset
+lacks; that's §11 #7, not v1.
+
 ---
 
 ## 4. Resolution algorithm
@@ -201,7 +256,10 @@ Given `(caller, verb, resource_type, resource_id?)`:
    four scope levels**, gather:
    - `all`-scope grants,
    - `app`-scope grants for the app that owns `resource_type`,
-   - `collection`-scope grants for this `resource_type`,
+   - `collection`-scope grants for this `resource_type` — a grant with a
+     **filter** counts only if its compiled predicate matches the row (for
+     single-record ops) or contributes its predicate to the query (for LIST,
+     §4.1),
    - `record`-scope grants for this `resource_id` (if any),
    - role-derived grants (expanded from the caller's roles, at whatever scope
      the role declares),
@@ -243,19 +301,36 @@ SQL:
 - If the caller has a **broad `read`** at `all`, `app`, or `collection` scope
   (via role or grant) and no `deny` that applies to the collection → **no
   restriction** (today's behavior; the common member case, zero overhead).
-- Otherwise → restrict to the union the caller *can* see:
+- Otherwise → restrict to the union the caller *can* see, assembled as OR-ed
+  SQL clauses:
   ```sql
-  WHERE owner = :caller
-     OR id IN (:record_ids_granted_to_caller_principals)
+  WHERE owner = :caller                                   -- rows you own
+     OR id IN (:record_ids_granted_to_caller_principals)  -- enumerated record grants
+     OR (<compiled filter-grant #1>)                      -- e.g. created_by = :caller
+     OR (<compiled filter-grant #2>)                      -- e.g. status = 'shared'
   ```
-  where `record_ids_granted_to_caller_principals` comes from one indexed lookup
-  of record-level grants whose subject ∈ `principals(caller)`. Denies subtract
-  from that set. At household scale (hundreds–thousands of rows) this is a
-  cheap `IN (…)` or a joined subquery.
+  The record-id set comes from one indexed lookup of `record`-scope grants whose
+  subject ∈ `principals(caller)`. Each **filter-grant** (§3.6) contributes its
+  `compileFilter` output — a `(sql, params)` pair — as one more OR clause, with
+  `subject.*` operands bound to the caller. `deny` grants (including deny
+  *filters*) subtract: `… AND NOT (<deny predicate>)`.
 
-This requires two things the store doesn't have today: a **stored `owner`
-column** (§5) and an optional **`visibility` argument** on `listResources` that
-appends the predicate. Both are additive.
+This is the payoff of reusing List's filter engine: the whole predicate stays in
+SQL and **fully paginated** — no per-row evaluation, no fetch-then-filter. It
+drops straight into `listResources`, which already accumulates `whereClauses[]`
++ `args[]` (`engine/store.ts`) and folds a `compileFilter` result in exactly
+this way for the user-supplied List `filter`. A caller's own List `filter` and
+the permission predicate simply AND together — a user can only ever narrow
+within what they're allowed to see.
+
+This requires two additive things the store doesn't have today: the **stored
+`owner` column** (§5) and an optional **`visibility` argument** on
+`listResources` that appends these clauses.
+
+**Single-record ops (GET/PATCH/DELETE) with a filter-grant** run the same
+predicate as a guard — `SELECT 1 FROM <table> WHERE id = ? AND (<filter>)` —
+so single-record and LIST semantics are identical by construction (no risk of a
+row being listable but not gettable, or vice-versa).
 
 ---
 
@@ -371,6 +446,7 @@ management UI for free. Declared in a new core module (e.g.
     target_app:    { type: 'string' },                    // app id, when target_scope = 'app'
     resource_type: { type: 'string' },                    // collection singular, when 'collection' | 'record'
     resource_id:   { type: 'string' },                    // record id, when 'record'
+    filter:        { type: 'string' },                    // §3.6, only with target_scope = 'collection'
     capability:    { type: 'string', enum: ['read','write','delete','manage'], required: true },
     effect:        { type: 'string', enum: ['allow','deny'] },   // default 'allow'; see §11 #1
   } }
@@ -390,6 +466,26 @@ Notes:
   clean their grants. (Grants targeting a deleted **record** are harmless
   dangling rows; a periodic sweep or a resource-delete hook can prune them —
   called out as a v2 nicety.)
+- A `filter` (§3.6) is **compiled and validated when the grant is written**
+  (against the target collection's schema, via `compileFilter`), so a broken
+  expression is rejected at grant-create time — never discovered at enforcement
+  time. Because grants are read-mostly and cached, the compiled `(sql, params)`
+  can be memoized in the `PermissionStore` per (grant, caller).
+
+### 6.1 Introspection: "what can this person access?"
+
+Filter-grants make the household's original ask — *show which resources someone
+is allowed access to* — directly computable. For a target user, the resolver
+gathers their principals' grants per collection and evaluates each grant's
+predicate as an ordinary scoped LIST. Two natural surfaces:
+
+- **Per person:** "everything Bob can read" = union of Bob's allow predicates
+  (minus denies) run across the affected collections.
+- **Per record:** "who can see gift-card #42" = the set of subjects whose grants
+  (enumerated, filter, role, owner) resolve to `read` on that row.
+
+Both are just the §4 resolver run in the other direction; no new storage. A thin
+`:accessible` custom method (or an admin-only report page) can expose it.
 
 ---
 
@@ -556,6 +652,17 @@ The server is authoritative; the client mirrors for UX (same discipline as
    groups soon.
 6. **`owner` reassignment / co-owners.** Single `_owner` v1; multiple owners
    expressed as `manage` grants. Confirm that's sufficient.
+7. **Filter grammar scope (§3.6).** v1 reuses List's exact subset + the
+   `subject.*` binding. Which extensions do we actually need, and when?
+   Candidates, in likely-need order: (a) **`in` / list membership** —
+   required for group/role tests like `team in subject.groups` and for
+   `status in ['a','b']`; (b) **standard-field comparisons** (`create_time`,
+   `id`) — List excludes them today, but "records created after X" is a
+   plausible access rule; (c) **`contains` / string ops** for array and
+   substring fields. *Recommendation: ship v1 with just `subject.*`; add `in`
+   as the first extension the moment a real rule needs group membership, since
+   it also unlocks the cleanest "member of these groups" filters. Extending the
+   subset also improves List for everyone — same compiler.*
 
 ---
 
@@ -572,10 +679,15 @@ Each step is independently shippable behind the kill-switch.
 4. **Wire enforcement**: `checkRecordAccess` replaces `checkUserScope`; CREATE
    stamps owner; LIST visibility predicate. Behind the kill-switch, default
    `household` everywhere ⇒ green e2e.
-5. **`access.model` authoring field** + translator marker; opt one real
+5. **Filter-scoped grants (§3.6)**: add the `subject.*` binding to
+   `compileFilter`, compile+validate a grant's `filter` at write time, and feed
+   its predicate into the §4.1 visibility clauses and single-record guards.
+   Unlocks "records you own / created / are assigned" without enumerating ids.
+6. **`access.model` authoring field** + translator marker; opt one real
    resource (e.g. a private notes/HSA case) into `owner` as the first proof.
-6. **Client**: `can()` helper, hydration, `permission` gate, nav/list filter.
-7. **Admin + sharing UI**: Roles/Groups management, per-record Share.
+7. **Client**: `can()` helper, hydration, `permission` gate, nav/list filter.
+8. **Admin + sharing UI**: Roles/Groups management, per-record Share, and an
+   "accessible resources" report (§6.1).
 
 ---
 
@@ -587,10 +699,15 @@ The design layers three requested mechanisms on the engine's existing seams:
   assignable capability bundles (`admin`/`member`/`guest` seeded).
 - **Groups** are lists of users, memberships optionally carrying a role.
 - **Per-resource ACLs** (`access-grant`) grant a capability to a user, group,
-  role, or everyone — collection-wide or on a single record.
+  role, or everyone — at `all`, `app`, `collection`, or `record` scope.
+- **Filter-scoped grants** express the allowed set as a **filter** in the same
+  subset List already accepts (plus a `subject.*` binding for caller
+  attributes), compiled to SQL — so "which resources someone can access" is
+  computed dynamically, not enumerated.
 
 Enforcement is authoritative in the engine via a new `permissions.ts` resolver
 wired at the existing `crud.ts`/`router.ts` chokepoint, backed by a stored
-`_owner` column and a SQL visibility predicate for LIST. A default install
-behaves exactly as it does today; strictness is opt-in per resource, and the
-whole system sits behind a kill-switch for safe rollout.
+`_owner` column and a SQL visibility predicate for LIST that reuses the engine's
+`compileFilter`. A default install behaves exactly as it does today; strictness
+is opt-in per resource, and the whole system sits behind a kill-switch for safe
+rollout.
