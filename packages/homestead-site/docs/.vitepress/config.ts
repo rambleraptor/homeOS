@@ -131,6 +131,7 @@ export default defineConfig({
           items: [
             { text: 'Creating Users', link: '/guides/users' },
             { text: 'Access & Tags', link: '/guides/access' },
+            { text: 'Permissions', link: '/guides/permissions' },
           ],
         },
       ],

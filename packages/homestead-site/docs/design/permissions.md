@@ -1,9 +1,14 @@
 # Homestead Permissions — Design
 
-**Status:** Draft for review · **Scope:** Design only (no implementation)
+**Status:** Implemented (behind the `PERMISSIONS_ENFORCED` flag) · **Audience:**
+contributors
 
-This document proposes a permissions system for Homestead that lets specific
-people have specific access to specific resources. It combines three
+> **Looking for how to *use* permissions?** See the user guide:
+> [Permissions](../guides/permissions). This page is the internal design and
+> decision record — the *why* behind the system, and the phased build log.
+
+This document records the design of the permissions system: a way to let
+specific people have specific access to specific resources. It combines three
 mechanisms the household requested — **roles**, **groups (lists of users with
 roles)**, and **per-resource ACLs** — enforced authoritatively in the engine,
 at both collection and record (row) granularity.
