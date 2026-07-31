@@ -10,9 +10,11 @@
 import type { Database } from './sqlite';
 import {
   addColumn,
+  backfillOwnerFromCreatedBy,
   createResourceTable,
   derivedColumnsFromSchema,
   dropResourceTable,
+  ensureOwnerColumn,
   removeColumns,
   schemaTypeToSQLite,
   userColumnsFromSchema,
@@ -176,6 +178,14 @@ export class Registry {
 
     const columns = userColumnsFromSchema(def.schema);
     createResourceTable(this.db, def.plural, parents, columns);
+    // Permissions Phase 0: ensure the engine-managed owner column exists on
+    // pre-existing tables, then one-time-backfill it from `created_by`.
+    ensureOwnerColumn(this.db, def.plural);
+    backfillOwnerFromCreatedBy(
+      this.db,
+      def.plural,
+      Boolean(def.schema.properties?.created_by),
+    );
 
     this.resources.set(def.singular, {
       singular: def.singular,

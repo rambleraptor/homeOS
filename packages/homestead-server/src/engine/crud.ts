@@ -401,6 +401,7 @@ export async function handleCreate(
   reg: Registry,
   match: RouteMatch,
   req: Request,
+  caller: User | null = null,
 ): Promise<Response> {
   const r = match.resource;
   const url = new URL(req.url);
@@ -425,7 +426,7 @@ export async function handleCreate(
   };
 
   try {
-    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+    insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema, ownerFor(caller));
   } catch (err) {
     if (isUniqueConstraintError(err)) {
       return errorResponse(409, `resource "${path}" already exists`);
@@ -434,6 +435,15 @@ export async function handleCreate(
   }
 
   return jsonResponse(storedToMap(reg, r, stored), 201);
+}
+
+/**
+ * The owner to stamp on a newly created record: the authenticated caller's id,
+ * or null when there's no auth context (unit tests, system-issued writes).
+ * Phase 0 only records it — nothing reads `_owner` yet.
+ */
+function ownerFor(caller: User | null): string | null {
+  return caller ? caller.id : null;
 }
 
 export function handleGet(reg: Registry, match: RouteMatch): Response {
@@ -526,6 +536,7 @@ export async function handleApply(
   reg: Registry,
   match: RouteMatch,
   req: Request,
+  caller: User | null = null,
 ): Promise<Response> {
   const r = match.resource;
   const path = buildResourcePath(r, match.parentIds, match.id);
@@ -563,7 +574,7 @@ export async function handleApply(
     update_time: now,
     fields,
   };
-  insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema);
+  insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema, ownerFor(caller));
   return jsonResponse(storedToMap(reg, r, stored), 201);
 }
 

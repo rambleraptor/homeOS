@@ -10,7 +10,7 @@
 import type { Database } from './sqlite';
 import type { Schema, StoredResource } from './types';
 import { STANDARD_FIELDS } from './types';
-import { sanitizeTableName } from './db';
+import { OWNER_COLUMN, sanitizeTableName } from './db';
 import { compileFilter } from './filter';
 import { compileOrderBy } from './order';
 import { decryptText, encryptionEnabled, encryptText, isEncryptedText } from './crypto';
@@ -122,10 +122,11 @@ export function insertResource(
   r: StoredResource,
   parentIds: Record<string, string>,
   schema: Schema,
+  owner: string | null = null,
 ): void {
   const tableName = sanitizeTableName(plural);
-  const colNames = ['id', 'path', 'create_time', 'update_time'];
-  const values: SqlValue[] = [r.id, r.path, r.create_time, r.update_time];
+  const colNames = ['id', 'path', 'create_time', 'update_time', OWNER_COLUMN];
+  const values: SqlValue[] = [r.id, r.path, r.create_time, r.update_time, owner];
 
   for (const [parentParam, parentId] of Object.entries(parentIds)) {
     colNames.push(sanitizeTableName(parentParam));

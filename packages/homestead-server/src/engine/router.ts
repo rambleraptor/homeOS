@@ -134,7 +134,7 @@ export async function routeDynamic(
   if (match.kind === 'collection') {
     if (req.method === 'POST') {
       checkSuperuserWrite(match, caller);
-      return handleCreate(reg, match, req);
+      return handleCreate(reg, match, req, caller);
     }
     if (req.method === 'GET') return handleList(reg, match, req);
     return methodNotAllowed();
@@ -169,7 +169,7 @@ export async function routeDynamic(
       return handleUpdate(reg, match, req);
     case 'PUT':
       checkSuperuserWrite(match, caller);
-      return handleApply(reg, match, req);
+      return handleApply(reg, match, req, caller);
     case 'DELETE':
       checkSuperuserWrite(match, caller);
       return handleDelete(reg, match, req);
