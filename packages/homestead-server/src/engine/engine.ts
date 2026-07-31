@@ -128,11 +128,20 @@ export class Engine {
    * ids and every applicable grant (role bundles already expanded), plus whether
    * enforcement is actually on (the client only restricts the UI when it is).
    */
-  permissionContext(userId: string): { enforced: boolean; groupIds: string[]; grants: Grant[] } {
+  permissionContext(userId: string): {
+    enforced: boolean;
+    groupIds: string[];
+    groupNames: string[];
+    grants: Grant[];
+  } {
     const { principals, grants } = this.permissionStore.gatherFor(userId);
     return {
       enforced: permissionMode() === 'on',
       groupIds: [...principals.groupIds],
+      // Group names feed the client's app-gating mirror (`tagged` visibility,
+      // §9.2). Always populated, regardless of enforcement mode — app gating is
+      // independent of PERMISSIONS_ENFORCED.
+      groupNames: this.permissionStore.groupNamesFor(userId),
       grants,
     };
   }

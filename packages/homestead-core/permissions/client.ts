@@ -12,6 +12,12 @@ export interface PermissionContext {
   enforced: boolean;
   /** The caller's group ids. */
   groupIds: string[];
+  /**
+   * The caller's group *names* — feeds app-gating's `tagged` visibility mirror
+   * (§9.2). Populated regardless of `enforced`, since app gating is independent
+   * of permission enforcement.
+   */
+  groupNames: string[];
   /** Every applicable grant (role bundles already expanded server-side). */
   grants: Grant[];
 }

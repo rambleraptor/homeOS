@@ -270,3 +270,32 @@ export async function createAccountTag(
     ['users', userId],
   );
 }
+
+// ---------------------------------------------------------------------------
+// Groups (permissions §9.2 — the audience primitive that replaced account tags)
+// ---------------------------------------------------------------------------
+
+interface GroupRecord {
+  id: string;
+  name: string;
+}
+
+/** Create a group (superuser-only write). */
+export async function createGroup(
+  adminToken: string,
+  name: string,
+): Promise<GroupRecord> {
+  return aepCreate<GroupRecord>(adminToken, 'groups', { name });
+}
+
+/** Add a user to a group via the parented `/groups/{id}/group-memberships`. */
+export async function addGroupMember(
+  adminToken: string,
+  groupId: string,
+  userId: string,
+): Promise<void> {
+  await aepCreate(adminToken, 'group-memberships', { user: userId }, [
+    'groups',
+    groupId,
+  ]);
+}

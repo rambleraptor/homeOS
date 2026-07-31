@@ -143,9 +143,80 @@ export function useAddGroupMember() {
     mutationFn: (input: AddGroupMemberInput) =>
       aepbase.create<GroupMembershipRecord>(
         GROUP_MEMBERSHIPS,
-        { user: input.userId, role: input.role },
+        { user: input.userId, role: input.role || undefined },
         { parent: [GROUPS, input.groupId] },
       ),
     onSuccess: (_data, input) => qc.invalidateQueries({ queryKey: keys.members(input.groupId) }),
   });
+}
+
+export interface RemoveGroupMemberInput {
+  groupId: string;
+  membershipId: string;
+}
+
+export function useRemoveGroupMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: RemoveGroupMemberInput) =>
+      aepbase.remove(GROUP_MEMBERSHIPS, input.membershipId, { parent: [GROUPS, input.groupId] }),
+    onSuccess: (_data, input) => qc.invalidateQueries({ queryKey: keys.members(input.groupId) }),
+  });
+}
+
+/**
+ * Delete a group, first removing its memberships so the parent delete can't be
+ * blocked by lingering children. Idempotent enough for a UI action: a missing
+ * child just no-ops.
+ */
+export function useDeleteGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (groupId: string) => {
+      const members = await aepbase.list<GroupMembershipRecord>(GROUP_MEMBERSHIPS, {
+        parent: [GROUPS, groupId],
+      });
+      for (const m of members) {
+        await aepbase.remove(GROUP_MEMBERSHIPS, m.id, { parent: [GROUPS, groupId] });
+      }
+      await aepbase.remove(GROUPS, groupId);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.groups }),
+  });
+}
+
+// ─────────────────────────── Users (for the member picker) ───────────────────────────
+
+export interface UserLite {
+  id: string;
+  display_name?: string;
+  email?: string;
+}
+
+/** All users, for resolving membership ids to names and populating the picker. */
+export function useAllUsers() {
+  return useQuery({
+    queryKey: ['permissions', 'users'] as const,
+    queryFn: () => aepbase.list<UserLite>('users'),
+  });
+}
+
+/** `users/u1` (or a bare id) → `u1`, matching how references are stored. */
+export function bareId(value: string): string {
+  const slash = value.lastIndexOf('/');
+  return slash === -1 ? value : value.slice(slash + 1);
+}
+
+/** A short human summary of a role's conferred grants, for the read-only list. */
+export function summarizeRoleGrants(grants: RoleGrantRow[] | undefined): string {
+  if (!grants || grants.length === 0) return 'No access';
+  return grants
+    .map((g) => {
+      const cap = g.capability ?? 'read';
+      if (g.target_scope === 'all') return `${cap} on everything`;
+      if (g.target_scope === 'app') return `${cap} on the ${g.target_app} app`;
+      if (g.target_scope === 'collection') return `${cap} on ${g.resource_type}`;
+      return `${cap} (${g.target_scope})`;
+    })
+    .join(', ');
 }

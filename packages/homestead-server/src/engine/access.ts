@@ -11,7 +11,10 @@
  *   none        → deny everyone (even superusers)
  *   all         → any signed-in user
  *   superusers  → only type=="superuser"
- *   tagged      → caller's account tags intersect the app's enabled_tags
+ *   tagged      → caller is a member of a group whose *name* is in the app's
+ *                 enabled_tags list (§9.2 — the audience is now group
+ *                 membership, replacing the retired account-tags; the flag key
+ *                 stays `enabled_tags` for compatibility but holds group names)
  */
 
 import type { Database } from './sqlite';
@@ -41,12 +44,16 @@ const KNOWN_VISIBILITIES = new Set([
 
 export const DEFAULT_ACCESS_CACHE_TTL_MS = 5000;
 
-/** Pure port of resolveVisibility (useIsAppEnabled.ts). */
+/**
+ * Pure port of resolveVisibility (useIsAppEnabled.ts). For `tagged`, the
+ * caller passes when any of their group names appears in the app's enabled
+ * list (§9.2 — group membership replaced account-tags as the audience).
+ */
 export function decide(
   vis: string,
   isSuperuser: boolean,
-  userTags: string[],
-  enabledTags: string,
+  userGroupNames: string[],
+  enabledGroups: string,
 ): boolean {
   switch (vis) {
     case VISIBILITY_NONE:
@@ -54,9 +61,9 @@ export function decide(
     case VISIBILITY_SUPERUSERS:
       return isSuperuser;
     case VISIBILITY_TAGGED: {
-      const allowed = parseTagSet(enabledTags);
+      const allowed = parseTagSet(enabledGroups);
       if (allowed.size === 0) return false;
-      return userTags.some((t) => allowed.has(t));
+      return userGroupNames.some((g) => allowed.has(g));
     }
     default:
       // visibilityAll and any unexpected value, matching the frontend default.
@@ -79,14 +86,20 @@ export function appFieldName(appId: string, key: string): string {
   return `${appId.replaceAll('-', '_')}__${key}`;
 }
 
+/** Strip a `<collection>/` reference prefix to the bare id (`users/u1` → `u1`). */
+function bareId(value: string): string {
+  const slash = value.lastIndexOf('/');
+  return slash === -1 ? value : value.slice(slash + 1);
+}
+
 /**
- * Reads the household app_flags row and per-user account_tags with a TTL
+ * Reads the household app_flags row and per-user group memberships with a TTL
  * cache so gated requests don't fan out queries.
  */
 export class AccessStore {
   private flags: Record<string, string> | null = null;
   private flagsAt = 0;
-  private tags = new Map<string, { tags: string[]; at: number }>();
+  private groupNames = new Map<string, { names: string[]; at: number }>();
 
   constructor(
     private db: Database,
@@ -128,20 +141,33 @@ export class AccessStore {
     return flags;
   }
 
-  userTags(userId: string): string[] {
-    const entry = this.tags.get(userId);
-    if (entry && Date.now() - entry.at < this.ttlMs) return entry.tags;
-    let tags: string[] = [];
+  /**
+   * The names of every group the user belongs to (§9.2). Joins
+   * `group_memberships` to `groups`, tolerating both bare and `<collection>/`-
+   * prefixed reference ids on either side. A missing table (fresh db before the
+   * permissions schema is applied) yields `[]`, so a `tagged` app simply denies.
+   */
+  userGroupNames(userId: string): string[] {
+    const entry = this.groupNames.get(userId);
+    if (entry && Date.now() - entry.at < this.ttlMs) return entry.names;
+    let names: string[] = [];
     try {
+      const bare = bareId(userId);
       const rows = this.db
-        .query('SELECT name FROM account_tags WHERE user_id = ?')
-        .all(userId) as { name: string | null }[];
-      tags = rows.map((r) => r.name ?? '').filter((n) => n !== '');
+        .query(
+          `SELECT DISTINCT g.name AS name
+             FROM group_memberships m
+             JOIN "groups" g
+               ON (m.group_id = g.id OR m.group_id = 'groups/' || g.id)
+            WHERE (m.user = ? OR m.user = 'users/' || ?)`,
+        )
+        .all(bare, bare) as { name: string | null }[];
+      names = rows.map((r) => r.name ?? '').filter((n) => n !== '');
     } catch {
-      tags = [];
+      names = [];
     }
-    this.tags.set(userId, { tags, at: Date.now() });
-    return tags;
+    this.groupNames.set(userId, { names, at: Date.now() });
+    return names;
   }
 }
 
@@ -167,7 +193,9 @@ export function makeAccessCheck(
     }
 
     const { vis, enabledTags } = store.visibility(appId, cfg.appDefaults[appId]);
-    if (!decide(vis, caller.type === TYPE_SUPERUSER, store.userTags(caller.id), enabledTags)) {
+    if (
+      !decide(vis, caller.type === TYPE_SUPERUSER, store.userGroupNames(caller.id), enabledTags)
+    ) {
       return errorResponse(403, 'you do not have access to this app');
     }
     return null;

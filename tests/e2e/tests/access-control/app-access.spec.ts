@@ -18,7 +18,8 @@ import { getAepbaseUrl } from '../../config/aepbase.setup';
 import {
   setAppFlag,
   resetAppFlags,
-  createAccountTag,
+  createGroup,
+  addGroupMember,
 } from '../../utils/aepbase-helpers';
 
 const APP_ID = 'todos';
@@ -69,19 +70,21 @@ test.describe('Backend app-access enforcement', () => {
     await expectStatus(adminToken, 403);
   });
 
-  test("'tagged' allows only users whose account tags overlap", async ({
+  test("'tagged' allows only members of an enabled group (§9.2)", async ({
     adminToken,
     userToken,
     userId,
   }) => {
     await setAppFlag(adminToken, APP_ID, 'enabled', 'tagged');
+    // enabled_tags now holds group names (the flag key is kept for compat).
     await setAppFlag(adminToken, APP_ID, 'enabled_tags', 'vip');
 
-    // Regular user has no tags yet → denied.
+    // Regular user is in no group yet → denied.
     await expectStatus(userToken, 403);
 
-    // Grant an overlapping tag → allowed.
-    await createAccountTag(adminToken, userId, 'vip');
+    // Add them to a group named 'vip' → allowed.
+    const group = await createGroup(adminToken, 'vip');
+    await addGroupMember(adminToken, group.id, userId);
     await expectStatus(userToken, 200);
   });
 });

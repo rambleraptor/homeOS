@@ -22,7 +22,7 @@ vi.mock('../hooks/useAppFlag', () => ({
 
 const mockUser = (
   type: 'superuser' | 'regular',
-  tags?: string[],
+  groups?: string[],
 ): User => ({
   id: 'u1',
   email: 'u1@example.com',
@@ -32,13 +32,17 @@ const mockUser = (
   created: '2024-01-01',
   updated: '2024-01-01',
   type,
-  tags,
+  // The `tagged` audience resolves against the caller's group names (§9.2),
+  // hydrated on login into `permissions.groupNames`.
+  permissions: groups
+    ? { enforced: false, groupIds: [], groupNames: groups, grants: [] }
+    : undefined,
 });
 
 /**
  * Configure the mocked `useAppFlag` to return the visibility on the
- * first call and the tag list on the second. Matches the call order in
- * `useIsAppEnabled`.
+ * first call and the allowed-groups list on the second. Matches the call
+ * order in `useIsAppEnabled`.
  */
 const mockFlags = (visibility: string | undefined, tags?: string) => {
   vi.mocked(useAppFlag).mockImplementation((_appId: string, key: string) => {
@@ -113,43 +117,43 @@ describe('useIsAppEnabled', () => {
     expect(result.current).toBe(true);
   });
 
-  describe("when 'tagged'", () => {
-    it('returns true when the user has at least one matching tag', () => {
+  describe("when 'tagged' (group membership, §9.2)", () => {
+    it('returns true when the user belongs to at least one matching group', () => {
       mockAuth(mockUser('regular', ['beta', 'kitchen']));
       mockFlags('tagged', 'beta,early-access');
       const { result } = renderHook(() => useIsAppEnabled('recipes'));
       expect(result.current).toBe(true);
     });
 
-    it('returns false when the user has no matching tag', () => {
+    it('returns false when the user belongs to no matching group', () => {
       mockAuth(mockUser('regular', ['kitchen']));
       mockFlags('tagged', 'beta,early-access');
       const { result } = renderHook(() => useIsAppEnabled('recipes'));
       expect(result.current).toBe(false);
     });
 
-    it('returns false when the user has no tags at all', () => {
+    it('returns false when the user belongs to no groups at all', () => {
       mockAuth(mockUser('regular'));
       mockFlags('tagged', 'beta');
       const { result } = renderHook(() => useIsAppEnabled('recipes'));
       expect(result.current).toBe(false);
     });
 
-    it('returns false when the allowed-tags list is empty', () => {
+    it('returns false when the allowed-groups list is empty', () => {
       mockAuth(mockUser('regular', ['beta']));
       mockFlags('tagged', '');
       const { result } = renderHook(() => useIsAppEnabled('recipes'));
       expect(result.current).toBe(false);
     });
 
-    it('does NOT auto-bypass for superusers without a matching tag', () => {
+    it('does NOT auto-bypass for superusers without a matching group', () => {
       mockAuth(mockUser('superuser', ['admin']));
       mockFlags('tagged', 'beta');
       const { result } = renderHook(() => useIsAppEnabled('recipes'));
       expect(result.current).toBe(false);
     });
 
-    it('ignores whitespace and duplicates in the tag list', () => {
+    it('ignores whitespace and duplicates in the allowed-groups list', () => {
       mockAuth(mockUser('regular', ['beta']));
       mockFlags('tagged', ' beta , beta , ');
       const { result } = renderHook(() => useIsAppEnabled('recipes'));

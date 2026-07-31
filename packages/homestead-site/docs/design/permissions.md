@@ -722,12 +722,25 @@ and the app gate speaks groups instead of tags:
   the migration runner after the schema sync, lifting every existing tag into a
   group + membership. It is idempotent and *additive* — it never deletes an
   `account-tag`, so the legacy gate keeps working until it's switched over.
-- After the app gate is switched (Phase 3c), the `account-tag` resource and the
-  `account_tags` table are **retired**, and the engine access gate reads **group
-  membership** where it used to read `account_tags` (`engine/access.ts`
-  `userTags()` → group lookup).
+- **The gate switch is ✅ done.** `engine/access.ts` now resolves `tagged`
+  against **group membership**: `AccessStore.userTags()` became
+  `userGroupNames()` (joins `group_memberships` → `groups`), and `decide()`
+  intersects the caller's group *names* with the app's enabled list. The client
+  mirror (`useIsAppEnabled`) resolves the same way, using the caller's group
+  names hydrated into `permissions.groupNames` (added to `GET
+  /api/permissions/me`). **The `enabled_tags` flag key is kept as-is** and simply
+  reinterpreted to hold group *names* — renaming it would drop-then-recreate the
+  column (the app-flags sync removes deleted properties), and since the data
+  migration created a group per tag *name*, existing `enabled_tags` values keep
+  matching with no config migration.
+- **Still pending — retirement.** The `account-tag` resource, the `account_tags`
+  table, and the account-tag admin UI are not gated on anymore (nothing reads
+  them), but they're not yet removed. Retiring them (and dropping the now-vestigial
+  `user.tags` hydration) is a follow-up, kept separate because deleting a
+  resource + its table is destructive and the migration still reads
+  `account-tags` on older instances.
 - One primitive for "a set of people" everywhere — the gate and the resolver
-  both speak `group`, nothing speaks `tag`.
+  both speak `group`, nothing new speaks `tag`.
 
 ---
 
@@ -909,18 +922,30 @@ hydration). When the system is off, the legacy `superuser_write` gate still
 applies. *Verified by 6 tests* (owner-share, non-owner denied, member can't make
 broad grants, admin-role-via-group can, no-grants-on-grants, superuser + delete).
 
-**Phase 3c — app-gate & account-tags *(partly done)*.** The **data migration**
-is shipped: `users-account-tags-to-groups` (declared on the users app, handler
-under `superuser/users/migrations/`) runs once at boot through the migration
-runner and lifts every existing `account-tag` into a `group` +
-`group-membership`. It is idempotent and additive — it doesn't touch the tags,
-so nothing breaks before the gate is switched. *Verified by an end-to-end test*
-(shared-tag dedup, per-user membership, ledger summary, re-run is a no-op).
-**Still pending:** switching the app gate itself from `account_tags` to **group
-membership** and then retiring the `account-tag` resource + `account_tags` table
-(§9.2). That remainder is a larger cross-cutting change (server gate + the
-flag-management/users frontend + e2e) kept separate so the app-level gate rolls
-out independently of the record-level enforcement.
+**Phase 3c — app-gate & account-tags *(gate switch done; retirement pending)*.**
+Two parts, both landed except the destructive cleanup:
+
+1. **Data migration ✅.** `users-account-tags-to-groups` (declared on the users
+   app, handler under `superuser/users/migrations/`) runs once at boot and lifts
+   every existing `account-tag` into a `group` + `group-membership`. Idempotent
+   and additive. *Verified by an end-to-end test* (shared-tag dedup, per-user
+   membership, ledger summary, re-run is a no-op).
+2. **Gate switch ✅.** The app-access gate now speaks group membership (§9.2):
+   `access.ts userGroupNames()` replaces `userTags()`, `decide('tagged', …)`
+   intersects the caller's group names with the app's enabled list, and the
+   client's `useIsAppEnabled` mirrors it via `permissions.groupNames` (hydrated
+   from `/api/permissions/me`). The `enabled_tags` flag key is kept and
+   reinterpreted to hold group names (renaming would drop the column; the data
+   migration keeps names aligned), so no config migration is needed. *Verified by
+   engine-integration tests* (`access.test.ts`: `userGroupNames`, and a `tagged`
+   admit-member/deny-non-member gate scenario), the client `useIsAppEnabled`
+   suite, and the updated app-access e2e spec.
+
+**Still pending — retirement.** The `account-tag` resource + `account_tags`
+table + account-tag admin UI (and the now-vestigial `user.tags` hydration) are
+no longer read by the gate but are not yet removed. Deleting a resource and its
+table is destructive, and the data migration still reads `account-tags` on older
+instances, so retirement is kept as a dedicated follow-up.
 
 ### Phase 4 — Filter-scoped grants *(depends on 3a)* ✅ done
 - `compileFilter` gained its optional `subject` context (§3.6.1): a
@@ -931,10 +956,19 @@ out independently of the record-level enforcement.
   it joins the visibility clause; for single-record ops it runs the same
   predicate as a `SELECT 1 … WHERE path = ? AND (filter)` guard, so the two can't
   drift. Allow-filters widen the `only`/`all-except` set; deny-filters subtract.
-- **Deferred:** *write-time* filter validation. A grant's filter is compiled at
-  enforcement time; an un-compilable one is dropped and logged (an allow grants
-  nothing, a deny is skipped). Validating at grant-write (compile against the
-  target schema, reject on 400) is a follow-up so bad filters fail fast.
+- **Write-time filter validation ✅ done.** A collection-scope grant's `filter`
+  is compiled against its target collection's schema at grant create/update
+  (`validateGrantFilter` in `enforce.ts`, called from `routeGrant`); a filter
+  that can't compile — bad syntax, or a field the schema lacks after a rename —
+  is rejected with a **400** rather than being discovered (and silently dropped,
+  failing a deny-filter open) at enforcement time. The compile is subject-aware
+  (`subject.*` binds to a throwaway subject, since only well-formedness matters)
+  and runs after the manage-on-target authz check but independent of it, so even
+  the break-glass superuser gets a 400 on a malformed filter. Enforcement-time
+  compilation still tolerates a bad filter defensively (logged per-distinct
+  filter), but a valid write can no longer produce one. *Verified by 6 tests*
+  (valid filter, `subject.*` bind, unknown field, syntax error, PATCH drift,
+  non-collection scope left un-validated).
 - **Verify:** compiler subject-binding unit tests (List unaffected) + filter-grant
   enforcement tests (author-scoped read+list consistency, deny-filter subtraction).
 
@@ -982,14 +1016,23 @@ out independently of the record-level enforcement.
   four resources: `useRoles`, `useGroups`, `useGroupMemberships`,
   `useAccessGrants` (with a record-scoped filter for "who can see this?"), and
   the mutations `useShareRecord` (record-scope grant), `useRevokeGrant`,
-  `useCreateGroup`, `useAddGroupMember`. Thin wrappers over the aepbase client;
-  the server enforces the manage-on-target write rule (§15.3), so a disallowed
+  `useCreateGroup`, `useAddGroupMember` (plus `useRemoveGroupMember`,
+  `useDeleteGroup`, `useAllUsers`). Thin wrappers over the aepbase client; the
+  server enforces the manage-on-target write rule (§15.3), so a disallowed
   mutation surfaces as an error. *Verified by 5 hook tests.*
-- **Remaining (UI screens):** the Roles/Groups management page, the per-record
-  **Share** dialog wired to `useShareRecord`/`useRevokeGrant` (shown when
-  `can('manage', …)`), the accessible-resources report (§6.1), and retiring the
-  account-tag UI. These are React screens on top of the data layer above — a
-  product-surface effort best shaped with UX input.
+- **Groups & roles admin page ✅ done.** A new superuser child app
+  (`permissions/app.config.ts` → `/superuser/permissions`, surfaced on the
+  Superuser landing) with `PermissionsHome`: create/delete **groups**, expand a
+  group to add/remove **members** (with an optional role), and a read-only view
+  of the built-in **roles** with a plain-language summary of each one's grants.
+  This is the knob that makes Phase 3c usable — groups are the app-gating
+  audience — and the foundation for grant management. *Verified by a component
+  test* (lists groups/roles, create-group flow, expand + add/remove member).
+- **Remaining (UI screens):** the per-record **Share** dialog wired to
+  `useShareRecord`/`useRevokeGrant` (shown when `can('manage', …)`), the
+  accessible-resources report (§6.1), a role *editor* (roles are read-only for
+  now), and retiring the account-tag UI. React screens on top of the same data
+  layer.
 - **Risk:** low; all CRUD over resources that already exist and enforce
   server-side.
 
@@ -998,6 +1041,24 @@ out independently of the record-level enforcement.
   for Phase 3; keep both until a release has run enforced without incident.
 - **e2e** already boots the real server, so each phase updates specs alongside
   code — the suite is the regression gate at every step.
+- **Enforced e2e run ✅ added.** A dedicated Playwright config
+  (`tests/e2e/playwright.enforced.config.ts`, `make test-e2e-enforced`) boots the
+  server with `PERMISSIONS_ENFORCED=on` and runs the `*.enforced.spec.ts` specs,
+  proving end-to-end that (1) the seeded open-household grant preserves a regular
+  user's full CRUD — flipping enforcement on is a no-op for normal use, (2) a
+  collection-scope deny blocks the named user while others keep access and
+  lifting it restores them, and (3) the superuser breaks glass through a deny
+  that targets everyone. The default suite keeps enforcement off (its shipped
+  default) and ignores these specs.
+- **Boot-ordering nuance (surfaced by the enforced run).** The open-household
+  grant is seeded *after* the resource sync, so on the **first** boot of a fresh
+  instance with enforcement already on, there's a brief window where nothing is
+  permitted yet (default-deny) until the seed lands. On every later boot the
+  grant already exists (seed is when-empty), so there's no window. In practice
+  enforcement is turned on for an *existing* instance that already holds the
+  grant, so this only bit the e2e harness (fresh db per run) — handled by waiting
+  for the grant in the enforced setup. Worth remembering if enforcement is ever
+  defaulted on for brand-new instances.
 - **No silent truncation:** the account-tag migration (Phase 3c) logs its tally
   (tags scanned, groups + memberships created) and skips only empty tag names, so
   nothing is dropped quietly.

@@ -25,6 +25,7 @@ import {
   enforceGrantWrite,
   enforceRecordAccess,
   listVisibilityClause,
+  validateGrantFilter,
   type EnforceContext,
   type GrantTargetSpec,
 } from './enforce';
@@ -259,8 +260,9 @@ async function routeGrant(
   if (match.kind === 'collection') {
     if (req.method === 'GET') return handleList(reg, match, req, null);
     if (req.method === 'POST') {
-      const { bodyText, target } = await readGrantTarget(req);
+      const { bodyText, target, filter } = await readGrantTarget(req);
       enforceGrantWrite(ctx, reg, reg.db, caller, target);
+      validateGrantFilter(reg, target, filter);
       return handleCreate(reg, match, remakeJsonRequest(req, bodyText), caller);
     }
     return methodNotAllowed();
@@ -273,13 +275,15 @@ async function routeGrant(
     case 'GET':
       return handleGet(reg, match);
     case 'PATCH': {
-      const { bodyText, target } = await readGrantTarget(req, storedGrantTarget(reg, r.plural, path));
+      const { bodyText, target, filter } = await readGrantTarget(req, storedGrantTarget(reg, r.plural, path));
       enforceGrantWrite(ctx, reg, reg.db, caller, target);
+      validateGrantFilter(reg, target, filter);
       return handleUpdate(reg, match, remakeJsonRequest(req, bodyText));
     }
     case 'PUT': {
-      const { bodyText, target } = await readGrantTarget(req, storedGrantTarget(reg, r.plural, path));
+      const { bodyText, target, filter } = await readGrantTarget(req, storedGrantTarget(reg, r.plural, path));
       enforceGrantWrite(ctx, reg, reg.db, caller, target);
+      validateGrantFilter(reg, target, filter);
       return handleApply(reg, match, remakeJsonRequest(req, bodyText), caller);
     }
     case 'DELETE':
@@ -290,11 +294,15 @@ async function routeGrant(
   }
 }
 
-/** The grant's effective target = the request body overlaid on any stored row. */
+/**
+ * The grant's effective target = the request body overlaid on any stored row,
+ * plus the `filter` value the body sets (undefined when the body doesn't touch
+ * it) for write-time filter validation.
+ */
 async function readGrantTarget(
   req: Request,
   base: GrantTargetSpec = {},
-): Promise<{ bodyText: string; target: GrantTargetSpec }> {
+): Promise<{ bodyText: string; target: GrantTargetSpec; filter: string | undefined }> {
   const bodyText = await req.text();
   let body: Record<string, unknown> = {};
   if (bodyText) {
@@ -317,6 +325,7 @@ async function readGrantTarget(
       resource_type: pick('resource_type', base.resource_type),
       resource_id: pick('resource_id', base.resource_id),
     },
+    filter: typeof body.filter === 'string' ? (body.filter as string) : undefined,
   };
 }
 

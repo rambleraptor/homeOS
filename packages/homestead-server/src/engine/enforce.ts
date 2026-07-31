@@ -355,6 +355,42 @@ export function enforceGrantWrite(
   deny('no-manage-on-target');
 }
 
+/** A throwaway subject for compile-only validation when there's no live caller. */
+const VALIDATION_SUBJECT: FilterSubject = { id: '', email: '', display_name: '' };
+
+/**
+ * Validate an access-grant's `filter` at write time (§3.6, Phase 4 follow-up).
+ *
+ * A collection-scope filter must **compile against its target collection's
+ * schema** — so a broken expression (bad syntax, an unknown field after a
+ * rename) is rejected at grant create/update with a 400, instead of silently
+ * failing open at enforcement time (where an un-compilable deny-filter would
+ * quietly stop applying). Only collection-scope filters are meaningful to the
+ * resolver, so filters at other scopes aren't compiled here.
+ *
+ * Compilation is subject-aware: `subject.*` operands are bound to a throwaway
+ * subject, since we only care that the expression is *well-formed*, not what it
+ * evaluates to. An unresolvable `resource_type` is left alone — collection
+ * existence is not otherwise validated at grant-write, and there's no schema to
+ * compile against.
+ */
+export function validateGrantFilter(
+  reg: Registry,
+  target: GrantTargetSpec,
+  filter: string | undefined,
+): void {
+  if (!filter) return; // no filter → nothing to validate
+  if (target.scope !== 'collection') return; // filter only applies at collection scope
+  const resource = target.resource_type ? reg.get(target.resource_type) : undefined;
+  if (!resource) return; // unknown target type: no schema to validate against
+  try {
+    compileFilter(filter, resource.schema, { subject: VALIDATION_SUBJECT });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new HttpError(400, `invalid grant filter: ${message}`);
+  }
+}
+
 /**
  * De-dupe warnings *per distinct filter*, not globally: an un-compilable filter
  * is fail-open for a deny grant (the deny silently stops applying), so every

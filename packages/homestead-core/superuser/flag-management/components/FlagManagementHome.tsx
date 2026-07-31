@@ -118,9 +118,9 @@ export function FlagManagementHome() {
                       {appName}
                     </h3>
                     {Object.entries(appDefs).map(([key, def]) => {
-                      // The auto-injected `enabled_tags` flag only
-                      // matters when visibility is 'tagged'. Hide it
-                      // otherwise so the form stays tight.
+                      // The auto-injected `enabled_tags` flag (now a list of
+                      // group names, §9.2) only matters when visibility is
+                      // 'tagged'. Hide it otherwise so the form stays tight.
                       if (key === BUILTIN_ENABLED_TAGS_FLAG_KEY) {
                         const visibility =
                           values[appId]?.[BUILTIN_ENABLED_FLAG_KEY];

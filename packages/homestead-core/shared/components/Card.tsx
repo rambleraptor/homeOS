@@ -4,11 +4,12 @@ import { Card as ShadcnCard, CardContent } from '@rambleraptor/homestead-core/sh
 interface CardProps {
   children: ReactNode;
   className?: string;
+  'data-testid'?: string;
 }
 
-export function Card({ children, className = '' }: CardProps) {
+export function Card({ children, className = '', 'data-testid': testId }: CardProps) {
   return (
-    <ShadcnCard className={className}>
+    <ShadcnCard className={className} data-testid={testId}>
       <CardContent className="p-6">
         {children}
       </CardContent>
