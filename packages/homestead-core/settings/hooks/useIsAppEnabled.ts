@@ -5,9 +5,10 @@
  *   - 'all'        → every signed-in user
  *   - 'superusers' → only superusers
  *   - 'none'       → nobody (superusers do NOT bypass)
- *   - 'tagged'     → users whose account `tags` intersects the app's
- *                    `enabled_tags` flag (any-of match). Superusers do
- *                    NOT bypass — give them a matching tag if needed.
+ *   - 'tagged'     → users who belong to a group whose *name* is in the app's
+ *                    `enabled_tags` flag (any-of match; §9.2 — group membership
+ *                    replaced account-tags as the audience). Superusers do NOT
+ *                    bypass — add them to a matching group if needed.
  *
  * Signed-out visitors never pass, regardless of the stored value.
  */
@@ -41,11 +42,12 @@ function resolveVisibility(
   if (!user) return false;
   if (visibility === 'all') return true;
   if (visibility === 'superusers') return user.type === 'superuser';
-  // 'tagged'
+  // 'tagged' — the audience is now group membership (§9.2); the flag holds
+  // group names, matched against the caller's groups (hydrated on login).
   const allowed = parseTagList(enabledTagsRaw);
   if (allowed.length === 0) return false;
-  const userTags = user.tags ?? [];
-  return userTags.some((t) => allowed.includes(t));
+  const userGroups = user.permissions?.groupNames ?? [];
+  return userGroups.some((g) => allowed.includes(g));
 }
 
 /**

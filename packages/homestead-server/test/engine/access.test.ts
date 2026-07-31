@@ -97,20 +97,30 @@ describe('AccessStore', () => {
     expect(new AccessStore(t.engine.db, 0).visibility('gift-cards', 'all').vis).toBe('none');
   });
 
-  test('userTags reads account_tags by user_id', async () => {
+  test('userGroupNames reads the caller group memberships (§9.2)', async () => {
     await defineResource(t, {
-      singular: 'account-tag',
-      plural: 'account-tags',
-      parents: ['user'],
+      singular: 'group',
+      plural: 'groups',
       schema: { type: 'object', properties: { name: { type: 'string' } } },
     });
-    await call(t.engine, 'POST', `/users/${t.admin.id}/account-tags`, {
+    await defineResource(t, {
+      singular: 'group-membership',
+      plural: 'group-memberships',
+      parents: ['group'],
+      schema: { type: 'object', properties: { user: { type: 'string' } } },
+    });
+    await call(t.engine, 'POST', '/groups?id=vip', {
       token: t.adminToken,
       body: { name: 'vip' },
     });
+    await call(t.engine, 'POST', '/groups/vip/group-memberships', {
+      token: t.adminToken,
+      body: { user: t.admin.id },
+    });
+
     const store = new AccessStore(t.engine.db, 0);
-    expect(store.userTags(t.admin.id)).toEqual(['vip']);
-    expect(store.userTags('nobody')).toEqual([]);
+    expect(store.userGroupNames(t.admin.id)).toEqual(['vip']);
+    expect(store.userGroupNames('nobody')).toEqual([]);
   });
 });
 
@@ -129,7 +139,10 @@ describe('end-to-end gating through the engine', () => {
       plural: 'app-flags',
       schema: {
         type: 'object',
-        properties: { gift_cards__enabled: { type: 'string' } },
+        properties: {
+          gift_cards__enabled: { type: 'string' },
+          gift_cards__enabled_tags: { type: 'string' },
+        },
       },
     });
     t.engine.setAccessCheck(
@@ -177,5 +190,41 @@ describe('end-to-end gating through the engine', () => {
       token: t.adminToken,
     });
     expect(child.status).toBe(403); // gated before routing, like the Go middleware
+  });
+
+  test('tagged admits a group member and denies a non-member (§9.2)', async () => {
+    // The `tagged` audience is now group membership: enabled_tags holds group
+    // names, and a caller passes iff they belong to a group of that name.
+    await defineResource(t, {
+      singular: 'group',
+      plural: 'groups',
+      schema: { type: 'object', properties: { name: { type: 'string' } } },
+    });
+    await defineResource(t, {
+      singular: 'group-membership',
+      plural: 'group-memberships',
+      parents: ['group'],
+      schema: { type: 'object', properties: { user: { type: 'string' } } },
+    });
+    // app_flags carries the enabled_tags column for this scenario.
+    await call(t.engine, 'POST', '/app-flags', {
+      token: t.adminToken,
+      body: { gift_cards__enabled: 'tagged', gift_cards__enabled_tags: 'adults' },
+    });
+
+    const member = await seedUser(t.engine, { email: 'member@example.com' });
+    const outsider = await seedUser(t.engine, { email: 'outsider@example.com' });
+
+    await call(t.engine, 'POST', '/groups?id=adults', {
+      token: t.adminToken,
+      body: { name: 'adults' },
+    });
+    await call(t.engine, 'POST', '/groups/adults/group-memberships', {
+      token: t.adminToken,
+      body: { user: member.user.id },
+    });
+
+    expect((await call(t.engine, 'GET', '/gift-cards', { token: member.token })).status).toBe(200);
+    expect((await call(t.engine, 'GET', '/gift-cards', { token: outsider.token })).status).toBe(403);
   });
 });

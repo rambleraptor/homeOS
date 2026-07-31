@@ -83,6 +83,7 @@ export class PermissionStore {
   private grants: Grant[] | null = null;
   private memberships: MembershipRow[] | null = null;
   private rolesById: Map<string, Grant[]> | null = null; // role id → expanded grants (targets only)
+  private groupNameById: Map<string, string> | null = null; // group id → name
   private loadedAt = 0;
 
   constructor(
@@ -95,6 +96,7 @@ export class PermissionStore {
     this.grants = null;
     this.memberships = null;
     this.rolesById = null;
+    this.groupNameById = null;
     this.loadedAt = 0;
   }
 
@@ -114,6 +116,14 @@ export class PermissionStore {
       roles.set(r.id, this.expandRoleGrants(r.grants));
     }
     this.rolesById = roles;
+
+    const groupNames = new Map<string, string>();
+    for (const g of this.query<{ id: string; name: string | null }>(
+      'SELECT id, name FROM "groups"',
+    )) {
+      if (g.name) groupNames.set(g.id, g.name);
+    }
+    this.groupNameById = groupNames;
 
     this.loadedAt = Date.now();
   }
@@ -180,5 +190,20 @@ export class PermissionStore {
     }
 
     return { principals: { userId, groupIds }, grants };
+  }
+
+  /**
+   * The names of the groups a user belongs to. Feeds the client's app-gating
+   * mirror (`tagged` visibility, §9.2), which resolves against group names.
+   */
+  groupNamesFor(userId: string): string[] {
+    this.load();
+    const names = new Set<string>();
+    for (const m of this.memberships ?? []) {
+      if (bareId(m.user) !== userId) continue;
+      const name = this.groupNameById?.get(bareId(m.group_id));
+      if (name) names.add(name);
+    }
+    return [...names];
   }
 }

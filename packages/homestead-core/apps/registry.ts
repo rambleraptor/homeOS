@@ -321,18 +321,21 @@ function builtinEnabledFlagDef(
     type: 'enum',
     label: 'App enabled for',
     description:
-      "Who can use this app. 'superusers' restricts it to superusers; 'all' makes it available to every signed-in user; 'none' hides it from everyone (including superusers); 'tagged' restricts it to users whose account tags overlap the 'enabled_tags' list.",
+      "Who can use this app. 'superusers' restricts it to superusers; 'all' makes it available to every signed-in user; 'none' hides it from everyone (including superusers); 'tagged' restricts it to members of the groups listed in 'enabled_tags'.",
     options: APP_VISIBILITY_OPTIONS,
     default: defaultValue,
   };
 }
 
+// The flag key stays `enabled_tags` (renaming it would drop-then-recreate the
+// column, losing values); §9.2 repurposed its contents from account-tag names
+// to group names, which the account-tags→groups migration keeps aligned.
 function builtinEnabledTagsFlagDef(): AppFlagDef {
   return {
     type: 'string',
-    label: 'Allowed tags',
+    label: 'Allowed groups',
     description:
-      "Comma-separated list of account tags allowed to use this app. Only consulted when 'enabled' is set to 'tagged'. A user passes if any of their account tags appears in this list.",
+      "Comma-separated list of group names allowed to use this app. Only consulted when 'enabled' is set to 'tagged'. A user passes if they belong to any group named in this list.",
     default: '',
   };
 }

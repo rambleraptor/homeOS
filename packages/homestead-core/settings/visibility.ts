@@ -8,8 +8,9 @@
  *
  * The `'tagged'` option pairs with the auto-injected `enabled_tags`
  * flag: when an admin sets an app's visibility to `'tagged'`, only
- * users whose `tags` field intersects `enabled_tags` (any-of) can use
- * the app.
+ * members of the groups named in `enabled_tags` (any-of) can use the
+ * app. (§9.2 repurposed this flag's contents from account-tag names to
+ * group names; the key is kept for compatibility.)
  */
 
 export const APP_VISIBILITY_OPTIONS = [
@@ -25,15 +26,16 @@ export const DEFAULT_APP_VISIBILITY: AppVisibility = 'all';
 
 /**
  * Key of the auto-injected sibling flag holding the comma-separated
- * list of tags allowed when visibility is `'tagged'`. Stored as a
- * string because the flag system only supports primitive types.
+ * list of group names allowed when visibility is `'tagged'`. Stored as
+ * a string because the flag system only supports primitive types. (The
+ * key name predates §9.2, which repurposed the contents from account-tag
+ * names to group names; kept as-is so the stored column survives.)
  */
 export const BUILTIN_ENABLED_TAGS_FLAG_KEY = 'enabled_tags';
 
 /**
- * Split a comma-separated tag-list string into a deduped array of
- * non-empty trimmed tag names. Used to parse the `enabled_tags` flag
- * and the user's `tags` field.
+ * Split a comma-separated list string into a deduped array of non-empty
+ * trimmed names. Used to parse the `enabled_tags` flag (group names).
  */
 export function parseTagList(raw: string | undefined | null): string[] {
   if (!raw) return [];

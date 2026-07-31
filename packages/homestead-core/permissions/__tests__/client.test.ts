@@ -9,7 +9,7 @@ import { canWith, type PermissionContext } from '../client';
 import type { Grant } from '../resolve';
 
 function ctx(over: Partial<PermissionContext> = {}): PermissionContext {
-  return { enforced: true, groupIds: [], grants: [], ...over };
+  return { enforced: true, groupIds: [], groupNames: [], grants: [], ...over };
 }
 
 const OPEN: Grant = {
