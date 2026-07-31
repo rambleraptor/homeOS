@@ -24,6 +24,8 @@ export interface Document {
   title?: string;
   /** True once a human edits the title; stops classify from overwriting it. */
   title_edited?: boolean;
+  /** Free-form labels a person attaches by hand to organise and find documents. */
+  tags?: string[];
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
   mime_type?: string;

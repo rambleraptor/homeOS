@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { getDocType } from '../doc-types/registry';
 import { useDocument } from '../hooks/useDocument';
 import { useClassifyDocument } from '../hooks/useUploadDocument';
@@ -138,6 +139,16 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
           </span>
         )}
       </div>
+
+      {!isEditing && doc.tags && doc.tags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" data-testid="document-tags">
+          {doc.tags.map((tag) => (
+            <Badge key={tag} variant="neutral" data-testid={`document-tag-${tag}`}>
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {isEditing ? (
         <div className="rounded-lg border border-gray-200 bg-white p-5">

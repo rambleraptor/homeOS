@@ -13,6 +13,7 @@
 
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import { getDocTypes, getDocType } from '../doc-types/registry';
 import { UNKNOWN_DOC_TYPE, type DocField } from '../doc-types/docType';
 import type { Document, DocumentMetadata } from '../types';
@@ -56,6 +57,7 @@ export function DocumentEditForm({
 }: DocumentEditFormProps) {
   const docTypes = getDocTypes();
   const [title, setTitle] = useState(document.title ?? '');
+  const [tags, setTags] = useState<string[]>(document.tags ?? []);
   const [docTypeId, setDocTypeId] = useState(
     document.metadata?.doc_type ?? UNKNOWN_DOC_TYPE,
   );
@@ -106,6 +108,7 @@ export function DocumentEditForm({
     onSubmit({
       title: title.trim() || document.title || 'Untitled document',
       title_edited: true,
+      tags,
       metadata,
       // A human-set type is authoritative: matched → parsed, unknown → unmatched.
       parse_status: matched ? 'parsed' : 'unmatched',
@@ -129,6 +132,22 @@ export function DocumentEditForm({
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           data-testid="document-edit-title"
         />
+      </div>
+
+      <div>
+        <label htmlFor="doc-tags" className="block text-xs font-medium text-gray-700">
+          Tags
+        </label>
+        <div className="mt-1">
+          <TagInput
+            id="doc-tags"
+            value={tags}
+            onChange={setTags}
+            disabled={isSaving}
+            placeholder="Add a tag…"
+            testId="document-edit-tags"
+          />
+        </div>
       </div>
 
       <div>

@@ -20,7 +20,7 @@ import type { Document } from './types';
 export const UNRECOGNISED_TYPE = UNKNOWN_DOC_TYPE;
 
 export interface DocumentFilters {
-  /** Free-text search over title, type label, and parsed metadata values. */
+  /** Free-text search over title, tags, type label, and parsed metadata values. */
   search: string;
   /** A doc type id, `UNRECOGNISED_TYPE`, or '' for "any type". */
   docType: string;
@@ -30,13 +30,33 @@ export interface DocumentFilters {
    * filter follows aliases rather than exact text.
    */
   person: string;
+  /** A tag to filter by (exact match), or '' for "any tag". */
+  tag: string;
 }
 
-export const EMPTY_FILTERS: DocumentFilters = { search: '', docType: '', person: '' };
+export const EMPTY_FILTERS: DocumentFilters = {
+  search: '',
+  docType: '',
+  person: '',
+  tag: '',
+};
 
 /** Whether any filter is active — drives the "no matches" vs "empty" copy. */
 export function hasActiveFilters(filters: DocumentFilters): boolean {
-  return !!(filters.search.trim() || filters.docType || filters.person);
+  return !!(filters.search.trim() || filters.docType || filters.person || filters.tag);
+}
+
+/**
+ * Every distinct tag used across the documents, sorted for a stable dropdown.
+ * Like the type facet, only surfacing tags in use keeps the filter to what's
+ * actually selectable.
+ */
+export function collectTagFacets(documents: Document[]): string[] {
+  const tags = new Set<string>();
+  for (const doc of documents) {
+    for (const tag of doc.tags ?? []) tags.add(tag);
+  }
+  return [...tags].sort((a, b) => a.localeCompare(b));
 }
 
 /** A type facet entry: the value stored on a document and its display label. */
@@ -119,10 +139,11 @@ export function collectPeople(documents: Document[], people: Person[]): PersonFa
   return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
-/** The searchable text of a document: its title, type label, and metadata values. */
+/** The searchable text of a document: its title, tags, type label, and metadata values. */
 function searchableText(doc: Document): string {
   const parts: string[] = [];
   if (doc.title) parts.push(doc.title);
+  if (doc.tags) parts.push(...doc.tags);
 
   const id = doc.metadata?.doc_type;
   if (id && id !== UNRECOGNISED_TYPE) {
@@ -153,7 +174,7 @@ function collectSearchStrings(value: unknown, out: string[]): void {
 }
 
 /**
- * Apply search + type + person filters to the list. Each is independent and
+ * Apply search + type + person + tag filters to the list. Each is independent and
  * ANDed together; an empty filter matches everything. The input order (already
  * sorted newest-first upstream) is preserved.
  *
@@ -168,9 +189,12 @@ export function filterDocuments(
 ): Document[] {
   const search = filters.search.trim().toLowerCase();
   const personKey = filters.person.trim();
+  const tag = filters.tag.trim();
 
   return documents.filter((doc) => {
     if (filters.docType && doc.metadata?.doc_type !== filters.docType) return false;
+
+    if (tag && !(doc.tags ?? []).includes(tag)) return false;
 
     if (personKey) {
       const identities = getDocumentPeople(doc).map(

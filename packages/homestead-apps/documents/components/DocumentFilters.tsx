@@ -6,7 +6,7 @@
 
 import { Search, X } from 'lucide-react';
 import type { DocumentFilters as Filters, DocTypeFacet, PersonFacet } from '../filtering';
-import { hasActiveFilters } from '../filtering';
+import { EMPTY_FILTERS, hasActiveFilters } from '../filtering';
 
 interface DocumentFiltersProps {
   filters: Filters;
@@ -15,6 +15,8 @@ interface DocumentFiltersProps {
   docTypes: DocTypeFacet[];
   /** People named across the list — the person dropdown's options. */
   people: PersonFacet[];
+  /** Tags used across the list — the tag dropdown's options. */
+  tags: string[];
 }
 
 const SELECT_CLASS =
@@ -25,6 +27,7 @@ export function DocumentFilters({
   onChange,
   docTypes,
   people,
+  tags,
 }: DocumentFiltersProps) {
   const active = hasActiveFilters(filters);
 
@@ -80,10 +83,27 @@ export function DocumentFilters({
         </select>
       )}
 
+      {tags.length > 0 && (
+        <select
+          value={filters.tag}
+          onChange={(e) => onChange({ ...filters, tag: e.target.value })}
+          aria-label="Filter by tag"
+          data-testid="document-tag-filter"
+          className={SELECT_CLASS}
+        >
+          <option value="">All tags</option>
+          {tags.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      )}
+
       {active && (
         <button
           type="button"
-          onClick={() => onChange({ search: '', docType: '', person: '' })}
+          onClick={() => onChange({ ...EMPTY_FILTERS })}
           data-testid="document-filters-clear"
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
         >
