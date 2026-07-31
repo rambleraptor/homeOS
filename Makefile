@@ -1,4 +1,4 @@
-.PHONY: help install clean lint type-check type-check-cli type-check-server type-check-client build test test-cli test-node test-e2e test-e2e-ui test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
+.PHONY: help install clean lint type-check type-check-cli type-check-server type-check-client build test test-cli test-node test-e2e test-e2e-ui test-e2e-enforced test-all dev start audit format all ci install-service start-services stop restart status logs homestead homestead-test release
 
 # Release target platforms (filename arch follows Bun's convention: x64/arm64).
 RELEASE_PLATFORMS := linux-x64 linux-arm64 darwin-x64 darwin-arm64
@@ -84,6 +84,10 @@ test-e2e: ## Run end-to-end tests with Playwright
 test-e2e-ui: ## Run e2e tests in UI mode
 	@echo "Running e2e tests in UI mode..."
 	cd tests/e2e && npm run test:ui
+
+test-e2e-enforced: ## Run e2e permission specs with PERMISSIONS_ENFORCED=on
+	@echo "Running enforced permission e2e tests..."
+	cd tests/e2e && npm install && npx playwright install --with-deps chromium && npm run test:enforced
 
 test-all: test test-e2e ## Run all tests (frontend + e2e)
 	@echo "All tests completed!"

@@ -5,6 +5,7 @@ package-lock.json
 # Test results
 test-results/
 playwright-report/
+playwright-report-enforced/
 playwright/.cache/
 
 # aepbase test instance

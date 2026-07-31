@@ -17,6 +17,10 @@ export default defineConfig({
     'tests/e2e/tests/**/*.spec.ts',
     'packages/homestead-apps/**/e2e/**/*.spec.ts',
   ],
+  // Enforced permission specs boot the server with PERMISSIONS_ENFORCED=on via
+  // their own config (playwright.enforced.config.ts); they must not run in the
+  // default suite, which keeps enforcement off (its shipped default).
+  testIgnore: ['**/*.enforced.spec.ts'],
 
   // Serial because the tests share one aepbase instance and the
   // bootstrap superuser. `fullyParallel: false` only serializes within

@@ -1007,6 +1007,24 @@ out independently of the record-level enforcement.
   for Phase 3; keep both until a release has run enforced without incident.
 - **e2e** already boots the real server, so each phase updates specs alongside
   code — the suite is the regression gate at every step.
+- **Enforced e2e run ✅ added.** A dedicated Playwright config
+  (`tests/e2e/playwright.enforced.config.ts`, `make test-e2e-enforced`) boots the
+  server with `PERMISSIONS_ENFORCED=on` and runs the `*.enforced.spec.ts` specs,
+  proving end-to-end that (1) the seeded open-household grant preserves a regular
+  user's full CRUD — flipping enforcement on is a no-op for normal use, (2) a
+  collection-scope deny blocks the named user while others keep access and
+  lifting it restores them, and (3) the superuser breaks glass through a deny
+  that targets everyone. The default suite keeps enforcement off (its shipped
+  default) and ignores these specs.
+- **Boot-ordering nuance (surfaced by the enforced run).** The open-household
+  grant is seeded *after* the resource sync, so on the **first** boot of a fresh
+  instance with enforcement already on, there's a brief window where nothing is
+  permitted yet (default-deny) until the seed lands. On every later boot the
+  grant already exists (seed is when-empty), so there's no window. In practice
+  enforcement is turned on for an *existing* instance that already holds the
+  grant, so this only bit the e2e harness (fresh db per run) — handled by waiting
+  for the grant in the enforced setup. Worth remembering if enforcement is ever
+  defaulted on for brand-new instances.
 - **No silent truncation:** the account-tag migration (Phase 3c) logs its tally
   (tags scanned, groups + memberships created) and skips only empty tag names, so
   nothing is dropped quietly.
