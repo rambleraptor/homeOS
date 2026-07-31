@@ -219,7 +219,9 @@ export function createResourceTable(
     const colName = `${sanitizeTableName(p)}_id`;
     db.run(`CREATE INDEX IF NOT EXISTS idx_${tableName}_${colName} ON ${tableName}(${colName})`);
   }
-  indexOwnerColumn(db, tableName);
+  // The owner index is created by ensureOwnerColumn(), which every caller runs
+  // next: CREATE TABLE IF NOT EXISTS is a no-op on a table that predates the
+  // permissions work, so `_owner` may not exist yet at this point.
   indexGeneratedColumns(db, tableName, columns);
 }
 

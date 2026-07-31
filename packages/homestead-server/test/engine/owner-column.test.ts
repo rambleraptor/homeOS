@@ -4,8 +4,13 @@
  * `created_by`. Nothing reads `_owner` yet, so behavior is otherwise unchanged.
  */
 
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { beforeEach, describe, expect, test } from 'vitest';
 import { OWNER_COLUMN, backfillOwnerFromCreatedBy } from '../../src/engine/db';
+import { Engine } from '../../src/engine/engine';
+import { TYPE_SUPERUSER } from '../../src/engine/types';
 import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const DOC_DEF = {
@@ -91,5 +96,40 @@ describe('_owner column (permissions Phase 0)', () => {
 
     expect(ownerOf(t, 'docs', 'd2')).toBe('bare456'); // no 'users/' prefix → left as-is
     expect(ownerOf(t, 'docs', 'd3')).toBe(t.admin.id); // stamped on create, untouched by backfill
+  });
+});
+
+describe('booting on a database that predates the _owner column', () => {
+  /** Table columns, as SQLite reports them. */
+  function columnsOf(engine: Engine, table: string): string[] {
+    const rows = engine.db.query(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    return rows.map((r) => r.name);
+  }
+
+  test('the migration adds and indexes _owner instead of throwing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'hs-legacy-db-'));
+    const opts = {
+      dbPath: join(dir, 'aepbase.db'),
+      filesDir: dir,
+      serverUrl: 'http://localhost:8090',
+    };
+
+    const first = new Engine(opts);
+    const { token } = await seedUser(first, { email: 'admin@example.com', type: TYPE_SUPERUSER });
+    await call(first, 'POST', '/aep-resource-definitions', { token, body: BOOK_DEF });
+    // Rewind the table to its pre-permissions shape: no `_owner`, no index.
+    first.db.run('DROP INDEX idx_books_owner');
+    first.db.run(`ALTER TABLE books DROP COLUMN ${OWNER_COLUMN}`);
+    expect(columnsOf(first, 'books')).not.toContain(OWNER_COLUMN);
+    first.db.close();
+
+    // Boot again over the same file: CREATE TABLE IF NOT EXISTS is a no-op here,
+    // so indexing `_owner` before the migration ran would fail with
+    // "no such column: _owner" and take the whole server down.
+    const second = new Engine(opts);
+    expect(columnsOf(second, 'books')).toContain(OWNER_COLUMN);
+    const indexes = second.db.query('PRAGMA index_list(books)').all() as { name: string }[];
+    expect(indexes.map((i) => i.name)).toContain('idx_books_owner');
+    second.db.close();
   });
 });
