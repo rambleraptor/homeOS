@@ -1,0 +1,518 @@
+# Homestead Permissions — Design
+
+**Status:** Draft for review · **Scope:** Design only (no implementation)
+
+This document proposes a permissions system for Homestead that lets specific
+people have specific access to specific resources. It combines three
+mechanisms the household requested — **roles**, **groups (lists of users with
+roles)**, and **per-resource ACLs** — enforced authoritatively in the engine,
+at both collection and record (row) granularity.
+
+---
+
+## 1. Goals and non-goals
+
+### Goals
+
+- **Roles.** Named bundles of capability that can be assigned to users
+  (superseding today's binary `superuser`/`regular`).
+- **Groups.** Named lists of users, where a membership can itself carry a role
+  ("the *Parents* group has `manage` on the finances apps").
+- **Per-resource ACLs.** Explicit grants of a capability to a user, group, or
+  role — on a whole collection (`all gift-cards`) or a single record
+  (`gift-card #42`).
+- **Engine-enforced.** The API is the real boundary. A crafted request cannot
+  bypass the rules; the SPA only mirrors them for UX.
+- **Backward compatible.** A default install keeps today's behavior: one
+  household, every member reads and writes everything. Nobody gets locked out
+  on upgrade.
+- **Opt-in strictness.** Apps that want privacy (personal notes, a single
+  person's HSA receipts) can opt a resource into an owner-only or ACL model
+  without forcing that overhead on every collection.
+
+### Non-goals (this iteration)
+
+- **Field-level permissions** (hide a column from some users). Out of scope;
+  the model leaves room for it later.
+- **Multi-household / tenancy.** One instance is still one household. Groups
+  partition *within* a household; they are not tenants.
+- **Realtime propagation.** Grants take effect within the existing access-cache
+  TTL, same as app flags today.
+- **Replacing account-tags wholesale.** Tag-based app visibility keeps working;
+  §9 describes how it relates to (and can later fold into) groups.
+
+---
+
+## 2. Where we're starting from
+
+Everything below is what exists today — the seams the design plugs into.
+
+| Mechanism | File | What it does |
+|---|---|---|
+| `AccessCheck` hook (injected) | `engine/engine.ts` (called ~L201); impl `engine/access.ts` `makeAccessCheck`/`decide` | Coarse **per-app / per-collection** gate run after auth, before routing. Looks only at `segments[0]`. Values: `none`/`all`/`superusers`/`tagged`. |
+| `TokenValidator` (injected) | `engine/engine.ts` (~L192) | Resolves a bearer token to `caller: User \| null`. |
+| `checkUserScope` | `engine/crud.ts:77`, called `engine/router.ts:123` | The **only** row-level check today. Compares the `user_id` *from the URL path* against `caller.id`. Superusers bypass. Only fires for `user`-parented resources. |
+| `checkSuperuserWrite` | `engine/crud.ts:93`, called on mutating branches | Per-resource `superuser_write` flag → superuser-only writes. |
+| Per-handler user checks | `engine/users.ts` | self-or-superuser rules on `/users`; only a superuser may change a user's `type`. |
+
+Key facts that constrain the design:
+
+- **No owner column exists.** `store.ts` is policy-free: it scopes queries by
+  `path` and by parent FK columns (`<parent>_id`) only — never by `caller`.
+  `created_by` is present on nearly every resource but is **app-set** (written
+  as the path `users/{id}`), **optional**, and **purely informational** — never
+  enforced. (`operations/resources.ts`: "`created_by` records the initiator for
+  display only.")
+- **Roles are binary.** `UserType = 'superuser' | 'regular'` is the entire role
+  model (`auth/types.ts:7`). "Admin" colloquially means the bootstrapped
+  superuser.
+- **No household/group/sharing entity** exists. Every top-level collection
+  (todos, groceries, gift-cards, people, …) is **implicitly shared across every
+  authenticated user** — any of them can read and write every row. Only
+  `user`-parented resources (preferences, notifications, account-tags) are
+  owner-scoped, and that scoping is path-derived, not row-derived.
+- **`decide()` (server, authoritative) and `resolveVisibility()` (client,
+  UX-only) are paired** and must stay in sync. The design keeps that discipline.
+- **CLAUDE.md already lists** "Per-collection access rules (row-level security
+  beyond user parenting)" under *Not yet modeled* — this is the sanctioned gap
+  to fill.
+
+---
+
+## 3. Core model
+
+### 3.1 Principals
+
+A request's `caller` expands to a **principal set** used for matching grants:
+
+```
+principals(caller) = {
+  user:<caller.id>,
+  group:<g> for each group the caller belongs to,
+  role:<r> for each role the caller holds (via direct assignment or group),
+  everyone,                       // any authenticated user
+  owner        // pseudo-principal, only when caller owns the record in question
+}
+```
+
+Superusers are a hard override: they resolve to full control everywhere and
+skip evaluation (preserving today's behavior).
+
+### 3.2 Capabilities
+
+A small, totally-ordered ladder. Higher implies lower.
+
+| Capability | Rank | Implies | Meaning |
+|---|---|---|---|
+| `none` | 0 | — | explicitly no access |
+| `read` | 1 | — | GET / LIST / `:download` |
+| `write` | 2 | read | create / update (PATCH/PUT) |
+| `delete` | 3 | write, read | delete |
+| `manage` | 4 | delete, write, read | full control **+ may grant/revoke others' access** to the target |
+
+Rationale for `delete` as its own rank (rather than folding into `write`): a
+common household case is "you can edit the shared grocery list but not delete
+items," and separating it costs nothing.
+
+### 3.3 Grants
+
+A **grant** ties a principal to a capability over a target:
+
+```
+grant := {
+  subject:   { type: user|group|role|everyone, id? },   // id omitted for `everyone`
+  capability: read | write | delete | manage,
+  effect:     allow | deny,                              // deny optional; see §4
+  target: {
+    resource_type: <collection singular>,               // e.g. 'gift-card'
+    resource_id?:  <record id>                           // omitted ⇒ collection-wide
+  }
+}
+```
+
+- `resource_id` **omitted** ⇒ **collection-level** grant ("guests read all
+  recipes").
+- `resource_id` **set** ⇒ **record-level** grant ("share todo #42 with Bob,
+  read-only").
+
+### 3.4 Roles
+
+A **role** is a named, reusable bundle of collection-level grants:
+
+```
+role := {
+  id, name, description,
+  grants: [ { resource_type, resource_id?, capability } ]   // effect implied allow
+}
+```
+
+Roles are **data** (a superuser-managed resource), not hardcoded config, so the
+household can add "Teen" or "Guest" without a code change. Three roles ship
+built-in and are seeded on migration (§8):
+
+- **`admin`** — `manage` on everything. The former `superuser`. (The engine
+  still recognizes `caller.type === 'superuser'` as the ultimate override; the
+  `admin` role is the assignable, data-driven equivalent for everyone else.)
+- **`member`** — `write` + `delete` on every household collection. This is what
+  every existing `regular` user becomes, so **upgrade is behavior-preserving**.
+- **`guest`** — `read` on a configurable subset (default: none until granted).
+
+### 3.5 Groups
+
+A **group** is a named list of users; a membership can carry a role, satisfying
+"lists of users with roles":
+
+```
+group           := { id, name, description }
+group-membership := { group_id (parent), user, role? }   // role optional
+```
+
+A user in a group inherits: (a) `group:<id>` as a principal (so a grant to the
+group applies), and (b) any `role` named on their membership (so
+`group:<Parents>` membership with `role:manage-finances` grants those role
+capabilities). Groups do **not** nest in v1 (flagged as a possible extension).
+
+---
+
+## 4. Resolution algorithm
+
+Given `(caller, verb, resource_type, resource_id?)`:
+
+1. **Superuser / admin short-circuit.** `caller.type === 'superuser'` ⇒ allow.
+2. **App gate first.** The existing `AccessCheck` app-visibility gate runs
+   unchanged (none/all/superusers/tagged). If it denies, stop — no point
+   evaluating record rules for an app the caller can't open. (Ordering: app
+   gate → permission resolver.)
+3. **Collect applicable grants.** From all grants whose `subject` is in
+   `principals(caller)` and whose target matches, gather:
+   - record-level grants for this `resource_id` (if any),
+   - collection-level grants for this `resource_type`,
+   - role-derived collection grants (expanded from the caller's roles),
+   - the implicit **owner ⇒ `manage`** grant if `caller` owns the record,
+   - the implicit **`everyone`** grants.
+4. **Reduce.** Map the required `verb` to a capability (`GET`→`read`,
+   `POST`/`PATCH`/`PUT`→`write`, `DELETE`→`delete`, sharing→`manage`).
+   - `allowRank` = max rank among matching **allow** grants.
+   - `denyRank`  = max rank among matching **deny** grants.
+   - **Decision:** allow iff `requiredRank ≤ allowRank` **and**
+     `requiredRank > denyRank` (an explicit deny at ≥ the required rank wins).
+5. **Default deny** if nothing matched.
+
+**Precedence, stated plainly:** `superuser` > explicit `deny` > `owner` /
+explicit `allow` / `role` / `everyone` (highest capability wins among these) >
+default-deny. Specificity (record vs collection) does **not** override effect —
+a collection-wide `deny read` beats a record `allow read`. This keeps the model
+predictable ("a deny is a deny") and is easy to explain in the UI.
+
+> **v1 simplification option.** Explicit `deny` adds real cognitive and
+> implementation weight. We can ship **allow-only** first (drop step 4's
+> `denyRank`; grants are purely additive, `none` is just the absence of a
+> grant) and add `deny` in v2. Recommendation: **allow-only for v1**, with the
+> `effect` column reserved in the schema so v2 is additive. This is called out
+> as an open decision in §11.
+
+### 4.1 The LIST problem (the hard part)
+
+Single-record ops are easy — resolve, then allow/deny. **LIST** is where record
+ACLs get expensive, because today `store.listResources` returns every row in
+scope and we must not fetch-then-filter (it breaks pagination and counts).
+
+The resolver therefore computes a **visibility predicate** the store folds into
+SQL:
+
+- If the caller has a **collection-level `read`** (via role or a collection
+  grant) and no collection-level `deny` → **no restriction** (today's behavior;
+  the common member case, zero overhead).
+- Otherwise → restrict to the union the caller *can* see:
+  ```sql
+  WHERE owner = :caller
+     OR id IN (:record_ids_granted_to_caller_principals)
+  ```
+  where `record_ids_granted_to_caller_principals` comes from one indexed lookup
+  of record-level grants whose subject ∈ `principals(caller)`. Denies subtract
+  from that set. At household scale (hundreds–thousands of rows) this is a
+  cheap `IN (…)` or a joined subquery.
+
+This requires two things the store doesn't have today: a **stored `owner`
+column** (§5) and an optional **`visibility` argument** on `listResources` that
+appends the predicate. Both are additive.
+
+---
+
+## 5. Engine changes
+
+### 5.1 A stored, engine-managed `owner`
+
+Introduce an engine-owned owner column on every record — **stamped by the
+engine from `caller` at create time**, not by the app. This is the
+authoritative version of today's advisory `created_by`.
+
+- Column: `_owner TEXT` on each resource table (created in
+  `engine/db.ts createResourceTable`, indexed like the parent FKs).
+- Stamped in `crud.ts handleCreate` from `caller.id` (superusers may set it
+  explicitly, e.g. creating on someone's behalf).
+- `created_by` is kept for display/history and **backfilled into `_owner`** on
+  migration (it already holds `users/{id}`; normalize to the id). Apps can stop
+  hand-setting `created_by` once `_owner` exists, but it stays valid.
+
+### 5.2 New module: `engine/permissions.ts`
+
+Mirrors the existing `engine/access.ts` structure:
+
+- A pure **`resolve(caller, verb, type, recordRow?)` → decision** function
+  (the §4 algorithm), unit-testable in isolation — the analog of `decide()`.
+- A **`PermissionStore`** that loads roles, groups, memberships, and grants
+  from SQLite behind a short TTL cache (reuse the `AccessStore` 5s-TTL pattern;
+  same cache-invalidation posture as app flags).
+- A **`visibilityPredicate(caller, type)`** used by LIST (§4.1).
+
+### 5.3 Wiring into the request pipeline
+
+The pipeline order becomes: **auth → app-access gate (unchanged) → permission
+resolver → route**.
+
+- **Replace `checkUserScope`** with a general
+  `checkRecordAccess(match, caller, verb)` in `crud.ts`, called from the same
+  single site in `router.ts` (~L123). User-parent scoping becomes a *special
+  case* of ownership, so existing behavior is subsumed, not removed.
+- **CREATE:** check the caller's collection-level `write` for the type; stamp
+  `_owner`.
+- **GET / PATCH / PUT / DELETE / `:download`:** load the row's `_owner` (already
+  fetched for the op), resolve, allow/deny. `:download` maps to `read` (it's
+  currently unauthorized — this closes that gap).
+- **LIST:** pass `visibilityPredicate(...)` into `store.listResources` as a new
+  optional `visibility` argument that appends the WHERE clause.
+- **`checkSuperuserWrite`** stays as a fast path (it's a strict subset:
+  `superuser_write` ≡ "only the `admin` role may write"). We keep it to avoid
+  churning the access-control resources' own protection.
+
+### 5.4 Bootstrapping the access-control resources themselves
+
+The resources that *store* permissions must not be gated *by* those same
+permissions in a way that can brick an install:
+
+- `role`, `group`, `group-membership`, and **collection-level** `access-grant`
+  records are **`superuser_write`** (admin-managed) and readable by
+  authenticated users (so the client can compute `can(...)`).
+- **Record-level** `access-grant` records are special: a caller may create or
+  revoke one **iff they have `manage` on the target record** (owner, or granted
+  `manage`). This is the "share" action and is enforced in `permissions.ts`,
+  not by the blanket `superuser_write` flag.
+- The resolver **fails open to today's behavior** if the permission tables are
+  empty/absent (fresh boot before migration), and enforcement is behind a
+  single kill-switch env var (mirroring `E2E_DISABLE_APP_ACCESS`) so e2e and
+  staged rollout can disable it.
+
+---
+
+## 6. Data model (new resources)
+
+Modeled as ordinary aepbase resources so they inherit CRUD, schema-sync, and a
+management UI for free. Declared in a new core module (e.g.
+`packages/homestead-core/permissions/resources.ts`), aggregated by
+`getAllResourceDefs()` like every other schema.
+
+```ts
+// role — superuser_write; readable by authenticated users
+{
+  singular: 'role', plural: 'roles', superuser_write: true,
+  fields: {
+    name:        { type: 'string', required: true },
+    description: { type: 'string' },
+    // collection-level grants this role confers, as structured rows:
+    grants:      { type: 'array', items: { type: 'object', properties: {
+      resource_type: { type: 'string' },
+      capability:    { type: 'string', enum: ['read','write','delete','manage'] },
+    } } },
+  },
+}
+
+// group — superuser_write; a named list of users
+{ singular: 'group', plural: 'groups', superuser_write: true,
+  fields: { name: { type: 'string', required: true }, description: { type: 'string' } } }
+
+// group-membership — child of group; ties a user (and optional role) in
+{ singular: 'group-membership', plural: 'group-memberships',
+  parents: ['group'], superuser_write: true,
+  fields: {
+    user: { type: 'string', reference: { resource: 'user' }, required: true },
+    role: { type: 'string', reference: { resource: 'role' } },   // optional
+  } }
+
+// access-grant — the ACL entry. Collection- or record-level.
+// Writes are gated by the engine (manage-on-target), NOT plain superuser_write.
+{ singular: 'access-grant', plural: 'access-grants',
+  fields: {
+    subject_type:  { type: 'string', enum: ['user','group','role','everyone'], required: true },
+    subject_id:    { type: 'string' },                    // omitted for 'everyone'
+    resource_type: { type: 'string', required: true },    // target collection singular
+    resource_id:   { type: 'string' },                    // omitted ⇒ collection-wide
+    capability:    { type: 'string', enum: ['read','write','delete','manage'], required: true },
+    effect:        { type: 'string', enum: ['allow','deny'] },   // default 'allow' (v1: allow-only)
+  } }
+```
+
+Notes:
+
+- These are **read-mostly** and small (household scale), so the TTL-cached
+  `PermissionStore` reads them cheaply.
+- `access-grant` is deliberately a flat central table (not an inline `acl`
+  field on every record) so we can answer "everything shared with Bob" and
+  "who can see gift-card #42" with one indexed query, and so we don't have to
+  mutate every app's schema. The trade-off (one extra lookup per record op) is
+  absorbed by the TTL cache and the LIST predicate.
+- Referential cleanup uses the existing `onDelete` machinery: e.g. deleting a
+  `group` `cascade`s its memberships; deleting a `user` should `set-null` /
+  clean their grants. (Grants targeting a deleted **record** are harmless
+  dangling rows; a periodic sweep or a resource-delete hook can prune them —
+  called out as a v2 nicety.)
+
+---
+
+## 7. Per-resource access model (opt-in strictness)
+
+Not every collection wants record ACLs. Extend `ResourceDefinition`
+(`resources/types.ts`) with an optional declaration:
+
+```ts
+access?: {
+  model: 'household' | 'owner' | 'acl';   // default 'household'
+  // 'household' — every `member`+ reads/writes (today's behavior). No owner privacy.
+  // 'owner'     — private to `_owner`; visible to others only via an explicit grant.
+  // 'acl'       — full §4 resolution: owner + roles + groups + grants.
+}
+```
+
+- **`household`** is the default, so **every existing resource keeps working
+  unchanged** and the migration is a no-op for them.
+- **`owner`** suits personal data (e.g. a single person's private notes, HSA
+  receipts) — the row is invisible to other members unless shared.
+- **`acl`** is the full model for resources that need real sharing.
+
+The schema translator emits this as an `x-homestead-access` marker on the wire
+(same pattern as `x-aepbase-reference`), and `schema-sync` validates it at
+boot. This keeps the authoring layer declarative — apps never write enforcement
+code.
+
+---
+
+## 8. Migration & backward compatibility
+
+The upgrade must be invisible to a running household.
+
+1. **Seed built-in roles** (`admin`, `member`, `guest`) on first boot after
+   upgrade (idempotent, like schema-sync).
+2. **Assign roles from existing `type`:** every `regular` user → `member`;
+   every `superuser` → `admin` (superuser override still applies regardless).
+3. **Backfill `_owner`** from `created_by` where present (`users/{id}` → id).
+   Rows with no `created_by` get a null owner (visible to all members under the
+   default `household` model, so nothing disappears).
+4. **All resources default to `access.model: 'household'`** ⇒ members continue
+   to read/write everything. No collection becomes stricter until an app opts
+   in or an admin adds a grant.
+5. **Enforcement kill-switch** (env var) lets operators roll out in shadow mode
+   and lets e2e run with the current model until specs are updated.
+
+Net effect: on upgrade, `member`s see exactly what they saw before; admins keep
+full control; nothing is hidden until someone deliberately tightens a resource.
+
+---
+
+## 9. Relationship to account-tags & app visibility
+
+Today `account-tag` (superuser-write child of `user`) + per-app
+`enabled='tagged'` gate *which apps a user sees*. That stays — it's a coarse,
+app-level gate and complements record ACLs rather than competing with them.
+
+Longer term, tags and groups overlap conceptually (both are "a named set of
+users"). The intended convergence:
+
+- Keep app-visibility (`none/all/superusers/tagged`) as the **app gate** (step 2
+  of resolution). It's cheap and already enforced.
+- Let **groups** become the richer grouping primitive for *data* access.
+- Optionally, later, allow an app's `enabled_tags` to reference a **group**
+  instead of a free-form tag, unifying the two. Not required for v1; noted so we
+  don't paint ourselves into a corner.
+
+---
+
+## 10. Client (SPA) mirror
+
+The server is authoritative; the client mirrors for UX (same discipline as
+`decide()` ↔ `resolveVisibility()` today).
+
+- **Hydrate on login.** Alongside the existing tag/preferences hydration in
+  `AuthContext`, fetch the caller's roles, group memberships, and the grants
+  addressed to their principals. (Record-level grant *ids* can be lazy-loaded
+  per collection to keep the login payload small.)
+- **`can(verb, resourceType, recordId?)` helper** in the auth layer — the first
+  centralized capability check (there is none today; checks are ad-hoc
+  `user.type === 'superuser'`). Backed by a TS port of the §4 resolver.
+- **New route gate `permission`.** Add to the `GateName` union and
+  `gateComponents` map (`apps/router/gates.tsx`) so an `AppRoute` can declare
+  `gates: ['permission:...']`. Extends, doesn't replace, `enabled`/`superuser`.
+- **Nav & list filtering.** The sidebar predicate
+  (`useAppEnabledPredicate`) extends to also hide apps the caller can't use;
+  list hooks call `can('read', …)` so the UI shows only permitted rows (the
+  server already enforces it, this just avoids empty-state flashes).
+- **Sharing UI.** A "Share" affordance on records whose resource is `owner`/`acl`
+  and where `can('manage', …)` — creates/revokes record-level `access-grant`s.
+- **Admin UI.** Extend the existing superuser Users area with Roles and Groups
+  management (both are just CRUD over the new resources).
+
+---
+
+## 11. Open decisions (need your call)
+
+1. **Deny semantics.** Allow-only in v1 (simpler, additive) vs. allow+deny from
+   the start (more expressive, more foot-guns)? *Recommendation: allow-only
+   v1, `effect` column reserved.*
+2. **Delete as its own capability** vs. folding into `write`? *Recommendation:
+   keep separate — cheap, and "edit but don't delete" is a real household case.*
+3. **Roles as data vs. config.** Data (editable in UI, proposed) vs. defined in
+   `homestead.config.ts` (operator-owned, reviewable in git)? *Recommendation:
+   data, with the three built-ins seeded.*
+4. **Default `guest` scope.** Nothing until granted (safe) vs. read-only on a
+   curated set of apps? *Recommendation: nothing until granted.*
+5. **Group nesting.** Flat groups v1 (proposed) — confirm we don't need nested
+   groups soon.
+6. **`owner` reassignment / co-owners.** Single `_owner` v1; multiple owners
+   expressed as `manage` grants. Confirm that's sufficient.
+
+---
+
+## 12. Suggested build order (once the design is approved)
+
+Each step is independently shippable behind the kill-switch.
+
+1. **Engine `_owner` column** + stamp on create + backfill migration. No
+   behavior change (nothing reads it yet).
+2. **`engine/permissions.ts`** resolver + `PermissionStore` + unit tests
+   against the §4 truth table. Not yet wired.
+3. **New resources** (`role`, `group`, `group-membership`, `access-grant`) +
+   schema-sync + seed built-in roles + role assignment migration.
+4. **Wire enforcement**: `checkRecordAccess` replaces `checkUserScope`; CREATE
+   stamps owner; LIST visibility predicate. Behind the kill-switch, default
+   `household` everywhere ⇒ green e2e.
+5. **`access.model` authoring field** + translator marker; opt one real
+   resource (e.g. a private notes/HSA case) into `owner` as the first proof.
+6. **Client**: `can()` helper, hydration, `permission` gate, nav/list filter.
+7. **Admin + sharing UI**: Roles/Groups management, per-record Share.
+
+---
+
+## 13. Summary
+
+The design layers three requested mechanisms on the engine's existing seams:
+
+- **Roles** replace the binary `superuser`/`regular` with data-driven,
+  assignable capability bundles (`admin`/`member`/`guest` seeded).
+- **Groups** are lists of users, memberships optionally carrying a role.
+- **Per-resource ACLs** (`access-grant`) grant a capability to a user, group,
+  role, or everyone — collection-wide or on a single record.
+
+Enforcement is authoritative in the engine via a new `permissions.ts` resolver
+wired at the existing `crud.ts`/`router.ts` chokepoint, backed by a stored
+`_owner` column and a SQL visibility predicate for LIST. A default install
+behaves exactly as it does today; strictness is opt-in per resource, and the
+whole system sits behind a kill-switch for safe rollout.
