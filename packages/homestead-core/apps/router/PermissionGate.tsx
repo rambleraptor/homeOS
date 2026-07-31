@@ -17,6 +17,13 @@ interface Props {
  * `fallbackPath` when `can(verb, resourceType)` is false. UX only — the server
  * still enforces; `can()` is permissive when enforcement is off, so this never
  * over-blocks.
+ *
+ * In practice this only mounts inside `AppShell`'s `AuthGuard`, which already
+ * bounces an unauthenticated visitor to `/login`, so `user` is non-null here.
+ * The redirect below still fires on a null user (not just a disallowed one) as
+ * defense in depth: were the gate ever rendered outside that guard, it would
+ * redirect rather than spin forever (and `fallbackPath` itself sits under the
+ * AuthGuard, so an unauthenticated user still lands on login).
  */
 export function PermissionGate({ verb, resourceType, children, fallbackPath = '/dashboard' }: Props) {
   const { user, isLoading } = useAuth();
@@ -25,10 +32,10 @@ export function PermissionGate({ verb, resourceType, children, fallbackPath = '/
   const allowed = !!user && can(verb, resourceType);
 
   useEffect(() => {
-    if (!isLoading && user && !allowed) {
+    if (!isLoading && !allowed) {
       navigate(fallbackPath, { replace: true });
     }
-  }, [isLoading, user, allowed, navigate, fallbackPath]);
+  }, [isLoading, allowed, navigate, fallbackPath]);
 
   if (isLoading || !user || !allowed) {
     return (

@@ -562,6 +562,16 @@ Notes:
 
 - These are **read-mostly** and small (household scale), so the TTL-cached
   `PermissionStore` reads them cheaply.
+- **Cache scope — single-process assumption.** The `PermissionStore` cache is
+  **in-process, in-memory** (mirroring today's `AccessStore`), so a grant change
+  propagates within the TTL *to the process that holds the cache*. Homestead runs
+  as one server process, so that's every reader. This is worth calling out
+  explicitly because permissions are security-sensitive: if Homestead ever grows
+  to **multiple server processes** (horizontal scale, blue/green), a write on one
+  process would not invalidate another's cache until its TTL lapses — a stale
+  process could briefly honor an already-revoked grant. A multi-process
+  deployment would need central invalidation (a shared cache, a pub/sub bust, or
+  a TTL of 0). Not a regression today; flagged so it isn't assumed away later.
 - `access-grant` is deliberately a flat central table (not an inline `acl`
   field on every record) so we can answer "everything shared with Bob" and
   "who can see gift-card #42" with one indexed query, and so we don't have to

@@ -75,4 +75,28 @@ describe('PermissionGate', () => {
     expect(screen.queryByText('gated content')).not.toBeInTheDocument();
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard', { replace: true }));
   });
+
+  it('redirects rather than hanging when there is no user (loaded, unauthenticated)', async () => {
+    mockAuth(null); // not loading, no user — the guard-outside edge case
+    mockCan(true); // even a permissive can() must not keep a null user on the page
+    render(
+      <PermissionGate verb="write" resourceType="recipe">
+        <div>gated content</div>
+      </PermissionGate>,
+    );
+    expect(screen.queryByText('gated content')).not.toBeInTheDocument();
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/dashboard', { replace: true }));
+  });
+
+  it('waits (no redirect) while auth is still loading', () => {
+    mockAuth(null, true);
+    mockCan(false);
+    render(
+      <PermissionGate verb="write" resourceType="recipe">
+        <div>gated content</div>
+      </PermissionGate>,
+    );
+    expect(screen.queryByText('gated content')).not.toBeInTheDocument();
+    expect(navigate).not.toHaveBeenCalled();
+  });
 });
