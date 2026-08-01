@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Plus, Shield, User as UserIcon, Pencil, Trash2 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
-import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
@@ -114,15 +113,6 @@ export function UsersHome() {
                             you
                           </span>
                         )}
-                        {u.tags?.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="info"
-                            data-testid={`user-tag-${u.id}-${tag}`}
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
                       </div>
                       <p className="text-sm text-gray-600 truncate">{u.email}</p>
                     </div>

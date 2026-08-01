@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
-import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
+import { NewUserAccessPreview } from './NewUserAccessPreview';
 import type { ManagedUser, UserFormData } from '../types';
 import type { UserType } from '@rambleraptor/homestead-core/auth/types';
 
@@ -17,7 +17,6 @@ export function UserForm({ initialData, onSubmit, onCancel, isSubmitting }: User
   const [email, setEmail] = useState(initialData?.email ?? '');
   const [displayName, setDisplayName] = useState(initialData?.display_name ?? '');
   const [type, setType] = useState<UserType>(initialData?.type ?? 'regular');
-  const [tags, setTags] = useState<string[]>(initialData?.tags ?? []);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -42,7 +41,6 @@ export function UserForm({ initialData, onSubmit, onCancel, isSubmitting }: User
       email: email.trim(),
       display_name: displayName.trim(),
       type,
-      tags,
       password: password || undefined,
     });
   };
@@ -87,16 +85,6 @@ export function UserForm({ initialData, onSubmit, onCancel, isSubmitting }: User
         </select>
       </div>
 
-      <TagInput
-        id="user-tags"
-        label="Tags"
-        value={tags}
-        onChange={setTags}
-        placeholder="Add a tag and press Enter…"
-        disabled={isSubmitting}
-        testId="user-tags"
-      />
-
       <Input
         id="user-password"
         type="password"
@@ -107,6 +95,8 @@ export function UserForm({ initialData, onSubmit, onCancel, isSubmitting }: User
         required={!isEdit}
         data-testid="user-password-input"
       />
+
+      {!isEdit && <NewUserAccessPreview type={type} />}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>

@@ -27,13 +27,7 @@ import { aepbase, AepbaseError } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
-import { ACCOUNT_TAGS } from '../superuser/users/resources';
 import { fetchPermissionContext } from '../permissions/client';
-
-interface AccountTagRecord {
-  id: string;
-  name: string;
-}
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -96,23 +90,8 @@ async function backfillMapProvider(
   }
 }
 
-async function fetchAccountTags(userId: string): Promise<string[] | undefined> {
-  try {
-    const records = await aepbase.list<AccountTagRecord>(ACCOUNT_TAGS, {
-      parent: [USERS, userId],
-    });
-    if (records.length === 0) return undefined;
-    return records.map((r) => r.name).filter((n) => typeof n === 'string' && n.length > 0);
-  } catch (error) {
-    logger.warn('Failed to fetch account tags', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return undefined;
-  }
-}
-
 async function hydrateUserPreferences(user: User): Promise<User> {
-  const [prefsResult, tags, permissions] = await Promise.all([
+  const [prefsResult, permissions] = await Promise.all([
     (async () => {
       try {
         return await aepbase.list<UserPreferenceRecord>(USER_PREFERENCES, {
@@ -123,11 +102,10 @@ async function hydrateUserPreferences(user: User): Promise<User> {
         return [] as UserPreferenceRecord[];
       }
     })(),
-    fetchAccountTags(user.id),
     fetchPermissionContext(aepbase.authStore.token),
   ]);
 
-  let merged: User = { ...user, tags, permissions };
+  let merged: User = { ...user, permissions };
 
   if (prefsResult.length > 0) {
     const record = prefsResult[0];
