@@ -1,12 +1,11 @@
 /**
  * Permission enforcement wiring (design §5.3). Bridges the request path to the
  * pure resolver: gathers the caller's grants from the PermissionStore, decides,
- * and either throws 403 (mode `on`), logs the would-be denial (mode `shadow`),
- * or — for LIST — produces a SQL visibility clause.
+ * and either throws 403 or — for LIST — produces a SQL visibility clause.
  *
- * All of this is inert unless `PERMISSIONS_ENFORCED` is set: the router only
- * calls in here when the mode is `on`/`shadow`, and the legacy `checkUserScope`
- * path runs otherwise.
+ * Enforcement is unconditional; the router only skips calling in here while no
+ * baseline exists yet (the fail-open boot window), where `checkUserScope` still
+ * provides user-subtree isolation.
  */
 
 import type { Database } from './sqlite';
@@ -22,7 +21,6 @@ import {
   type AccessRequest,
   type FilterEval,
   type Grant,
-  type PermissionMode,
   type Verb,
   type Visibility,
 } from './permissions';
@@ -53,7 +51,6 @@ export interface EnforceContext {
   store: PermissionStore;
   /** Collection plural → owning app id (for app-scope grant matching). */
   appIdFor: (plural: string) => string | null;
-  mode: PermissionMode;
 }
 
 function ownerOf(db: Database, plural: string, path: string): string | null {
@@ -70,8 +67,7 @@ function ownerOf(db: Database, plural: string, path: string): string | null {
 /**
  * Authorize a single-record or create/singleton request. `recordPath` is set
  * for ops that address an existing row (so we can read its owner); omit it for
- * create. Throws 403 when denied and the mode is `on`; logs and allows in
- * `shadow`.
+ * create. Throws 403 when denied.
  */
 export function enforceRecordAccess(
   ctx: EnforceContext,
@@ -119,11 +115,6 @@ export function enforceRecordAccess(
   );
 
   if (decision.allow) return;
-
-  if (ctx.mode === 'shadow') {
-    logShadow(ctx, opts.verb, opts.resourceType, opts.recordId, caller.id, decision.reason);
-    return;
-  }
   throw new HttpError(403, 'you do not have access to this resource');
 }
 
@@ -156,8 +147,8 @@ function recordMatchesFilter(
 
 /**
  * Compute the LIST visibility clause for the current caller, or `null` for no
- * restriction. Only applied when the mode is `on`; `shadow`/superuser return
- * null (unrestricted) so lists are never silently trimmed before enforcement.
+ * restriction. A superuser (break-glass) and a caller with no restrictions both
+ * return null (unrestricted). The router only calls this once a baseline exists.
  */
 export function listVisibilityClause(
   ctx: EnforceContext,
@@ -170,7 +161,7 @@ export function listVisibilityClause(
   },
 ): { sql: string; params: (string | number)[] } | null {
   const { caller } = opts;
-  if (ctx.mode !== 'on' || !caller) return null;
+  if (!caller) return null;
   if (caller.type === TYPE_SUPERUSER) return null; // break-glass: sees everything
 
   const gathered = ctx.store.gatherFor(caller.id);
@@ -332,16 +323,12 @@ export function enforceGrantWrite(
   if (!caller) return;
   if (caller.type === TYPE_SUPERUSER) return; // break-glass
 
-  const deny = (reason: string): boolean => {
-    if (ctx.mode === 'shadow') {
-      console.info(`[permissions] shadow: would deny grant-write for ${caller.id} (${reason})`);
-      return true; // allow through in shadow
-    }
+  const deny = (): never => {
     throw new HttpError(403, 'you do not have permission to write this grant');
   };
 
   if (target.resource_type && PROTECTED_GRANT_TARGET_TYPES.has(target.resource_type)) {
-    if (deny('grants-on-grants')) return;
+    deny(); // grants-on-grants
   }
 
   const { principals, grants } = ctx.store.gatherFor(caller.id);
@@ -352,7 +339,7 @@ export function enforceGrantWrite(
     grants,
   );
   if (decision.allow) return;
-  deny('no-manage-on-target');
+  deny(); // no manage-on-target
 }
 
 /** A throwaway subject for compile-only validation when there's no live caller. */
@@ -407,19 +394,4 @@ function logInvalidFilter(filter: string): void {
     warnedInvalidFilters.add(filter);
   }
   console.warn(`[permissions] ignoring un-compilable grant filter: ${JSON.stringify(filter)}`);
-}
-
-function logShadow(
-  ctx: EnforceContext,
-  verb: Verb,
-  resourceType: string,
-  recordId: string | undefined,
-  callerId: string,
-  reason: string,
-): void {
-  void ctx;
-  console.info(
-    `[permissions] shadow: would deny ${verb} ${resourceType}${recordId ? `/${recordId}` : ''} ` +
-      `for ${callerId} (${reason})`,
-  );
 }

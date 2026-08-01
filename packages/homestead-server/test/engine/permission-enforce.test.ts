@@ -1,9 +1,10 @@
 /**
- * Permissions Phase 3: enforcement wired into the engine, gated by
- * PERMISSIONS_ENFORCED. These run with the flag ON (and a 0ms cache TTL so a
- * just-created grant is honored immediately) and verify: the seeded open grant
- * preserves today's behavior; removing it isolates data to owners; record and
- * deny grants take effect; the superuser break-glass; and shadow mode.
+ * Permissions Phase 3: enforcement wired into the engine. Enforcement is
+ * unconditional (gated only by the fail-open baseline), so these just seed a
+ * baseline (a 0ms cache TTL makes a just-created grant honored immediately) and
+ * verify: the seeded open grant preserves today's behavior; removing it isolates
+ * data to owners; record and deny grants take effect; and the superuser
+ * break-glass.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -14,13 +15,12 @@ import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine }
 
 const BASE = 'http://localhost:8090';
 
-describe('permission enforcement (mode=on)', () => {
+describe('permission enforcement', () => {
   let t: TestEngine;
   const fetchImpl = (input: string, init?: RequestInit) => t.engine.fetch(new Request(input, init));
 
   beforeEach(async () => {
     process.env.PERMISSION_CACHE_TTL_MS = '0';
-    process.env.PERMISSIONS_ENFORCED = 'on';
     t = await makeEngine();
     for (const def of PERMISSION_RESOURCE_DEFS) {
       await defineResource(
@@ -40,7 +40,6 @@ describe('permission enforcement (mode=on)', () => {
   });
 
   afterEach(() => {
-    delete process.env.PERMISSIONS_ENFORCED;
     delete process.env.PERMISSION_CACHE_TTL_MS;
   });
 
@@ -158,33 +157,19 @@ describe('permission enforcement (mode=on)', () => {
     // Alice can.
     expect((await call(t.engine, 'GET', `/users/${alice.user.id}/notes/n1`, { token: alice.token })).status).toBe(200);
   });
-
-  test('shadow mode logs but does not deny', async () => {
-    const alice = await seedUser(t.engine, { email: 'alice@example.com' });
-    const bob = await seedUser(t.engine, { email: 'bob@example.com' });
-    await call(t.engine, 'POST', '/books?id=b1', { token: alice.token, body: { title: 'A' } });
-    await deleteOpenGrant();
-
-    process.env.PERMISSIONS_ENFORCED = 'shadow';
-    // Would be denied under 'on', but shadow allows it through.
-    expect((await call(t.engine, 'GET', '/books/b1', { token: bob.token })).status).toBe(200);
-    // Lists are not trimmed in shadow mode either.
-    expect((await (await call(t.engine, 'GET', '/books', { token: bob.token })).json()).results).toHaveLength(1);
-  });
 });
 
 /**
- * Baseline hardening: with enforcement on but nothing seeded (the boot window
- * before the open-household grant lands, or a fully-wiped household), the engine
- * must fail *open* — never lock everyone out. Enforcement engages the moment a
- * baseline (any grant or role) exists.
+ * Baseline hardening: with nothing seeded (the boot window before the
+ * open-household grant lands, or a fully-wiped household), the engine must fail
+ * *open* — never lock everyone out. Enforcement engages the moment a baseline
+ * (any grant or role) exists.
  */
 describe('permission enforcement — fail-open when uninitialized', () => {
   let t: TestEngine;
 
   beforeEach(async () => {
     process.env.PERMISSION_CACHE_TTL_MS = '0';
-    process.env.PERMISSIONS_ENFORCED = 'on';
     t = await makeEngine();
     // Define the permission collections + a book, but DO NOT seed roles/grants.
     for (const def of PERMISSION_RESOURCE_DEFS) {
@@ -204,7 +189,6 @@ describe('permission enforcement — fail-open when uninitialized', () => {
   });
 
   afterEach(() => {
-    delete process.env.PERMISSIONS_ENFORCED;
     delete process.env.PERMISSION_CACHE_TTL_MS;
   });
 

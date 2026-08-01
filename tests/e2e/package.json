@@ -10,7 +10,6 @@
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:chromium": "playwright test --project=chromium",
-    "test:enforced": "playwright test --config=playwright.enforced.config.ts",
     "test:auth": "playwright test tests/e2e/tests/auth/",
     "test:gift-cards": "playwright test packages/homestead-apps/gift-cards/e2e/",
     "test:people": "playwright test packages/homestead-apps/people/e2e/",

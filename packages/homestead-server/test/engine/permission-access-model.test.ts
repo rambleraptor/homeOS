@@ -25,13 +25,12 @@ async function listIds(t: TestEngine, plural: string, token: string): Promise<st
   return ((await res.json()).results as Array<{ id: string }>).map((r) => r.id).sort();
 }
 
-describe('per-resource access model (mode=on)', () => {
+describe('per-resource access model', () => {
   let t: TestEngine;
   const fetchImpl = (input: string, init?: RequestInit) => t.engine.fetch(new Request(input, init));
 
   beforeEach(async () => {
     process.env.PERMISSION_CACHE_TTL_MS = '0';
-    process.env.PERMISSIONS_ENFORCED = 'on';
     t = await makeEngine();
     for (const def of PERMISSION_RESOURCE_DEFS) {
       await defineResource(
@@ -53,7 +52,6 @@ describe('per-resource access model (mode=on)', () => {
   });
 
   afterEach(() => {
-    delete process.env.PERMISSIONS_ENFORCED;
     delete process.env.PERMISSION_CACHE_TTL_MS;
   });
 

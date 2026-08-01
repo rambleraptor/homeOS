@@ -1,11 +1,12 @@
 /**
- * End-to-end permission enforcement, against a real server booted with
- * `PERMISSIONS_ENFORCED=on` (see playwright.enforced.config.ts).
+ * End-to-end permission enforcement, against the real server. Enforcement is
+ * unconditional, so this runs as part of the default suite (the grant cache is
+ * disabled in global-setup, so a create/delete is seen on the next request).
  *
- * This is the "does turning it on break anything?" gate for the rollout. It
- * drives the real HTTP API — the enforcement lives in the engine, not the UI —
- * with three real principals: two regular users (alice, bob) and the bootstrap
- * superuser (admin). It proves three things end-to-end:
+ * This is the "does enforcement break anything?" gate. It drives the real HTTP
+ * API — enforcement lives in the engine, not the UI — with three real
+ * principals: two regular users (alice, bob) and the bootstrap superuser
+ * (admin). It proves three things end-to-end:
  *
  *   1. The seeded open-household grant (`everyone → write → *`) preserves
  *      today's behavior: a regular user still gets full CRUD over a shared
@@ -63,7 +64,7 @@ async function getStatus(token: string, path: string): Promise<number> {
   return res.status;
 }
 
-test.describe('permission enforcement (PERMISSIONS_ENFORCED=on)', () => {
+test.describe('permission enforcement', () => {
   let adminToken: string;
   const created: { plural: string; id: string }[] = [];
   const createdUsers: string[] = [];
