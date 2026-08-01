@@ -91,6 +91,20 @@ export class PermissionStore {
     private ttlMs: number = DEFAULT_PERMISSION_CACHE_TTL_MS,
   ) {}
 
+  /**
+   * Whether the permissions system has been *initialized* at all: any
+   * access-grant or any role exists. Used as a fail-open safety valve — when
+   * enforcement is on but nothing has been seeded yet (the boot window before
+   * the baseline seed runs, or a fully-wiped household), the engine must not
+   * lock everyone out. The seeded roles (admin/member/guest) mean a household
+   * that *deliberately* removes the open-household grant still reads as
+   * initialized, so removing that grant locks down rather than failing open.
+   */
+  hasBaseline(): boolean {
+    this.load();
+    return (this.grants?.length ?? 0) > 0 || (this.rolesById?.size ?? 0) > 0;
+  }
+
   /** Force the next access to reload (e.g. after a write in tests). */
   clear(): void {
     this.grants = null;

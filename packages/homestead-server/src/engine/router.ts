@@ -118,6 +118,21 @@ function resolve(reg: Registry, segments: string[]): ResolvedRoute | null {
 }
 
 /**
+ * Warn (once per process) that enforcement is configured but no baseline exists,
+ * so the engine is failing open. Surfaces a mis-seeded instance without spamming
+ * a line per request.
+ */
+let warnedNoBaseline = false;
+function warnNoBaseline(mode: string): void {
+  if (warnedNoBaseline) return;
+  warnedNoBaseline = true;
+  console.warn(
+    `[permissions] enforcement is '${mode}' but no baseline (grant/role) exists yet — ` +
+      'failing open until one is seeded. This is expected briefly at first boot.',
+  );
+}
+
+/**
  * Route a request against the dynamic resources. Returns null when no
  * resource pattern matches (callers fall through to the 404 text).
  */
@@ -133,7 +148,15 @@ export async function routeDynamic(
 
   const { match, rawId } = resolved;
   const r: RegisteredResource = match.resource;
-  const enforcing = ctx !== undefined && ctx.mode !== 'off';
+  // Fail-open safety valve: only enforce once a baseline exists (any grant or
+  // role). This keeps "enforcement on by default" safe — during the boot window
+  // before the open-household grant is seeded, or if a household wipes
+  // everything, the engine stays open instead of locking everyone out. Grant
+  // *writes* still fall through to the legacy superuser-only gate below (so the
+  // seeder, a superuser, can create the baseline; randoms can't tamper with it).
+  const configured = ctx !== undefined && ctx.mode !== 'off';
+  const enforcing = configured && ctx!.store.hasBaseline();
+  if (configured && !enforcing) warnNoBaseline(ctx!.mode);
 
   // User-subtree isolation always applies: a child of `user` stays owner-only,
   // preserving the privacy of notifications/preferences/etc. The grant system
@@ -143,10 +166,12 @@ export async function routeDynamic(
   checkUserScope(match, caller);
 
   // `access-grant` governs its own writes by the manage-on-target rule (§15.3)
-  // rather than the generic resolve/superuser_write path. When the system is
-  // off, it falls through to the legacy superuser_write gate below.
-  if (r.plural === ACCESS_GRANTS_PLURAL && ctx && ctx.mode !== 'off') {
-    return routeGrant(reg, req, match, rawId, caller, ctx);
+  // rather than the generic resolve/superuser_write path. Gated on `enforcing`
+  // (not just mode) so that before the baseline exists, grant writes use the
+  // legacy superuser_write gate — which is what lets the superuser seeder create
+  // the open-household grant in the first place.
+  if (r.plural === ACCESS_GRANTS_PLURAL && enforcing) {
+    return routeGrant(reg, req, match, rawId, caller, ctx!);
   }
 
   const enforce = (verb: 'read' | 'write', recordId?: string, recordPath?: string): void => {

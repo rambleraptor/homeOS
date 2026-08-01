@@ -172,3 +172,80 @@ describe('permission enforcement (mode=on)', () => {
     expect((await (await call(t.engine, 'GET', '/books', { token: bob.token })).json()).results).toHaveLength(1);
   });
 });
+
+/**
+ * Baseline hardening: with enforcement on but nothing seeded (the boot window
+ * before the open-household grant lands, or a fully-wiped household), the engine
+ * must fail *open* — never lock everyone out. Enforcement engages the moment a
+ * baseline (any grant or role) exists.
+ */
+describe('permission enforcement — fail-open when uninitialized', () => {
+  let t: TestEngine;
+
+  beforeEach(async () => {
+    process.env.PERMISSION_CACHE_TTL_MS = '0';
+    process.env.PERMISSIONS_ENFORCED = 'on';
+    t = await makeEngine();
+    // Define the permission collections + a book, but DO NOT seed roles/grants.
+    for (const def of PERMISSION_RESOURCE_DEFS) {
+      await defineResource(
+        t,
+        {
+          singular: def.singular,
+          plural: def.plural,
+          parents: def.parents ?? [],
+          superuser_write: def.superuser_write ?? false,
+          schema: toWireSchema(def.fields, def.singular),
+        },
+        def.singular,
+      );
+    }
+    await defineResource(t, BOOK_DEF);
+  });
+
+  afterEach(() => {
+    delete process.env.PERMISSIONS_ENFORCED;
+    delete process.env.PERMISSION_CACHE_TTL_MS;
+  });
+
+  test('a regular user has full CRUD when no grants or roles exist', async () => {
+    const alice = await seedUser(t.engine, { email: 'alice@example.com' });
+    const bob = await seedUser(t.engine, { email: 'bob@example.com' });
+    // Alice creates and reads…
+    expect((await call(t.engine, 'POST', '/books?id=b1', { token: alice.token, body: { title: 'A' } })).status).toBe(201);
+    expect((await call(t.engine, 'GET', '/books/b1', { token: alice.token })).status).toBe(200);
+    // …and Bob (a different user, no grant) can read it too — failing open, not shut.
+    expect((await call(t.engine, 'GET', '/books/b1', { token: bob.token })).status).toBe(200);
+    expect((await (await call(t.engine, 'GET', '/books', { token: bob.token })).json()).results).toHaveLength(1);
+  });
+
+  test('enforcement engages once a baseline exists (a role is enough)', async () => {
+    const alice = await seedUser(t.engine, { email: 'alice@example.com' });
+    // Admin (superuser) creates a book and a role — the role establishes a baseline.
+    await call(t.engine, 'POST', '/books?id=b1', { token: t.adminToken, body: { title: 'A' } });
+    await call(t.engine, 'POST', '/roles?id=member', {
+      token: t.adminToken,
+      body: { name: 'Member', grants: [] },
+    });
+    // Now enforcement is live: Alice has no grant, so she can't read the admin's book.
+    expect((await call(t.engine, 'GET', '/books/b1', { token: alice.token })).status).toBe(403);
+  });
+
+  test('grant writes stay superuser-only when uninitialized (baseline not tamperable)', async () => {
+    const alice = await seedUser(t.engine, { email: 'alice@example.com' });
+    // A regular user cannot create an access-grant even while failing open —
+    // grant writes fall to the legacy superuser_write gate.
+    const denied = await call(t.engine, 'POST', '/access-grants?id=x', {
+      token: alice.token,
+      body: { subject_type: 'everyone', target_scope: 'all', capability: 'write' },
+    });
+    expect(denied.status).toBe(403);
+    // The superuser (e.g. the boot seeder) still can — this is how the baseline
+    // gets created in the first place.
+    const ok = await call(t.engine, 'POST', '/access-grants?id=open', {
+      token: t.adminToken,
+      body: { subject_type: 'everyone', target_scope: 'all', capability: 'write' },
+    });
+    expect(ok.status).toBe(201);
+  });
+});

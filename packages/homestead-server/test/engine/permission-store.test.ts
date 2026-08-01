@@ -48,6 +48,23 @@ describe('PermissionStore.gatherFor', () => {
     expect(grants).toEqual([]);
   });
 
+  test('hasBaseline: a lone role marks the system initialized', () => {
+    expect(store.hasBaseline()).toBe(false); // fresh: no grants, no roles
+    db.run("INSERT INTO roles (id, name, grants) VALUES ('member', 'Member', '[]')");
+    store.clear();
+    expect(store.hasBaseline()).toBe(true);
+  });
+
+  test('hasBaseline: a lone access-grant (no roles) also counts', () => {
+    expect(store.hasBaseline()).toBe(false);
+    db.run(
+      `INSERT INTO access_grants (id, subject_type, target_scope, capability, effect)
+         VALUES ('open', 'everyone', 'all', 'write', 'allow')`,
+    );
+    store.clear();
+    expect(store.hasBaseline()).toBe(true);
+  });
+
   test('assembles group membership into the principal set', () => {
     db.run("INSERT INTO groups (id, name) VALUES ('parents', 'Parents')");
     db.run("INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'parents', 'alice')");
