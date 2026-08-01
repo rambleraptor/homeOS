@@ -26,7 +26,6 @@ export class UsersPage {
     email: string;
     displayName?: string;
     type?: 'regular' | 'superuser';
-    tags?: string[];
     password?: string;
   }) {
     await this.page.getByTestId('user-email-input').fill(data.email);
@@ -35,13 +34,6 @@ export class UsersPage {
     }
     if (data.type) {
       await this.page.getByTestId('user-type-select').selectOption(data.type);
-    }
-    if (data.tags !== undefined) {
-      const input = this.page.getByTestId('user-tags-input');
-      for (const tag of data.tags) {
-        await input.fill(tag);
-        await input.press('Enter');
-      }
     }
     if (data.password !== undefined) {
       await this.page.getByTestId('user-password-input').fill(data.password);

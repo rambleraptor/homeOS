@@ -757,12 +757,15 @@ and the app gate speaks groups instead of tags:
   column (the app-flags sync removes deleted properties), and since the data
   migration created a group per tag *name*, existing `enabled_tags` values keep
   matching with no config migration.
-- **Still pending — retirement.** The `account-tag` resource, the `account_tags`
-  table, and the account-tag admin UI are not gated on anymore (nothing reads
-  them), but they're not yet removed. Retiring them (and dropping the now-vestigial
-  `user.tags` hydration) is a follow-up, kept separate because deleting a
-  resource + its table is destructive and the migration still reads
-  `account-tags` on older instances.
+- **Retirement ✅ done.** The `account-tag` resource definition, the
+  account-tags→groups migration, the `user.tags` hydration, and all the
+  account-tag admin UI (the tag field on the user form, the tag badges, the
+  `useAccountTags`/create/reconcile hooks) have been removed. Nothing read them
+  after the gate switch. The physical `account_tags` **table** is left in place
+  on existing instances — the schema sync creates/patches but never drops a
+  removed collection, so the orphaned table is harmless and can be dropped
+  manually if desired. Any account-tags not migrated to groups before this
+  removal (unlikely — the migration shipped and runs at boot) won't transfer.
 - One primitive for "a set of people" everywhere — the gate and the resolver
   both speak `group`, nothing new speaks `tag`.
 

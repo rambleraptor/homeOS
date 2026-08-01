@@ -9,29 +9,17 @@
  *
  * The underlying `user` collection is owned by aepbase via
  * `EnableUsers = true`; this app deliberately does not declare a
- * `user` `ResourceDefinition`. Account-level extensions (currently
- * just `account-tag`) live as separate child resources parented under
- * `user`.
+ * `user` `ResourceDefinition`, and no longer declares any resources of
+ * its own (account-tags were retired in favor of permission groups).
  */
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
-import { usersResources } from './resources';
 
 export const usersApp: AppConfig = {
   id: 'users',
   name: 'Users',
   description: 'Create and manage user accounts.',
   defaultEnabled: 'superusers',
-  resources: usersResources,
-  migrations: [
-    {
-      // Lift legacy account-tags into permission groups so existing cohorts
-      // survive the permissions rollout (additive — tags are left in place).
-      id: 'users-account-tags-to-groups',
-      title: 'Migrate account tags into permission groups',
-      load: () => import('./migrations/account-tags-to-groups'),
-    },
-  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.UserCog),
     basePath: '/superuser/users',

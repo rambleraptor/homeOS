@@ -33,13 +33,6 @@ export interface User {
   dashboard_hidden_widgets?: string[];
   type?: UserType;
   /**
-   * Account tags assigned by a superuser. Apps whose `enabled` flag
-   * is set to `'tagged'` are accessible to users whose `tags` overlap
-   * the app's `enabled_tags` (any-of match). Hydrated on login from
-   * the `account-tag` child resource (see `users/resources.ts`).
-   */
-  tags?: string[];
-  /**
    * The caller's permission context (group ids + expanded grants + whether
    * enforcement is on), hydrated on login from `/api/permissions/me`. Feeds the
    * client `can()` mirror (design §10). UX only — the engine is authoritative.

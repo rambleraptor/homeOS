@@ -237,41 +237,6 @@ export async function deleteUsersExcept(
 }
 
 // ---------------------------------------------------------------------------
-// Account tags (parented under user — see packages/homestead-core/superuser/users/resources.ts)
-// ---------------------------------------------------------------------------
-
-interface AccountTagRecord {
-  id: string;
-  name: string;
-}
-
-/** List a user's account tags via the parented `/users/{id}/account-tags`. */
-export async function listAccountTags(
-  token: string,
-  userId: string,
-): Promise<string[]> {
-  const records = await aepList<AccountTagRecord>(token, 'account-tags', [
-    'users',
-    userId,
-  ]);
-  return records.map((r) => r.name);
-}
-
-/** Create a single tag record for a user. */
-export async function createAccountTag(
-  token: string,
-  userId: string,
-  name: string,
-): Promise<AccountTagRecord> {
-  return aepCreate<AccountTagRecord>(
-    token,
-    'account-tags',
-    { name },
-    ['users', userId],
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Groups (permissions §9.2 — the audience primitive that replaced account tags)
 // ---------------------------------------------------------------------------
 
