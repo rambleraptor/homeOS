@@ -668,11 +668,25 @@ on per-user roles.
    deny.
 7. **Enforcement kill-switch** (env var) lets operators roll out in shadow mode
    and lets e2e run with the current model until specs are updated.
+8. **Fail-open when uninitialized (baseline safety valve) ✅.** Enforcement only
+   engages once a **baseline** exists — any `access-grant` *or* any `role`
+   (`PermissionStore.hasBaseline()`, checked in `routeDynamic`). Before the
+   boot-time seed runs (the server accepts requests before the schema sync +
+   seed finish), or if a household wipes everything, the engine **fails open**
+   (behaves as `off`) instead of locking everyone out — a broken first-boot is
+   worse than a briefly-open one. The seeded roles double as the "initialized"
+   signal, so a household that *deliberately* deletes the open-household grant
+   still reads as initialized and correctly locks down (it doesn't fail open).
+   Grant *writes* are the one exception: while uninitialized they fall to the
+   legacy `superuser_write` gate rather than failing open, so the superuser
+   seeder can create the baseline but nobody else can tamper with the ACL layer.
+   This is what makes "enforcement on by default" safe.
 
 Net effect: on upgrade everyone sees exactly what they saw before (via the open
 grant), superusers keep full control, tag-based app gating is preserved as
-group-based gating, and nothing is hidden until someone deliberately tightens a
-resource.
+group-based gating, nothing is hidden until someone deliberately tightens a
+resource, and a mis-seeded or brand-new instance can never lock the household
+out.
 
 ---
 
