@@ -17,7 +17,6 @@ export const superuserApp: AppConfig = {
   id: 'superuser',
   name: 'Superuser',
   description: 'App flags and other superuser-only controls',
-  defaultEnabled: 'superusers',
   children: [usersApp, permissionsApp, flagManagementApp, operationsApp],
   web: {
     icon: () => import('lucide-react').then((m) => m.ShieldCheck),

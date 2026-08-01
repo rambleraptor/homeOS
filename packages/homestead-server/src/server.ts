@@ -13,7 +13,6 @@
 
 import { Hono } from 'hono';
 import { join } from 'node:path';
-import { DEFAULT_ACCESS_CACHE_TTL_MS, makeAccessCheck } from './engine/access';
 import { Engine } from './engine/engine';
 import { listen } from './listen';
 import { isServerPath, type ServerOptions } from './options';
@@ -23,16 +22,6 @@ export interface RunningServer {
   publicPort: number;
   engine: Engine;
   stop: () => Promise<void>;
-}
-
-function accessCacheTtlMs(opts: ServerOptions): number {
-  if (opts.accessCacheTtlMs !== undefined) return opts.accessCacheTtlMs;
-  const raw = process.env.AEPBASE_ACCESS_CACHE_TTL_MS?.trim();
-  if (raw) {
-    const ms = parseInt(raw, 10);
-    if (!Number.isNaN(ms) && ms >= 0) return ms;
-  }
-  return DEFAULT_ACCESS_CACHE_TTL_MS;
 }
 
 export async function startServer(opts: ServerOptions): Promise<RunningServer> {
@@ -84,12 +73,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     oauth: registry.oauthConfig(),
   });
 
-  // E2E_DISABLE_APP_ACCESS is the e2e suite's debugging escape hatch for
-  // running with backend enforcement off.
-  const accessMap = process.env.E2E_DISABLE_APP_ACCESS ? null : registry.appAccessMap();
+  // App-level access is governed by the permission system, not a per-app gate.
+  // The collection→app map still feeds permission enforcement so app-scope
+  // grants can match.
+  const accessMap = registry.appAccessMap();
   if (accessMap) {
-    engine.setAccessCheck(makeAccessCheck(engine.db, accessMap, accessCacheTtlMs(opts)));
-    // Same collection→app map lets permission enforcement match app-scope grants.
     engine.setPermissionAppMap(accessMap.collectionToApp);
   }
 

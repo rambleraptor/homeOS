@@ -37,12 +37,6 @@ import type {
   ResourceDefinition,
 } from '../resources/types';
 import type { BulkImportDef } from '../resources/bulk-import/types';
-import {
-  BUILTIN_ENABLED_TAGS_FLAG_KEY,
-  DEFAULT_APP_VISIBILITY,
-  APP_VISIBILITY_OPTIONS,
-  type AppVisibility,
-} from '../settings/visibility';
 import { logger } from '../utils/logger';
 
 class AppRegistryImpl implements AppRegistry {
@@ -294,61 +288,13 @@ export function getAllDashboardWidgets(): RegisteredDashboardWidget[] {
 }
 
 /**
- * Reserved key for the built-in `enabled` flag every app gets.
- * App-declared flags cannot override this name.
- */
-export const BUILTIN_ENABLED_FLAG_KEY = 'enabled';
-
-// Re-export the tags flag key so consumers don't need to pull it from
-// the visibility app directly. Keeps the registry as the single
-// source of truth for "what built-in flags does every app get?".
-export { BUILTIN_ENABLED_TAGS_FLAG_KEY };
-
-/**
- * Keys auto-injected by the registry. App-declared flags using
- * these names are dropped with a warning so the gating contract stays
- * consistent across the app.
- */
-const RESERVED_FLAG_KEYS: readonly string[] = [
-  BUILTIN_ENABLED_FLAG_KEY,
-  BUILTIN_ENABLED_TAGS_FLAG_KEY,
-];
-
-function builtinEnabledFlagDef(
-  defaultValue: AppVisibility,
-): AppFlagDef {
-  return {
-    type: 'enum',
-    label: 'App enabled for',
-    description:
-      "Who can use this app. 'superusers' restricts it to superusers; 'all' makes it available to every signed-in user; 'none' hides it from everyone (including superusers); 'tagged' restricts it to members of the groups listed in 'enabled_tags'.",
-    options: APP_VISIBILITY_OPTIONS,
-    default: defaultValue,
-  };
-}
-
-// The flag key stays `enabled_tags` (renaming it would drop-then-recreate the
-// column, losing values); §9.2 repurposed its contents from account-tag names
-// to group names, which the account-tags→groups migration keeps aligned.
-function builtinEnabledTagsFlagDef(): AppFlagDef {
-  return {
-    type: 'string',
-    label: 'Allowed groups',
-    description:
-      "Comma-separated list of group names allowed to use this app. Only consulted when 'enabled' is set to 'tagged'. A user passes if they belong to any group named in this list.",
-    default: '',
-  };
-}
-
-/**
- * Collect every declared flag across all registered apps — top-level
- * and nested — keyed by app id. Consumed by the settings UI, the
- * aepbase schema syncer, and the `useAppFlag` hook.
+ * Collect every declared flag across all registered apps — top-level and
+ * nested — keyed by app id. Consumed by the settings UI, the aepbase schema
+ * syncer, and the `useAppFlag` hook.
  *
- * Every app (including children) automatically receives a built-in
- * `enabled` flag (see `BUILTIN_ENABLED_FLAG_KEY`) so it can be gated
- * independently. App-declared flags of the same name are ignored
- * with a warning so the audience knob stays consistent across the app.
+ * Apps declare their own feature flags; there are no auto-injected flags. (App
+ * *audience* used to be an injected `enabled`/`enabled_tags` flag pair; that
+ * per-app gate was retired in favor of the permission system.)
  */
 export function getAllAppFlagDefs(): Record<
   string,
@@ -356,22 +302,7 @@ export function getAllAppFlagDefs(): Record<
 > {
   const out: Record<string, Record<string, AppFlagDef>> = {};
   const visit = (mod: AppConfig): void => {
-    const declared = mod.flags ?? {};
-    for (const reserved of RESERVED_FLAG_KEYS) {
-      if (reserved in declared) {
-        logger.warn(
-          `App "${mod.id}" declares a reserved flag "${reserved}"; built-in definition takes precedence.`,
-          { appId: mod.id },
-        );
-      }
-    }
-    out[mod.id] = {
-      ...declared,
-      [BUILTIN_ENABLED_FLAG_KEY]: builtinEnabledFlagDef(
-        mod.defaultEnabled ?? DEFAULT_APP_VISIBILITY,
-      ),
-      [BUILTIN_ENABLED_TAGS_FLAG_KEY]: builtinEnabledTagsFlagDef(),
-    };
+    out[mod.id] = { ...(mod.flags ?? {}) };
     for (const child of mod.children ?? []) {
       visit(child);
     }

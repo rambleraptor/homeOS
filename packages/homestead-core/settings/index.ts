@@ -15,12 +15,3 @@ export { useAppFlag } from './hooks/useAppFlag';
 export type { UseAppFlagResult } from './hooks/useAppFlag';
 
 // Public hook for gating an app by its built-in `enabled` flag.
-export {
-  useIsAppEnabled,
-  useAppEnabledPredicate,
-} from './hooks/useIsAppEnabled';
-export {
-  APP_VISIBILITY_OPTIONS,
-  DEFAULT_APP_VISIBILITY,
-} from './visibility';
-export type { AppVisibility } from './visibility';

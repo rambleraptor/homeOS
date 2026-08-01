@@ -2,18 +2,9 @@ import { useMemo } from 'react';
 import { KeyRound } from 'lucide-react';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { getNavigationApps } from '@rambleraptor/homestead-core/apps/registry';
-import { useAppFlags } from '@rambleraptor/homestead-core/settings/hooks/useAppFlags';
+import { isSuperuserOnlyApp } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 import { useAccessGrants } from '@rambleraptor/homestead-core/permissions/hooks';
 import type { UserType } from '@rambleraptor/homestead-core/auth/types';
-
-/** Whether a group-less user of this type can open an app at the given visibility. */
-function canOpen(visibility: string, isSuperuser: boolean): boolean {
-  if (visibility === 'all') return true;
-  if (visibility === 'superusers') return isSuperuser;
-  // 'none' blocks everyone; 'tagged' needs group membership a brand-new user
-  // doesn't have yet.
-  return false;
-}
 
 function summarizeEveryoneGrant(g: {
   target_scope: string;
@@ -41,19 +32,17 @@ function summarizeEveryoneGrant(g: {
  */
 export function NewUserAccessPreview({ type }: { type: UserType }) {
   const { user } = useAuth();
-  const { values } = useAppFlags();
   const { data: grants } = useAccessGrants();
   const isSuperuser = type === 'superuser';
   const enforced = user?.permissions?.enforced ?? false;
 
+  // Nav apps a new user would see: superuser-only apps are hidden from regular
+  // users; every other app is visible (data access is summarized separately).
   const openableApps = useMemo(() => {
     return getNavigationApps()
-      .filter((app) => {
-        const vis = (values[app.id]?.enabled as string) || app.defaultEnabled || 'all';
-        return canOpen(vis, isSuperuser);
-      })
+      .filter((app) => isSuperuser || !isSuperuserOnlyApp(app))
       .map((app) => app.name);
-  }, [values, isSuperuser]);
+  }, [isSuperuser]);
 
   const dataSummary = useMemo(() => {
     if (isSuperuser) {

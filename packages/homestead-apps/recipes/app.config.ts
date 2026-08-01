@@ -13,7 +13,6 @@ export const recipesApp: AppConfig = {
   id: 'recipes',
   name: 'Recipes',
   description: 'Manage household recipes with structured ingredients.',
-  defaultEnabled: 'superusers',
   resources: recipesResources,
   web: {
     icon: () => import('lucide-react').then((m) => m.ChefHat),

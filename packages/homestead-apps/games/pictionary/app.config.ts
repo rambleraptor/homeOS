@@ -23,7 +23,6 @@ export const pictionaryApp: AppConfig = {
         index: true,
         component: () =>
           import('./components/PictionaryHome').then((m) => m.PictionaryHome),
-        gates: ['enabled'],
       },
       {
         path: 'leaderboard',
@@ -31,13 +30,11 @@ export const pictionaryApp: AppConfig = {
           import('./components/PictionaryLeaderboard').then(
             (m) => m.PictionaryLeaderboard,
           ),
-        gates: ['enabled'],
       },
       {
         path: 'import',
         component: () =>
           import('./bulk-import').then((m) => m.PictionaryBulkImport),
-        gates: ['enabled'],
       },
     ],
   },

@@ -342,7 +342,6 @@ export const ${n.camel}App: AppConfig = {
   id: '${n.slug}',
   name: '${n.display}',
   description: 'TODO: describe what ${n.display} does.',
-  defaultEnabled: 'all',
   // A starter resource. Add fields or more resources as your app grows.
   resources: [
     {

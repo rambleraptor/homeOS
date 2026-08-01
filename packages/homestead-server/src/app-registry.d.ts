@@ -10,10 +10,10 @@ import type {
   RegisteredCronHook,
   RegisteredMigration,
 } from '@rambleraptor/homestead-core/apps/registry';
-import type { AppAccessConfig } from './engine/access';
+import type { AppAccessMap } from '@rambleraptor/homestead-core/apps/access-map';
 import type { OAuthConfig } from './engine/oauth';
 
-export function appAccessMap(): AppAccessConfig | null;
+export function appAccessMap(): AppAccessMap | null;
 export function oauthConfig(): OAuthConfig | null;
 export function authServerConfig(): AuthServerConfig | null;
 export function aiConfig(): AiConfig | null;

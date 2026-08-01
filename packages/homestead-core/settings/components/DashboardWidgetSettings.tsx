@@ -21,7 +21,8 @@ import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastPr
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { getAllDashboardWidgets } from '@rambleraptor/homestead-core/apps/registry';
 import type { RegisteredDashboardWidget } from '@rambleraptor/homestead-core/apps/registry';
-import { useAppEnabledPredicate } from '../hooks/useIsAppEnabled';
+import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
+import { getAppById } from '@rambleraptor/homestead-core/apps/registry';
 import { useUpdateDashboardWidgets } from '../hooks/useUpdateDashboardWidgets';
 import { resolveDashboardWidgets } from '../utils/resolveDashboardWidgets';
 
@@ -50,15 +51,16 @@ function buildInitialEntries(
 export function DashboardWidgetSettings() {
   const toast = useToast();
   const { user } = useAuth();
-  const isAppEnabled = useAppEnabledPredicate();
+  const isVisible = useAppVisible();
   const updatePrefs = useUpdateDashboardWidgets();
 
   // Widgets belonging to apps the viewer can't access shouldn't
   // appear in the customization list — they wouldn't render on the
   // dashboard either, and showing toggles for them would be confusing.
-  const available = getAllDashboardWidgets().filter((w) =>
-    isAppEnabled(w.appId),
-  );
+  const available = getAllDashboardWidgets().filter((w) => {
+    const app = getAppById(w.appId);
+    return app ? isVisible(app) : false;
+  });
 
   const [entries, setEntries] = useState<WidgetEntry[]>(() =>
     buildInitialEntries(

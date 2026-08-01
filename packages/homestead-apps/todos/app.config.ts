@@ -9,7 +9,6 @@ export const todosApp: AppConfig = {
   id: 'todos',
   name: 'Todos',
   description: 'Daily todo list with progress tracking.',
-  defaultEnabled: 'all',
   resources: todosResources,
   web: {
     icon: () => import('lucide-react').then((m) => m.ListTodo),

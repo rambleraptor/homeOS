@@ -11,7 +11,7 @@ import { ChevronDown, ChevronRight, Home, LogOut, X } from 'lucide-react';
 import { useAuth } from '../auth/useAuth';
 import { getNavigationApps } from '@rambleraptor/homestead-core/apps/registry';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
-import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
+import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -73,12 +73,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     });
   };
 
-  // Every app is gated by its built-in `enabled` flag
-  // (superusers / all / none) via the shared predicate.
-  const isEnabled = useAppEnabledPredicate();
-  const apps = user
-    ? getNavigationApps().filter((m) => isEnabled(m.id))
-    : [];
+  // Show the apps this viewer can use: superuser-only apps are hidden from
+  // regular users, everything else is filtered by the permission resolver.
+  const isVisible = useAppVisible();
+  const apps = user ? getNavigationApps().filter(isVisible) : [];
 
   // Group apps by section
   const appsBySection = apps.reduce((acc, app) => {

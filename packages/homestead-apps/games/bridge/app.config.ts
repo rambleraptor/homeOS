@@ -21,7 +21,6 @@ export const bridgeApp: AppConfig = {
         index: true,
         component: () =>
           import('./components/BridgeHome').then((m) => m.BridgeHome),
-        gates: ['enabled'],
       },
     ],
   },

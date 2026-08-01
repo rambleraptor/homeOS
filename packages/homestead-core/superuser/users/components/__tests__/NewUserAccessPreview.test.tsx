@@ -8,14 +8,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import * as registry from '@rambleraptor/homestead-core/apps/registry';
-import * as appFlags from '@rambleraptor/homestead-core/settings/hooks/useAppFlags';
 import * as permHooks from '@rambleraptor/homestead-core/permissions/hooks';
 import * as authHook from '@rambleraptor/homestead-core/auth/useAuth';
 import { NewUserAccessPreview } from '../NewUserAccessPreview';
 
+// `isSuperuserOnlyApp` keys off a `superuser` route gate.
 const APPS = [
-  { id: 'recipes', name: 'Recipes', defaultEnabled: 'all' },
-  { id: 'superuser', name: 'Superuser', defaultEnabled: 'superusers' },
+  { id: 'recipes', name: 'Recipes', web: { routes: [{ gates: [] }] } },
+  { id: 'superuser', name: 'Superuser', web: { routes: [{ gates: ['superuser'] }] } },
 ];
 
 const OPEN_GRANT = {
@@ -28,7 +28,6 @@ const OPEN_GRANT = {
 
 function setup({ enforced = true, grants = [] as unknown[] } = {}) {
   vi.spyOn(registry, 'getNavigationApps').mockReturnValue(APPS as never);
-  vi.spyOn(appFlags, 'useAppFlags').mockReturnValue({ values: {}, record: null } as never);
   vi.spyOn(permHooks, 'useAccessGrants').mockReturnValue({ data: grants } as never);
   vi.spyOn(authHook, 'useAuth').mockReturnValue({
     user: { permissions: { enforced } },

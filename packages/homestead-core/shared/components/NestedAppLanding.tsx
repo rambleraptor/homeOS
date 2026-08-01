@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Card } from './Card';
 import { PageHeader } from './PageHeader';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
-import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
+import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
 interface Props {
@@ -19,8 +19,8 @@ interface Props {
  * used by the hand-written landings this component replaces.
  */
 export function NestedAppLanding({ app }: Props) {
-  const isEnabled = useAppEnabledPredicate();
-  const children = (app.children ?? []).filter((child) => isEnabled(child.id));
+  const isVisible = useAppVisible();
+  const children = (app.children ?? []).filter(isVisible);
 
   return (
     <div className="space-y-6">

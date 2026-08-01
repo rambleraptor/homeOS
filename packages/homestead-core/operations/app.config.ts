@@ -22,7 +22,6 @@ export const operationsApp: AppConfig = {
   id: 'operations',
   name: 'Operations',
   description: 'View long-running background tasks and their logs.',
-  defaultEnabled: 'superusers',
   resources: operationsResources,
   crons: [
     {
@@ -45,7 +44,7 @@ export const operationsApp: AppConfig = {
         index: true,
         component: () =>
           import('./components/OperationsHome').then((m) => m.OperationsHome),
-        gates: ['superuser', 'enabled'],
+        gates: ['superuser'],
       },
     ],
   },

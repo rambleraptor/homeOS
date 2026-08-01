@@ -13,7 +13,6 @@ import { aepList, aepRemove } from '../../utils/aepbase-helpers';
 
 interface AppFlagsRecord {
   id: string;
-  groceries__enabled?: string;
   [field: string]: unknown;
 }
 
@@ -38,38 +37,10 @@ test.describe('Superuser → Flag Management sub-page (superuser)', () => {
     await resetAppFlags(adminToken);
   });
 
-  test('renders the groceries app section with the built-in enabled flag and its description', async () => {
+  test('renders the groceries app section with its declared flags', async () => {
+    // App audience is no longer a flag (it's governed by permissions); the page
+    // now shows only each app's declared feature flags.
     await flagPage.expectAppSectionVisible('groceries');
-    await flagPage.expectFlagDescriptionVisible(
-      "Who can use this app. 'superusers' restricts it to superusers;",
-    );
-    // Defaults to 'all' when no record exists yet.
-    await flagPage.expectEnumFlagValue('groceries', 'enabled', 'all');
-  });
-
-  test('superuser can change an enum flag and the value persists to aepbase', async ({
-    adminToken,
-  }) => {
-    await flagPage.selectEnumFlag('groceries', 'enabled', 'superusers');
-
-    // Poll aepbase until the singleton shows the new value (the mutation
-    // round-trips through the aepbase proxy; give it a few hundred ms).
-    await expect
-      .poll(
-        async () => {
-          const records = await aepList<AppFlagsRecord>(
-            adminToken,
-            'app-flags',
-          );
-          return records[0]?.groceries__enabled;
-        },
-        { timeout: 5000 },
-      )
-      .toBe('superusers');
-
-    // A reload should surface the persisted value rather than the default.
-    await flagPage.goto();
-    await flagPage.expectEnumFlagValue('groceries', 'enabled', 'superusers');
   });
 });
 

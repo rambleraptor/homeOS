@@ -11,11 +11,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Gamepad2, Pencil, Flag, Club } from 'lucide-react';
 import { NestedAppLanding } from '../NestedAppLanding';
-import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
+import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
-vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled', () => ({
-  useAppEnabledPredicate: vi.fn(),
+vi.mock('@rambleraptor/homestead-core/apps/useAppVisibility', () => ({
+  useAppVisible: vi.fn(),
 }));
 
 const route = { path: '', index: true, component: () => Promise.resolve(() => null) };
@@ -71,7 +71,7 @@ describe('NestedAppLanding', () => {
   });
 
   it('renders one card per child when all are enabled', () => {
-    vi.mocked(useAppEnabledPredicate).mockReturnValue(() => true);
+    vi.mocked(useAppVisible).mockReturnValue(() => true);
 
     render(
       <MemoryRouter>
@@ -85,8 +85,8 @@ describe('NestedAppLanding', () => {
   });
 
   it('filters out children whose enabled flag rejects the viewer', () => {
-    vi.mocked(useAppEnabledPredicate).mockReturnValue(
-      (id) => id !== 'bridge',
+    vi.mocked(useAppVisible).mockReturnValue(
+      (app) => app.id !== 'bridge',
     );
 
     render(
