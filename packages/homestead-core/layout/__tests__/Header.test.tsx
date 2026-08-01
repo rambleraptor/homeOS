@@ -13,8 +13,8 @@ import { TopBarBadge } from '../TopBarBadge';
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
 const enabledIds = new Set(['bell', 'plain', 'side']);
-vi.mock('@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled', () => ({
-  useAppEnabledPredicate: () => (id: string) => enabledIds.has(id),
+vi.mock('@rambleraptor/homestead-core/apps/useAppVisibility', () => ({
+  useAppVisible: () => (app: { id: string }) => enabledIds.has(app.id),
 }));
 
 function BellBadge() {

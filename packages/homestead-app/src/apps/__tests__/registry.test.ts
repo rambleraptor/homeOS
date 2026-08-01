@@ -1,12 +1,11 @@
 /**
- * Tests for the app registry's flag aggregation, in particular the
- * auto-injected built-in `enabled` flag that every app receives —
- * including nested children, so each can be gated independently.
+ * Tests for the app registry's flag aggregation. There are no auto-injected
+ * flags — the per-app `enabled`/`enabled_tags` audience pair was retired in
+ * favor of the permission system — so `getAllAppFlagDefs` returns exactly each
+ * app's declared flags.
  *
- * Imports through the frontend's shim (`@/apps/registry`) so the
- * singleton is initialized from the real `homestead.config.ts`. The
- * assertions are integration-flavored — they walk the actual operator
- * app list rather than a synthetic one.
+ * Imports through the frontend's shim (`@/apps/registry`) so the singleton is
+ * initialized from the real `homestead.config.ts`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -16,10 +15,7 @@ import {
   getNavigationApps,
   getTopBarApps,
   appRegistry,
-  BUILTIN_ENABLED_FLAG_KEY,
-  BUILTIN_ENABLED_TAGS_FLAG_KEY,
 } from '@/apps/registry';
-import { APP_VISIBILITY_OPTIONS } from '@rambleraptor/homestead-core/settings/visibility';
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 
 function collectAllIds(mods: AppConfig[]): string[] {
@@ -33,68 +29,24 @@ function collectAllIds(mods: AppConfig[]): string[] {
 }
 
 describe('getAllAppFlagDefs', () => {
-  it('injects an `enabled` enum flag into every registered app, including nested children', () => {
+  it('has an entry for every registered app, including nested children', () => {
     const defs = getAllAppFlagDefs();
     const allIds = collectAllIds(appRegistry.apps);
     expect(Object.keys(defs).sort()).toEqual(allIds.sort());
-    for (const id of allIds) {
-      const flag = defs[id][BUILTIN_ENABLED_FLAG_KEY];
-      expect(flag).toBeDefined();
-      expect(flag.type).toBe('enum');
-      if (flag.type === 'enum') {
-        expect(flag.options).toEqual(APP_VISIBILITY_OPTIONS);
-      }
-    }
   });
 
-  it("honors each app's `defaultEnabled` for the injected flag's default", () => {
+  it('returns each app\'s declared flags and injects nothing', () => {
     const defs = getAllAppFlagDefs();
-    const recipesFlag = defs.recipes[BUILTIN_ENABLED_FLAG_KEY];
-    expect(recipesFlag.type).toBe('enum');
-    if (recipesFlag.type === 'enum') {
-      expect(recipesFlag.default).toBe('superusers');
-    }
-  });
-
-  it("defaults apps without `defaultEnabled` to 'all'", () => {
-    const defs = getAllAppFlagDefs();
-    const dashboardFlag = defs.dashboard[BUILTIN_ENABLED_FLAG_KEY];
-    expect(dashboardFlag.type).toBe('enum');
-    if (dashboardFlag.type === 'enum') {
-      expect(dashboardFlag.default).toBe('all');
-    }
-  });
-
-  it('preserves app-declared flags alongside the built-in one', () => {
-    const defs = getAllAppFlagDefs();
-    // `groceries.default_store` is an app-declared flag; it should
-    // still be present after the built-in is merged in.
+    // `groceries.default_store` is an app-declared flag.
     expect(defs.groceries.default_store).toBeDefined();
-    expect(defs.groceries[BUILTIN_ENABLED_FLAG_KEY]).toBeDefined();
+    // No auto-injected audience flags anymore.
+    expect(defs.groceries.enabled).toBeUndefined();
+    expect(defs.groceries.enabled_tags).toBeUndefined();
   });
 
-  it('injects an `enabled_tags` string flag into every app for tag-based gating', () => {
+  it('leaves flag-less apps with an empty flag map', () => {
     const defs = getAllAppFlagDefs();
-    const allIds = collectAllIds(appRegistry.apps);
-    for (const id of allIds) {
-      const flag = defs[id][BUILTIN_ENABLED_TAGS_FLAG_KEY];
-      expect(flag).toBeDefined();
-      expect(flag.type).toBe('string');
-      if (flag.type === 'string') {
-        expect(flag.default).toBe('');
-      }
-    }
-  });
-
-  it('inherits the parent audience for nested superuser-only children', () => {
-    const defs = getAllAppFlagDefs();
-    for (const childId of ['users', 'flag-management']) {
-      const flag = defs[childId][BUILTIN_ENABLED_FLAG_KEY];
-      expect(flag.type).toBe('enum');
-      if (flag.type === 'enum') {
-        expect(flag.default).toBe('superusers');
-      }
-    }
+    expect(defs.dashboard).toEqual({});
   });
 });
 

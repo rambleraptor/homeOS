@@ -23,7 +23,6 @@ export const minigolfApp: AppConfig = {
         index: true,
         component: () =>
           import('./components/MinigolfHome').then((m) => m.MinigolfHome),
-        gates: ['enabled'],
       },
     ],
   },

@@ -3,22 +3,15 @@ import { SlidersHorizontal } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
-import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import {
-  BUILTIN_ENABLED_FLAG_KEY,
-  BUILTIN_ENABLED_TAGS_FLAG_KEY,
   getAllAppFlagDefs,
   getAppById,
 } from '@rambleraptor/homestead-core/apps/registry';
-import {
-  formatTagList,
-  parseTagList,
-} from '@rambleraptor/homestead-core/settings/visibility';
 import { useAppFlags } from '@rambleraptor/homestead-core/settings/hooks/useAppFlags';
 import { useUpdateAppFlag } from '@rambleraptor/homestead-core/settings/hooks/useUpdateAppFlag';
 import { unflatten } from '@rambleraptor/homestead-core/settings/flags';
@@ -118,27 +111,6 @@ export function FlagManagementHome() {
                       {appName}
                     </h3>
                     {Object.entries(appDefs).map(([key, def]) => {
-                      // The auto-injected `enabled_tags` flag (now a list of
-                      // group names, §9.2) only matters when visibility is
-                      // 'tagged'. Hide it otherwise so the form stays tight.
-                      if (key === BUILTIN_ENABLED_TAGS_FLAG_KEY) {
-                        const visibility =
-                          values[appId]?.[BUILTIN_ENABLED_FLAG_KEY];
-                        if (visibility !== 'tagged') return null;
-                        return (
-                          <TagsFlagField
-                            key={key}
-                            appId={appId}
-                            value={values[appId]?.[key]}
-                            label={def.label}
-                            description={def.description}
-                            onChange={(next) =>
-                              handleChange(appId, key, next)
-                            }
-                            isSaving={update.isPending}
-                          />
-                        );
-                      }
                       return (
                         <FlagField
                           key={key}
@@ -270,35 +242,3 @@ function FlagField({
   }
 }
 
-interface TagsFlagFieldProps {
-  appId: string;
-  value: AppFlagValue | undefined;
-  label: string;
-  description: string;
-  onChange: (value: AppFlagValue) => void;
-  isSaving: boolean;
-}
-
-function TagsFlagField({
-  appId,
-  value,
-  label,
-  description,
-  onChange,
-  isSaving,
-}: TagsFlagFieldProps) {
-  const tags = parseTagList(typeof value === 'string' ? value : '');
-  return (
-    <div>
-      <TagInput
-        id={`flag-${appId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
-        label={label}
-        value={tags}
-        onChange={(next) => onChange(formatTagList(next))}
-        disabled={isSaving}
-        testId={`flag-${appId}-${BUILTIN_ENABLED_TAGS_FLAG_KEY}`}
-      />
-      <p className="mt-1 text-xs text-gray-500">{description}</p>
-    </div>
-  );
-}

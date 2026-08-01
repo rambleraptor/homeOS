@@ -692,6 +692,19 @@ out.
 
 ## 9. Blocking an app & app visibility
 
+> **Update — the per-app `enabled` gate has been removed.** The separate
+> app-access gate (`access.ts`, the injected `enabled`/`enabled_tags` flags, and
+> the `all`/`superusers`/`none`/`tagged` visibility values) is gone; app-level
+> audience is governed by the permission system alone. Restricting an app is now
+> an **app-scope grant** (e.g. `group Adults → read → app:finances`), and nav
+> visibility is a `can()` check plus a hard rule that hides **superuser-only
+> apps** (those whose route carries the `superuser` gate) from regular users —
+> so admin surfaces stay hidden even when enforcement is off. There is no
+> `none`: an app can't be disabled for the whole household from this layer.
+> `collectionToApp` (which app owns which collection) survives, because the
+> resolver needs it to match app-scope grants. The sections below describe the
+> original two-control design and are kept for historical context.
+
 ### 9.1 How to block an entire app
 
 There are **two complementary controls**, and they answer different questions.

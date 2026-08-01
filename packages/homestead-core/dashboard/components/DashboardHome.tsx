@@ -13,21 +13,21 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { getTodaysHoliday } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { resolveDashboardWidgets } from '@rambleraptor/homestead-core/settings/utils/resolveDashboardWidgets';
-import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
-import { getAllDashboardWidgets } from '@rambleraptor/homestead-core/apps/registry';
+import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
+import { getAllDashboardWidgets, getAppById } from '@rambleraptor/homestead-core/apps/registry';
 import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 
 export function DashboardHome() {
   const { user } = useAuth();
-  const isAppEnabled = useAppEnabledPredicate();
+  const isVisible = useAppVisible();
   const todaysHoliday = getTodaysHoliday();
-  // Filter out widgets contributed by apps the viewer can't access
-  // (visibility = 'none', wrong audience, missing tag). Otherwise a
-  // user could see a Recipes widget on their dashboard while the
-  // Recipes app itself is gated off in their sidebar.
-  const accessibleWidgets = getAllDashboardWidgets().filter((w) =>
-    isAppEnabled(w.appId),
-  );
+  // Filter out widgets contributed by apps the viewer can't access — otherwise a
+  // user could see a Recipes widget while the Recipes app itself is hidden from
+  // their sidebar.
+  const accessibleWidgets = getAllDashboardWidgets().filter((w) => {
+    const app = getAppById(w.appId);
+    return app ? isVisible(app) : false;
+  });
   const widgets = resolveDashboardWidgets(
     accessibleWidgets,
     user?.dashboard_widget_order,

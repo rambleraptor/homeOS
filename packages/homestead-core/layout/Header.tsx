@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { getTopBarApps } from '@rambleraptor/homestead-core/apps/registry';
 import { AppIcon, getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
-import { useAppEnabledPredicate } from '@rambleraptor/homestead-core/settings/hooks/useIsAppEnabled';
+import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -19,9 +19,9 @@ interface HeaderProps {
 export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
 
-  // Top-bar apps share the same `enabled` flag gating as the sidebar.
-  const isEnabled = useAppEnabledPredicate();
-  const topBarApps = getTopBarApps().filter((m) => isEnabled(m.id));
+  // Top-bar apps use the same visibility rule as the sidebar.
+  const isVisible = useAppVisible();
+  const topBarApps = getTopBarApps().filter(isVisible);
 
   return (
     <header className="bg-surface-white border-b border-gray-100 sticky top-0 z-30">

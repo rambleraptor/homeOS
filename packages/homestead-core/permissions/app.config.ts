@@ -19,7 +19,6 @@ export const permissionsApp: AppConfig = {
   id: 'permissions',
   name: 'Permissions',
   description: 'Manage groups and view roles.',
-  defaultEnabled: 'superusers',
   web: {
     icon: () => import('lucide-react').then((m) => m.KeyRound),
     basePath: '/superuser/permissions',
@@ -29,7 +28,7 @@ export const permissionsApp: AppConfig = {
         index: true,
         component: () =>
           import('./components/PermissionsHome').then((m) => m.PermissionsHome),
-        gates: ['superuser', 'enabled'],
+        gates: ['superuser'],
       },
     ],
   },

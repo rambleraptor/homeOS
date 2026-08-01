@@ -1,11 +1,9 @@
 /**
  * Recipes app E2E tests
  *
- * Covers CRUD on /recipes plus the app-level `enabled` flag which
- * gates the sidebar entry. The flag has three values:
- *   - 'superusers' (default): only superusers see Recipes in the sidebar
- *   - 'all':        every signed-in user sees it
- *   - 'none':       nobody sees it (no superuser bypass)
+ * Covers CRUD on /recipes. Sidebar visibility is no longer an app-level
+ * flag — it's governed by the permission system — so there are no
+ * visibility-gate tests here anymore.
  *
  * All data operations use `adminToken` (the persistent superuser session
  * loaded once per worker). Earlier runs that used a per-test `userToken`
@@ -19,7 +17,6 @@ import {
   aepGet,
   aepList,
   resetAppFlags,
-  setAppFlag,
 } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { RecipesPage } from './RecipesPage';
 import { createRecipe, deleteAllRecipes, testRecipes } from './helpers';
@@ -111,51 +108,5 @@ test.describe('Recipes CRUD', () => {
     await recipesPage.clickDelete(seed.title);
 
     await recipesPage.expectRecipeNotInList(seed.title);
-  });
-});
-
-test.describe('Recipes visibility flag', () => {
-  test.afterEach(async ({ adminToken }) => {
-    await resetAppFlags(adminToken);
-  });
-
-  test("default ('superuser') hides Recipes from regular users", async ({
-    adminToken,
-    authenticatedPage,
-  }) => {
-    await resetAppFlags(adminToken);
-    await authenticatedPage.goto('/dashboard');
-    const recipesPage = new RecipesPage(authenticatedPage);
-    await recipesPage.expectSidebarLinkHidden();
-  });
-
-  test("default ('superuser') shows Recipes to superusers", async ({
-    adminToken,
-    authenticatedAdminPage,
-  }) => {
-    await resetAppFlags(adminToken);
-    await authenticatedAdminPage.goto('/dashboard');
-    const recipesPage = new RecipesPage(authenticatedAdminPage);
-    await recipesPage.expectSidebarLinkVisible();
-  });
-
-  test("'all' shows Recipes to regular users", async ({
-    adminToken,
-    authenticatedPage,
-  }) => {
-    await setAppFlag(adminToken, 'recipes', 'enabled', 'all');
-    await authenticatedPage.goto('/dashboard');
-    const recipesPage = new RecipesPage(authenticatedPage);
-    await recipesPage.expectSidebarLinkVisible();
-  });
-
-  test("'none' hides Recipes from superusers as well", async ({
-    adminToken,
-    authenticatedAdminPage,
-  }) => {
-    await setAppFlag(adminToken, 'recipes', 'enabled', 'none');
-    await authenticatedAdminPage.goto('/dashboard');
-    const recipesPage = new RecipesPage(authenticatedAdminPage);
-    await recipesPage.expectSidebarLinkHidden();
   });
 });

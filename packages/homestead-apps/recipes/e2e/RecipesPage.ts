@@ -113,18 +113,6 @@ export class RecipesPage {
     await expect(this.page.getByTestId('recipes-empty-state')).toBeVisible();
   }
 
-  async expectSidebarLinkVisible() {
-    await expect(
-      this.page.getByRole('link', { name: 'Recipes' }),
-    ).toBeVisible();
-  }
-
-  async expectSidebarLinkHidden() {
-    await expect(
-      this.page.getByRole('link', { name: 'Recipes' }),
-    ).toHaveCount(0);
-  }
-
   async gotoRecipe(id: string) {
     await this.page.goto(`/recipes/${id}`);
   }

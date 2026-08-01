@@ -9,7 +9,6 @@ import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { AppFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
-import type { AppVisibility } from '../settings/visibility';
 import type { CronHook } from './cron';
 import type { Migration } from './migrations';
 
@@ -96,7 +95,7 @@ export interface AppRoute {
    * components in `homestead-core/apps/router/gates`. The parameterized
    * `permission:<verb>:<resourceType>` form guards on `can(verb, resourceType)`.
    */
-  gates?: Array<'enabled' | 'superuser' | `permission:${'read' | 'write' | 'manage'}:${string}`>;
+  gates?: Array<'superuser' | `permission:${'read' | 'write' | 'manage'}:${string}`>;
 
   /**
    * True when the path uses dynamic params (`:id`) and should not be
@@ -224,14 +223,6 @@ export interface AppConfig {
    * Short description of app functionality
    */
   description: string;
-
-  /**
-   * Default audience for the built-in `enabled` flag that the registry
-   * auto-injects for every app. Controls who can see/use the app
-   * until an admin overrides the flag in the Flag Management UI.
-   * @default 'all'
-   */
-  defaultEnabled?: AppVisibility;
 
   /**
    * Additional app-specific metadata
