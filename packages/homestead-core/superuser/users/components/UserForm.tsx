@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
+import { NewUserAccessPreview } from './NewUserAccessPreview';
 import type { ManagedUser, UserFormData } from '../types';
 import type { UserType } from '@rambleraptor/homestead-core/auth/types';
 
@@ -107,6 +108,8 @@ export function UserForm({ initialData, onSubmit, onCancel, isSubmitting }: User
         required={!isEdit}
         data-testid="user-password-input"
       />
+
+      {!isEdit && <NewUserAccessPreview type={type} />}
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>

@@ -1,0 +1,107 @@
+import { useMemo } from 'react';
+import { KeyRound } from 'lucide-react';
+import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
+import { getNavigationApps } from '@rambleraptor/homestead-core/apps/registry';
+import { useAppFlags } from '@rambleraptor/homestead-core/settings/hooks/useAppFlags';
+import { useAccessGrants } from '@rambleraptor/homestead-core/permissions/hooks';
+import type { UserType } from '@rambleraptor/homestead-core/auth/types';
+
+/** Whether a group-less user of this type can open an app at the given visibility. */
+function canOpen(visibility: string, isSuperuser: boolean): boolean {
+  if (visibility === 'all') return true;
+  if (visibility === 'superusers') return isSuperuser;
+  // 'none' blocks everyone; 'tagged' needs group membership a brand-new user
+  // doesn't have yet.
+  return false;
+}
+
+function summarizeEveryoneGrant(g: {
+  target_scope: string;
+  target_app?: string;
+  resource_type?: string;
+  capability: string;
+}): string | null {
+  if (g.target_scope === 'all') return `${g.capability} everything`;
+  if (g.target_scope === 'app') return `${g.capability} the ${g.target_app} app`;
+  if (g.target_scope === 'collection') return `${g.capability} ${g.resource_type} records`;
+  return null; // record-scope everyone grants aren't meaningful here
+}
+
+/**
+ * A live, read-only preview of what a *brand-new* user (before you add them to
+ * any group) will be able to do, shown in the create-user form. Two layers,
+ * reported honestly:
+ *   - **Apps** — app-access gating always applies, regardless of enforcement.
+ *   - **Data** — when permissions aren't enforced, everyone can do everything;
+ *     when they are, a new user's default data access comes from the
+ *     `everyone`-scoped grants (the open-household grant, by default).
+ *
+ * Superusers get a full-access note (they break-glass past data restrictions),
+ * with the caveat that app visibility still gates which apps they can open.
+ */
+export function NewUserAccessPreview({ type }: { type: UserType }) {
+  const { user } = useAuth();
+  const { values } = useAppFlags();
+  const { data: grants } = useAccessGrants();
+  const isSuperuser = type === 'superuser';
+  const enforced = user?.permissions?.enforced ?? false;
+
+  const openableApps = useMemo(() => {
+    return getNavigationApps()
+      .filter((app) => {
+        const vis = (values[app.id]?.enabled as string) || app.defaultEnabled || 'all';
+        return canOpen(vis, isSuperuser);
+      })
+      .map((app) => app.name);
+  }, [values, isSuperuser]);
+
+  const dataSummary = useMemo(() => {
+    if (isSuperuser) {
+      return 'Full access to all household data — superusers bypass every restriction (break-glass).';
+    }
+    if (!enforced) {
+      return 'Can read and write everything — permissions are not being enforced yet.';
+    }
+    const everyoneAllows = (grants ?? []).filter(
+      (g) => g.subject_type === 'everyone' && g.effect !== 'deny',
+    );
+    if (everyoneAllows.some((g) => g.target_scope === 'all')) {
+      const cap = everyoneAllows.find((g) => g.target_scope === 'all')!.capability;
+      return cap === 'read'
+        ? 'Can read all shared household data (but not change it) by default.'
+        : 'Can read and write all shared household data by default.';
+    }
+    const parts = everyoneAllows
+      .map(summarizeEveryoneGrant)
+      .filter((s): s is string => s !== null);
+    if (parts.length > 0) {
+      return `Shared with everyone by default: ${parts.join(', ')}.`;
+    }
+    return 'No data access yet — share specific apps, groups, or records to grant it.';
+  }, [isSuperuser, enforced, grants]);
+
+  return (
+    <div
+      className="rounded-md border border-blue-100 bg-blue-50/40 p-3 space-y-1.5"
+      data-testid="new-user-access-preview"
+    >
+      <div className="flex items-center gap-2">
+        <KeyRound className="w-4 h-4 text-blue-500" />
+        <span className="text-sm font-medium text-gray-900">
+          What this {isSuperuser ? 'superuser' : 'user'} will be able to access
+        </span>
+      </div>
+      <p className="text-sm text-gray-700">{dataSummary}</p>
+      <p className="text-sm text-gray-700">
+        {openableApps.length === 0
+          ? 'Cannot open any apps yet.'
+          : `Can open ${openableApps.length} app${openableApps.length === 1 ? '' : 's'}: ${openableApps.join(', ')}.`}
+      </p>
+      {!isSuperuser && (
+        <p className="text-xs text-gray-500">
+          Add them to a group on the Permissions page to grant more.
+        </p>
+      )}
+    </div>
+  );
+}
