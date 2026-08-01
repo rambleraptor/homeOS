@@ -8,6 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '../api/aepbase';
+import { fetchPermissionContextFor } from './client';
 import { ACCESS_GRANTS, GROUP_MEMBERSHIPS, GROUPS, ROLES } from './resources';
 import type { Capability } from './resolve';
 
@@ -113,6 +114,18 @@ export function useGroupMemberships(groupId: string) {
     queryKey: keys.members(groupId),
     queryFn: () => aepbase.list<GroupMembershipRecord>(GROUP_MEMBERSHIPS, { parent: [GROUPS, groupId] }),
     enabled: !!groupId,
+  });
+}
+
+/**
+ * Another user's resolved permission context (superuser only). Feeds the Users
+ * page access summary; the current user's own context comes from AuthContext.
+ */
+export function useUserPermissionContext(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['permissions', 'user-context', userId] as const,
+    queryFn: () => fetchPermissionContextFor(userId!, aepbase.authStore.token),
+    enabled: !!userId,
   });
 }
 
