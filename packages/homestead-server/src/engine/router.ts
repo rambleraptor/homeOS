@@ -118,17 +118,17 @@ function resolve(reg: Registry, segments: string[]): ResolvedRoute | null {
 }
 
 /**
- * Warn (once per process) that enforcement is configured but no baseline exists,
- * so the engine is failing open. Surfaces a mis-seeded instance without spamming
- * a line per request.
+ * Warn (once per process) that no baseline (grant/role) exists yet, so the
+ * engine is failing open. Surfaces a mis-seeded instance without spamming a line
+ * per request.
  */
 let warnedNoBaseline = false;
-function warnNoBaseline(mode: string): void {
+function warnNoBaseline(): void {
   if (warnedNoBaseline) return;
   warnedNoBaseline = true;
   console.warn(
-    `[permissions] enforcement is '${mode}' but no baseline (grant/role) exists yet — ` +
-      'failing open until one is seeded. This is expected briefly at first boot.',
+    '[permissions] no baseline (grant/role) exists yet — failing open until one ' +
+      'is seeded. This is expected briefly at first boot.',
   );
 }
 
@@ -148,15 +148,15 @@ export async function routeDynamic(
 
   const { match, rawId } = resolved;
   const r: RegisteredResource = match.resource;
-  // Fail-open safety valve: only enforce once a baseline exists (any grant or
-  // role). This keeps "enforcement on by default" safe — during the boot window
+  // Enforcement is unconditional, gated only by the fail-open safety valve:
+  // enforce once a baseline exists (any grant or role). During the boot window
   // before the open-household grant is seeded, or if a household wipes
   // everything, the engine stays open instead of locking everyone out. Grant
   // *writes* still fall through to the legacy superuser-only gate below (so the
   // seeder, a superuser, can create the baseline; randoms can't tamper with it).
-  const configured = ctx !== undefined && ctx.mode !== 'off';
-  const enforcing = configured && ctx!.store.hasBaseline();
-  if (configured && !enforcing) warnNoBaseline(ctx!.mode);
+  // A ctx-less caller (internal loopback ops) never enforces.
+  const enforcing = ctx !== undefined && ctx.store.hasBaseline();
+  if (ctx !== undefined && !enforcing) warnNoBaseline();
 
   // User-subtree isolation always applies: a child of `user` stays owner-only,
   // preserving the privacy of notifications/preferences/etc. The grant system
@@ -270,7 +270,7 @@ export async function routeDynamic(
  * Route a request to the `access-grant` collection under the manage-on-target
  * write rule (§15.3). Reads are open to any authenticated caller (household
  * transparency); writes require `manage` on the grant's target, enforced by
- * `enforceGrantWrite`. Superuser bypass and shadow mode are handled inside it.
+ * `enforceGrantWrite`. Superuser bypass is handled inside it.
  */
 async function routeGrant(
   reg: Registry,

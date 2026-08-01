@@ -42,26 +42,21 @@ A rule grants one of three abilities, each including the ones before it:
 
 ---
 
-## Turn permissions on
+## How permissions apply
 
-Permissions are controlled by one server setting, `PERMISSIONS_ENFORCED`:
+Permissions are **always on** — there is no switch to turn them off. Despite
+that, a brand-new household behaves exactly as if there were no permissions at
+all: every instance is seeded with a built-in **"everyone can read and write
+everything"** rule (the *open-household* grant).
 
-| Value    | What happens                                                         |
-| -------- | ------------------------------------------------------------------- |
-| _(unset)_ | **Off.** Everyone shares everything, as if permissions didn't exist. |
-| `shadow` | The server works out what it *would* block and logs it — but allows everything. A safe way to preview your rules against real use before committing. |
-| `on`     | Rules are enforced. Blocked reads return nothing; blocked writes are refused. |
+So out of the box, **nothing appears restricted**. You make things private by
+narrowing or removing that open rule, one step at a time — blocked reads then
+return nothing, and blocked writes are refused. Superuser accounts always
+bypass every rule (break-glass), so you can never lock yourself out.
 
-Set it in your environment (or the systemd unit) and restart:
-
-```bash
-PERMISSIONS_ENFORCED=on
-```
-
-When you first switch it on, **nothing appears to change** — every household
-starts with a built-in "everyone can read and write everything" rule. You make
-things private by narrowing or removing that rule, one step at a time. Running
-`shadow` for a few days first is recommended.
+> Until the baseline is seeded (the first moments of a fresh instance, or a
+> fully-wiped database) the engine deliberately **fails open** rather than
+> locking everyone out.
 
 ---
 

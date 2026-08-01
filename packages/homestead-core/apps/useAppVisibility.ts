@@ -3,14 +3,13 @@
  * per-app `enabled` flag. Two independent gates:
  *
  *   1. **Superuser-only apps** (any whose route carries the `superuser` gate)
- *      are hidden from non-superusers. This is a *hard* rule, independent of
- *      permission enforcement — admin surfaces must never leak into a regular
- *      user's nav, even when `PERMISSIONS_ENFORCED` is off (where `can()` is
- *      permissive).
+ *      are hidden from non-superusers. This is a *hard* rule, independent of the
+ *      permission resolver — admin surfaces must never leak into a regular
+ *      user's nav, even in the fail-open window where `can()` is permissive.
  *   2. Every other app is filtered by the permission resolver via `can()`: an
- *      app shows if the viewer can read its primary collection. With enforcement
- *      off `can()` is permissive, so a default household sees every feature app;
- *      with it on, an app the viewer can't reach drops out of nav.
+ *      app shows if the viewer can read its primary collection. A default
+ *      (open-household) household sees every feature app; once access is
+ *      narrowed, an app the viewer can't reach drops out of nav.
  */
 
 import { useCallback } from 'react';

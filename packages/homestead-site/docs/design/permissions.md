@@ -1,11 +1,21 @@
 # Homestead Permissions — Design
 
-**Status:** Implemented (behind the `PERMISSIONS_ENFORCED` flag) · **Audience:**
+**Status:** Implemented · enforcement is unconditional · **Audience:**
 contributors
 
 > **Looking for how to *use* permissions?** See the user guide:
 > [Permissions](../guides/permissions). This page is the internal design and
 > decision record — the *why* behind the system, and the phased build log.
+
+> **Update — enforcement is now unconditional.** The `PERMISSIONS_ENFORCED`
+> env kill-switch and its `off`/`shadow` modes have been **removed**. The engine
+> always consults grants; the only gate is the fail-open baseline (§8.x): when no
+> grant or role exists yet (fresh-boot window or a wiped household) the engine
+> fails *open* rather than locking everyone out, and a seeded household is always
+> enforced. Superuser accounts still break-glass past every rule. The rollout
+> narrative below (kill-switch, shadow mode, phased flip) is kept as the
+> historical build log; where it says "default off" or "shadow", read "removed —
+> enforcement is unconditional, gated by the baseline."
 
 This document records the design of the permissions system: a way to let
 specific people have specific access to specific resources. It combines three
@@ -1090,28 +1100,23 @@ instances, so retirement is kept as a dedicated follow-up.
   server-side.
 
 ### Cross-cutting
-- **Kill-switch** (`PERMISSIONS_ENFORCED`) + **shadow mode** are the safety net
-  for Phase 3; keep both until a release has run enforced without incident.
+- **Kill-switch + shadow mode were the Phase-3 safety net; both have since been
+  removed** — enforcement is unconditional, gated only by the fail-open baseline.
 - **e2e** already boots the real server, so each phase updates specs alongside
   code — the suite is the regression gate at every step.
-- **Enforced e2e run ✅ added.** A dedicated Playwright config
-  (`tests/e2e/playwright.enforced.config.ts`, `make test-e2e-enforced`) boots the
-  server with `PERMISSIONS_ENFORCED=on` and runs the `*.enforced.spec.ts` specs,
-  proving end-to-end that (1) the seeded open-household grant preserves a regular
-  user's full CRUD — flipping enforcement on is a no-op for normal use, (2) a
-  collection-scope deny blocks the named user while others keep access and
-  lifting it restores them, and (3) the superuser breaks glass through a deny
-  that targets everyone. The default suite keeps enforcement off (its shipped
-  default) and ignores these specs.
-- **Boot-ordering nuance (surfaced by the enforced run).** The open-household
-  grant is seeded *after* the resource sync, so on the **first** boot of a fresh
-  instance with enforcement already on, there's a brief window where nothing is
-  permitted yet (default-deny) until the seed lands. On every later boot the
-  grant already exists (seed is when-empty), so there's no window. In practice
-  enforcement is turned on for an *existing* instance that already holds the
-  grant, so this only bit the e2e harness (fresh db per run) — handled by waiting
-  for the grant in the enforced setup. Worth remembering if enforcement is ever
-  defaulted on for brand-new instances.
+- **Enforcement e2e ✅ (now the default suite).** Enforcement is unconditional,
+  so the enforcement specs (`tests/e2e/tests/permissions/enforcement.spec.ts`)
+  run as part of the ordinary `make test-e2e` — there's no separate enforced
+  config anymore. They prove end-to-end that (1) the seeded open-household grant
+  preserves a regular user's full CRUD, (2) a collection-scope deny blocks the
+  named user while others keep access and lifting it restores them, and (3) the
+  superuser breaks glass through a deny that targets everyone.
+- **Boot-ordering nuance.** The open-household grant is seeded *after* the
+  resource sync, and the roles seed just before it — so on the **first** boot of
+  a fresh instance there's a brief window where a role baseline exists but the
+  open grant doesn't yet. The fail-open baseline covers the pre-seed window, and
+  the e2e harness (fresh db per run) waits for the open grant in global-setup so
+  the first test doesn't race the seed.
 - **No silent truncation:** the account-tag migration (Phase 3c) logs its tally
   (tags scanned, groups + memberships created) and skips only empty tag names, so
   nothing is dropped quietly.

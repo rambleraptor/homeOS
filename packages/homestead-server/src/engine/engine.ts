@@ -23,7 +23,7 @@ import { buildOpenApi } from './openapi';
 import { Registry } from './registry';
 import { notFoundText, routeDynamic } from './router';
 import { PermissionStore, permissionCacheTtlMs } from './permission-store';
-import { permissionMode, type Grant } from './permissions';
+import { type Grant } from './permissions';
 import type { EnforceContext } from './enforce';
 import type { User } from './types';
 import {
@@ -119,14 +119,15 @@ export class Engine {
     return {
       store: this.permissionStore,
       appIdFor: (plural) => this.collectionToApp[plural] ?? null,
-      mode: permissionMode(),
     };
   }
 
   /**
    * The caller's permission context for the client `can()` mirror: their group
    * ids and every applicable grant (role bundles already expanded), plus whether
-   * enforcement is actually on (the client only restricts the UI when it is).
+   * enforcement is live. Enforcement is unconditional, so `enforced` mirrors the
+   * server's fail-open gate — a baseline (any grant or role) exists — so the
+   * client stays permissive during the same boot window the server fails open in.
    */
   permissionContext(userId: string): {
     enforced: boolean;
@@ -136,11 +137,10 @@ export class Engine {
   } {
     const { principals, grants } = this.permissionStore.gatherFor(userId);
     return {
-      enforced: permissionMode() === 'on',
+      enforced: this.permissionStore.hasBaseline(),
       groupIds: [...principals.groupIds],
       // Group names feed the client's app-gating mirror (`tagged` visibility,
-      // §9.2). Always populated, regardless of enforcement mode — app gating is
-      // independent of PERMISSIONS_ENFORCED.
+      // §9.2). Always populated, independent of the fail-open baseline gate.
       groupNames: this.permissionStore.groupNamesFor(userId),
       grants,
     };

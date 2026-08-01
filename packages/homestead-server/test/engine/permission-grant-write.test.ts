@@ -13,13 +13,12 @@ import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine }
 
 const BASE = 'http://localhost:8090';
 
-describe('access-grant manage-on-target write rule (mode=on)', () => {
+describe('access-grant manage-on-target write rule', () => {
   let t: TestEngine;
   const fetchImpl = (input: string, init?: RequestInit) => t.engine.fetch(new Request(input, init));
 
   beforeEach(async () => {
     process.env.PERMISSION_CACHE_TTL_MS = '0';
-    process.env.PERMISSIONS_ENFORCED = 'on';
     t = await makeEngine();
     for (const def of PERMISSION_RESOURCE_DEFS) {
       await defineResource(
@@ -39,7 +38,6 @@ describe('access-grant manage-on-target write rule (mode=on)', () => {
   });
 
   afterEach(() => {
-    delete process.env.PERMISSIONS_ENFORCED;
     delete process.env.PERMISSION_CACHE_TTL_MS;
   });
 
