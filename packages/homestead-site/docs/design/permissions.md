@@ -106,10 +106,14 @@ a role is a *bundle of grants*, so a caller who holds a role contributes that
 role's grants directly to the applicable set during resolution (§4 step 3),
 rather than matching a grant addressed "to the role."
 
-**Roles are held only via group membership in v1** (decision §11 #8): a user
-gets a role because a `group-membership` names it, never by a direct user→role
-assignment (deferred to v2). So the caller's roles are exactly the roles
-conferred by their group memberships, and each expands to its bundle.
+**Roles are group-conferred** (decision §11 #8): a role is attached to the
+`group`, not to individual memberships, so **every member of a group has the
+same access**. A user's roles are exactly the roles of the groups they belong
+to (each expanding to its bundle) — never a per-member assignment. This keeps a
+person's access easy to reason about ("what can Bob do? → look at his groups")
+at the cost of a separate group when one cohort needs mixed authority (e.g. an
+"Admins" group alongside "Household"). Direct user→role assignment is still
+deferred to v2.
 
 Superusers are a hard override: they resolve to full control everywhere and
 skip evaluation (preserving today's behavior).
@@ -197,18 +201,20 @@ to a single grant:
 
 ### 3.5 Groups
 
-A **group** is a named list of users; a membership can carry a role, satisfying
-"lists of users with roles":
+A **group** is a named list of users, and the group **confers a single role on
+all its members**, satisfying "lists of users with roles":
 
 ```
-group           := { id, name, description }
-group-membership := { group_id (parent), user, role? }   // role optional
+group           := { id, name, description, role? }       // role conferred group-wide
+group-membership := { group_id (parent), user }           // no per-member role
 ```
 
 A user in a group inherits: (a) `group:<id>` as a principal (so a grant to the
-group applies), and (b) any `role` named on their membership (so
-`group:<Parents>` membership with `role:manage-finances` grants those role
-capabilities). Groups do **not** nest in v1 (flagged as a possible extension).
+group applies), and (b) the group's `role`, if any (so a `Household-Admins`
+group with `role:admin` gives every member those capabilities). The role lives
+on the **group**, not the membership — everyone in a group has the same access;
+mixed authority means a second group. Groups do **not** nest in v1 (flagged as a
+possible extension).
 
 ### 3.6 Filter-scoped grants (attribute-based)
 
@@ -530,16 +536,20 @@ management UI for free. Declared in a new core module (e.g.
   },
 }
 
-// group — superuser_write; a named list of users
+// group — superuser_write; a named list of users + a group-wide conferred role
 { singular: 'group', plural: 'groups', superuser_write: true,
-  fields: { name: { type: 'string', required: true }, description: { type: 'string' } } }
+  fields: {
+    name: { type: 'string', required: true },
+    description: { type: 'string' },
+    role: { type: 'string', reference: { resource: 'role' } },   // conferred on all members
+  } }
 
-// group-membership — child of group; ties a user (and optional role) in
+// group-membership — child of group; ties a user in (no per-member role —
+// every member gets the group's role)
 { singular: 'group-membership', plural: 'group-memberships',
   parents: ['group'], superuser_write: true,
   fields: {
     user: { type: 'string', reference: { resource: 'user' }, required: true },
-    role: { type: 'string', reference: { resource: 'role' } },   // optional
   } }
 
 // access-grant — the ACL entry. Targets one of four scope levels (§3.3).
@@ -812,12 +822,19 @@ The server is authoritative; the client mirrors for UX (same discipline as
    comparisons** (`create_time`, `id`) — for rules like "records created after
    X"; (c) **`contains` / string ops** for array and substring fields. Each is a
    drop-in to the shared compiler that also improves List for everyone.
-8. **Role assignment — DECIDED: via groups only in v1; direct assignment is
-   v2.** A user holds a role solely because a `group-membership` names it. No
-   `role-assignment` (user→role) resource ships in v1. Consequence: the
-   open-household baseline is a seeded `everyone → write *` grant (§8), not
-   auto-assigned `member`. Direct user→role assignment (a `role-assignment`
-   child of `user`, mirroring the retired `account-tag`) is deferred to v2.
+8. **Role assignment — DECIDED: group-conferred, uniform per group; direct
+   assignment is v2.** A role attaches to the **`group`**, and every member
+   inherits it — there is no per-member role. A user's roles are the roles of
+   their groups. This makes "what can this person do?" answerable from their
+   group list alone, and makes "everyone in this group has the same access" an
+   invariant, not a convention. The cost: a cohort that needs mixed authority
+   (most members at one level, one admin) is modeled as a **second group** whose
+   members overlap (e.g. `Household` + `Household-Admins`) — a person's access is
+   the union of their groups' roles. No `role-assignment` (user→role) resource
+   ships in v1; the open-household baseline stays a seeded `everyone → write *`
+   grant (§8). Direct user→role assignment is deferred to v2 (and note it would
+   *not* dedupe the "same role for everyone in a group" case — only a
+   group-conferred role does that, which is why the role lives on the group).
 9. **Account-tags — DECIDED: removed, replaced by groups.** A tag is a weaker
    single-purpose group; groups supersede it. The `account-tag` resource and
    `account_tags` table are retired and migrated to groups (§9.2), and the app

@@ -90,10 +90,14 @@ describe('access-grant manage-on-target write rule (mode=on)', () => {
   test('a user with the admin role (via a group) can create broad grants', async () => {
     const alice = await seedUser(t.engine, { email: 'alice@example.com' });
     // Admin makes a group and puts Alice in it with the seeded `admin` role.
-    await call(t.engine, 'POST', '/groups?id=admins', { token: t.adminToken, body: { name: 'Admins' } });
+    // The group confers the `admin` role on its members (group-level role).
+    await call(t.engine, 'POST', '/groups?id=admins', {
+      token: t.adminToken,
+      body: { name: 'Admins', role: 'admin' },
+    });
     await call(t.engine, 'POST', '/groups/admins/group-memberships?id=m1', {
       token: t.adminToken,
-      body: { user: alice.user.id, role: 'admin' },
+      body: { user: alice.user.id },
     });
 
     // Alice now has manage on everything → may create a collection grant.
@@ -107,10 +111,14 @@ describe('access-grant manage-on-target write rule (mode=on)', () => {
 
   test('no grants-on-grants: even an admin-role user cannot target the ACL machinery', async () => {
     const alice = await seedUser(t.engine, { email: 'alice@example.com' });
-    await call(t.engine, 'POST', '/groups?id=admins', { token: t.adminToken, body: { name: 'Admins' } });
+    // The group confers the `admin` role on its members (group-level role).
+    await call(t.engine, 'POST', '/groups?id=admins', {
+      token: t.adminToken,
+      body: { name: 'Admins', role: 'admin' },
+    });
     await call(t.engine, 'POST', '/groups/admins/group-memberships?id=m1', {
       token: t.adminToken,
-      body: { user: alice.user.id, role: 'admin' },
+      body: { user: alice.user.id },
     });
     for (const targetType of ['access-grant', 'role', 'group', 'group-membership']) {
       const res = await call(t.engine, 'POST', `/access-grants?id=x-${targetType}`, {

@@ -30,11 +30,12 @@ export interface GroupRecord {
   id: string;
   name: string;
   description?: string;
+  /** Role conferred on every member of this group (id reference). */
+  role?: string;
 }
 export interface GroupMembershipRecord {
   id: string;
   user: string;
-  role?: string;
 }
 export interface AccessGrantRecord {
   id: string;
@@ -162,11 +163,36 @@ export function useRevokeGrant() {
   });
 }
 
+export interface GroupInput {
+  name: string;
+  description?: string;
+  /** Conferred role id, or '' / undefined for no role. */
+  role?: string;
+}
+
 export function useCreateGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; description?: string }) =>
-      aepbase.create<GroupRecord>(GROUPS, { name: data.name, description: data.description }),
+    mutationFn: (data: GroupInput) =>
+      aepbase.create<GroupRecord>(GROUPS, {
+        name: data.name,
+        description: data.description,
+        role: data.role || undefined,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.groups }),
+  });
+}
+
+export function useUpdateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: GroupInput & { id: string }) =>
+      aepbase.update<GroupRecord>(GROUPS, id, {
+        name: data.name,
+        description: data.description ?? '',
+        // Send '' (not undefined) to clear the conferred role via merge-patch.
+        role: data.role ?? '',
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.groups }),
   });
 }
@@ -174,7 +200,6 @@ export function useCreateGroup() {
 export interface AddGroupMemberInput {
   groupId: string;
   userId: string;
-  role?: string;
 }
 
 export function useAddGroupMember() {
@@ -183,7 +208,7 @@ export function useAddGroupMember() {
     mutationFn: (input: AddGroupMemberInput) =>
       aepbase.create<GroupMembershipRecord>(
         GROUP_MEMBERSHIPS,
-        { user: input.userId, role: input.role || undefined },
+        { user: input.userId },
         { parent: [GROUPS, input.groupId] },
       ),
     onSuccess: (_data, input) => qc.invalidateQueries({ queryKey: keys.members(input.groupId) }),

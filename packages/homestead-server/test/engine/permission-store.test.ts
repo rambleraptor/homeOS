@@ -13,10 +13,9 @@ import { resolve, type AccessRequest, type Verb } from '../../src/engine/permiss
 
 function createTables(db: Database): void {
   db.run('CREATE TABLE roles (id TEXT PRIMARY KEY, name TEXT, grants TEXT)');
-  db.run('CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT)');
-  db.run(
-    'CREATE TABLE group_memberships (id TEXT PRIMARY KEY, group_id TEXT, user TEXT, role TEXT)',
-  );
+  // `groups.role` holds the group-conferred role; memberships no longer carry one.
+  db.run('CREATE TABLE groups (id TEXT PRIMARY KEY, name TEXT, role TEXT)');
+  db.run('CREATE TABLE group_memberships (id TEXT PRIMARY KEY, group_id TEXT, user TEXT)');
   db.run(
     `CREATE TABLE access_grants (
        id TEXT PRIMARY KEY, subject_type TEXT, subject_id TEXT,
@@ -51,32 +50,42 @@ describe('PermissionStore.gatherFor', () => {
 
   test('assembles group membership into the principal set', () => {
     db.run("INSERT INTO groups (id, name) VALUES ('parents', 'Parents')");
-    db.run(
-      "INSERT INTO group_memberships (id, group_id, user, role) VALUES ('m1', 'parents', 'alice', NULL)",
-    );
+    db.run("INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'parents', 'alice')");
     const { principals } = store.gatherFor('alice');
     expect(principals.groupIds).toEqual(new Set(['parents']));
   });
 
   test('normalizes a users/{id} membership reference to the bare id', () => {
     db.run(
-      "INSERT INTO group_memberships (id, group_id, user, role) VALUES ('m1', 'parents', 'users/alice', NULL)",
+      "INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'parents', 'users/alice')",
     );
     expect(store.gatherFor('alice').principals.groupIds).toEqual(new Set(['parents']));
   });
 
-  test('expands a role bundle into caller-addressed grants and resolves', () => {
+  test('expands a group-conferred role into caller-addressed grants and resolves', () => {
     db.run(
       `INSERT INTO roles (id, name, grants) VALUES
          ('member', 'Member', '[{"target_scope":"all","capability":"write"}]')`,
     );
-    db.run(
-      "INSERT INTO group_memberships (id, group_id, user, role) VALUES ('m1', 'g', 'alice', 'member')",
-    );
+    // The group confers `member`; the member inherits it just by belonging.
+    db.run("INSERT INTO groups (id, name, role) VALUES ('g', 'G', 'member')");
+    db.run("INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'g', 'alice')");
     const { principals, grants } = store.gatherFor('alice');
     // Member confers write on * → write allowed, manage not.
     expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
     expect(resolve(regular, req('manage'), principals, grants).allow).toBe(false);
+  });
+
+  test('normalizes a groups/{id} conferred-role reference', () => {
+    db.run(
+      `INSERT INTO roles (id, name, grants) VALUES
+         ('member', 'Member', '[{"target_scope":"all","capability":"write"}]')`,
+    );
+    // Reference stored with a collection prefix still resolves.
+    db.run("INSERT INTO groups (id, name, role) VALUES ('g', 'G', 'roles/member')");
+    db.run("INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'g', 'alice')");
+    const { principals, grants } = store.gatherFor('alice');
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
   });
 
   test('direct everyone/user/group grants flow through and resolve', () => {
@@ -106,9 +115,8 @@ describe('PermissionStore.gatherFor', () => {
       `INSERT INTO roles (id, name, grants) VALUES
          ('member', 'Member', '[{"target_scope":"all","capability":"write"}]')`,
     );
-    db.run(
-      "INSERT INTO group_memberships (id, group_id, user, role) VALUES ('m1', 'g', 'alice', 'member')",
-    );
+    db.run("INSERT INTO groups (id, name, role) VALUES ('g', 'G', 'member')");
+    db.run("INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'g', 'alice')");
     db.run(
       `INSERT INTO access_grants (id, subject_type, subject_id, target_scope, target_app, capability, effect)
          VALUES ('d1', 'user', 'alice', 'app', 'recipes', 'read', 'deny')`,
