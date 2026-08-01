@@ -44,7 +44,7 @@ export const DOC_MARKERS = {
  */
 export const STUB_DOCUMENT_1099 = {
   full_text: 'Form 1099-INT  Interest Income  Ally Bank  Box 1 412.55',
-  title: '2025 Ally Bank 1099-INT',
+  title: '1099-INT (2025) — Ally Bank',
   confidence: 0.95,
   metadata: {
     doc_type: 'form-1099-int',
