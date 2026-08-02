@@ -60,10 +60,36 @@ function classifyPrompt(types: DocType[]): string {
   return `You are reading a scanned or digital household document. Do three things.
 
 1. Write a short, human-readable "title" for the document — what a person would
-   name this file so they could find it later. Prefer concrete specifics from the
-   document (issuer, form name, date, or subject) over generic words, e.g.
-   "2024 Ally Bank 1099-INT" or "March PG&E electricity bill". Keep it under about
-   eight words, with no file extension and no surrounding quotes.
+   name this file so they could find it later.
+
+   Follow one shape: "<Document> — <Subject>". Name the kind of document, then an
+   em dash surrounded by spaces (" — "), then the specific person, business,
+   issuer, or item it concerns. When the document is tied to a single year (a tax
+   form, an annual statement), put that year in parentheses right after the
+   document name: "<Document> (<Year>) — <Subject>".
+
+   Match these examples in form and tone:
+   - 1099-INT (2024) — Pecan Street Credit Union
+   - 1098 (2024) — Lone Star Mortgage
+   - Donation Statement (2024) — Central Texas Food Bank
+   - Auto Insurance — 2019 Honda Civic
+   - Business Owner's Policy — Rivera Design Co
+   - Certificate of Marriage — Dana & Sam Rivera
+   - Driver's License — Mateo Rivera
+   - Apple — Studio Display
+   - B&H Photo — 50mm Lens
+
+   Rules:
+   - Left of the dash is what the document *is*: the form number, certificate
+     name, or policy type — or, for a receipt or invoice, the vendor. Right of the
+     dash is who or what it concerns: the issuer, the named person, the insured
+     asset, or the purchased item.
+   - Use the document's own specifics. Never fall back on generic words like
+     "Scan", "Document", "Statement", or "Untitled" on their own.
+   - Title Case throughout. No file extension, no surrounding quotes, no trailing
+     period. Keep it under about eight words.
+   - Drop the dash and the second half only when the document truly has no
+     distinct subject.
 
 2. Decide whether it is one of these known document types:
 

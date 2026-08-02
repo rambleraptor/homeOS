@@ -57,7 +57,7 @@ test.describe('Documents', () => {
 
     // The index shows only name + type. The title is now AI-inferred (it was the
     // filename while pending); the type label comes from the doc type's `label`.
-    await expect(card.getByTestId('document-title')).toContainText('2025 Ally Bank 1099-INT');
+    await expect(card.getByTestId('document-title')).toContainText('1099-INT (2025) — Ally Bank');
     await expect(card.getByTestId('document-type')).toContainText('Form 1099-INT');
 
     // The parsed fields live on the detail page, not the index row.
