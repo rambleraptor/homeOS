@@ -16,11 +16,20 @@ import { resolveDashboardWidgets } from '@rambleraptor/homestead-core/settings/u
 import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 import { getAllDashboardWidgets, getAppById } from '@rambleraptor/homestead-core/apps/registry';
 import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
+import { useUserSetting } from '@rambleraptor/homestead-core/user-settings/hooks/useUserSetting';
+import { WelcomePanel } from './WelcomePanel';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const isVisible = useAppVisible();
   const todaysHoliday = getTodaysHoliday();
+  // While the welcome guide is still showing, this is (almost certainly) a
+  // first visit — greet the user rather than welcoming them "back".
+  const { value: showWelcomeGuide } = useUserSetting<boolean>(
+    'dashboard',
+    'show_welcome_guide',
+  );
+  const isFirstRun = showWelcomeGuide !== false;
   // Filter out widgets contributed by apps the viewer can't access — otherwise a
   // user could see a Recipes widget while the Recipes app itself is hidden from
   // their sidebar.
@@ -34,17 +43,22 @@ export function DashboardHome() {
     user?.dashboard_hidden_widgets,
   );
 
-  const greeting = todaysHoliday
-    ? todaysHoliday.message
-    : user?.name
+  const returningGreeting = user?.name
     ? `Welcome back, ${user.name}`
     : 'Welcome back';
+  const firstRunGreeting = user?.name ? `Welcome, ${user.name}` : 'Welcome';
+  const greeting = todaysHoliday
+    ? todaysHoliday.message
+    : isFirstRun
+    ? firstRunGreeting
+    : returningGreeting;
 
   return (
     <div className="space-y-6">
       <PageHeader title={greeting} subtitle="Here's what's happening" />
 
       <div className="max-w-3xl space-y-6">
+        <WelcomePanel />
         {widgets.map(({ id, component }) => {
           const Widget = getLazyComponent(component);
           return (
