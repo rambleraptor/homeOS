@@ -11,7 +11,8 @@ import { FileText } from 'lucide-react';
 import {
   validateDocType,
   toVariants,
-  toZodUnion,
+  docTypeIds,
+  toExtractionSchema,
   UNKNOWN_DOC_TYPE,
   type DocType,
 } from '../doc-types/docType';
@@ -276,45 +277,59 @@ describe('toVariants', () => {
   });
 });
 
-describe('toZodUnion', () => {
-  const union = () =>
-    toZodUnion([
+describe('docTypeIds', () => {
+  it('lists every type id, then the reserved unknown tag last', () => {
+    // These become the classification enum — the whole classify schema, kept
+    // tiny so it stays servable however many types exist.
+    expect(
+      docTypeIds([
+        type('form-w2', { wages: { label: 'Wages', type: 'number' } }),
+        type('form-1098', { interest: { label: 'Interest', type: 'number' } }),
+      ]),
+    ).toEqual(['form-w2', 'form-1098', UNKNOWN_DOC_TYPE]);
+  });
+
+  it('offers the unknown tag even with no types configured', () => {
+    expect(docTypeIds([])).toEqual([UNKNOWN_DOC_TYPE]);
+  });
+});
+
+describe('toExtractionSchema', () => {
+  const schema = () =>
+    toExtractionSchema(
       type('form-w2', {
         employer: { label: 'Employer', type: 'string' },
         wages: { label: 'Wages', type: 'number' },
       }),
-    ]);
+    );
 
-  it('accepts a full match', () => {
-    expect(
-      union().parse({ doc_type: 'form-w2', employer: 'Acme', wages: 90000 }),
-    ).toEqual({ doc_type: 'form-w2', employer: 'Acme', wages: 90000 });
-  });
-
-  it('accepts a partial read — absent fields come back as null, not omitted', () => {
-    // Fields are `.nullable()`, not `.optional()`: the model emits every key,
-    // using null for the ones it can't find (see toZodUnion — that is what keeps
-    // Gemini from aborting the structured-output call). A null survives
-    // validation; an omitted key does not, so classify strips the nulls itself.
-    expect(
-      union().parse({ doc_type: 'form-w2', employer: 'Acme', wages: null }),
-    ).toEqual({ doc_type: 'form-w2', employer: 'Acme', wages: null });
-    expect(() => union().parse({ doc_type: 'form-w2' })).toThrow();
-  });
-
-  it('always offers the unknown variant', () => {
-    expect(union().parse({ doc_type: UNKNOWN_DOC_TYPE })).toEqual({
-      doc_type: UNKNOWN_DOC_TYPE,
+  it('accepts a full read — one type\'s fields, no discriminator', () => {
+    // Extraction runs against the already-matched type, so the schema carries
+    // its fields alone and re-attaching `doc_type` is the caller's job.
+    expect(schema().parse({ employer: 'Acme', wages: 90000 })).toEqual({
+      employer: 'Acme',
+      wages: 90000,
     });
   });
 
-  it('rejects an unknown tag and a mistyped field', () => {
-    expect(() => union().parse({ doc_type: 'form-nope' })).toThrow();
-    expect(() => union().parse({ doc_type: 'form-w2', wages: '90000' })).toThrow();
+  it('accepts a partial read — unfound fields are null, not omitted', () => {
+    // Fields are `.nullable()`, not `.optional()`: the model emits every key,
+    // using null for the ones it can't find (that is what keeps Gemini from
+    // aborting the structured-output call). A null survives validation; an
+    // omitted key does not, so classify strips the nulls itself.
+    expect(schema().parse({ employer: 'Acme', wages: null })).toEqual({
+      employer: 'Acme',
+      wages: null,
+    });
+    expect(() => schema().parse({ employer: 'Acme' })).toThrow();
+  });
+
+  it('rejects a mistyped field', () => {
+    expect(() => schema().parse({ employer: 'Acme', wages: '90000' })).toThrow();
   });
 
   it('parses a composite array-of-object field', () => {
-    const recipeUnion = toZodUnion([
+    const recipe = toExtractionSchema(
       type('recipe', {
         parsed_ingredients: {
           label: 'Ingredients',
@@ -329,27 +344,26 @@ describe('toZodUnion', () => {
           },
         },
       }),
-    ]);
-    const parsed = recipeUnion.parse({
-      doc_type: 'recipe',
-      // A per-ingredient null models "unfound" — object props are nullable, so
-      // this survives validation (classify/hook strip the nulls before storing).
-      parsed_ingredients: [
-        { item: 'flour', qty: 2 },
-        { item: 'salt', qty: null },
-      ],
-    });
-    expect(parsed).toEqual({
-      doc_type: 'recipe',
+    );
+    expect(
+      recipe.parse({
+        // A per-ingredient null models "unfound" — object props are nullable, so
+        // this survives validation (classify/hook strip the nulls before storing).
+        parsed_ingredients: [
+          { item: 'flour', qty: 2 },
+          { item: 'salt', qty: null },
+        ],
+      }),
+    ).toEqual({
       parsed_ingredients: [
         { item: 'flour', qty: 2 },
         { item: 'salt', qty: null },
       ],
     });
     // The whole composite field is nullable too — a recipe with no list read.
-    expect(
-      recipeUnion.parse({ doc_type: 'recipe', parsed_ingredients: null }),
-    ).toEqual({ doc_type: 'recipe', parsed_ingredients: null });
+    expect(recipe.parse({ parsed_ingredients: null })).toEqual({
+      parsed_ingredients: null,
+    });
   });
 });
 

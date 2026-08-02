@@ -4,10 +4,11 @@
  *
  * One TypeScript module (`export default` a {@link DocType}) is the single
  * source of truth for a document type. It drives:
- *   - the resource schema  (`toVariants`  → FieldDef variants → OpenAPI oneOf)
- *   - the AI extraction    (`toZodUnion`  → a Zod union)
- *   - the UI labels        (`DocType.fields[].label`)
- *   - the index-row icon   (`DocType.icon`)
+ *   - the resource schema     (`toVariants`        → FieldDef variants → oneOf)
+ *   - the AI classification    (`docTypeIds`        → a Zod enum of ids)
+ *   - the AI field extraction  (`toExtractionSchema` → a per-type Zod object)
+ *   - the UI labels           (`DocType.fields[].label`)
+ *   - the index-row icon      (`DocType.icon`)
  *
  * The built-in types are a static list (`builtins.ts`), so `validateDocType` is
  * a test-time guard for the invariants the type system can't express
@@ -347,7 +348,34 @@ function docFieldToFieldDef(field: DocField): FieldDef {
 }
 
 /**
- * Doc types → the Zod union the model fills.
+ * The doc_type values a classification pass may return: every known type id
+ * plus the reserved `unknown` tag.
+ *
+ * Classification is handed this as a small Zod enum — it is the *whole*
+ * classification schema, alongside a title and a confidence — so that schema
+ * stays tiny however many types are configured. Field extraction is a separate,
+ * per-type pass (see {@link toExtractionSchema}). Splitting the two is what
+ * keeps either schema small: unioning every type's fields into one
+ * structured-output schema produced a constraint the model's serving engine
+ * rejected outright ("too many states for serving") once the catalogue grew
+ * past a handful of types.
+ */
+export function docTypeIds(types: DocType[]): [string, ...string[]] {
+  // Always non-empty (the `unknown` tag is unconditional), but a trailing spread
+  // widens to `string[]`; the cast asserts the non-empty tuple z.enum requires.
+  return [...types.map((t) => t.id), UNKNOWN_DOC_TYPE] as unknown as [
+    string,
+    ...string[],
+  ];
+}
+
+/**
+ * One doc type → the Zod object the model fills in the extraction pass.
+ *
+ * Only ever built for the single type classification already matched, so the
+ * schema carries one type's fields, not every type's — small no matter how many
+ * types exist, and focused on the fields the document actually has. See
+ * {@link docTypeIds} for why classification and extraction are separate passes.
  *
  * Every field is `.nullable()`, not `.optional()`: a partial read degrades to
  * null fields rather than failing validation and losing the whole extraction.
@@ -357,37 +385,16 @@ function docFieldToFieldDef(field: DocField): FieldDef {
  * output tokens, every time (even a single optional field triggers it). A
  * nullable field serialises to `nullable: true`, which Gemini honours: it emits
  * every key, using null for the ones it can't find. `classify` strips the nulls
- * before storing. The `doc_type` literal is the one non-nullable key, which
- * keeps the branches distinguishable.
- *
- * Deliberately `z.union`, not `z.discriminatedUnion`: the AI SDK serialises a
- * discriminated union as JSON-Schema `oneOf`, and Gemini's structured-output
- * schema silently drops `oneOf` — taking every field definition with it, so the
- * model classifies but extracts nothing. `z.union` serialises as `anyOf`, which
- * Gemini honours. Validation is unaffected: the `doc_type` literals keep the
- * branches unambiguous.
+ * before storing.
  */
-export function toZodUnion(types: DocType[]) {
-  const variant = (type: DocType) => {
-    const shape: Record<string, z.ZodTypeAny> = {
-      doc_type: z.literal(type.id),
-    };
-    for (const [name, field] of Object.entries(type.fields)) {
-      shape[name] = docFieldToZod(field)
-        .nullable()
-        .describe(field.description ?? field.label);
-    }
-    return z.object(shape);
-  };
-
-  const unknown = z.object({
-    doc_type: z.literal(UNKNOWN_DOC_TYPE),
-  });
-
-  return z.union([
-    ...types.map(variant),
-    unknown,
-  ] as unknown as [z.ZodObject<{ doc_type: z.ZodLiteral<string> }>, z.ZodObject<{ doc_type: z.ZodLiteral<string> }>]);
+export function toExtractionSchema(type: DocType) {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const [name, field] of Object.entries(type.fields)) {
+    shape[name] = docFieldToZod(field)
+      .nullable()
+      .describe(field.description ?? field.label);
+  }
+  return z.object(shape);
 }
 
 /**

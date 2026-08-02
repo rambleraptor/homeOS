@@ -37,46 +37,52 @@ export const DOC_MARKERS = {
 } as const;
 
 /**
- * Fields the stub "reads" from a 1099-INT document — a realistic subset. The
- * schema makes every declared field `.nullable()` (present, but null when not
- * found), so the fields this stub doesn't read are explicit `null`s rather than
- * omitted; the handler's `stripNulls` drops them before storage.
+ * The stub's reply to a `match` document, across both classify passes.
+ *
+ * Classify makes two structured-output calls: pass 1 reads `title`, `confidence`
+ * and `doc_type`; pass 2 reads the matched type's fields. The stub can't tell
+ * the passes apart (both carry the same document marker), so this one flat
+ * payload serves both — Zod keeps the keys each pass's schema declares and
+ * strips the rest. The extraction fields are `.nullable()` (present, but null
+ * when not found), so the ones this stub doesn't read are explicit `null`s; the
+ * handler's `stripNulls` drops them before storage.
  */
 export const STUB_DOCUMENT_1099 = {
-  full_text: 'Form 1099-INT  Interest Income  Ally Bank  Box 1 412.55',
+  // Pass 1 keys.
   title: '1099-INT (2025) — Ally Bank',
   confidence: 0.95,
-  metadata: {
-    doc_type: 'form-1099-int',
-    payer_name: 'Ally Bank',
-    payer_tin: 'XX-XXX6789',
-    recipient_name: 'Alex Stephen',
-    recipient_tin: null,
-    box_1_interest: 412.55,
-    box_2_early_withdrawal_penalty: null,
-    box_3_savings_bond_interest: null,
-    box_4_federal_tax_withheld: 0,
-    box_8_tax_exempt_interest: null,
-  },
-};
-
-/** A genuine "not a known type" read: low confidence, only the unknown tag. */
-export const STUB_DOCUMENT_UNKNOWN = {
-  full_text: 'Dear customer, thank you for your recent visit.',
-  title: 'Customer letter',
-  confidence: 0.15,
-  metadata: { doc_type: 'unknown' },
+  doc_type: 'form-1099-int',
+  // Pass 2 keys — the 1099-INT fields.
+  payer_name: 'Ally Bank',
+  payer_tin: 'XX-XXX6789',
+  recipient_name: 'Alex Stephen',
+  recipient_tin: null,
+  box_1_interest: 412.55,
+  box_2_early_withdrawal_penalty: null,
+  box_3_savings_bond_interest: null,
+  box_4_federal_tax_withheld: 0,
+  box_8_tax_exempt_interest: null,
 };
 
 /**
- * A schema-violating payload: `doc_type` names no known variant, so
- * `generateObject` fails validation and throws — driving the handler's failure
- * path (parse_status → failed) for real, the document analogue of FAIL_IMAGE.
+ * A genuine "not a known type" read: low confidence, the unknown tag. Only
+ * pass 1 runs (an unmatched document skips extraction), so this needs the
+ * pass-1 keys alone.
+ */
+export const STUB_DOCUMENT_UNKNOWN = {
+  title: 'Customer letter',
+  confidence: 0.15,
+  doc_type: 'unknown',
+};
+
+/**
+ * A schema-violating payload: `doc_type` names no known type, so pass 1's enum
+ * rejects it and `generateObject` throws — driving the handler's failure path
+ * (parse_status → failed) for real, the document analogue of FAIL_IMAGE.
  */
 export const STUB_DOCUMENT_FAIL = {
-  full_text: 'x',
   confidence: 0.5,
-  metadata: { doc_type: 'not-a-real-document-type' },
+  doc_type: 'not-a-real-document-type',
 };
 
 /** Pick the model payload for a request body, marker-first. */
