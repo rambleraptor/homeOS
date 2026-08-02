@@ -23,7 +23,7 @@ export function isSuperuserOnlyApp(app: AppConfig): boolean {
 }
 
 /** An app's primary (first declared) resource singular, if it has one. */
-function primaryResource(app: AppConfig): string | undefined {
+export function primaryResource(app: AppConfig): string | undefined {
   const defs = typeof app.resources === 'function' ? app.resources() : app.resources ?? [];
   return defs[0]?.singular;
 }

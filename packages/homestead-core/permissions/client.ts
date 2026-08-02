@@ -53,6 +53,27 @@ export async function fetchPermissionContext(
 }
 
 /**
+ * Fetch another user's permission context (superuser only, backs the Users-page
+ * access summary). Same shape as `/me`, resolved server-side by the engine.
+ * Returns undefined on any failure (missing token, not a superuser, network).
+ */
+export async function fetchPermissionContextFor(
+  userId: string,
+  token: string | null | undefined,
+): Promise<PermissionContext | undefined> {
+  if (!token || !userId) return undefined;
+  try {
+    const res = await fetch(`/api/permissions/user/${encodeURIComponent(userId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return undefined;
+    return (await res.json()) as PermissionContext;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * UX capability check. Permissive when enforcement is off or the context is
  * missing (the server allows everything then), so the UI never hides more than
  * the server denies. Filter grants aren't evaluated client-side (no
