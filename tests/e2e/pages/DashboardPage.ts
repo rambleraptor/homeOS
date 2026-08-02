@@ -38,4 +38,16 @@ export class DashboardPage {
   async navigateToApp(appName: string | RegExp) {
     await this.page.getByRole('navigation').getByRole('link', { name: appName }).click();
   }
+
+  get welcomePanel() {
+    return this.page.getByTestId('welcome-panel');
+  }
+
+  async dismissWelcome() {
+    const dismiss = this.page.getByTestId('welcome-dismiss');
+    await dismiss.waitFor({ state: 'visible' });
+    await dismiss.click();
+    // The panel unmounts as soon as the setting write resolves.
+    await this.welcomePanel.waitFor({ state: 'detached' });
+  }
 }
