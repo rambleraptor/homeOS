@@ -20,7 +20,7 @@ function createTables(db: Database): void {
     `CREATE TABLE access_grants (
        id TEXT PRIMARY KEY, subject_type TEXT, subject_id TEXT,
        target_scope TEXT, target_app TEXT, resource_type TEXT, resource_id TEXT,
-       filter TEXT, capability TEXT, effect TEXT
+       filter TEXT, capability TEXT, effect TEXT, is_default INTEGER
      )`,
   );
 }
@@ -140,6 +140,73 @@ describe('PermissionStore.gatherFor', () => {
     );
     const { principals, grants } = store.gatherFor('alice');
     expect(resolve(regular, req('read'), principals, grants).allow).toBe(false);
+  });
+
+  // ─────────── default-grant fallback suppression (§8.x) ───────────
+
+  /** The seeded open-household default: everyone → write → * , is_default = 1. */
+  function seedDefaultGrant(): void {
+    db.run(
+      `INSERT INTO access_grants (id, subject_type, target_scope, capability, effect, is_default)
+         VALUES ('open', 'everyone', 'all', 'write', 'allow', 1)`,
+    );
+  }
+
+  /** A group conferring a role that grants only write on the pictionary app. */
+  function seedPictionaryRoleGroup(user: string): void {
+    db.run(
+      `INSERT INTO roles (id, name, grants) VALUES
+         ('pict', 'Pictionary', '[{"target_scope":"app","target_app":"pictionary","capability":"write"}]')`,
+    );
+    db.run("INSERT INTO groups (id, name, role) VALUES ('g', 'G', 'pict')");
+    db.run(`INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'g', '${user}')`);
+  }
+
+  test('the default grant applies to a user with no conferred role', () => {
+    seedDefaultGrant();
+    const { principals, grants } = store.gatherFor('alice');
+    // No group → default applies → full read/write everywhere.
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
+    expect(resolve(regular, req('read', { resourceType: 'todo', appId: 'todos' }), principals, grants).allow).toBe(true);
+  });
+
+  test('a conferred role suppresses the default — the role defines access outright', () => {
+    seedDefaultGrant();
+    seedPictionaryRoleGroup('alice');
+    const { principals, grants } = store.gatherFor('alice');
+    // The role grants only the pictionary app…
+    expect(
+      resolve(regular, req('write', { resourceType: 'pictionary-game', appId: 'pictionary' }), principals, grants).allow,
+    ).toBe(true);
+    // …and the default no longer unions back to cover everything else.
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(false);
+    expect(resolve(regular, req('read', { resourceType: 'todo', appId: 'todos' }), principals, grants).allow).toBe(false);
+  });
+
+  test('only the default grant is suppressed — other everyone grants survive a role', () => {
+    seedDefaultGrant();
+    db.run(
+      `INSERT INTO access_grants (id, subject_type, target_scope, capability, effect, is_default)
+         VALUES ('share', 'everyone', 'all', 'read', 'allow', 0)`,
+    );
+    seedPictionaryRoleGroup('alice');
+    const { principals, grants } = store.gatherFor('alice');
+    // The non-default everyone→read grant is untouched: reads stay open…
+    expect(resolve(regular, req('read'), principals, grants).allow).toBe(true);
+    // …but the write default is gone, so writes are limited to the role's app.
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(false);
+  });
+
+  test('a direct (non-role) grant does not suppress the default', () => {
+    seedDefaultGrant();
+    // Alice gets one shared record but belongs to no role-bearing group.
+    db.run(
+      `INSERT INTO access_grants (id, subject_type, subject_id, target_scope, resource_type, resource_id, capability, effect, is_default)
+         VALUES ('rec', 'user', 'alice', 'record', 'recipe', 'r1', 'read', 'allow', 0)`,
+    );
+    const { principals, grants } = store.gatherFor('alice');
+    // No conferred role → default still applies → full access retained.
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
   });
 
   test('effect defaults to allow when the column is null', () => {

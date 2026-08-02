@@ -57,12 +57,13 @@ describe('permission seed data', () => {
     expect(byId.guest.grants).toEqual([]); // empty until granted (§11 #4)
   });
 
-  it('the open-household grant is everyone → write on *', () => {
+  it('the open-household grant is everyone → write on * , marked as the default', () => {
     expect(OPEN_GRANT).toEqual({
       subject_type: 'everyone',
       target_scope: 'all',
       capability: 'write',
       effect: 'allow',
+      is_default: true,
     });
   });
 });

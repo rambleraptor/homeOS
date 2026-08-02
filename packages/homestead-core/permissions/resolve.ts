@@ -35,6 +35,13 @@ export interface Grant {
   capability: Capability;
   effect: Effect;
   target: GrantTarget;
+  /**
+   * The seeded "everyone can do everything" default (§8.x). It's a *fallback*:
+   * the store drops it for any caller who has a conferred role, so a role-group
+   * membership defines that person's access outright. The resolver itself treats
+   * it like any other grant — suppression happens before resolve() sees it.
+   */
+  isDefault?: boolean;
 }
 
 export interface Decision {

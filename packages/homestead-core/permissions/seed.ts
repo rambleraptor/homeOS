@@ -52,12 +52,18 @@ export const SEED_ROLES: SeedRole[] = [
 
 export const OPEN_GRANT_ID = 'open-household';
 
-/** The backward-compatible open-household grant: everyone can write everything. */
+/**
+ * The open-household default: everyone can write everything. `is_default: true`
+ * marks it a *fallback* — the store drops it for any user who has a conferred
+ * role (§8.x), so putting someone in a role-bearing group defines their access
+ * outright, without deleting this grant.
+ */
 export const OPEN_GRANT = {
   subject_type: 'everyone',
   target_scope: 'all',
   capability: 'write',
   effect: 'allow',
+  is_default: true,
 } as const;
 
 /** The fetch signature the seeder needs — injectable so tests can route to an in-process engine. */
@@ -119,7 +125,37 @@ export async function seedPermissions(
   if (await isEmpty(fetchImpl, aepbaseUrl, token, ACCESS_GRANTS)) {
     await create(fetchImpl, aepbaseUrl, token, ACCESS_GRANTS, OPEN_GRANT_ID, OPEN_GRANT);
     openGrantSeeded = true;
+  } else {
+    // Backfill: a household seeded before `is_default` existed has an
+    // open-household grant without the marker, so it wouldn't be suppressed for
+    // role-holders (roles would silently do nothing). Mark it. Idempotent.
+    await ensureOpenGrantDefault(fetchImpl, aepbaseUrl, token);
   }
 
   return { rolesSeeded, openGrantSeeded };
+}
+
+/**
+ * Ensure the open-household grant carries `is_default: true`. No-ops when the
+ * grant is absent (a household that deliberately locked down) or already marked.
+ */
+async function ensureOpenGrantDefault(
+  fetchImpl: FetchLike,
+  aepbaseUrl: string,
+  token: string,
+): Promise<void> {
+  const res = await fetchImpl(`${aepbaseUrl}/${ACCESS_GRANTS}/${OPEN_GRANT_ID}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return; // no open grant → nothing to backfill
+  const body = (await res.json()) as { is_default?: boolean };
+  if (body.is_default === true) return;
+  const patch = await fetchImpl(`${aepbaseUrl}/${ACCESS_GRANTS}/${OPEN_GRANT_ID}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_default: true }),
+  });
+  if (!patch.ok) {
+    throw new Error(`PATCH /${ACCESS_GRANTS}/${OPEN_GRANT_ID} → ${patch.status}: ${await patch.text()}`);
+  }
 }

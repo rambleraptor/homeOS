@@ -66,6 +66,28 @@ describe('permission resources + seed at boot', () => {
     expect(g.subject_type).toBe('everyone');
     expect(g.target_scope).toBe('all');
     expect(g.capability).toBe('write');
+    // Marked as the suppressible fallback default (§8.x).
+    expect(g.is_default).toBe(true);
+  });
+
+  test('backfills is_default on an open grant seeded before the flag existed', async () => {
+    // Simulate an older deployment: an open-household grant with no is_default.
+    await call(t.engine, 'POST', '/access-grants?id=open-household', {
+      token: t.adminToken,
+      body: { subject_type: 'everyone', target_scope: 'all', capability: 'write', effect: 'allow' },
+    });
+    const before = await (
+      await call(t.engine, 'GET', '/access-grants/open-household', { token: t.adminToken })
+    ).json();
+    expect(before.is_default ?? false).toBe(false);
+
+    // Seed runs the ensure step because the grant collection is non-empty.
+    await seedPermissions(BASE, t.adminToken, fetchImpl);
+
+    const after = await (
+      await call(t.engine, 'GET', '/access-grants/open-household', { token: t.adminToken })
+    ).json();
+    expect(after.is_default).toBe(true);
   });
 
   test('seeding is idempotent (seed-when-empty)', async () => {
