@@ -15,7 +15,10 @@
 import { createServer as createHttpServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { bridge, type FetchHandler } from './node-http';
+import { createLogger } from './log';
 import { isServerPath } from './options';
+
+const log = createLogger('dev-front');
 
 const APP_ROOT = fileURLToPath(new URL('../../homestead-app', import.meta.url));
 
@@ -51,27 +54,27 @@ export async function startDevServer(opts: {
 
   if (process.env.HOMESTEAD_DEBUG_HTTP) {
     httpServer.on('clientError', (err, socket) => {
-      console.log(`[dev-front] clientError: ${err.message}`);
+      log.info('clientError', { err: err.message });
       socket.destroy();
     });
     httpServer.on('connection', (socket) => {
-      socket.on('error', (err) => console.log(`[dev-front] socket error: ${err.message}`));
+      socket.on('error', (err) => log.info('socket error', { err: err.message }));
     });
   }
 
   httpServer.on('request', (req, res) => {
     const path = (req.url ?? '/').split('?', 1)[0]!;
     if (process.env.HOMESTEAD_DEBUG_HTTP) {
-      res.on('error', (err) => console.log(`[dev-front] res error ${path}: ${err.message}`));
+      res.on('error', (err) => log.info('res error', { path, err: err.message }));
       res.on('close', () => {
         if (!res.writableFinished) {
-          console.log(`[dev-front] res closed unfinished: ${req.method} ${path}`);
+          log.info('res closed unfinished', { method: req.method, path });
         }
       });
     }
     if (isServerPath(path)) {
       void bridge(req, res, opts.fetch).catch((err) => {
-        console.log(`[dev-front] bridge error ${req.method} ${path}: ${err?.message ?? err}`);
+        log.error('bridge error', { method: req.method, path, err });
         if (!res.headersSent) res.writeHead(500);
         res.end();
       });

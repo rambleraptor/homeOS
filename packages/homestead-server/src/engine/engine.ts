@@ -7,6 +7,7 @@
 
 import type { Database } from './sqlite';
 import { join } from 'node:path';
+import { createLogger } from '../log';
 import { openDb } from './db';
 import { errorResponse, HttpError } from './errors';
 import {
@@ -38,6 +39,8 @@ import {
   handleUserList,
   handleUserUpdate,
 } from './users';
+
+const log = createLogger('engine');
 
 /**
  * Hook for app-access gating (Phase 3): return a Response to short-circuit
@@ -206,7 +209,10 @@ export class Engine {
       if (err instanceof HttpError) {
         res = errorResponse(err.status, err.message);
       } else {
+        // Unexpected (non-HttpError) failures were previously returned as a 500
+        // but never logged — surface them so a 500 leaves a trace.
         const msg = err instanceof Error ? err.message : String(err);
+        log.error(`unhandled ${req.method} ${new URL(req.url).pathname}`, { err });
         res = errorResponse(500, msg);
       }
     }
@@ -216,7 +222,7 @@ export class Engine {
       for (const [k, v] of Object.entries(cors)) res.headers.set(k, v);
     }
     if (process.env.HOMESTEAD_DEBUG_HTTP && res.status >= 400) {
-      console.log(`[engine] ${req.method} ${new URL(req.url).pathname} → ${res.status}`);
+      log.info(`${req.method} ${new URL(req.url).pathname} → ${res.status}`);
     }
     return res;
   };

@@ -5,7 +5,10 @@
  */
 
 import { createServer } from 'node:http';
+import { createLogger } from './log';
 import { bridge, type FetchHandler } from './node-http';
+
+const log = createLogger('listen');
 
 export interface ListenOptions {
   port: number;
@@ -39,7 +42,7 @@ export async function listen(opts: ListenOptions): Promise<Listener> {
 
   const server = createServer((req, res) => {
     void bridge(req, res, opts.fetch).catch((err) => {
-      console.log(`[listen] bridge error ${req.method} ${req.url}: ${err?.message ?? err}`);
+      log.error(`bridge error ${req.method} ${req.url}`, { err });
       if (!res.headersSent) res.writeHead(500);
       res.end();
     });

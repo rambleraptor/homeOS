@@ -30,8 +30,11 @@ import {
   type GrantTargetSpec,
 } from './enforce';
 import { sanitizeTableName } from './db';
+import { createLogger } from '../log';
 import type { RegisteredResource, Registry } from './registry';
 import type { User } from './types';
+
+const log = createLogger('permissions');
 
 const ACCESS_GRANTS_PLURAL = 'access-grants';
 
@@ -126,9 +129,9 @@ let warnedNoBaseline = false;
 function warnNoBaseline(): void {
   if (warnedNoBaseline) return;
   warnedNoBaseline = true;
-  console.warn(
-    '[permissions] no baseline (grant/role) exists yet — failing open until one ' +
-      'is seeded. This is expected briefly at first boot.',
+  log.warn(
+    'no baseline (grant/role) exists yet — failing open until one is seeded. ' +
+      'This is expected briefly at first boot.',
   );
 }
 
