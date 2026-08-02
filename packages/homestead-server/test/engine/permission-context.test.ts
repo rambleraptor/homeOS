@@ -59,8 +59,9 @@ describe('engine.permissionContext', () => {
     expect(ctx.groupIds).toEqual(['parents']);
     // Group *names* also ride along for the app-gating mirror (§9.2).
     expect(ctx.groupNames).toEqual(['Parents']);
-    // The seeded open grant is present…
-    expect(ctx.grants.some((g) => g.subject.type === 'everyone' && g.target.scope === 'all')).toBe(true);
+    // Alice holds the `member` role, so the open-household default is suppressed
+    // for her (§8.x) — her access comes from the role, not the everyone default.
+    expect(ctx.grants.some((g) => g.subject.type === 'everyone' && g.target.scope === 'all')).toBe(false);
     // …and the member role is expanded into a grant addressed to Alice.
     expect(
       ctx.grants.some(

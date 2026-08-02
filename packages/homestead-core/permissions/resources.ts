@@ -103,6 +103,11 @@ export const PERMISSION_RESOURCE_DEFS: ResourceDefinition[] = [
       filter: { type: 'string' }, // when target_scope = 'collection'
       capability: { type: 'string', enum: [...CAPABILITY_VALUES], required: true },
       effect: { type: 'string', enum: [...EFFECT_VALUES] }, // default 'allow'
+      // Marks the seeded "everyone can do everything" default. A default grant
+      // is a *fallback*: it applies only to users who have no conferred role, so
+      // putting someone in a role-bearing group defines their access entirely
+      // (§8.x). Only the boot seeder sets this; ordinary grants leave it unset.
+      is_default: { type: 'boolean' },
     },
   },
 ];

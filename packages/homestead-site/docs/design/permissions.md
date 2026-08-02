@@ -659,9 +659,10 @@ is involved (§11 #8) — backward compatibility rests on a single open grant, n
 on per-user roles.
 
 1. **Seed the open-household grant.** One idempotent
-   `everyone → write on *` `access-grant`. This alone reproduces today's
-   behavior: every authenticated user reads and writes everything. Deleting or
-   narrowing this grant is how a household later opts into stricter access.
+   `everyone → write on *` `access-grant`, **marked `is_default: true`**. This
+   reproduces today's behavior — every authenticated user reads and writes
+   everything — *and* is a fallback rather than a blanket allow (see §8.x below),
+   so you don't delete it to make a role take effect.
 2. **Seed role *definitions*** (`admin`, `member`, `guest`) as data — inert
    until a household assigns them via a group. Nothing is auto-assigned.
 3. **Superusers** keep the account-type break-glass (§4.2) — full access
@@ -691,6 +692,45 @@ on per-user roles.
    legacy `superuser_write` gate rather than failing open, so the superuser
    seeder can create the baseline but nobody else can tamper with the ACL layer.
    This is what makes "enforcement on by default" safe.
+
+### 8.x The default grant is a fallback, not a blanket allow
+
+The open-household grant (`everyone → write *`, `is_default: true`) is the
+zero-config "everything is shared" default. Naively it's an *absolute* allow:
+since grants union and the resolver takes the highest matching allow, an
+`everyone → *` allow says yes to everyone forever, so any **role** a household
+creates is redundant — it grants access the open grant already gives. The only
+way to make a role bite would be to delete the open grant, flipping the whole
+household from fully-open to owner-only in one step. That cliff is confusing and
+bad UX.
+
+So the default is instead a **fallback**, suppressed per-caller: in
+`PermissionStore.gatherFor`, a grant flagged `isDefault` is dropped from a
+caller's grant set **iff that caller has a conferred role** (i.e. belongs to at
+least one role-bearing group). The rule, stated for users:
+
+> Everyone can do everything — until you put them in a group with a role. Then
+> their access is exactly that role's grants, nothing more.
+
+Properties:
+
+- **Ungrouped users** keep the default (full access) — the zero-config
+  experience is unchanged.
+- **A role-group member** is defined solely by their role(s): a `guest` role
+  (empty grants) ⇒ owner-only; a "Pictionary" role ⇒ only that app. No delete
+  needed, and it takes effect the instant they're added.
+- **Only a conferred role suppresses the default.** A direct/record grant (e.g.
+  sharing one recipe with someone) does *not* — otherwise a single share would
+  silently strip that person's household-wide access. This keeps additive
+  sharing additive.
+- **Denies are unaffected** — deny still wins over everything, default or role.
+- Suppression lives in `gatherFor`, so it applies once to every consumer: engine
+  enforcement, the client `can()` mirror, nav visibility, and the Users-page
+  access summary all see the already-suppressed set.
+- **Backward compatible:** the boot seeder marks a pre-existing open grant
+  `is_default: true` (idempotent PATCH), so households upgraded from before the
+  flag existed get the fallback behavior — and their previously-inert roles
+  start working — without any manual step.
 
 Net effect: on upgrade everyone sees exactly what they saw before (via the open
 grant), superusers keep full control, tag-based app gating is preserved as

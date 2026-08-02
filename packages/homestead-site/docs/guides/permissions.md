@@ -5,10 +5,11 @@ go a level deeper: they decide who can see and change individual **records** —
 so you can share one recipe with a housemate, keep a person's medical notes to
 themselves, or let only the adults edit the finances.
 
-Permissions are **off by default**. A fresh household works exactly as before:
-everyone signed in shares all the data inside every app they can open. You turn
-permissions on when you actually want to limit something — and even then,
-nothing changes until you write your first rule.
+A fresh household works with **no setup**: everyone signed in shares all the
+data inside every app they can open. Permissions are always active underneath,
+but a built-in default makes everything shared until you decide to limit
+someone — and the moment you do (by putting them in a group), it just works. You
+never have to "turn anything on" or delete a hidden rule.
 
 ## This page covers
 
@@ -42,21 +43,57 @@ A rule grants one of three abilities, each including the ones before it:
 
 ---
 
-## How permissions apply
+## How the default works (this is the important part)
 
-Permissions are **always on** — there is no switch to turn them off. Despite
-that, a brand-new household behaves exactly as if there were no permissions at
-all: every instance is seeded with a built-in **"everyone can read and write
-everything"** rule (the *open-household* grant).
+Every household is seeded with one built-in rule — the **open-household
+default**: *everyone can read and write everything*. It's what makes a new
+household "just work" with no setup.
 
-So out of the box, **nothing appears restricted**. You make things private by
-narrowing or removing that open rule, one step at a time — blocked reads then
-return nothing, and blocked writes are refused. Superuser accounts always
-bypass every rule (break-glass), so you can never lock yourself out.
+The key thing to understand is that this default is a **fallback**, not a
+blanket everyone gets stacked on top of. In plain terms:
 
-> Until the baseline is seeded (the first moments of a fresh instance, or a
+> **Everyone can do everything — until you put them in a group with a role.
+> Then their access is exactly what that role allows, and nothing more.**
+
+So you never delete the default to make a role take effect. The moment a person
+belongs to a role-bearing group, the default simply stops applying *to them*:
+
+- **Ungrouped people** (the whole household, at first) → full access, via the default.
+- **Someone in a role-group** → only what the role grants. The default no longer
+  covers them, so a `guest`-role member sees nothing, a "Pictionary" role sees
+  only Pictionary, and so on.
+- **Superusers** → everything, always (break-glass) — you can't lock yourself out.
+
+This is what lets one household have full-access adults *and* a limited guest at
+the same time: the adults ride the default (or an `admin`/`member` role), the
+guest is defined by their group's role. Sharing a single record with someone
+(below) does **not** flip them off the default — only a role-group does.
+
+> Before the default is seeded (the first moments of a fresh instance, or a
 > fully-wiped database) the engine deliberately **fails open** rather than
 > locking everyone out.
+
+---
+
+## Restrict one person (the common case)
+
+Say everyone shares everything, but you want **mom limited to Pictionary**. You
+don't touch the default — you give mom a role, via a group:
+
+```bash
+# A role that grants just the Pictionary app…
+homestead resources role create --name "Pictionary" \
+    --grants '[{"target_scope":"app","target_app":"pictionary","capability":"write"}]'
+
+# …a group that confers it, with mom in it.
+homestead resources group create --name "Pictionary" --role <pictionary-role-id>
+homestead resources group-membership create --group <group-id> --user <mom-id>
+```
+
+That's it — mom now sees only Pictionary, and everyone else is unaffected. Open
+**Superuser → Users → Edit** on mom to confirm: her access summary will read
+*"Can open 1 app: Pictionary."* Nothing was deleted; the default just no longer
+applies to her because she now has a role.
 
 ---
 

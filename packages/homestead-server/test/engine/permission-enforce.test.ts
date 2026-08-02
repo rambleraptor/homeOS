@@ -157,6 +157,35 @@ describe('permission enforcement', () => {
     // Alice can.
     expect((await call(t.engine, 'GET', `/users/${alice.user.id}/notes/n1`, { token: alice.token })).status).toBe(200);
   });
+
+  test('a conferred role suppresses the open grant — the role defines access, no delete needed', async () => {
+    const alice = await seedUser(t.engine, { email: 'alice@example.com' });
+    const bob = await seedUser(t.engine, { email: 'bob@example.com' });
+    await call(t.engine, 'POST', '/books?id=b1', { token: t.adminToken, body: { title: 'A' } });
+
+    // A role that grants only *read* on the book collection, conferred via a group.
+    await call(t.engine, 'POST', '/roles?id=reader', {
+      token: t.adminToken,
+      body: { name: 'Reader', grants: [{ target_scope: 'collection', resource_type: 'book', capability: 'read' }] },
+    });
+    await call(t.engine, 'POST', '/groups?id=readers', {
+      token: t.adminToken,
+      body: { name: 'Readers', role: 'reader' },
+    });
+    await call(t.engine, 'POST', '/groups/readers/group-memberships?id=m1', {
+      token: t.adminToken,
+      body: { user: alice.user.id },
+    });
+
+    // The open-household grant is still in place, but Alice's role suppresses it:
+    // she can read a book (the role) but can't write one (default no longer applies).
+    expect((await call(t.engine, 'GET', '/books/b1', { token: alice.token })).status).toBe(200);
+    expect((await call(t.engine, 'POST', '/books?id=b2', { token: alice.token, body: { title: 'B' } })).status).toBe(403);
+    expect((await call(t.engine, 'PATCH', '/books/b1', { token: alice.token, body: { title: 'A2' } })).status).toBe(403);
+
+    // Bob, in no group, still rides the open default: full CRUD, nothing deleted.
+    expect((await call(t.engine, 'POST', '/books?id=b3', { token: bob.token, body: { title: 'C' } })).status).toBe(201);
+  });
 });
 
 /**
