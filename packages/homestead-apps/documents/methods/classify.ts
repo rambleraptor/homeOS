@@ -31,7 +31,12 @@ import {
   aepUpdate,
 } from '@rambleraptor/homestead-core/server/aepbase';
 import { DOCUMENTS } from '../resources';
-import { toZodUnion, UNKNOWN_DOC_TYPE, type DocType } from '../doc-types/docType';
+import {
+  docTypeIds,
+  toExtractionSchema,
+  UNKNOWN_DOC_TYPE,
+  type DocType,
+} from '../doc-types/docType';
 import { getDocType, getDocTypes } from '../doc-types/registry';
 import type { Document } from '../types';
 
@@ -43,9 +48,10 @@ import type { Document } from '../types';
 const MIN_CONFIDENCE = 0.5;
 
 /**
- * Room for the answer: a full-document transcription plus the extracted fields.
- * Generous on purpose — the alternative to over-provisioning is a truncated
- * `full_text`, which is worse than spending a few extra tokens.
+ * Room for the answer. Generous on purpose — a cap is a ceiling, not a spend
+ * (the model stops when it's done), so over-provisioning costs nothing while a
+ * truncated extraction loses fields. Shared by both passes; classification's
+ * answer is tiny and never approaches it.
  */
 const MAX_OUTPUT_TOKENS = 16384;
 
@@ -57,7 +63,7 @@ function classifyPrompt(types: DocType[]): string {
     .map((t) => `- ${t.id}: ${t.label} — ${t.description}`)
     .join('\n');
 
-  return `You are reading a scanned or digital household document. Do three things.
+  return `You are reading a scanned or digital household document. Do two things.
 
 1. Write a short, human-readable "title" for the document — what a person would
    name this file so they could find it later.
@@ -95,21 +101,31 @@ function classifyPrompt(types: DocType[]): string {
 
 ${catalogue || '(no known document types are configured)'}
 
-   Set metadata.doc_type to the matching id. If it is not clearly one of them,
-   set metadata.doc_type to "${UNKNOWN_DOC_TYPE}". Many documents legitimately
-   match nothing — "${UNKNOWN_DOC_TYPE}" is a normal answer, not a failure, and is
-   far better than forcing a wrong match.
-
-3. If it matched a type, fill that type's fields from the document. Rules:
-   - Copy values exactly as printed. Do not reformat, round, or unmask them.
-   - Set any field you cannot find to null. Never guess, and never carry a value
-     over from a different field just because it looks similar.
-   - Numbers must have no currency symbols, thousands separators, or percent
-     signs.
+   Set "doc_type" to the matching id. If it is not clearly one of them, set
+   "doc_type" to "${UNKNOWN_DOC_TYPE}". Many documents legitimately match
+   nothing — "${UNKNOWN_DOC_TYPE}" is a normal answer, not a failure, and is far
+   better than forcing a wrong match.
 
 Also set "confidence" between 0 and 1: how sure you are of the type match. Use a
 low value when the document is blurry, cropped, or only loosely resembles a known
 type.`;
+}
+
+/**
+ * The extraction pass runs only after {@link classifyPrompt} has matched a
+ * single type, so it names that type and asks for its fields alone — a small,
+ * focused schema (see `toExtractionSchema`) rather than every type's fields at
+ * once. The field-level guidance rides on each field's schema `describe`; these
+ * are the rules that apply across all of them.
+ */
+function extractPrompt(type: DocType): string {
+  return `This document has been identified as: ${type.label} — ${type.description}
+
+Read the document and fill in that type's fields. Rules:
+- Copy values exactly as printed. Do not reformat, round, or unmask them.
+- Set any field you cannot find to null. Never guess, and never carry a value
+  over from a different field just because it looks similar.
+- Numbers must have no currency symbols, thousands separators, or percent signs.`;
 }
 
 /** Clamp to 0-1: the field is advisory, and a wild value shouldn't poison it. */
@@ -121,14 +137,12 @@ function clampConfidence(value: number): number {
 /**
  * Drop the fields the model returned as null (its "couldn't find it" signal
  * under the nullable schema), leaving only the values actually read off the
- * document. `doc_type` is never null, so the discriminator always survives.
+ * document. The caller re-attaches the `doc_type` discriminator afterwards.
  */
-function stripNulls<T extends { doc_type: string }>(
-  metadata: T,
-): Partial<T> & { doc_type: T['doc_type'] } {
+function stripNulls(fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
-    Object.entries(metadata).filter(([, value]) => value !== null),
-  ) as Partial<T> & { doc_type: T['doc_type'] };
+    Object.entries(fields).filter(([, value]) => value !== null),
+  );
 }
 
 export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
@@ -178,66 +192,95 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   }
   const bytes = Buffer.from(await res.arrayBuffer());
   const base64 = bytes.toString('base64');
+  // Sent as-is: Gemini reads application/pdf directly, so there's no
+  // client-side rasterisation and no first-page-only limit.
+  const mediaType = doc.mime_type || 'application/pdf';
 
-  const messages: ModelMessage[] = [
+  // Pair an instruction with the document as one user message. Each pass builds
+  // its own — the document is re-sent so the extraction pass sees the pages too,
+  // not just the classification's verdict.
+  const withDocument = (text: string): ModelMessage[] => [
     {
       role: 'user',
       content: [
-        { type: 'text', text: classifyPrompt(types) },
-        // Sent as-is: Gemini reads application/pdf directly, so there's no
-        // client-side rasterisation and no first-page-only limit.
-        { type: 'file', data: base64, mediaType: doc.mime_type || 'application/pdf' },
+        { type: 'text', text },
+        { type: 'file', data: base64, mediaType },
       ],
     },
   ];
 
-  const schema = z.object({
+  // Shared failure path: pin it to the concrete input, mark the document failed
+  // (the list view reads parse_status; the operation carries the detail), and
+  // rethrow. `aiGenerateObject` already logs the provider's raw response; the
+  // `pass` says which call it belongs to.
+  const failClassify = async (err: unknown, pass: string): Promise<never> => {
+    console.error(
+      `[documents] classify ${pass} failed for ${docId} ` +
+        `(mime=${doc.mime_type ?? 'unknown'}, bytes=${bytes.length}, doc_types=${types.length})`,
+    );
+    await aepUpdate<Document>(DOCUMENTS, docId, { parse_status: 'failed' }, auth.token);
+    throw err;
+  };
+
+  // Pass 1 — classification. A deliberately tiny schema: a title, a confidence,
+  // and the type id as an enum. It carries none of the types' fields, so it
+  // stays small however many types are configured — the whole point of the
+  // split (see docTypeIds/toExtractionSchema). Extraction is pass 2 below.
+  const classifySchema = z.object({
     title: z.string().describe('A short, human-readable title for the document.'),
     confidence: z.number().describe('Confidence in the type match, 0 to 1.'),
-    metadata: toZodUnion(types),
+    doc_type: z
+      .enum(docTypeIds(types))
+      .describe(`The matching document type id, or "${UNKNOWN_DOC_TYPE}" if none.`),
   });
 
-  let parsed: z.infer<typeof schema>;
+  let classified: z.infer<typeof classifySchema>;
   try {
-    parsed = await aiGenerateObject({
-      messages,
-      schema,
-      // A full transcription plus the extracted fields is legitimately long, so
-      // give the answer plenty of room. (The metadata fields are `.nullable()`,
-      // not `.optional()` — see toZodUnion; that is what keeps Gemini 2.5 Flash
-      // from aborting the structured-output call with finishReason "OTHER".)
+    classified = await aiGenerateObject({
+      messages: withDocument(classifyPrompt(types)),
+      schema: classifySchema,
       maxOutputTokens: MAX_OUTPUT_TOKENS,
     });
   } catch (err) {
-    // Pin the failure to the concrete input: which document, what shape, and how
-    // many type branches the schema carried. `aiGenerateObject` already logs the
-    // provider's raw response; this says which classify call it belongs to.
-    console.error(
-      `[documents] classify failed for ${docId} ` +
-        `(mime=${doc.mime_type ?? 'unknown'}, bytes=${bytes.length}, doc_types=${types.length})`,
-    );
-    // Record the failure on the document too — the operation carries the detail,
-    // but the list view reads parse_status.
-    await aepUpdate<Document>(DOCUMENTS, docId, { parse_status: 'failed' }, auth.token);
-    throw err;
+    return failClassify(err, 'classification');
   }
 
-  const confidence = clampConfidence(parsed.confidence);
+  const confidence = clampConfidence(classified.confidence);
   const matched =
-    parsed.metadata.doc_type !== UNKNOWN_DOC_TYPE && confidence >= MIN_CONFIDENCE;
+    classified.doc_type !== UNKNOWN_DOC_TYPE && confidence >= MIN_CONFIDENCE;
 
-  // The model fills every field, using null for the ones it couldn't find (the
-  // schema is `.nullable()`, not `.optional()`, to keep Gemini from aborting —
-  // see toZodUnion). Drop the nulls so the stored record carries only real
-  // values, matching what an "omit what you can't find" schema would have left.
-  // A low-confidence guess is downgraded rather than stored as a match. (The
-  // document's text is extracted separately by the platform index pipeline into
-  // `file_text`, independent of this classification.)
-  const metadata = matched ? stripNulls(parsed.metadata) : { doc_type: UNKNOWN_DOC_TYPE };
+  // Pass 2 — extraction, only when a type matched. The schema is that single
+  // type's fields (small, and focused on the fields this document has), and the
+  // document is re-sent so the model reads it, not the pass-1 verdict. The model
+  // fills every field, using null for the ones it couldn't find (the fields are
+  // `.nullable()`, not `.optional()`, to keep Gemini from aborting — see
+  // toExtractionSchema). Drop the nulls so the stored record carries only real
+  // values, and re-attach the discriminator. Unmatched documents (including a
+  // low-confidence guess, downgraded rather than stored as a match) skip the
+  // pass entirely and carry only the unknown tag. (The document's text is
+  // extracted separately by the platform index pipeline into `file_text`,
+  // independent of this classification.)
+  let metadata: { doc_type: string; [field: string]: unknown } = {
+    doc_type: UNKNOWN_DOC_TYPE,
+  };
+  if (matched) {
+    const matchedType = getDocType(classified.doc_type)!;
+    let extracted: Record<string, unknown>;
+    try {
+      extracted = await aiGenerateObject({
+        messages: withDocument(extractPrompt(matchedType)),
+        schema: toExtractionSchema(matchedType),
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+      });
+    } catch (err) {
+      return failClassify(err, 'extraction');
+    }
+    metadata = { ...stripNulls(extracted), doc_type: classified.doc_type };
+  }
 
   // Only adopt the inferred title when a human hasn't renamed the document.
   // A blank model title never clobbers the existing (filename) default.
-  const inferredTitle = parsed.title?.trim();
+  const inferredTitle = classified.title?.trim();
   const setTitle = !doc.title_edited && inferredTitle ? { title: inferredTitle } : {};
 
   const updated = await aepUpdate<Document>(

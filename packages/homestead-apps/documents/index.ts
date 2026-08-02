@@ -8,7 +8,8 @@ export type { Document, DocumentMetadata, ClassifyResult } from './types';
 export {
   validateDocType,
   toVariants,
-  toZodUnion,
+  docTypeIds,
+  toExtractionSchema,
   UNKNOWN_DOC_TYPE,
 } from './doc-types/docType';
 export { BUILTIN_DOC_TYPES } from './doc-types/builtins';
