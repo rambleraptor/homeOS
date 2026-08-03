@@ -52,21 +52,32 @@ export function needsSetup(db: Database): boolean {
 }
 
 /**
- * Claim the instance: set the pending superuser's email + password. One-shot —
- * throws when the instance is already claimed (the /api/setup route also
- * guards with a 409, this is the backstop).
+ * Claim the instance: set the pending superuser's email + password, and an
+ * optional display name (falls back to the bootstrap default when omitted).
+ * One-shot — throws when the instance is already claimed (the /api/setup route
+ * also guards with a 409, this is the backstop).
  */
 export async function claimSetup(
   db: Database,
   email: string,
   password: string,
+  displayName?: string,
 ): Promise<void> {
   if (!needsSetup(db)) throw new Error('instance is already set up');
   const found = firstSuperuser(db);
   if (!found) throw new Error('no pending superuser — has the server booted?');
-  db.query(
-    'UPDATE _users SET email = ?, password_hash = ?, update_time = ? WHERE id = ?',
-  ).run(email, await hashPassword(password), nowRFC3339(), found.id);
+  const passwordHash = await hashPassword(password);
+  const now = nowRFC3339();
+  const name = displayName?.trim();
+  if (name) {
+    db.query(
+      'UPDATE _users SET email = ?, password_hash = ?, display_name = ?, update_time = ? WHERE id = ?',
+    ).run(email, passwordHash, name, now, found.id);
+  } else {
+    db.query(
+      'UPDATE _users SET email = ?, password_hash = ?, update_time = ? WHERE id = ?',
+    ).run(email, passwordHash, now, found.id);
+  }
   setMeta(db, SETUP_CLAIMED_KEY, '1');
 }
 

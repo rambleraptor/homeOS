@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { aepbase, type OAuthProvider } from '../api/aepbase';
-import { Home, Mail, Lock, AlertCircle, Check } from 'lucide-react';
+import { Home, Mail, Lock, AlertCircle, Check, User } from 'lucide-react';
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -20,6 +20,7 @@ export function Login() {
   const returnUrl = searchParams.get('returnUrl') || '/dashboard';
 
   const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -72,10 +73,15 @@ export function Login() {
     setLoading(true);
     try {
       if (needsSetup) {
+        const trimmedName = displayName.trim();
         const res = await fetch('/api/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({
+            email,
+            password,
+            ...(trimmedName ? { display_name: trimmedName } : {}),
+          }),
         });
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -164,6 +170,33 @@ export function Login() {
           ) : (
           <>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Display name (first-visit setup only, optional) */}
+            {needsSetup && (
+              <div>
+                <label
+                  htmlFor="display-name"
+                  className="block text-sm font-body font-medium text-brand-navy mb-2"
+                >
+                  Display name{' '}
+                  <span className="font-normal text-text-muted">(optional)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-text-muted" />
+                  </div>
+                  <input
+                    id="display-name"
+                    type="text"
+                    data-testid="setup-display-name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-surface-white font-body text-text-main placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-terracotta/40 focus:border-accent-terracotta"
+                    placeholder="e.g. Alex"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Email */}
             <div>
               <label

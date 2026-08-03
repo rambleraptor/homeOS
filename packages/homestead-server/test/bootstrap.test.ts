@@ -59,6 +59,25 @@ describe('claimSetup', () => {
     );
   });
 
+  test('sets the display name when one is provided', async () => {
+    const db = freshDb();
+    await ensureSuperuser(db);
+    await claimSetup(db, 'me@home.dev', 'hunter2hunter2', '  Alex  ');
+
+    const found = getUserByEmail(db, 'me@home.dev');
+    // Trimmed, and overrides the bootstrap default.
+    expect(found?.user.display_name).toBe('Alex');
+  });
+
+  test('keeps the default display name when none is provided', async () => {
+    const db = freshDb();
+    await ensureSuperuser(db);
+    await claimSetup(db, 'me@home.dev', 'hunter2hunter2', '   ');
+
+    const found = getUserByEmail(db, 'me@home.dev');
+    expect(found?.user.display_name).toBe('Admin');
+  });
+
   test('reset-password also claims (handing out creds ends setup)', async () => {
     const db = freshDb();
     await ensureSuperuser(db);

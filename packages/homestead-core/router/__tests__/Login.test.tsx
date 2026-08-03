@@ -98,12 +98,49 @@ describe('Login first-visit setup', () => {
 
     await userEvent.click(await screen.findByTestId('setup-get-started'));
 
-    // The intro is replaced by the claim form (email + password + confirm).
+    // The intro is replaced by the claim form (optional display name, email,
+    // password + confirm).
     expect(screen.queryByTestId('setup-intro')).toBeNull();
+    expect(screen.getByTestId('setup-display-name')).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByTestId('setup-confirm-password')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /create admin account/i }),
     ).toBeInTheDocument();
+  });
+
+  it('submits the display name to /api/setup when provided', async () => {
+    render(
+      <MemoryRouter>
+        <Login />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByTestId('setup-get-started'));
+
+    await userEvent.type(screen.getByTestId('setup-display-name'), 'Alex');
+    await userEvent.type(screen.getByLabelText(/email/i), 'me@home.dev');
+    await userEvent.type(screen.getByLabelText('Password'), 'hunter2hunter2');
+    await userEvent.type(
+      screen.getByTestId('setup-confirm-password'),
+      'hunter2hunter2',
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: /create admin account/i }),
+    );
+
+    await waitFor(() => {
+      const postCall = vi
+        .mocked(fetch)
+        .mock.calls.find(
+          ([, init]) => (init as RequestInit | undefined)?.method === 'POST',
+        );
+      expect(postCall).toBeTruthy();
+      expect(JSON.parse((postCall![1] as RequestInit).body as string)).toEqual({
+        email: 'me@home.dev',
+        password: 'hunter2hunter2',
+        display_name: 'Alex',
+      });
+    });
   });
 });
