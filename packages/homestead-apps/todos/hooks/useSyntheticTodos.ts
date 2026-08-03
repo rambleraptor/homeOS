@@ -3,7 +3,7 @@
  *
  * Unlike real todos, these don't live in aepbase — they're rendered into the
  * active bucket as a read-only nudge and disappear when the source state is
- * empty. They have no controls (no pause, no cancel, no complete) and
+ * empty. They have no controls (no cancel, no complete) and
  * "complete" implicitly when the underlying count hits zero.
  */
 

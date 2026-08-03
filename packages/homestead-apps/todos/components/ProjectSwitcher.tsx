@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { LayoutTemplate, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useProjects } from '../hooks/useProjects';
 import { useCreateProject } from '../hooks/useCreateProject';
 import { useDeleteProject } from '../hooks/useDeleteProject';
+import { TemplatePicker } from './TemplatePicker';
 import { MAIN_PROJECT_ID, type ProjectScope } from '../types';
 
 interface ProjectSwitcherProps {
@@ -135,6 +137,18 @@ export function ProjectSwitcher({ scope, onChange }: ProjectSwitcherProps) {
             </button>
           </form>
         )}
+        <TemplatePicker onInstantiated={onChange} />
+        <Link
+          to="/todos/templates"
+          data-testid="todos-templates-link"
+          className={cn(
+            'flex items-center gap-1 rounded-full px-3 py-1 text-sm font-body transition-colors',
+            'text-text-muted hover:text-accent-terracotta',
+          )}
+        >
+          <LayoutTemplate className="w-4 h-4" />
+          Templates
+        </Link>
       </div>
       <ConfirmDialog
         isOpen={confirmDeleteId !== null}

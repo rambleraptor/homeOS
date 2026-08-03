@@ -10,6 +10,13 @@ export const todosApp: AppConfig = {
   name: 'Todos',
   description: 'Daily todo list with progress tracking.',
   resources: todosResources,
+  migrations: [
+    {
+      id: 'todos-drop-in-progress-status',
+      title: 'Move in_progress todos back to pending',
+      load: () => import('./migrations/drop-in-progress-status'),
+    },
+  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.ListTodo),
     basePath: '/todos',
@@ -18,6 +25,11 @@ export const todosApp: AppConfig = {
         path: '',
         index: true,
         component: () => import('./components/TodosHome').then((m) => m.TodosHome),
+      },
+      {
+        path: 'templates',
+        component: () =>
+          import('./components/TemplatesHome').then((m) => m.TemplatesHome),
       },
     ],
     showInNav: true,

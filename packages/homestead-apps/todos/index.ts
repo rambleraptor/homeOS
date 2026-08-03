@@ -11,5 +11,8 @@ export type {
   TodoProgress,
   Project,
   ProjectScope,
+  ListTemplate,
+  TemplateItem,
+  TemplateItemFormData,
 } from './types';
 export { MAIN_PROJECT_ID } from './types';

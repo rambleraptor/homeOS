@@ -27,15 +27,14 @@ describe('bucketTodos', () => {
   it('splits by status into active / doLater / completed', () => {
     const todos: Todo[] = [
       makeTodo('1', 'pending'),
-      makeTodo('2', 'in_progress'),
-      makeTodo('3', 'do_later'),
-      makeTodo('4', 'completed'),
-      makeTodo('5', 'cancelled'),
+      makeTodo('2', 'do_later'),
+      makeTodo('3', 'completed'),
+      makeTodo('4', 'cancelled'),
     ];
     const buckets = bucketTodos(todos);
-    expect(buckets.active.map((t) => t.id)).toEqual(['1', '2']);
-    expect(buckets.doLater.map((t) => t.id)).toEqual(['3']);
-    expect(buckets.completed.map((t) => t.id)).toEqual(['4', '5']);
+    expect(buckets.active.map((t) => t.id)).toEqual(['1']);
+    expect(buckets.doLater.map((t) => t.id)).toEqual(['2']);
+    expect(buckets.completed.map((t) => t.id)).toEqual(['3', '4']);
   });
 
   it('returns three empty arrays for an empty list', () => {
@@ -44,14 +43,14 @@ describe('bucketTodos', () => {
 });
 
 describe('computeProgress', () => {
-  it('returns zeros when there are no todos', () => {
-    expect(computeProgress([])).toEqual({ green: 0, yellow: 0 });
+  it('returns zero when there are no todos', () => {
+    expect(computeProgress([])).toEqual({ green: 0 });
   });
 
-  it('returns zeros when every todo is cancelled (denominator excludes them)', () => {
+  it('returns zero when every todo is cancelled (denominator excludes them)', () => {
     expect(
       computeProgress([makeTodo('1', 'cancelled'), makeTodo('2', 'cancelled')]),
-    ).toEqual({ green: 0, yellow: 0 });
+    ).toEqual({ green: 0 });
   });
 
   it('returns 100% green when every non-cancelled todo is completed', () => {
@@ -60,18 +59,16 @@ describe('computeProgress', () => {
       makeTodo('2', 'completed'),
     ]);
     expect(result.green).toBe(100);
-    expect(result.yellow).toBe(0);
   });
 
-  it('splits between green and yellow correctly', () => {
+  it('computes the completed share of non-cancelled todos', () => {
     const result = computeProgress([
       makeTodo('1', 'completed'),
-      makeTodo('2', 'in_progress'),
+      makeTodo('2', 'pending'),
       makeTodo('3', 'pending'),
       makeTodo('4', 'do_later'),
     ]);
     expect(result.green).toBe(25);
-    expect(result.yellow).toBe(25);
   });
 
   it('excludes cancelled todos from the denominator', () => {
@@ -81,7 +78,6 @@ describe('computeProgress', () => {
       makeTodo('3', 'cancelled'),
     ]);
     expect(result.green).toBe(50);
-    expect(result.yellow).toBe(0);
   });
 });
 

@@ -38,10 +38,6 @@ export class TodosPage {
     await this.clickRowAction(title, 'complete');
   }
 
-  async markInProgress(title: string) {
-    await this.clickRowAction(title, 'inprogress');
-  }
-
   async moveToDoLater(title: string) {
     await this.clickRowAction(title, 'dolater');
   }
@@ -81,6 +77,18 @@ export class TodosPage {
       .filter({ hasText: name })
       .first()
       .waitFor({ state: 'visible' });
+  }
+
+  async createListFromTemplate(templateName: string) {
+    await this.page.getByTestId('todos-template-picker').click();
+    await this.page
+      .getByTestId('todos-template-menu')
+      .getByText(templateName, { exact: true })
+      .click();
+  }
+
+  async gotoTemplates() {
+    await this.page.getByTestId('todos-templates-link').click();
   }
 
   async deleteCurrentProject() {

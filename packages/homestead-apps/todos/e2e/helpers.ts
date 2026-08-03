@@ -4,12 +4,7 @@
 
 import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
 
-export type TodoStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'do_later'
-  | 'completed'
-  | 'cancelled';
+export type TodoStatus = 'pending' | 'do_later' | 'completed' | 'cancelled';
 
 export interface TodoRecord {
   id: string;
@@ -59,5 +54,40 @@ export async function deleteAllProjects(token: string) {
   const items = await aepList<{ id: string }>(token, 'projects');
   for (const item of items) {
     await aepRemove(token, 'projects', item.id);
+  }
+}
+
+export interface ListTemplateRecord {
+  id: string;
+  name: string;
+}
+
+export async function createListTemplate(
+  token: string,
+  data: { name: string },
+): Promise<ListTemplateRecord> {
+  return aepCreate<ListTemplateRecord>(token, 'list-templates', {
+    name: data.name,
+  });
+}
+
+export async function addTemplateItem(
+  token: string,
+  templateId: string,
+  title: string,
+): Promise<{ id: string; title: string }> {
+  return aepCreate<{ id: string; title: string }>(
+    token,
+    'template-items',
+    { title },
+    ['list-templates', templateId],
+  );
+}
+
+export async function deleteAllListTemplates(token: string) {
+  const items = await aepList<{ id: string }>(token, 'list-templates');
+  for (const item of items) {
+    // Force the cascade so child template-items are removed with the parent.
+    await aepRemove(token, 'list-templates', item.id, undefined, true);
   }
 }

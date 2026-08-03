@@ -7,6 +7,8 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
  */
 export const TODOS = 'todos' as const;
 export const PROJECTS = 'projects' as const;
+export const LIST_TEMPLATES = 'list-templates' as const;
+export const TEMPLATE_ITEMS = 'template-items' as const;
 
 export const todosResources: ResourceDefinition[] = [
   {
@@ -28,7 +30,7 @@ export const todosResources: ResourceDefinition[] = [
       title: { type: 'string', description: 'Todo title.', required: true },
       status: {
         type: 'string',
-        enum: ['pending', 'in_progress', 'do_later', 'completed', 'cancelled'],
+        enum: ['pending', 'do_later', 'completed', 'cancelled'],
         required: true,
       },
       created_by: { type: 'string', reference: { resource: 'user' } },
@@ -42,6 +44,27 @@ export const todosResources: ResourceDefinition[] = [
         description:
           'When true, the todo also appears on the main project view (only meaningful when project is set).',
       },
+    },
+  },
+  {
+    singular: 'list-template',
+    plural: LIST_TEMPLATES,
+    description:
+      'A reusable checklist template. Instantiating one creates a new project pre-filled with its items.',
+    user_settable_create: true,
+    fields: {
+      name: { type: 'string', description: 'Template name.', required: true },
+      created_by: { type: 'string', reference: { resource: 'user' } },
+    },
+  },
+  {
+    singular: 'template-item',
+    plural: TEMPLATE_ITEMS,
+    parents: ['list-template'],
+    description: 'A single item within a list template.',
+    user_settable_create: true,
+    fields: {
+      title: { type: 'string', description: 'Item title.', required: true },
     },
   },
 ];

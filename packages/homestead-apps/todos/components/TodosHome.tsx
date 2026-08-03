@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
@@ -23,7 +24,13 @@ import { ResetProgressButton } from './ResetProgressButton';
 import { ProjectSwitcher } from './ProjectSwitcher';
 
 export function TodosHome() {
-  const [scope, setScope] = useState<ProjectScope>(MAIN_PROJECT_ID);
+  const location = useLocation();
+  // A freshly instantiated template navigates here with the new project id in
+  // location state so we open straight to that list.
+  const initialScope =
+    (location.state as { scope?: ProjectScope } | null)?.scope ??
+    MAIN_PROJECT_ID;
+  const [scope, setScope] = useState<ProjectScope>(initialScope);
   const {
     buckets,
     progress,
