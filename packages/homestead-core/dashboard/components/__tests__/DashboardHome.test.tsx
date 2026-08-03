@@ -11,7 +11,13 @@ import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { useUserSetting } from '@rambleraptor/homestead-core/user-settings/hooks/useUserSetting';
 import { getTodaysHoliday } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 
-vi.mock('../WelcomePanel', () => ({ WelcomePanel: () => null }));
+vi.mock('../WelcomePanel', () => ({
+  WelcomePanel: () => <div data-testid="welcome-panel-stub" />,
+}));
+
+vi.mock('../AdminChecklistPanel', () => ({
+  AdminChecklistPanel: () => <div data-testid="admin-checklist-stub" />,
+}));
 
 vi.mock('@rambleraptor/homestead-core/auth/useAuth', () => ({
   useAuth: vi.fn(),
@@ -84,5 +90,31 @@ describe('DashboardHome greeting', () => {
     renderHome();
     expect(screen.getByText('Happy New Year!')).toBeInTheDocument();
     expect(screen.queryByText(/Welcome/)).toBeNull();
+  });
+});
+
+describe('DashboardHome onboarding panel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getTodaysHoliday).mockReturnValue(null);
+    mockShowGuide(true);
+  });
+
+  it('shows the admin checklist to a superuser', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { name: 'Admin', type: 'superuser' },
+    } as ReturnType<typeof useAuth>);
+    renderHome();
+    expect(screen.getByTestId('admin-checklist-stub')).toBeInTheDocument();
+    expect(screen.queryByTestId('welcome-panel-stub')).toBeNull();
+  });
+
+  it('shows the welcome guide to a regular user', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      user: { name: 'Sam', type: 'regular' },
+    } as ReturnType<typeof useAuth>);
+    renderHome();
+    expect(screen.getByTestId('welcome-panel-stub')).toBeInTheDocument();
+    expect(screen.queryByTestId('admin-checklist-stub')).toBeNull();
   });
 });
