@@ -1,0 +1,205 @@
+/**
+ * End-to-end wiring: an Engine constructed with a sync dispatcher fires it on
+ * every user and dynamic-resource write with the correct event/record/previous
+ * — and never leaks a user's password_hash into a snapshot.
+ */
+
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, test } from 'vitest';
+import { Engine } from '../src/engine/engine';
+import { generateId, generateToken, nowRFC3339 } from '../src/engine/ids';
+import { hashPassword, insertToken, insertUser } from '../src/engine/users';
+import { TYPE_SUPERUSER } from '../src/engine/types';
+import type { User } from '../src/engine/types';
+import type { SyncDispatcher, SyncDispatchInput } from '../src/sync';
+
+/** A fake dispatcher that records every dispatch call. */
+function fakeDispatcher(): { dispatcher: SyncDispatcher; calls: SyncDispatchInput[] } {
+  const calls: SyncDispatchInput[] = [];
+  return {
+    calls,
+    dispatcher: {
+      dispatch(input) {
+        calls.push(input);
+      },
+    },
+  };
+}
+
+async function makeEngine() {
+  const filesDir = mkdtempSync(join(tmpdir(), 'hs-sync-test-'));
+  const { dispatcher, calls } = fakeDispatcher();
+  const engine = new Engine({
+    dbPath: ':memory:',
+    filesDir,
+    serverUrl: 'http://localhost:8090',
+    syncDispatcher: dispatcher,
+  });
+  // Seed a superuser to authenticate writes.
+  const id = generateId();
+  const now = nowRFC3339();
+  const admin: User = {
+    id,
+    path: `users/${id}`,
+    email: 'admin@example.com',
+    type: TYPE_SUPERUSER,
+    create_time: now,
+    update_time: now,
+  };
+  insertUser(engine.db, admin, await hashPassword('pw'));
+  const token = generateToken();
+  insertToken(engine.db, token, id);
+  return { engine, calls, token };
+}
+
+async function call(
+  engine: Engine,
+  method: string,
+  path: string,
+  token: string,
+  body?: unknown,
+): Promise<Response> {
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  let payload: string | undefined;
+  if (body !== undefined) {
+    payload = JSON.stringify(body);
+    headers['Content-Type'] = 'application/json';
+  }
+  return engine.fetch(
+    new Request(`http://localhost:8090${path}`, { method, headers, body: payload }),
+  );
+}
+
+const BOOK_DEF = {
+  singular: 'book',
+  plural: 'books',
+  user_settable_create: true,
+  schema: {
+    type: 'object',
+    properties: { title: { type: 'string' } },
+    required: ['title'],
+  },
+};
+
+afterEach(() => {});
+
+describe('user write dispatch', () => {
+  test('create dispatches {event:create, resource:user} with the record and no password_hash', async () => {
+    const { engine, calls, token } = await makeEngine();
+
+    const res = await call(engine, 'POST', '/users?id=u1', token, {
+      email: 'new@example.com',
+      password: 'secret',
+      display_name: 'New User',
+    });
+    expect(res.status).toBe(200);
+
+    expect(calls).toHaveLength(1);
+    const c = calls[0]!;
+    expect(c.event).toBe('create');
+    expect(c.resource).toBe('user');
+    expect(c.recordId).toBe('u1');
+    expect(c.previous).toBeNull();
+    expect(c.record).toMatchObject({ id: 'u1', email: 'new@example.com', display_name: 'New User' });
+    expect(c.record && 'password_hash' in c.record).toBe(false);
+    engine.db.close();
+  });
+
+  test('update dispatches {event:update} with record and previous, no password_hash', async () => {
+    const { engine, calls, token } = await makeEngine();
+    await call(engine, 'POST', '/users?id=u1', token, { email: 'a@example.com', password: 'pw' });
+    calls.length = 0;
+
+    const res = await call(engine, 'PATCH', '/users/u1', token, { display_name: 'Renamed' });
+    expect(res.status).toBe(200);
+
+    expect(calls).toHaveLength(1);
+    const c = calls[0]!;
+    expect(c.event).toBe('update');
+    expect(c.resource).toBe('user');
+    expect(c.recordId).toBe('u1');
+    expect(c.record).toMatchObject({ id: 'u1', display_name: 'Renamed' });
+    expect(c.previous).toMatchObject({ id: 'u1', email: 'a@example.com' });
+    expect(c.record && 'password_hash' in c.record).toBe(false);
+    expect(c.previous && 'password_hash' in c.previous).toBe(false);
+    engine.db.close();
+  });
+
+  test('delete dispatches {event:delete} with record null and previous set', async () => {
+    const { engine, calls, token } = await makeEngine();
+    await call(engine, 'POST', '/users?id=u1', token, { email: 'a@example.com', password: 'pw' });
+    calls.length = 0;
+
+    const res = await call(engine, 'DELETE', '/users/u1', token);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({}); // 200 {} preserved
+
+    expect(calls).toHaveLength(1);
+    const c = calls[0]!;
+    expect(c.event).toBe('delete');
+    expect(c.resource).toBe('user');
+    expect(c.recordId).toBe('u1');
+    expect(c.record).toBeNull();
+    expect(c.previous).toMatchObject({ id: 'u1', email: 'a@example.com' });
+    expect(c.previous && 'password_hash' in c.previous).toBe(false);
+    engine.db.close();
+  });
+});
+
+describe('dynamic-resource write dispatch', () => {
+  test('create / update / delete each dispatch with the right event and snapshots', async () => {
+    const { engine, calls, token } = await makeEngine();
+    const defRes = await call(engine, 'POST', '/aep-resource-definitions', token, BOOK_DEF);
+    expect(defRes.ok).toBe(true);
+    calls.length = 0;
+
+    // create
+    const created = await call(engine, 'POST', '/books?id=b1', token, { title: 'First' });
+    expect(created.status).toBe(201);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ event: 'create', resource: 'book', recordId: 'b1', previous: null });
+    expect(calls[0]!.record).toMatchObject({ id: 'b1', title: 'First' });
+    calls.length = 0;
+
+    // update
+    const updated = await call(engine, 'PATCH', '/books/b1', token, { title: 'Second' });
+    expect(updated.status).toBe(200);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ event: 'update', resource: 'book', recordId: 'b1' });
+    expect(calls[0]!.record).toMatchObject({ id: 'b1', title: 'Second' });
+    expect(calls[0]!.previous).toMatchObject({ id: 'b1', title: 'First' });
+    calls.length = 0;
+
+    // delete
+    const deleted = await call(engine, 'DELETE', '/books/b1', token);
+    expect(deleted.status).toBe(204);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ event: 'delete', resource: 'book', recordId: 'b1', record: null });
+    expect(calls[0]!.previous).toMatchObject({ id: 'b1', title: 'Second' });
+    engine.db.close();
+  });
+
+  test('no dispatcher wired → writes still succeed (identical behavior)', async () => {
+    const filesDir = mkdtempSync(join(tmpdir(), 'hs-sync-none-'));
+    const engine = new Engine({ dbPath: ':memory:', filesDir, serverUrl: 'http://localhost:8090' });
+    const id = generateId();
+    const now = nowRFC3339();
+    const admin: User = {
+      id,
+      path: `users/${id}`,
+      email: 'admin@example.com',
+      type: TYPE_SUPERUSER,
+      create_time: now,
+      update_time: now,
+    };
+    insertUser(engine.db, admin, await hashPassword('pw'));
+    const token = generateToken();
+    insertToken(engine.db, token, id);
+
+    const res = await call(engine, 'POST', '/users?id=u9', token, { email: 'x@example.com', password: 'pw' });
+    expect(res.status).toBe(200);
+    engine.db.close();
+  });
+});

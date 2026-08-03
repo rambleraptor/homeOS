@@ -9,6 +9,7 @@ import type {
 import type {
   RegisteredCronHook,
   RegisteredMigration,
+  RegisteredResourceSync,
 } from '@rambleraptor/homestead-core/apps/registry';
 import type { AppAccessMap } from '@rambleraptor/homestead-core/apps/access-map';
 import type { OAuthConfig } from './engine/oauth';
@@ -30,4 +31,5 @@ export function getAllAppFlagDefs(): Record<string, unknown>;
 export function getAllUserSettingDefs(): Record<string, unknown>;
 export function getAllCronHooks(): RegisteredCronHook[];
 export function getAllMigrations(): RegisteredMigration[];
+export function getAllResourceSyncs(): RegisteredResourceSync[];
 export function handleChat(request: Request): Promise<Response>;

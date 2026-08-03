@@ -22,6 +22,7 @@ import {
 } from './db';
 import type { ResourceDefinition, Schema, SchemaProperty } from './types';
 import { STANDARD_FIELDS } from './types';
+import type { SyncDispatcher } from '../sync';
 
 export const USER_SINGULAR = 'user';
 export const USER_PLURAL = 'users';
@@ -84,6 +85,14 @@ export class Registry {
   /** Base URL used when echoing file-field download URLs in responses. */
   readonly serverUrl: string;
   private resources = new Map<string, RegisteredResource>();
+  /**
+   * Optional post-commit resource-sync dispatcher. Set by the {@link Engine} at
+   * construction and reached by the CRUD handlers (which already receive the
+   * registry) to fire a mirror after a write. Optional so call sites and tests
+   * that never wire a dispatcher behave identically. Fire-and-forget — see
+   * {@link SyncDispatcher}.
+   */
+  syncDispatcher: SyncDispatcher | null = null;
 
   constructor(db: Database, opts: { filesDir: string; serverUrl: string }) {
     this.db = db;

@@ -10,6 +10,7 @@ import { hashPassword, verifyPassword } from './password';
 import type { Database } from './sqlite';
 import type { User } from './types';
 import { TYPE_REGULAR, TYPE_SUPERUSER } from './types';
+import type { SyncDispatcher } from '../sync';
 
 // Re-exported for callers that hash alongside user writes (bootstrap, tests).
 export { hashPassword, verifyPassword };
@@ -197,6 +198,7 @@ export async function handleUserCreate(
   db: Database,
   req: Request,
   caller: User | null,
+  syncDispatcher: SyncDispatcher | null = null,
 ): Promise<Response> {
   if (!caller || caller.type !== TYPE_SUPERUSER) {
     return errorResponse(403, 'only superusers can create users');
@@ -242,6 +244,15 @@ export async function handleUserCreate(
     }
     return errorResponse(500, `failed to create user: ${err instanceof Error ? err.message : err}`);
   }
+  // Post-commit mirror. `u` is the User wire shape (no password_hash), so the
+  // hash is never handed to a sync handler. Fire-and-forget.
+  syncDispatcher?.dispatch({
+    event: 'create',
+    resource: 'user',
+    recordId: u.id,
+    record: { ...u },
+    previous: null,
+  });
   return jsonResponse(u);
 }
 
@@ -307,6 +318,7 @@ export async function handleUserUpdate(
   req: Request,
   id: string,
   caller: User | null,
+  syncDispatcher: SyncDispatcher | null = null,
 ): Promise<Response> {
   if (!caller) return errorResponse(401, 'authentication required');
   if (caller.type !== TYPE_SUPERUSER && caller.id !== id) {
@@ -340,6 +352,10 @@ export async function handleUserUpdate(
     return errorResponse(400, 'no updatable fields provided');
   }
 
+  // Capture the pre-state (User wire shape, no hash) for the sync's `previous`,
+  // before the UPDATE runs. Only read when a dispatcher is wired.
+  const preUser = syncDispatcher ? getUserById(db, id)?.user ?? null : null;
+
   const setClauses = ['update_time = ?'];
   const args: string[] = [nowRFC3339()];
   for (const [col, val] of Object.entries(fields)) {
@@ -358,18 +374,46 @@ export async function handleUserUpdate(
 
   const found = getUserById(db, id);
   if (!found) return errorResponse(404, `user "${id}" not found`);
+  // Post-commit mirror. Both record and previous are User wire shapes (no
+  // password_hash). Fire-and-forget.
+  syncDispatcher?.dispatch({
+    event: 'update',
+    resource: 'user',
+    recordId: id,
+    record: { ...found.user },
+    previous: preUser ? { ...preUser } : null,
+  });
   return jsonResponse(found.user);
 }
 
-export function handleUserDelete(db: Database, id: string, caller: User | null): Response {
+export function handleUserDelete(
+  db: Database,
+  id: string,
+  caller: User | null,
+  syncDispatcher: SyncDispatcher | null = null,
+): Response {
   if (!caller || caller.type !== TYPE_SUPERUSER) {
     return errorResponse(403, 'only superusers can delete users');
   }
+
+  // Read the pre-state (User wire shape, no hash) before the DELETE — the row
+  // is gone afterwards. Only read when a dispatcher is wired.
+  const preUser = syncDispatcher ? getUserById(db, id)?.user ?? null : null;
 
   db.query('DELETE FROM _tokens WHERE user_id = ?').run(id);
   const result = db.query('DELETE FROM _users WHERE id = ?').run(id);
   if (result.changes === 0) {
     return errorResponse(404, `user "${id}" not found`);
   }
+  // Post-commit mirror. `record` is null on delete; `previous` carries the
+  // removed user (no password_hash). Fire-and-forget. Preserves the 200 {}
+  // response unchanged.
+  syncDispatcher?.dispatch({
+    event: 'delete',
+    resource: 'user',
+    recordId: id,
+    record: null,
+    previous: preUser ? { ...preUser } : null,
+  });
   return jsonResponse({});
 }

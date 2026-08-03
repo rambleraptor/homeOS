@@ -18,6 +18,7 @@ import {
   getAllUserSettingDefs,
   getAllCronHooks,
   getAllMigrations,
+  getAllResourceSyncs,
 } from '@rambleraptor/homestead-core/apps/registry';
 import {
   ALWAYS_INSTALLED_APP_IDS,
@@ -99,5 +100,6 @@ export {
   getAllUserSettingDefs,
   getAllCronHooks,
   getAllMigrations,
+  getAllResourceSyncs,
   handleChat,
 };

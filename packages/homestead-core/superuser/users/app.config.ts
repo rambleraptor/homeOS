@@ -19,6 +19,23 @@ export const usersApp: AppConfig = {
   id: 'users',
   name: 'Users',
   description: 'Create and manage user accounts.',
+  // A resource sync mirrors a resource's records to an external system after
+  // they change. Because the target is named by `singular`, a sync can watch
+  // the built-in `user` resource — which no app owns a definition for. This is
+  // left commented out on purpose: enabling it would spawn an operation on every
+  // real user write. To turn on the Address/User→Maps example, uncomment this
+  // and adapt `syncs/mirror-user-to-maps.example.ts` (see
+  // `docs/guides/resource-sync.md`):
+  //
+  // syncs: [
+  //   {
+  //     id: 'users-mirror-to-maps',       // stable, globally unique
+  //     resource: 'user',                 // the built-in user resource
+  //     title: 'Mirror user to Maps',
+  //     // on: ['create', 'update', 'delete'],  // default is all three
+  //     load: () => import('./syncs/mirror-user-to-maps.example'),
+  //   },
+  // ],
   web: {
     icon: () => import('lucide-react').then((m) => m.UserCog),
     basePath: '/superuser/users',

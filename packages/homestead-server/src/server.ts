@@ -96,6 +96,20 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // non-expiring token.
   engine.setSessionIssuer((userId) => authService.issueSession(userId));
 
+  // Wire the post-commit resource-sync dispatcher. Built from the aggregated
+  // app-declared syncs, the engine's db, and the same shared OperationStore the
+  // cron scheduler uses (so sync firings appear as operations too). Set before
+  // the listener starts so writes are mirrored from the first request. Like
+  // crons, this doesn't depend on the schema sync having finished. Dispatch is
+  // fire-and-forget — a mirror never blocks or fails the write it observes.
+  const { createSyncDispatcher } = await import('./sync');
+  const { operationStore } = await import(
+    '@rambleraptor/homestead-core/server/operations'
+  );
+  engine.setSyncDispatcher(
+    createSyncDispatcher(engine.db, registry.getAllResourceSyncs(), operationStore),
+  );
+
   // Homestead-as-OAuth-provider (authorization server). Opt-in via
   // auth.authServer.enabled. When on, create its tables up front.
   const authServerCfg = registry.authServerConfig();
@@ -194,9 +208,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // logging), so this doesn't depend on the schema sync above having finished;
   // interval-based hooks fire well after boot regardless.
   const { startCronScheduler } = await import('./cron');
-  const { operationStore } = await import(
-    '@rambleraptor/homestead-core/server/operations'
-  );
+  // `operationStore` is imported above for the sync dispatcher; reuse it here.
   const cron = startCronScheduler(
     engine.db,
     registry.getAllCronHooks(),

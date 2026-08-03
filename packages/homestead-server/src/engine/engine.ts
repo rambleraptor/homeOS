@@ -27,6 +27,7 @@ import { PermissionStore, permissionCacheTtlMs } from './permission-store';
 import { type Grant } from './permissions';
 import type { EnforceContext } from './enforce';
 import type { User } from './types';
+import type { SyncDispatcher } from '../sync';
 import {
   createUserTables,
   extractBearerToken,
@@ -75,6 +76,14 @@ export interface EngineOptions {
   sessionIssuer?: SessionIssuer;
   /** The `auth.oauth` block of homestead.config.ts (optional). */
   oauth?: OAuthConfig | null;
+  /**
+   * Optional post-commit resource-sync dispatcher (see {@link SyncDispatcher}).
+   * When set, the engine fires it after a create/update/delete on a dynamic
+   * resource or the built-in user, so app-declared syncs can mirror the change.
+   * Omit to disable syncing entirely — every write path behaves identically
+   * without it.
+   */
+  syncDispatcher?: SyncDispatcher | null;
 }
 
 export class Engine {
@@ -85,6 +94,8 @@ export class Engine {
   private tokenValidator: TokenValidator | null;
   private sessionIssuer: SessionIssuer | null;
   private oauth: OAuthRoutes | null;
+  /** Post-commit resource-sync dispatcher, or null when syncing is disabled. */
+  private syncDispatcher: SyncDispatcher | null;
   private readonly permissionStore: PermissionStore;
   /** Collection plural → owning app id, for app-scope grant matching. */
   private collectionToApp: Record<string, string> = {};
@@ -102,6 +113,10 @@ export class Engine {
     this.tokenValidator = opts.tokenValidator ?? null;
     this.sessionIssuer = opts.sessionIssuer ?? null;
     this.oauth = OAuthRoutes.fromConfig(this.db, opts.oauth);
+    // Expose the sync dispatcher to the CRUD handlers via the registry they
+    // already receive; the user handlers get it threaded through routeUsers.
+    this.syncDispatcher = opts.syncDispatcher ?? null;
+    this.registry.syncDispatcher = this.syncDispatcher;
 
     // Restore resource definitions from a previous run, parents first.
     for (const def of topoSortDefs(loadAllDefinitions(this.db))) {
@@ -155,6 +170,18 @@ export class Engine {
 
   setSessionIssuer(issuer: SessionIssuer | null): void {
     this.sessionIssuer = issuer;
+  }
+
+  /**
+   * Wire (or clear) the post-commit resource-sync dispatcher. Set here rather
+   * than only at construction because the dispatcher is built from
+   * `engine.db` — which doesn't exist until the engine has constructed — and
+   * the shared operation store, exactly like the cron scheduler. Keeps the
+   * registry's copy (the one CRUD handlers read) in sync.
+   */
+  setSyncDispatcher(dispatcher: SyncDispatcher | null): void {
+    this.syncDispatcher = dispatcher;
+    this.registry.syncDispatcher = dispatcher;
   }
 
   /** Make an engine-relative options object for a data dir (convenience). */
@@ -262,7 +289,7 @@ export class Engine {
     }
 
     if (segments[0] === 'users' && segments.length <= 2) {
-      return this.routeUsers(req, segments, caller);
+      return this.routeUsers(req, segments, caller, this.syncDispatcher);
     }
 
     if (segments[0] === 'oauth') {
@@ -302,9 +329,10 @@ export class Engine {
     req: Request,
     segments: string[],
     caller: User | null,
+    syncDispatcher: SyncDispatcher | null,
   ): Promise<Response> {
     if (segments.length === 1) {
-      if (req.method === 'POST') return handleUserCreate(this.db, req, caller);
+      if (req.method === 'POST') return handleUserCreate(this.db, req, caller, syncDispatcher);
       if (req.method === 'GET') return handleUserList(this.db, req, caller);
       return notFoundText();
     }
@@ -325,9 +353,9 @@ export class Engine {
       case 'GET':
         return handleUserGet(this.db, raw, caller);
       case 'PATCH':
-        return handleUserUpdate(this.db, req, raw, caller);
+        return handleUserUpdate(this.db, req, raw, caller, syncDispatcher);
       case 'DELETE':
-        return handleUserDelete(this.db, raw, caller);
+        return handleUserDelete(this.db, raw, caller, syncDispatcher);
       case 'POST':
         return errorResponse(405, 'POST not allowed on individual user resource');
       default:
