@@ -555,9 +555,10 @@ export type RegisteredResourceSync = ResourceSync & { appId: string };
  * dropped with a warning, as is one missing an `id` or a `resource`, so the
  * dispatcher never wires up an ambiguous or unroutable mirror.
  *
- * The target `resource` is *not* checked for existence here — the engine
- * registry is the source of truth for which resources exist and isn't reachable
- * from core. A sync naming a resource nothing ever writes simply never fires.
+ * The target `resource` is *not* checked for existence here — that needs the
+ * full resource universe, which is assembled at server boot. `startServer`
+ * validates every aggregated sync's `resource` (via `validateSyncResources`)
+ * and fails fast on an unknown one.
  */
 export function getAllResourceSyncs(): RegisteredResourceSync[] {
   const out: RegisteredResourceSync[] = [];

@@ -85,6 +85,13 @@ export const myApp: AppConfig = {
 Either way, keep the handler under a `syncs/` directory (or name it
 `*.server.ts`) so the production build stubs it out of the browser bundle.
 
+The `resource` must name a real resource. At boot the server validates every
+sync's target against the resources this instance declares (app resources, the
+built-ins, and `user`) and **refuses to start** with a
+`[resources] sync "…" targets unknown resource "…"` error if one doesn't
+exist — so a typo or a sync pointing at an app you haven't installed fails
+loudly instead of silently never firing.
+
 ## Writing a handler
 
 A handler is a plain async function that default-exports. It receives a
