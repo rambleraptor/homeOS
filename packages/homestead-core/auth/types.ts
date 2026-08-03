@@ -3,6 +3,7 @@
  */
 
 import type { PermissionContext } from '../permissions/client';
+import type { ViewAsIdentity } from './effectiveUser';
 
 export type MapProvider = 'google' | 'apple';
 
@@ -62,4 +63,22 @@ export interface AuthContextValue extends AuthState {
   completeOAuthLogin: (session: OAuthSession) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  /**
+   * The real logged-in account, unaffected by any "view as" preview. `user`
+   * above is the *effective* identity the app renders as; `realUser` is always
+   * the person actually signed in — used by the preview banner and to gate who
+   * may start a preview. Equal to `user` when no preview is active.
+   */
+  realUser: User | null;
+  /** The target being previewed, or null when not in a "view as" session. */
+  viewAs: ViewAsIdentity | null;
+  /**
+   * Enter a "view as" preview. Only a superuser may call this; it is a no-op
+   * otherwise. Overrides the effective identity (`user`) with the target so
+   * every access gate reflects that user, while the real token keeps signing
+   * requests.
+   */
+  startViewAs: (target: ViewAsIdentity) => void;
+  /** Leave the preview and return to the real superuser's access. */
+  stopViewAs: () => void;
 }

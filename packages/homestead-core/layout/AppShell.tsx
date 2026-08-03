@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { ViewAsBanner } from './ViewAsBanner';
 import { AuthGuard } from '../auth/AuthGuard';
 import { OfflineBanner } from '../shared/components/OfflineBanner';
 import { useHomeScreenIcon } from '../shared/pwa';
@@ -37,6 +38,10 @@ export function AppShell({ children }: AppShellProps) {
 
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {/* "View as user" preview banner — pinned above the (scrolling) main
+              region, so it stays visible for the whole preview session. */}
+          <ViewAsBanner />
+
           {/* Header */}
           <Header onMenuClick={toggleSidebar} />
 

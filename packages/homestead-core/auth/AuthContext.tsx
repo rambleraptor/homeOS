@@ -13,7 +13,7 @@
  */
 
 import { USERS, USER_PREFERENCES } from '@rambleraptor/homestead-core/resources/builtins';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import type {
   AuthContextValue,
   AuthState,
@@ -22,6 +22,7 @@ import type {
   OAuthSession,
   User,
 } from './types';
+import { computeEffectiveUser, type ViewAsIdentity } from './effectiveUser';
 import { AuthContext } from './context';
 import { aepbase, AepbaseError } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
@@ -140,6 +141,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading: true,
   });
 
+  // "View as user" preview (superuser debugging tool). In-memory only: a page
+  // reload always returns to the real superuser — a preview never sticks.
+  const [viewAs, setViewAs] = useState<ViewAsIdentity | null>(null);
+
   useEffect(() => {
     const user = aepbase.getCurrentUser();
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -167,6 +172,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // otherwise the next `PersistQueryClientProvider` mount rehydrates
       // the previous user's optimistic state into the new session.
       if (!user || nextUserId !== lastUserId) {
+        // A "view as" preview belongs to the superuser who opened it; end it
+        // when the real account changes or signs out. A same-user token
+        // refresh (nextUserId === lastUserId) falls through and preserves it.
+        setViewAs(null);
         queryClient.clear();
         clearPersistedQueryCache();
       } else {
@@ -204,6 +213,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   const logout = useCallback(() => {
+    setViewAs(null);
     aepbase.logout();
     setState({
       user: null,
@@ -214,6 +224,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     queryClient.clear();
     clearPersistedQueryCache();
   }, []);
+
+  const startViewAs = useCallback((target: ViewAsIdentity) => {
+    // Only a real superuser may preview another user's access; the server
+    // route that resolves the target's permissions is superuser-gated too.
+    if (aepbase.getCurrentUser()?.type !== 'superuser') return;
+    setViewAs(target);
+  }, []);
+
+  const stopViewAs = useCallback(() => setViewAs(null), []);
 
   const refreshUser = useCallback(async () => {
     if (!aepbase.authStore.isValid) return;
@@ -254,8 +273,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A preview only ever applies on top of a real superuser session; if the
+  // real account isn't a superuser, ignore any lingering target.
+  const activeViewAs = state.user?.type === 'superuser' ? viewAs : null;
+  const effectiveUser = useMemo(
+    () => computeEffectiveUser(state.user, activeViewAs),
+    [state.user, activeViewAs],
+  );
+
   const value: AuthContextValue = {
     ...state,
+    // `user` is the effective identity the app renders as (target during a
+    // preview); `realUser` is always the person actually signed in.
+    user: effectiveUser,
+    realUser: state.user,
+    viewAs: activeViewAs,
+    startViewAs,
+    stopViewAs,
     login,
     completeOAuthLogin,
     logout,
