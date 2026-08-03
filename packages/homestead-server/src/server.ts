@@ -15,6 +15,7 @@ import { Hono } from 'hono';
 import { join } from 'node:path';
 import { Engine } from './engine/engine';
 import { listen } from './listen';
+import { log } from './log';
 import { isServerPath, type ServerOptions } from './options';
 import { diskSpaAssets, serveStatic } from './static';
 
@@ -119,8 +120,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // can report its current output hash. Dev serves via Vite middleware (no hash).
   const spa = opts.dev ? null : (opts.spa ?? diskSpaAssets());
 
+  const { makeHealthRoute } = await import('./routes/health');
+
   const publicApp = new Hono();
-  publicApp.get('/health', (c) => c.json({ ok: true }));
+  // Readiness check (probes the DB) — see routes/health.ts.
+  publicApp.route('/health', makeHealthRoute(engine.db));
   // Open tabs poll this and reload when the served SPA build changes. The hash
   // is derived from the served index.html, so a `vite build --watch` rebuild
   // bumps it with no server restart; dev returns '' to disable the check.
@@ -199,13 +203,14 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
     operationStore,
   );
 
-  console.log(
-    `[homestead-server] listening on :${opts.publicPort}${opts.dev ? ' (dev: vite middleware)' : ''}`,
-  );
+  log.info('listening', {
+    port: opts.publicPort,
+    mode: opts.dev ? 'dev (vite middleware)' : 'prod',
+  });
   if (setupState === 'pending') {
-    console.log(
-      `[homestead-server] no admin account yet — open http://localhost:${opts.publicPort} to create one`,
-    );
+    log.warn('no admin account yet — open the app to create one', {
+      url: `http://localhost:${opts.publicPort}`,
+    });
   }
 
   return {

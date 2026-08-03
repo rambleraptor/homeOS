@@ -68,6 +68,17 @@ function loggedMessages(updated: UpdateMetadataInput[]): string[] {
   return (last.metadata.logs as { message: string }[]).map((e) => e.message);
 }
 
+/**
+ * True when a `console.log/warn/error` spy received a single-string log line
+ * (the logger's text format) containing every given substring. Kept substring-
+ * based so log formatting can evolve without breaking these assertions.
+ */
+function loggedLine(spy: ReturnType<typeof vi.spyOn>, ...parts: string[]): boolean {
+  return spy.mock.calls.some(
+    (call: unknown[]) => parts.every((p) => String(call[0]).includes(p)),
+  );
+}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Poll `predicate` until true or the deadline elapses. */
@@ -183,7 +194,7 @@ describe('runCronHook', () => {
       ),
     ).resolves.toBeUndefined();
 
-    expect(err).toHaveBeenCalledWith('[cron] "flaky" failed', expect.any(Error));
+    expect(loggedLine(err, '[cron] failed', 'hook=flaky')).toBe(true);
     expect(completed).toHaveLength(1);
     expect(completed[0].id).toBe('op-1');
     expect(completed[0].error).toBeInstanceOf(Error);
@@ -217,10 +228,9 @@ describe('runCronHook', () => {
     // No operation to complete or log against when create failed.
     expect(completed).toHaveLength(0);
     expect(updated).toHaveLength(0);
-    expect(err).toHaveBeenCalledWith(
-      '[cron] "early" could not open an operation; running without one',
-      expect.any(Error),
-    );
+    expect(
+      loggedLine(err, '[cron] could not open an operation; running without one', 'hook=early'),
+    ).toBe(true);
     db.close();
   });
 
@@ -259,10 +269,7 @@ describe('runCronHook', () => {
 
     expect(called).toBe(false);
     expect(created).toHaveLength(0);
-    expect(err).toHaveBeenCalledWith(
-      '[cron] "orphan" no admin available; skipping',
-      expect.any(Error),
-    );
+    expect(loggedLine(err, '[cron] no admin available; skipping', 'hook=orphan')).toBe(true);
     db.close();
   });
 });
@@ -338,7 +345,7 @@ describe('startCronScheduler', () => {
     // arrive while it's still running and must be skipped.
     await waitUntil(() => warn.mock.calls.length > 0);
     expect(starts).toBe(1);
-    expect(warn).toHaveBeenCalledWith('[cron] "slow" still running; skipping this tick');
+    expect(loggedLine(warn, '[cron] still running; skipping this tick', 'hook=slow')).toBe(true);
 
     // Once the first run finishes, subsequent ticks fire again.
     release();

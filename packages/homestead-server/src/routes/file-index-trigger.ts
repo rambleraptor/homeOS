@@ -25,7 +25,10 @@ import {
 } from '@rambleraptor/homestead-core/resources/ai-fields';
 import type { FieldDef, ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import { getAllResourceDefs } from '../app-registry';
+import { createLogger } from '../log';
 import { parseCrudWrite, idFromCreateBody } from './file-index-paths';
+
+const log = createLogger('file-index');
 
 /** Passthrough shape provided by the gateway (forwards to the engine in-process). */
 export type Passthrough = (request: Request, path: string) => Promise<Response>;
@@ -217,8 +220,5 @@ async function runIndexOperation(input: {
 }
 
 function logFailure(what: string, resource: string, record: string, err: unknown): void {
-  console.error(
-    `[file-index] ${what} failed for ${resource}/${record}:`,
-    err instanceof Error ? err.message : err,
-  );
+  log.error(`${what} failed`, { resource: `${resource}/${record}`, err });
 }

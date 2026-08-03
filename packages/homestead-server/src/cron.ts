@@ -32,6 +32,7 @@
 
 import type { Database } from './engine/sqlite';
 import { nowRFC3339 } from './engine/ids';
+import { createLogger } from './log';
 import { mintAdminToken } from './bootstrap';
 import type { RegisteredCronHook } from '@rambleraptor/homestead-core/apps/registry';
 import {
@@ -41,6 +42,10 @@ import {
   type OperationStore,
 } from '@rambleraptor/homestead-core/resources/operations';
 import { runOperationJob } from '@rambleraptor/homestead-core/resources/operation-runner';
+
+// Named `cronLog` (not `log`) because `runCronHook` has a local `log` — the
+// per-operation message function — that would otherwise shadow it.
+const cronLog = createLogger('cron');
 
 export interface CronScheduler {
   /** Stop all timers. Idempotent. In-flight handlers are left to finish. */
@@ -75,7 +80,7 @@ export async function runCronHook(
   try {
     admin = mintAdminToken(db);
   } catch (error) {
-    console.error(`[cron] "${hook.id}" no admin available; skipping`, error);
+    cronLog.error('no admin available; skipping', { hook: hook.id, err: error });
     return;
   }
 
@@ -95,7 +100,10 @@ export async function runCronHook(
       status: 'pending',
     });
   } catch (error) {
-    console.error(`[cron] "${hook.id}" could not open an operation; running without one`, error);
+    cronLog.error('could not open an operation; running without one', {
+      hook: hook.id,
+      err: error,
+    });
   }
 
   const logger: OperationLogger | undefined = operation
@@ -128,7 +136,7 @@ export async function runCronHook(
         });
       },
       timeoutLabel: `cron "${hook.id}"`,
-      onError: (error) => console.error(`[cron] "${hook.id}" failed`, error),
+      onError: (error) => cronLog.error('failed', { hook: hook.id, err: error }),
     });
   } finally {
     admin.revoke();
@@ -151,7 +159,7 @@ export function startCronScheduler(
 
   const tick = async (hook: RegisteredCronHook): Promise<void> => {
     if (running.has(hook.id)) {
-      console.warn(`[cron] "${hook.id}" still running; skipping this tick`);
+      cronLog.warn('still running; skipping this tick', { hook: hook.id });
       return;
     }
     running.add(hook.id);
@@ -171,7 +179,9 @@ export function startCronScheduler(
   }
 
   if (hooks.length > 0) {
-    console.log(`[cron] scheduled ${hooks.length} hook(s): ${hooks.map((h) => h.id).join(', ')}`);
+    cronLog.info(`scheduled ${hooks.length} hook(s)`, {
+      hooks: hooks.map((h) => h.id).join(', '),
+    });
   }
 
   return {

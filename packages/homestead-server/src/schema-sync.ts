@@ -10,6 +10,7 @@
  */
 
 import type { Database } from './engine/sqlite';
+import { createLogger } from './log';
 import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/sync';
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
@@ -26,12 +27,14 @@ import {
 import { mintAdminToken } from './bootstrap';
 import { runMigrations } from './migrations';
 
+const log = createLogger('schema-sync');
+
 export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void> {
   let admin;
   try {
     admin = mintAdminToken(db);
   } catch (error) {
-    console.error('[schema-sync] no admin available; skipping sync', error);
+    log.error('no admin available; skipping sync', { err: error });
     return;
   }
 
@@ -46,13 +49,13 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
       ];
       const result = await syncResourceDefinitions({ aepbaseUrl, token, defs });
       if (!result.created.length && !result.updated.length) {
-        console.info(
-          `[resources] schema already in sync (${result.unchanged.length} definitions)`,
-        );
+        log.child('resources').info('schema already in sync', {
+          definitions: result.unchanged.length,
+        });
       }
       resourcesSynced = true;
     } catch (error) {
-      console.error('[resources] schema sync failed', error);
+      log.child('resources').error('schema sync failed', { err: error });
     }
 
     // Run data migrations once the collections they target exist. Skipped if
@@ -63,7 +66,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
       try {
         await runMigrations(db, { token, migrations: getAllMigrations() });
       } catch (error) {
-        console.error('[migrations] migration pass failed', error);
+        log.child('migrations').error('migration pass failed', { err: error });
       }
     }
 
@@ -72,13 +75,13 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
     try {
       const seeded = await seedPermissions(aepbaseUrl, token);
       if (seeded.rolesSeeded || seeded.openGrantSeeded) {
-        console.info(
-          `[permissions] seeded ${seeded.rolesSeeded} role(s)` +
-            `${seeded.openGrantSeeded ? ' + open-household grant' : ''}`,
-        );
+        log.child('permissions').info('seeded baseline', {
+          roles: seeded.rolesSeeded,
+          openGrant: seeded.openGrantSeeded,
+        });
       }
     } catch (error) {
-      console.error('[permissions] baseline seed failed', error);
+      log.child('permissions').error('baseline seed failed', { err: error });
     }
 
     // Fail operations orphaned by a restart (must run after the `operations`
@@ -86,10 +89,12 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
     try {
       const swept = await sweepStaleOperations({ aepbaseUrl, token });
       if (swept > 0) {
-        console.info(`[operations] marked ${swept} interrupted operation(s) as failed`);
+        log.child('operations').info('marked interrupted operation(s) as failed', {
+          count: swept,
+        });
       }
     } catch (error) {
-      console.error('[operations] stale-operation sweep failed', error);
+      log.child('operations').error('stale-operation sweep failed', { err: error });
     }
 
     try {
@@ -98,9 +103,9 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         token,
         defs: getAllAppFlagDefs() as never,
       });
-      if (result.action === 'noop') console.info('[app-flags] schema already in sync');
+      if (result.action === 'noop') log.child('app-flags').info('schema already in sync');
     } catch (error) {
-      console.error('[app-flags] schema sync failed', error);
+      log.child('app-flags').error('schema sync failed', { err: error });
     }
 
     try {
@@ -109,9 +114,9 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         token,
         defs: getAllUserSettingDefs() as never,
       });
-      if (result.action === 'noop') console.info('[user-settings] schema already in sync');
+      if (result.action === 'noop') log.child('user-settings').info('schema already in sync');
     } catch (error) {
-      console.error('[user-settings] schema sync failed', error);
+      log.child('user-settings').error('schema sync failed', { err: error });
     }
   } finally {
     admin.revoke();

@@ -9,6 +9,7 @@
  */
 
 import type { Database } from './sqlite';
+import { createLogger } from '../log';
 import { HttpError } from './errors';
 import { OWNER_COLUMN, sanitizeTableName } from './db';
 import { compileFilter, type FilterSubject } from './filter';
@@ -24,6 +25,8 @@ import {
   type Verb,
   type Visibility,
 } from './permissions';
+
+const log = createLogger('permissions');
 
 /** Caller attributes exposed to a grant filter as `subject.*` (§3.6.1). */
 function subjectOf(caller: User): FilterSubject {
@@ -393,5 +396,5 @@ function logInvalidFilter(filter: string): void {
     if (warnedInvalidFilters.has(filter)) return;
     warnedInvalidFilters.add(filter);
   }
-  console.warn(`[permissions] ignoring un-compilable grant filter: ${JSON.stringify(filter)}`);
+  log.warn('ignoring un-compilable grant filter', { filter });
 }
