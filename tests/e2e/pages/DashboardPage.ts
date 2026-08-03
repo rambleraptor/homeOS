@@ -43,6 +43,10 @@ export class DashboardPage {
     return this.page.getByTestId('welcome-panel');
   }
 
+  get adminChecklist() {
+    return this.page.getByTestId('admin-checklist');
+  }
+
   async dismissWelcome() {
     const dismiss = this.page.getByTestId('welcome-dismiss');
     await dismiss.waitFor({ state: 'visible' });

@@ -18,11 +18,14 @@ import { getAllDashboardWidgets, getAppById } from '@rambleraptor/homestead-core
 import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 import { useUserSetting } from '@rambleraptor/homestead-core/user-settings/hooks/useUserSetting';
 import { WelcomePanel } from './WelcomePanel';
+import { AdminChecklistPanel } from './AdminChecklistPanel';
 
 export function DashboardHome() {
   const { user } = useAuth();
   const isVisible = useAppVisible();
   const todaysHoliday = getTodaysHoliday();
+  // Superusers get a setup checklist in place of the generic welcome guide.
+  const isSuperuser = user?.type === 'superuser';
   // While the welcome guide is still showing, this is (almost certainly) a
   // first visit — greet the user rather than welcoming them "back".
   const { value: showWelcomeGuide } = useUserSetting<boolean>(
@@ -58,7 +61,7 @@ export function DashboardHome() {
       <PageHeader title={greeting} subtitle="Here's what's happening" />
 
       <div className="max-w-3xl space-y-6">
-        <WelcomePanel />
+        {isSuperuser ? <AdminChecklistPanel /> : <WelcomePanel />}
         {widgets.map(({ id, component }) => {
           const Widget = getLazyComponent(component);
           return (

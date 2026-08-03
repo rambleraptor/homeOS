@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { aepbase, type OAuthProvider } from '../api/aepbase';
-import { Home, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Home, Mail, Lock, AlertCircle, Check, User } from 'lucide-react';
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -20,6 +20,7 @@ export function Login() {
   const returnUrl = searchParams.get('returnUrl') || '/dashboard';
 
   const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -28,6 +29,9 @@ export function Login() {
   // First visit to a fresh instance: no admin account exists yet, so render
   // a create-your-account form instead of the sign-in form.
   const [needsSetup, setNeedsSetup] = useState(false);
+  // Before the create-admin form, show a one-screen intro explaining what
+  // Homestead is — this is the very first time anyone has opened this instance.
+  const [setupIntroSeen, setSetupIntroSeen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -69,10 +73,15 @@ export function Login() {
     setLoading(true);
     try {
       if (needsSetup) {
+        const trimmedName = displayName.trim();
         const res = await fetch('/api/setup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({
+            email,
+            password,
+            ...(trimmedName ? { display_name: trimmedName } : {}),
+          }),
         });
         if (!res.ok) {
           const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -99,6 +108,8 @@ export function Login() {
     return null;
   }
 
+  const showSetupIntro = needsSetup && !setupIntroSeen;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-bg-pearl px-4 py-12">
       <div className="max-w-md w-full">
@@ -111,15 +122,81 @@ export function Login() {
             Welcome to Homestead
           </h1>
           <p className="text-base font-body text-text-muted mt-1">
-            {needsSetup
-              ? 'Create the admin account for this new instance'
-              : 'Sign in to access your home dashboard'}
+            {showSetupIntro
+              ? "Let's get your household set up"
+              : needsSetup
+                ? 'Create the admin account for this new instance'
+                : 'Sign in to access your home dashboard'}
           </p>
         </div>
 
         {/* Login Form */}
         <div className="bg-surface-white rounded-2xl border border-gray-100 shadow-sm p-8">
+          {showSetupIntro ? (
+            <div data-testid="setup-intro" className="space-y-6">
+              <div className="space-y-4 text-sm font-body text-text-main">
+                <p>
+                  Homestead is your household&apos;s private home base — a
+                  self-hosted collection of small apps for the things your
+                  family keeps track of together, with all the data living on
+                  your own server.
+                </p>
+                <ul className="space-y-2">
+                  {[
+                    'Track recipes, gift cards, to-dos, events and more — together.',
+                    'Everyone in your household shares one home dashboard.',
+                    'Your data stays on your hardware; nothing leaves your server.',
+                  ].map((point) => (
+                    <li key={point} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-terracotta" />
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-text-muted">
+                  You&apos;re the first one here. Next, you&apos;ll create the
+                  admin account that owns this instance.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="setup-get-started"
+                onClick={() => setSetupIntroSeen(true)}
+                className="w-full flex justify-center py-3 px-4 rounded-lg shadow-sm text-base font-body font-semibold text-white bg-accent-terracotta hover:bg-accent-terracotta-hover focus:outline-none focus:ring-2 focus:ring-accent-terracotta/40 focus:ring-offset-1 transition-colors"
+              >
+                Get started
+              </button>
+            </div>
+          ) : (
+          <>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Display name (first-visit setup only, optional) */}
+            {needsSetup && (
+              <div>
+                <label
+                  htmlFor="display-name"
+                  className="block text-sm font-body font-medium text-brand-navy mb-2"
+                >
+                  Display name{' '}
+                  <span className="font-normal text-text-muted">(optional)</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-text-muted" />
+                  </div>
+                  <input
+                    id="display-name"
+                    type="text"
+                    data-testid="setup-display-name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-surface-white font-body text-text-main placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-terracotta/40 focus:border-accent-terracotta"
+                    placeholder="e.g. Alex"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Email */}
             <div>
               <label
@@ -249,6 +326,8 @@ export function Login() {
                 ))}
               </div>
             </div>
+          )}
+          </>
           )}
         </div>
       </div>

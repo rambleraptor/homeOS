@@ -10,6 +10,7 @@ import type { Database } from '../engine/sqlite';
 import { claimSetup, needsSetup } from '../bootstrap';
 
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_DISPLAY_NAME_LENGTH = 100;
 
 export function makeSetupRoute(db: Database): Hono {
   const app = new Hono();
@@ -23,9 +24,11 @@ export function makeSetupRoute(db: Database): Hono {
     const body = (await c.req.json().catch(() => null)) as {
       email?: string;
       password?: string;
+      display_name?: string;
     } | null;
     const email = body?.email?.trim();
     const password = body?.password;
+    const displayName = body?.display_name?.trim();
     if (!email || !email.includes('@')) {
       return c.json({ error: 'a valid email is required' }, 400);
     }
@@ -35,7 +38,15 @@ export function makeSetupRoute(db: Database): Hono {
         400,
       );
     }
-    await claimSetup(db, email, password);
+    if (displayName && displayName.length > MAX_DISPLAY_NAME_LENGTH) {
+      return c.json(
+        {
+          error: `display name must be at most ${MAX_DISPLAY_NAME_LENGTH} characters`,
+        },
+        400,
+      );
+    }
+    await claimSetup(db, email, password, displayName);
     return c.json({ ok: true });
   });
 
