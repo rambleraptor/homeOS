@@ -58,21 +58,18 @@ export function bucketTodos(todos: Todo[]): TodoBuckets {
 }
 
 /**
- * Derive the two-segment progress bar values from the full todo list.
+ * Derive the completion-bar value from the full todo list.
  *
  * - Cancelled items are excluded from both numerator and denominator.
  * - Completed items contribute to the green segment.
- * - In-progress items contribute to the yellow segment.
  * - Pending and do_later items count toward the denominator only.
  */
 export function computeProgress(todos: Todo[]): TodoProgress {
   const denom = todos.filter((t) => t.status !== 'cancelled').length;
-  if (denom === 0) return { green: 0, yellow: 0 };
+  if (denom === 0) return { green: 0 };
   const green =
     (todos.filter((t) => t.status === 'completed').length / denom) * 100;
-  const yellow =
-    (todos.filter((t) => t.status === 'in_progress').length / denom) * 100;
-  return { green, yellow };
+  return { green };
 }
 
 export function useTodoBuckets(scope: ProjectScope = MAIN_PROJECT_ID) {

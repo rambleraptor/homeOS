@@ -5,12 +5,11 @@ interface TodoProgressBarProps {
 }
 
 /**
- * Two-segment progress bar: green for completed, yellow for in-progress.
- * Track structure mirrors `CoverageProgressBar` for visual consistency.
+ * Single-segment completion bar: green for completed. Track structure mirrors
+ * `CoverageProgressBar` for visual consistency.
  */
 export function TodoProgressBar({ progress }: TodoProgressBarProps) {
   const greenPct = Math.max(0, Math.min(100, progress.green));
-  const yellowPct = Math.max(0, Math.min(100 - greenPct, progress.yellow));
 
   return (
     <div
@@ -25,11 +24,6 @@ export function TodoProgressBar({ progress }: TodoProgressBarProps) {
         className="h-full bg-green-500 transition-all"
         style={{ width: `${greenPct}%` }}
         data-testid="todos-progress-green"
-      />
-      <div
-        className="h-full bg-yellow-400 transition-all"
-        style={{ width: `${yellowPct}%` }}
-        data-testid="todos-progress-yellow"
       />
     </div>
   );

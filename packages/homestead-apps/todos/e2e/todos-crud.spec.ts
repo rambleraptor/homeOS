@@ -47,7 +47,7 @@ test.describe('Todos CRUD', () => {
 
   test('reset progress returns every todo to pending', async ({ adminToken }) => {
     await createTodo(adminToken, { title: 'Task A', status: 'completed' });
-    await createTodo(adminToken, { title: 'Task B', status: 'in_progress' });
+    await createTodo(adminToken, { title: 'Task B', status: 'cancelled' });
     await createTodo(adminToken, { title: 'Task C', status: 'do_later' });
     await todosPage.goto();
 

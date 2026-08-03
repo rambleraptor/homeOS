@@ -1,13 +1,11 @@
 /**
- * Dashboard widget showing the active todos (pending + in_progress),
- * excluding do_later, completed, and cancelled. Registered via
- * `todosApp.widgets`.
+ * Dashboard widget showing the active (pending) todos, excluding do_later,
+ * completed, and cancelled. Registered via `todosApp.widgets`.
  */
 
 import { Link } from 'react-router-dom';
 import { ListTodo, Loader2 } from 'lucide-react';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
-import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { useTodoBuckets } from '../hooks/useTodos';
 import {
   SYNTHETIC_TODO_GROCERIES_ID,
@@ -39,17 +37,13 @@ export function TodoWidget() {
       ) : (
         <ul className="divide-y divide-gray-50" data-testid="todos-widget-list">
           {active.map((todo) => {
-            const isInProgress = todo.status === 'in_progress';
             const href =
               todo.id === SYNTHETIC_TODO_GROCERIES_ID ? '/groceries' : null;
             return (
               <li
                 key={todo.id}
                 data-testid={`todos-widget-item-${todo.id}`}
-                className={cn(
-                  'flex items-center gap-3 py-3',
-                  isInProgress && 'border-l-4 border-l-yellow-400 pl-2',
-                )}
+                className="flex items-center gap-3 py-3"
               >
                 {href ? (
                   <Link

@@ -2,16 +2,10 @@
  * Todo App Types
  */
 
-export type TodoStatus =
-  | 'pending'
-  | 'in_progress'
-  | 'do_later'
-  | 'completed'
-  | 'cancelled';
+export type TodoStatus = 'pending' | 'do_later' | 'completed' | 'cancelled';
 
 export const TODO_STATUSES: readonly TodoStatus[] = [
   'pending',
-  'in_progress',
   'do_later',
   'completed',
   'cancelled',
@@ -52,6 +46,36 @@ export interface Project {
 }
 
 /**
+ * A reusable checklist template. Instantiating one creates a new project
+ * pre-filled with a `pending` todo for each of its items.
+ */
+export interface ListTemplate {
+  id: string;
+  path: string;
+  name: string;
+  created_by?: string;
+  create_time: string;
+  update_time: string;
+}
+
+/**
+ * A single item within a {@link ListTemplate}. Stored as a child of the
+ * template (`/list-templates/{id}/template-items/{id}`), so the parent id
+ * lives in the URL rather than as a stored field.
+ */
+export interface TemplateItem {
+  id: string;
+  path: string;
+  title: string;
+  create_time: string;
+  update_time: string;
+}
+
+export interface TemplateItemFormData {
+  title: string;
+}
+
+/**
  * Sentinel id for the implicit main project. The main project is not a real
  * record — it's the union of todos with no `project` field plus todos pinned
  * to main via `in_main=true`.
@@ -65,9 +89,9 @@ export const MAIN_PROJECT_ID = '__main__' as const;
 export type ProjectScope = string;
 
 /**
- * Three buckets the UI splits the list into. `active` covers `pending` and
- * `in_progress`; `doLater` covers `do_later`; `completed` covers both
- * `completed` and `cancelled`.
+ * Three buckets the UI splits the list into. `active` covers `pending`;
+ * `doLater` covers `do_later`; `completed` covers both `completed` and
+ * `cancelled`.
  */
 export interface TodoBuckets {
   active: Todo[];
@@ -76,10 +100,9 @@ export interface TodoBuckets {
 }
 
 /**
- * Progress percentages for the multi-segment bar (0-100).
- * Cancelled items are excluded from the denominator entirely.
+ * Progress percentage for the completion bar (0-100). Cancelled items are
+ * excluded from the denominator entirely.
  */
 export interface TodoProgress {
   green: number;
-  yellow: number;
 }

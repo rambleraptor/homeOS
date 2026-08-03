@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Check, Moon, Pause, Pin, PinOff, Undo2, X } from 'lucide-react';
+import { Check, Moon, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import type { Todo, TodoStatus } from '../types';
@@ -41,9 +41,8 @@ interface ActionConfig {
   status: TodoStatus;
 }
 
-function actionsForVariant(variant: TodoRowVariant, todo: Todo): ActionConfig[] {
+function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
   if (variant === 'active') {
-    const isInProgress = todo.status === 'in_progress';
     return [
       {
         testId: 'cancel',
@@ -51,16 +50,6 @@ function actionsForVariant(variant: TodoRowVariant, todo: Todo): ActionConfig[] 
         icon: X,
         color: 'text-red-500 hover:bg-red-500/10',
         status: 'cancelled',
-      },
-      {
-        testId: 'inprogress',
-        label: isInProgress ? 'Move back to pending' : 'Mark in progress',
-        icon: Pause,
-        color: cn(
-          'text-yellow-500 hover:bg-yellow-500/10',
-          isInProgress && 'bg-yellow-500/15',
-        ),
-        status: isInProgress ? 'pending' : 'in_progress',
       },
       {
         testId: 'dolater',
@@ -126,8 +115,7 @@ export function TodoRow({
   pinnedFromLabel,
   href,
 }: TodoRowProps) {
-  const actions = readOnly ? [] : actionsForVariant(variant, todo);
-  const isInProgress = variant === 'active' && todo.status === 'in_progress';
+  const actions = readOnly ? [] : actionsForVariant(variant);
   const isCancelled = todo.status === 'cancelled';
   const isPinned = todo.in_main === true;
   const PinIcon = isPinned ? PinOff : Pin;
@@ -158,7 +146,6 @@ export function TodoRow({
       data-testid={`todo-row-${todo.id}`}
       className={cn(
         'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-pearl',
-        isInProgress && 'border-l-4 border-l-yellow-400 pl-3',
       )}
     >
       {href ? (
