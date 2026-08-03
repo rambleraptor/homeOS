@@ -11,6 +11,7 @@ const form1095A: DocType = {
   label: 'Form 1095-A',
   icon: () => import('lucide-react').then((m) => m.ShieldPlus),
   category: 'tax',
+  title_template: '1095-A ({tax_year}) — {insurance_company_name}',
   description:
     'A US tax form reporting health coverage bought through the Health Insurance ' +
     'Marketplace, used to reconcile the premium tax credit on Form 8962. Titled ' +

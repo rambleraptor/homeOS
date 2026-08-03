@@ -11,6 +11,7 @@ const form1099Nec: DocType = {
   label: 'Form 1099-NEC',
   icon: () => import('lucide-react').then((m) => m.Briefcase),
   category: 'tax',
+  title_template: '1099-NEC ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting pay to an independent contractor or freelancer. ' +
     'Titled "Form 1099-NEC" and "Nonemployee Compensation", with a prominent Box 1. ' +

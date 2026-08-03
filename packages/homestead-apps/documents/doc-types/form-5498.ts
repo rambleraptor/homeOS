@@ -12,6 +12,7 @@ const form5498: DocType = {
   label: 'Form 5498',
   icon: () => import('lucide-react').then((m) => m.Vault),
   category: 'tax',
+  title_template: '5498 ({tax_year}) — {trustee_name}',
   description:
     'A US tax form reporting contributions to an IRA during the year, plus its ' +
     'year-end value. Titled "Form 5498" and "IRA Contribution Information", issued ' +

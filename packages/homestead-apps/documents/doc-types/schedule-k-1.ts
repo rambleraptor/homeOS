@@ -13,6 +13,7 @@ const scheduleK1: DocType = {
   label: 'Schedule K-1',
   icon: () => import('lucide-react').then((m) => m.Share2),
   category: 'tax',
+  title_template: 'Schedule K-1 ({tax_year}) — {entity_name}',
   description:
     "A US tax form reporting a partner's or shareholder's share of a pass-through " +
     'entity\'s income, deductions, and credits. Titled "Schedule K-1", from Form ' +

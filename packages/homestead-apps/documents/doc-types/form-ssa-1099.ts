@@ -11,6 +11,7 @@ const formSsa1099: DocType = {
   label: 'Form SSA-1099',
   icon: () => import('lucide-react').then((m) => m.BadgeCheck),
   category: 'tax',
+  title_template: 'SSA-1099 ({tax_year}) — {beneficiary_name}',
   description:
     'A US tax form reporting the Social Security benefits a person received during ' +
     'the year. Titled "Form SSA-1099" and "Social Security Benefit Statement", ' +

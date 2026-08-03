@@ -11,6 +11,7 @@ const form1098E: DocType = {
   label: 'Form 1098-E',
   icon: () => import('lucide-react').then((m) => m.GraduationCap),
   category: 'tax',
+  title_template: '1098-E ({tax_year}) — {lender_name}',
   description:
     'A US tax form reporting student loan interest a borrower paid during the year. ' +
     'Titled "Form 1098-E" and "Student Loan Interest Statement", issued by the loan ' +

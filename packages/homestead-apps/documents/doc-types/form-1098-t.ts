@@ -12,6 +12,7 @@ const form1098T: DocType = {
   label: 'Form 1098-T',
   icon: () => import('lucide-react').then((m) => m.School),
   category: 'tax',
+  title_template: '1098-T ({tax_year}) — {filer_name}',
   description:
     'A US tax form reporting tuition a student was billed or paid during the year. ' +
     'Titled "Form 1098-T" and "Tuition Statement", issued by a college or university. ' +

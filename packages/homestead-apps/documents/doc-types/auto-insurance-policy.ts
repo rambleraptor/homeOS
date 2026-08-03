@@ -20,6 +20,7 @@ const autoInsurancePolicy: DocType = {
   id: 'auto-insurance-policy',
   label: 'Auto insurance policy',
   icon: () => import('lucide-react').then((m) => m.Car),
+  title_template: 'Auto Insurance — {named_insured}',
   description:
     'An auto (car) insurance policy — the contract between a driver and an ' +
     'insurance carrier that covers losses from a vehicle: liability, collision, ' +

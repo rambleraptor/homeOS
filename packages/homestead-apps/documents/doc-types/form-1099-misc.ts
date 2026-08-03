@@ -12,6 +12,7 @@ const form1099Misc: DocType = {
   label: 'Form 1099-MISC',
   icon: () => import('lucide-react').then((m) => m.FileText),
   category: 'tax',
+  title_template: '1099-MISC ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting miscellaneous income such as rents, royalties, and ' +
     'prizes. Titled "Form 1099-MISC" and "Miscellaneous Information", with numbered ' +

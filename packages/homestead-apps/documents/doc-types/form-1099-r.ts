@@ -11,6 +11,7 @@ const form1099R: DocType = {
   label: 'Form 1099-R',
   icon: () => import('lucide-react').then((m) => m.PiggyBank),
   category: 'tax',
+  title_template: '1099-R ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting distributions from a pension, annuity, IRA, or other ' +
     'retirement plan. Titled "Form 1099-R" and "Distributions From Pensions, ' +

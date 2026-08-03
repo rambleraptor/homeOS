@@ -11,6 +11,7 @@ const form5498Sa: DocType = {
   label: 'Form 5498-SA',
   icon: () => import('lucide-react').then((m) => m.Wallet),
   category: 'tax',
+  title_template: '5498-SA ({tax_year}) — {trustee_name}',
   description:
     'A US tax form reporting contributions to a health savings account during the ' +
     'year, plus its year-end value. Titled "Form 5498-SA" and "HSA, Archer MSA, or ' +

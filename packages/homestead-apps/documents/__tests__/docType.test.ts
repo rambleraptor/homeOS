@@ -13,6 +13,8 @@ import {
   toVariants,
   docTypeIds,
   toExtractionSchema,
+  freeTitlePlaceholders,
+  renderTitleTemplate,
   UNKNOWN_DOC_TYPE,
   type DocType,
 } from '../doc-types/docType';
@@ -210,6 +212,120 @@ describe('validateDocType', () => {
     expect(() =>
       validateDocType({ ...wellFormed, post_classify: 'nope' }, 'x.ts'),
     ).toThrow(/post_classify must be a function/);
+  });
+
+  it('accepts a title_template and preserves it', () => {
+    const parsed = validateDocType(
+      { ...wellFormed, title_template: '1099 ({tax_year}) — {payer_name}' },
+      'x.ts',
+    );
+    expect(parsed.title_template).toBe('1099 ({tax_year}) — {payer_name}');
+  });
+
+  it('omits title_template entirely when none is declared', () => {
+    // Kept absent (not '') so `toEqual(wellFormed)` on a templateless type holds.
+    expect(validateDocType(wellFormed, 'x.ts')).not.toHaveProperty('title_template');
+  });
+
+  it('rejects a non-string or empty title_template', () => {
+    expect(() =>
+      validateDocType({ ...wellFormed, title_template: 42 }, 'x.ts'),
+    ).toThrow(/title_template, when set, must be a non-empty string/);
+    expect(() =>
+      validateDocType({ ...wellFormed, title_template: '   ' }, 'x.ts'),
+    ).toThrow(/title_template, when set, must be a non-empty string/);
+  });
+
+  it('rejects a title_template with no placeholder', () => {
+    expect(() =>
+      validateDocType({ ...wellFormed, title_template: 'A constant title' }, 'x.ts'),
+    ).toThrow(/must contain at least one \{placeholder\}/);
+  });
+
+  it('rejects a title_template with an unbalanced brace', () => {
+    expect(() =>
+      validateDocType({ ...wellFormed, title_template: '{payer_name} — {oops' }, 'x.ts'),
+    ).toThrow(/unbalanced/);
+  });
+
+  it('rejects a non-snake_case title_template placeholder', () => {
+    expect(() =>
+      validateDocType({ ...wellFormed, title_template: '{payerName}' }, 'x.ts'),
+    ).toThrow(/placeholder "\{payerName\}" must be snake_case/);
+  });
+
+  it('rejects a placeholder that points at a non-scalar field', () => {
+    // A field-backed placeholder can only fill a title from a string/number
+    // value; an array/object field never renders, so it's caught at authoring.
+    expect(() =>
+      validateDocType(
+        {
+          ...wellFormed,
+          fields: { drivers: { label: 'Drivers', type: 'array', items: { label: 'D', type: 'string' } } },
+          title_template: 'Policy — {drivers}',
+        },
+        'x.ts',
+      ),
+    ).toThrow(/refers to the array field "drivers"/);
+  });
+
+  it('accepts a free (non-field) placeholder the model will fill', () => {
+    // {tax_year} isn't a declared field here — that's allowed: classify has the
+    // model read it off the document during extraction.
+    expect(() =>
+      validateDocType(
+        { ...wellFormed, title_template: '1099 ({tax_year}) — {payer_name}' },
+        'x.ts',
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe('freeTitlePlaceholders', () => {
+  it('returns the placeholders that are not declared fields, deduped in order', () => {
+    const t = type('form-1099', {
+      payer_name: { label: 'Payer', type: 'string' },
+    });
+    t.title_template = '1099 ({tax_year}) — {payer_name} ({tax_year})';
+    // {payer_name} is a field (dropped); {tax_year} is free and deduped.
+    expect(freeTitlePlaceholders(t)).toEqual(['tax_year']);
+  });
+
+  it('is empty for a type with no template', () => {
+    expect(freeTitlePlaceholders(type('t', { a: { label: 'A', type: 'string' } }))).toEqual([]);
+  });
+
+  it('is empty when every placeholder is field-backed', () => {
+    const t = type('t', { merchant: { label: 'Merchant', type: 'string' } });
+    t.title_template = 'Receipt — {merchant}';
+    expect(freeTitlePlaceholders(t)).toEqual([]);
+  });
+});
+
+describe('renderTitleTemplate', () => {
+  it('fills every placeholder from string and number values', () => {
+    expect(
+      renderTitleTemplate('1099-INT ({tax_year}) — {payer_name}', {
+        tax_year: 2024,
+        payer_name: 'Pecan Street Credit Union',
+      }),
+    ).toBe('1099-INT (2024) — Pecan Street Credit Union');
+  });
+
+  it('trims string values but renders numbers verbatim', () => {
+    expect(renderTitleTemplate('{a} {b}', { a: '  x  ', b: 7 })).toBe('x 7');
+  });
+
+  it('returns null when any placeholder is missing, null, or blank', () => {
+    const tpl = '{doc} — {who}';
+    expect(renderTitleTemplate(tpl, { doc: 'Policy' })).toBeNull();
+    expect(renderTitleTemplate(tpl, { doc: 'Policy', who: null })).toBeNull();
+    expect(renderTitleTemplate(tpl, { doc: 'Policy', who: '   ' })).toBeNull();
+  });
+
+  it('returns null for a non-scalar placeholder value', () => {
+    expect(renderTitleTemplate('{list}', { list: ['a', 'b'] })).toBeNull();
+    expect(renderTitleTemplate('{n}', { n: Number.NaN })).toBeNull();
   });
 });
 

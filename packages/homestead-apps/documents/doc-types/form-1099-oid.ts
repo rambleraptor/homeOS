@@ -11,6 +11,7 @@ const form1099Oid: DocType = {
   label: 'Form 1099-OID',
   icon: () => import('lucide-react').then((m) => m.Percent),
   category: 'tax',
+  title_template: '1099-OID ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting original issue discount — the interest that accrues ' +
     'on a bond issued below face value. Titled "Form 1099-OID" and "Original Issue ' +

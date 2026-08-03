@@ -11,6 +11,7 @@ const form1099G: DocType = {
   label: 'Form 1099-G',
   icon: () => import('lucide-react').then((m) => m.Building2),
   category: 'tax',
+  title_template: '1099-G ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting government payments such as unemployment compensation ' +
     'and state or local tax refunds. Titled "Form 1099-G" and "Certain Government ' +

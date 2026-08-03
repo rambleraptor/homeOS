@@ -17,6 +17,7 @@ const form1099Int: DocType = {
   label: 'Form 1099-INT',
   icon: () => import('lucide-react').then((m) => m.Landmark),
   category: 'tax',
+  title_template: '1099-INT ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting interest income paid to an account holder during ' +
     'the year. Titled "Form 1099-INT" and "Interest Income", with numbered ' +

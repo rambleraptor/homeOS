@@ -13,6 +13,7 @@ const form1099Div: DocType = {
   label: 'Form 1099-DIV',
   icon: () => import('lucide-react').then((m) => m.Coins),
   category: 'tax',
+  title_template: '1099-DIV ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting dividends and other distributions paid on stock ' +
     'during the year. Titled "Form 1099-DIV" and "Dividends and Distributions", ' +

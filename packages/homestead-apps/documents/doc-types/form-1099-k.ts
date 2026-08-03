@@ -12,6 +12,7 @@ const form1099K: DocType = {
   label: 'Form 1099-K',
   icon: () => import('lucide-react').then((m) => m.CreditCard),
   category: 'tax',
+  title_template: '1099-K ({tax_year}) — {filer_name}',
   description:
     'A US tax form reporting payments settled through a card processor or ' +
     'third-party network (e.g. a marketplace or payment app). Titled "Form 1099-K" ' +

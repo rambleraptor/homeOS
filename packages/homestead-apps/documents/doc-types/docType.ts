@@ -107,6 +107,24 @@ export interface DocType {
   category?: string;
   fields: Record<string, DocField>;
   /**
+   * Optional per-type title shape for `classify` to fill, e.g.
+   * `'1099-INT ({tax_year}) — {payer_name}'`. Each `{placeholder}` is a
+   * snake_case name resolved when a document matches this type:
+   *   - a name matching one of this type's `fields` is filled deterministically
+   *     from the value that field extracted (a "field-backed" placeholder);
+   *   - any other name is a "free" placeholder the model reads off the document
+   *     during the extraction pass (e.g. `{tax_year}` on a form that has no
+   *     tax-year field) — the hybrid escape hatch for values worth putting in a
+   *     title but not worth storing as a column.
+   * If every placeholder resolves to a value the rendered string becomes the
+   * document's title; if any is missing (a field came back null, or the model
+   * couldn't read a free one) `classify` falls back to the model-authored title
+   * rather than emitting one with a hole in it. Omit it entirely to always use
+   * the model-authored title — the `recipe` type does, because its title is the
+   * dish name the model infers, not a value it extracts. See `methods/classify.ts`.
+   */
+  title_template?: string;
+  /**
    * Optional server-only hook run after a document matches this type. Lazily
    * imported (mirrors `ResourceCustomMethod.load`) so its server-only body —
    * aepbase helpers, cross-app imports — stays out of the client bundle. See
@@ -128,6 +146,13 @@ export const UNKNOWN_DOC_TYPE = 'unknown';
 const KEBAB_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 /** Snake_case: field names become column names. */
 const SNAKE_RE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*$/;
+/**
+ * A `{placeholder}` in a {@link DocType.title_template}. Global (used with
+ * `replace`/`matchAll`, never `test`/`exec`, so its `lastIndex` never leaks) and
+ * deliberately loose on the inner text — `parseTitleTemplate` validates each
+ * captured name is snake_case, giving a precise error instead of a silent miss.
+ */
+const TITLE_PLACEHOLDER_RE = /\{([^{}]*)\}/g;
 
 /**
  * Validate one doc type object. `source` names the module in errors — an
@@ -175,6 +200,7 @@ export function validateDocType(input: unknown, source: string): DocType {
 
   const category = parseCategory(doc.category, fail);
   const parsed = parseFields(fields, '', fail);
+  const titleTemplate = parseTitleTemplate(doc.title_template, parsed, fail);
   return {
     id,
     label,
@@ -182,6 +208,7 @@ export function validateDocType(input: unknown, source: string): DocType {
     icon: icon as LazyIcon,
     ...(category ? { category } : {}),
     fields: parsed,
+    ...(titleTemplate ? { title_template: titleTemplate } : {}),
     ...(post_classify ? { post_classify: post_classify as DocType['post_classify'] } : {}),
   };
 }
@@ -198,6 +225,55 @@ function parseCategory(
   if (input === undefined) return undefined;
   if (typeof input !== 'string' || !KEBAB_RE.test(input)) {
     return fail(`category ${JSON.stringify(input)} must be a lowercase kebab-case string`);
+  }
+  return input;
+}
+
+/**
+ * Parse and validate the optional `title_template`. Absent → undefined (the type
+ * keeps the model-authored title); present → the template string, unchanged.
+ *
+ * Guards what an operator can get wrong at authoring time: it must be a
+ * non-empty string, carry at least one `{placeholder}` (a template with none is
+ * a constant title, always a mistake), balance its braces, and name each
+ * placeholder in snake_case. A placeholder that matches a declared field must
+ * point at a `string`/`number` one — those are the values that can render into a
+ * title; an `array`/`object` field never can, so catch it here rather than have
+ * it silently drop the title to the model fallback at classify time. A
+ * placeholder that matches no field is a free (model-filled) one and needs no
+ * such check.
+ */
+function parseTitleTemplate(
+  input: unknown,
+  fields: Record<string, DocField>,
+  fail: (message: string) => never,
+): string | undefined {
+  if (input === undefined) return undefined;
+  if (typeof input !== 'string' || !input.trim()) {
+    return fail('title_template, when set, must be a non-empty string');
+  }
+  const names: string[] = [];
+  const stripped = input.replace(TITLE_PLACEHOLDER_RE, (_match, name: string) => {
+    names.push(name);
+    return '';
+  });
+  if (stripped.includes('{') || stripped.includes('}')) {
+    return fail(`title_template ${JSON.stringify(input)} has an unbalanced { or }`);
+  }
+  if (!names.length) {
+    return fail('title_template must contain at least one {placeholder}');
+  }
+  for (const name of names) {
+    if (!SNAKE_RE.test(name)) {
+      return fail(`title_template placeholder "{${name}}" must be snake_case`);
+    }
+    const field = fields[name];
+    if (field && field.type !== 'string' && field.type !== 'number') {
+      return fail(
+        `title_template placeholder "{${name}}" refers to the ${field.type} field ` +
+          `"${name}" — only string or number fields can fill a title`,
+      );
+    }
   }
   return input;
 }
@@ -425,4 +501,55 @@ function docFieldToZod(field: DocField): z.ZodTypeAny {
     default:
       return z.string();
   }
+}
+
+/** Every `{placeholder}` name in a title template, in order (duplicates kept). */
+function titleTemplatePlaceholders(template: string): string[] {
+  return [...template.matchAll(TITLE_PLACEHOLDER_RE)].map((match) => match[1]!);
+}
+
+/**
+ * A type's title-template placeholders that are *not* one of its declared
+ * fields — the "free" ones the model fills off the document during the
+ * extraction pass (see {@link DocType.title_template}). Deduplicated, in
+ * first-seen order. Empty when the type has no template (or every placeholder is
+ * field-backed). `classify` adds one nullable string to the extraction schema
+ * per name returned here, then strips them back out before storing metadata.
+ */
+export function freeTitlePlaceholders(type: DocType): string[] {
+  if (!type.title_template) return [];
+  const declared = new Set(Object.keys(type.fields));
+  const seen = new Set<string>();
+  const free: string[] = [];
+  for (const name of titleTemplatePlaceholders(type.title_template)) {
+    if (declared.has(name) || seen.has(name)) continue;
+    seen.add(name);
+    free.push(name);
+  }
+  return free;
+}
+
+/**
+ * Render a title template against a bag of values (extracted field values plus
+ * any free-placeholder values the model read). Returns the filled title, or
+ * `null` when any placeholder is unfilled — a null/absent value, a blank string,
+ * or a non-scalar (arrays/objects can't render into a title). A null return is
+ * the signal for `classify` to fall back to the model-authored title rather than
+ * emit one with an empty slot. Numbers render verbatim (e.g. a `tax_year` of
+ * 2024 → "2024"); strings are trimmed.
+ */
+export function renderTitleTemplate(
+  template: string,
+  values: Record<string, unknown>,
+): string | null {
+  let missing = false;
+  const rendered = template.replace(TITLE_PLACEHOLDER_RE, (_match, name: string) => {
+    const value = values[name];
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    missing = true;
+    return '';
+  });
+  if (missing) return null;
+  return rendered.trim() || null;
 }

@@ -12,6 +12,7 @@ const form1099C: DocType = {
   label: 'Form 1099-C',
   icon: () => import('lucide-react').then((m) => m.Eraser),
   category: 'tax',
+  title_template: '1099-C ({tax_year}) — {creditor_name}',
   description:
     'A US tax form reporting a debt a lender cancelled or forgave. Titled "Form ' +
     '1099-C" and "Cancellation of Debt", with a CREDITOR and a DEBTOR block. ' +

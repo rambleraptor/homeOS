@@ -11,6 +11,7 @@ const formW2: DocType = {
   label: 'Form W-2',
   icon: () => import('lucide-react').then((m) => m.BadgeDollarSign),
   category: 'tax',
+  title_template: 'W-2 ({tax_year}) — {employer_name}',
   description:
     'A US tax form reporting wages paid by an employer and taxes withheld during ' +
     'the year. Titled "Form W-2" and "Wage and Tax Statement", laid out in ' +

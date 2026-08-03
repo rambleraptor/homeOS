@@ -12,6 +12,7 @@ const formW2G: DocType = {
   label: 'Form W-2G',
   icon: () => import('lucide-react').then((m) => m.Dices),
   category: 'tax',
+  title_template: 'W-2G ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting gambling winnings and any tax withheld. Titled "Form ' +
     'W-2G" and "Certain Gambling Winnings", issued by a casino, lottery, or track. ' +

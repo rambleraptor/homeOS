@@ -11,6 +11,7 @@ const form1099Sa: DocType = {
   label: 'Form 1099-SA',
   icon: () => import('lucide-react').then((m) => m.HeartPulse),
   category: 'tax',
+  title_template: '1099-SA ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting distributions from a health savings account (HSA) or ' +
     'medical savings account. Titled "Form 1099-SA" and "Distributions From an HSA, ' +
