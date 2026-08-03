@@ -61,6 +61,14 @@ const form1099Oid: DocType = {
         'OID on Treasury obligations, from Box 8. Often exempt from state tax; ' +
         'distinct from Box 1.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 

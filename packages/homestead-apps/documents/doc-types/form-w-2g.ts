@@ -60,6 +60,14 @@ const formW2G: DocType = {
       type: 'string',
       description: 'The kind of bet or game (e.g. "slot machine", "lottery"), from Box 3.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 

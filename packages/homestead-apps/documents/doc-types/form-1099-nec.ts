@@ -54,6 +54,14 @@ const form1099Nec: DocType = {
       type: 'number',
       description: 'State income tax withheld, from Box 5, if any.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 

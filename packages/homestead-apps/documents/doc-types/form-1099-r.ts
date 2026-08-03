@@ -68,6 +68,14 @@ const form1099R: DocType = {
       type: 'string',
       description: 'The plan or account number the distribution came from, if shown.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 

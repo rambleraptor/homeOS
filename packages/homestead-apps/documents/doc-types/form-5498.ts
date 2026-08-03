@@ -68,6 +68,14 @@ const form5498: DocType = {
         'Which IRA-type box is checked in Box 7 — e.g. "IRA", "SEP", "SIMPLE", or ' +
         '"Roth IRA". Record the checked type.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 

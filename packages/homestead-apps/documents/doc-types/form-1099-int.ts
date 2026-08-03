@@ -88,6 +88,14 @@ const form1099Int: DocType = {
         'Interest not subject to federal income tax, from Box 8, such as from ' +
         'municipal bond funds.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 

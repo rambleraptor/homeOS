@@ -79,6 +79,14 @@ const formW2: DocType = {
       type: 'number',
       description: 'Medicare tax withheld, from Box 6.',
     },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
+    },
   },
 };
 
