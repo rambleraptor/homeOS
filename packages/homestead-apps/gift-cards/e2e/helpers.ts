@@ -3,7 +3,7 @@
  * test fixtures used by gift-card specs.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 interface CreateGiftCardInput {
   merchant: string;
@@ -26,7 +26,7 @@ export async function createGiftCard(
   token: string,
   data: CreateGiftCardInput,
 ): Promise<GiftCardRecord> {
-  return aepCreate<GiftCardRecord>(token, 'gift-cards', {
+  return e2eClient(token).collection<GiftCardRecord>('gift-cards').create({
     merchant: data.merchant,
     amount: data.amount,
     card_number:
@@ -49,9 +49,9 @@ export async function createMultipleGiftCards(
 }
 
 export async function deleteAllGiftCards(token: string) {
-  const items = await aepList<{ id: string }>(token, 'gift-cards');
+  const items = await e2eClient(token).collection<{ id: string }>('gift-cards').listAll();
   for (const item of items) {
-    await aepRemove(token, 'gift-cards', item.id, undefined, true);
+    await deleteIfPresent(token, 'gift-cards', item.id, { force: true });
   }
 }
 

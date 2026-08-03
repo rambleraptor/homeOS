@@ -10,11 +10,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import {
-  aepGet,
-  aepList,
-  postCustomMethod,
-} from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient, listOrEmpty, postCustomMethod } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { deleteAllRecipes, type RecipeRecord } from './helpers';
 
 interface OperationRow {
@@ -76,11 +72,11 @@ async function bulkImport(
   const { id } = (await res.json()) as { id: string };
 
   await expect
-    .poll(async () => (await aepGet<OperationRow>(token, 'operations', id)).done, {
+    .poll(async () => (await e2eClient(token).collection<OperationRow>('operations').get(id)).done, {
       timeout: 15_000,
     })
     .toBe(true);
-  return aepGet<OperationRow>(token, 'operations', id);
+  return e2eClient(token).collection<OperationRow>('operations').get(id);
 }
 
 test.describe('Recipes bulk import — API', () => {
@@ -92,7 +88,7 @@ test.describe('Recipes bulk import — API', () => {
     const operation = await bulkImport(adminToken, { format: 'text', text: RECIPE_TEXT });
 
     expect(operation.response?.created).toBe(1);
-    const recipes = await aepList<RecipeRecord>(adminToken, 'recipes');
+    const recipes = await listOrEmpty<RecipeRecord>(adminToken, 'recipes');
     expect(recipes).toHaveLength(1);
     expect(recipes[0].title).toBe('Bacon Wrapped Asparagus');
     expect(recipes[0].parsed_ingredients.length).toBeGreaterThan(0);
@@ -108,7 +104,7 @@ test.describe('Recipes bulk import — API', () => {
     });
 
     expect(operation.response?.created).toBe(1);
-    const recipes = await aepList<RecipeRecord>(adminToken, 'recipes');
+    const recipes = await listOrEmpty<RecipeRecord>(adminToken, 'recipes');
     expect(recipes[0].title).toBe('Bacon Wrapped Asparagus');
     expect(recipes[0].prep_time).toBe('10 mins');
   });
@@ -126,7 +122,7 @@ test.describe('Recipes bulk import — API', () => {
     });
 
     expect(operation.response?.created).toBe(2);
-    const recipes = await aepList<RecipeRecord>(adminToken, 'recipes');
+    const recipes = await listOrEmpty<RecipeRecord>(adminToken, 'recipes');
     expect(recipes.map((r) => r.title).sort()).toEqual(['Recipe A', 'Recipe B']);
   });
 
@@ -188,7 +184,7 @@ test.describe('Recipes bulk import — page', () => {
     await authenticatedPage.getByTestId('import-button').click();
     await authenticatedPage.waitForURL(/\/recipes$/);
 
-    const recipes = await aepList<RecipeRecord>(adminToken, 'recipes');
+    const recipes = await listOrEmpty<RecipeRecord>(adminToken, 'recipes');
     expect(recipes.map((r) => r.title)).toEqual(['Bacon Wrapped Asparagus']);
   });
 

@@ -11,12 +11,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import {
-  aepCreate,
-  aepList,
-  aepRemove,
-  resetAppFlags,
-} from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient, listOrEmpty, resetAppFlags } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { RecipesPage } from './RecipesPage';
 import { createRecipe, deleteAllRecipes } from './helpers';
 
@@ -36,9 +31,9 @@ const recipe = {
 };
 
 async function deleteAllGroceries(token: string) {
-  const items = await aepList<{ id: string }>(token, 'groceries');
+  const items = await listOrEmpty<{ id: string }>(token, 'groceries');
   for (const item of items) {
-    await aepRemove(token, 'groceries', item.id, undefined, true);
+    await deleteIfPresent(token, 'groceries', item.id, { force: true });
   }
 }
 
@@ -67,13 +62,13 @@ test.describe('Recipes → grocery list', () => {
     await recipesPage.addIngredientsToGroceryList();
 
     await expect(async () => {
-      const groceries = await aepList<GroceryRecord>(adminToken, 'groceries');
+      const groceries = await listOrEmpty<GroceryRecord>(adminToken, 'groceries');
       const names = groceries.map((g) => g.name).sort();
       expect(names).toEqual(['cheddar cheese', 'ground beef', 'tortillas']);
     }).toPass();
 
     // Quantity + unit are carried into the item's notes.
-    const groceries = await aepList<GroceryRecord>(adminToken, 'groceries');
+    const groceries = await listOrEmpty<GroceryRecord>(adminToken, 'groceries');
     const beef = groceries.find((g) => g.name === 'ground beef');
     expect(beef?.notes).toBe('1 lb');
   });
@@ -81,7 +76,7 @@ test.describe('Recipes → grocery list', () => {
   test('skips ingredients already on the grocery list', async ({ adminToken }) => {
     const created = await createRecipe(adminToken, recipe);
     // Pre-seed a matching item so it should not be added a second time.
-    await aepCreate<GroceryRecord>(adminToken, 'groceries', { name: 'tortillas' });
+    await e2eClient(adminToken).collection<GroceryRecord>('groceries').create({ name: 'tortillas' });
 
     await recipesPage.gotoRecipe(created.id);
     await recipesPage.expectOnRecipeViewPage(created.id);
@@ -89,13 +84,13 @@ test.describe('Recipes → grocery list', () => {
     await recipesPage.addIngredientsToGroceryList();
 
     await expect(async () => {
-      const groceries = await aepList<GroceryRecord>(adminToken, 'groceries');
+      const groceries = await listOrEmpty<GroceryRecord>(adminToken, 'groceries');
       const names = groceries.map((g) => g.name).sort();
       expect(names).toEqual(['cheddar cheese', 'ground beef', 'tortillas']);
     }).toPass();
 
     // Exactly one "tortillas" row — the pre-seeded one was not duplicated.
-    const groceries = await aepList<GroceryRecord>(adminToken, 'groceries');
+    const groceries = await listOrEmpty<GroceryRecord>(adminToken, 'groceries');
     expect(groceries.filter((g) => g.name === 'tortillas')).toHaveLength(1);
   });
 });

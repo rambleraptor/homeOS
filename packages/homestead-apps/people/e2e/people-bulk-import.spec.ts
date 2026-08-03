@@ -5,7 +5,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepGet, aepList } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient, listOrEmpty } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { PeoplePage } from './PeoplePage';
 import {
   deleteAllPeople,
@@ -83,7 +83,7 @@ test.describe('People Bulk Import', () => {
         await peoplePage.expectPersonInList('Jane Smith');
 
         // Verify address was imported via API
-        const people = await aepList<PersonRow>(userToken, 'people');
+        const people = await listOrEmpty<PersonRow>(userToken, 'people');
         const john = people.find((p) => p.name === 'John Smith');
         expect(john).toBeDefined();
 
@@ -92,7 +92,7 @@ test.describe('People Bulk Import', () => {
         expect(sharedData?.address_id).toBeDefined();
 
         if (sharedData?.address_id) {
-            const address = await aepGet<AddressRow>(userToken, 'addresses', sharedData.address_id);
+            const address = await e2eClient(userToken).collection<AddressRow>('addresses').get(sharedData.address_id);
             expect(address.line1).toContain('123 Main St');
             expect(address.wifi_network).toBe('HomeNetwork');
         }
@@ -119,7 +119,7 @@ test.describe('People Bulk Import', () => {
         await peoplePage.expectPersonInList('Sarah Brown');
 
         // Verify partner relationship via API
-        const people = await aepList<PersonRow>(userToken, 'people');
+        const people = await listOrEmpty<PersonRow>(userToken, 'people');
         const mike = people.find((p) => p.name === 'Mike Brown');
         const sarah = people.find((p) => p.name === 'Sarah Brown');
 
@@ -152,14 +152,14 @@ test.describe('People Bulk Import', () => {
         await authenticatedPage.waitForURL(/\/people$/);
 
         // Verify WiFi data via API
-        const people = await aepList<PersonRow>(userToken, 'people');
+        const people = await listOrEmpty<PersonRow>(userToken, 'people');
         const david = people.find((p) => p.name === 'David Lee');
 
         const sharedData = await getPersonSharedData(userToken, david!.id);
         expect(sharedData?.address_id).toBeDefined();
 
         if (sharedData?.address_id) {
-            const address = await aepGet<AddressRow>(userToken, 'addresses', sharedData.address_id);
+            const address = await e2eClient(userToken).collection<AddressRow>('addresses').get(sharedData.address_id);
             expect(address.wifi_network).toBe('OfficeWiFi');
             expect(address.wifi_password).toBe('secure123');
         }

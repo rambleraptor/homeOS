@@ -9,7 +9,7 @@
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { FlagManagementPage } from '../../pages/FlagManagementPage';
-import { aepList, aepRemove } from '../../utils/aepbase-helpers';
+import { deleteIfPresent, listOrEmpty } from '../../utils/aepbase-helpers';
 
 interface AppFlagsRecord {
   id: string;
@@ -17,9 +17,9 @@ interface AppFlagsRecord {
 }
 
 async function resetAppFlags(adminToken: string) {
-  const records = await aepList<AppFlagsRecord>(adminToken, 'app-flags');
+  const records = await listOrEmpty<AppFlagsRecord>(adminToken, 'app-flags');
   for (const record of records) {
-    await aepRemove(adminToken, 'app-flags', record.id);
+    await deleteIfPresent(adminToken, 'app-flags', record.id);
   }
 }
 

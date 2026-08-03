@@ -18,7 +18,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient, listOrEmpty } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 interface GroceryItemRecord {
   id: string;
@@ -28,13 +28,13 @@ interface GroceryItemRecord {
 }
 
 async function deleteAllGroceriesAndStores(token: string): Promise<void> {
-  const items = await aepList<{ id: string }>(token, 'groceries');
+  const items = await listOrEmpty<{ id: string }>(token, 'groceries');
   for (const item of items) {
-    await aepRemove(token, 'groceries', item.id);
+    await deleteIfPresent(token, 'groceries', item.id);
   }
-  const stores = await aepList<{ id: string }>(token, 'stores');
+  const stores = await listOrEmpty<{ id: string }>(token, 'stores');
   for (const store of stores) {
-    await aepRemove(token, 'stores', store.id);
+    await deleteIfPresent(token, 'stores', store.id);
   }
 }
 
@@ -55,7 +55,7 @@ test.describe('Groceries — offline support', () => {
   }) => {
     // Seed one item online so we can verify the cache survives the
     // offline → reconnect cycle without losing the row.
-    await aepCreate<GroceryItemRecord>(userToken, 'groceries', {
+    await e2eClient(userToken).collection<GroceryItemRecord>('groceries').create({
       name: 'Pre-existing item',
       checked: false,
     });
@@ -96,12 +96,12 @@ test.describe('Groceries — offline support', () => {
     // Wait until the server has all four items (pre-existing + three new).
     await expect
       .poll(
-        async () => (await aepList<GroceryItemRecord>(userToken, 'groceries')).length,
+        async () => (await listOrEmpty<GroceryItemRecord>(userToken, 'groceries')).length,
         { timeout: 15000 },
       )
       .toBe(4);
 
-    const serverItems = await aepList<GroceryItemRecord>(userToken, 'groceries');
+    const serverItems = await listOrEmpty<GroceryItemRecord>(userToken, 'groceries');
     const names = serverItems.map((i) => i.name).sort();
     expect(names).toEqual(
       ['Offline bread', 'Offline cheese', 'Offline milk', 'Pre-existing item'].sort(),

@@ -1,152 +1,114 @@
 /**
- * Generic aepbase REST helpers for e2e tests.
+ * Shared aepbase seed/cleanup helpers for e2e tests, built on the shared
+ * `@rambleraptor/homestead-client`.
  *
  * App-specific seed/cleanup helpers (createGiftCard, deleteAllPeople,
  * createGame, …) live next to each feature app under
- * `packages/homestead-apps/<app>/e2e/helpers.ts`. This file only
- * holds the low-level primitives plus a handful of utilities that don't
- * belong to any one app (the household-wide `app-flags` singleton
- * and superuser-only user CRUD).
+ * `packages/homestead-apps/<app>/e2e/helpers.ts`. This file holds the client
+ * factory every helper builds on ({@link e2eClient}) plus a handful of
+ * utilities that don't belong to any one app (the household-wide `app-flags`
+ * singleton, superuser-only user CRUD, groups, and the raw custom-method POST).
  */
 
+import {
+  createHomesteadClient,
+  bearerToken,
+  HomesteadError,
+  type HomesteadClient,
+  type RecordRef,
+} from '@rambleraptor/homestead-client';
 import { getAepbaseUrl } from '../config/aepbase.setup';
 
-type ParentPath = string[];
-
-interface RequestOptions {
-  token: string;
-  method?: string;
-  body?: unknown;
-  mergePatch?: boolean;
-  multipart?: FormData;
-}
-
-async function req(path: string, opts: RequestOptions): Promise<Response> {
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${opts.token}`,
-  };
-  let body: BodyInit | undefined;
-  if (opts.multipart) {
-    body = opts.multipart;
-  } else if (opts.body !== undefined) {
-    headers['Content-Type'] = opts.mergePatch
-      ? 'application/merge-patch+json'
-      : 'application/json';
-    body = JSON.stringify(opts.body);
-  }
-  return fetch(`${getAepbaseUrl()}${path}`, {
-    method: opts.method || 'GET',
-    headers,
-    body,
+/**
+ * A {@link HomesteadClient} acting as the holder of `token`, pointed at the
+ * running e2e server's engine. `getAepbaseUrl()` already ends in `/api/aep`,
+ * which the client tolerates. This is the one seam every e2e helper and spec
+ * uses to talk to the engine — there is no hand-rolled REST layer anymore.
+ */
+export function e2eClient(token: string): HomesteadClient {
+  return createHomesteadClient({
+    baseUrl: getAepbaseUrl(),
+    auth: bearerToken(token),
   });
 }
 
-function pathFor(plural: string, parent?: ParentPath): string {
-  if (parent && parent.length > 0) return '/' + parent.join('/') + `/${plural}`;
-  return `/${plural}`;
-}
-
-export async function aepGet<T>(
-  token: string,
-  plural: string,
-  id: string,
-  parent?: ParentPath,
-): Promise<T> {
-  const res = await req(`${pathFor(plural, parent)}/${id}`, { token });
-  if (!res.ok) throw new Error(`get ${plural}/${id} failed: ${res.status}`);
-  return (await res.json()) as T;
-}
-
-export async function aepUpdate<T>(
-  token: string,
-  plural: string,
-  id: string,
-  body: Record<string, unknown>,
-  parent?: ParentPath,
-): Promise<T> {
-  const res = await req(`${pathFor(plural, parent)}/${id}`, {
-    token,
-    method: 'PATCH',
-    body,
-    mergePatch: true,
-  });
-  if (!res.ok) throw new Error(`update ${plural}/${id} failed: ${res.status}`);
-  return (await res.json()) as T;
-}
-
-export async function aepList<T>(
-  token: string,
-  plural: string,
-  parent?: ParentPath,
-): Promise<T[]> {
-  const res = await req(`${pathFor(plural, parent)}?max_page_size=200`, { token });
-  if (!res.ok) {
-    if (res.status === 404 || res.status === 403) return [];
-    throw new Error(`list ${plural} failed: ${res.status}`);
-  }
-  const body = (await res.json()) as { results?: T[] };
-  return body.results || [];
-}
-
-export async function aepCreate<T>(
-  token: string,
-  plural: string,
-  body: Record<string, unknown>,
-  parent?: ParentPath,
-): Promise<T> {
-  const res = await req(pathFor(plural, parent), { token, method: 'POST', body });
-  if (!res.ok) {
-    throw new Error(`create ${plural} failed: ${res.status} ${await res.text()}`);
-  }
-  return (await res.json()) as T;
-}
-
-export async function aepCreateMultipart<T>(
-  token: string,
-  plural: string,
-  formData: FormData,
-  parent?: ParentPath,
-): Promise<T> {
-  const res = await req(pathFor(plural, parent), {
-    token,
-    method: 'POST',
-    multipart: formData,
-  });
-  if (!res.ok) {
-    throw new Error(`create ${plural} failed: ${res.status} ${await res.text()}`);
-  }
-  return (await res.json()) as T;
+/** True when an error is the client's 404 (a record/collection already gone). */
+export function isNotFound(err: unknown): boolean {
+  return err instanceof HomesteadError && err.code === 404;
 }
 
 /**
- * Invoke an AEP-136/151 custom method, e.g.
- * `postCustomMethod(token, '/documents/abc123:classify')`.
- * Returns the raw Response so callers can assert on status (a 202 carrying an
- * operation for async methods, or a pre-flight rejection).
+ * List every record, returning `[]` when the caller is forbidden (403) or the
+ * collection is absent (404). This is the resilience the old `aepList` had, and
+ * both cleanup loops and permission checks depend on it — a denied user must see
+ * an empty list rather than an exception.
+ */
+export async function listOrEmpty<T>(
+  token: string,
+  plural: string,
+  opts: { parent?: string[]; filter?: string } = {},
+): Promise<T[]> {
+  const collection = opts.parent
+    ? recordAt(e2eClient(token), opts.parent).collection<T>(plural)
+    : e2eClient(token).collection<T>(plural);
+  try {
+    return await collection.listAll({ filter: opts.filter });
+  } catch (err) {
+    if (err instanceof HomesteadError && (err.code === 403 || err.code === 404)) {
+      return [];
+    }
+    throw err;
+  }
+}
+
+/**
+ * Delete a record, treating a 404 as success. Cleanup loops delete freshly
+ * listed ids, but a cascade or a concurrent teardown can remove one first —
+ * mirrors the old helper's swallow of 404 on delete.
+ */
+export async function deleteIfPresent(
+  token: string,
+  plural: string,
+  id: string,
+  opts: { parent?: string[]; force?: boolean } = {},
+): Promise<void> {
+  const collection = opts.parent
+    ? recordAt(e2eClient(token), opts.parent).collection(plural)
+    : e2eClient(token).collection(plural);
+  try {
+    await collection.record(id).delete({ force: opts.force });
+  } catch (err) {
+    if (!isNotFound(err)) throw err;
+  }
+}
+
+/**
+ * Resolve a parent chain expressed as the alternating `[plural, id, …]` array
+ * to its innermost record ref, e.g. `['groups', g]` → `/groups/{g}`.
+ */
+function recordAt(hs: HomesteadClient, parent: string[]): RecordRef<Record<string, unknown>> {
+  let record: RecordRef<Record<string, unknown>> = hs.collection(parent[0]).record(parent[1]);
+  for (let i = 2; i < parent.length; i += 2) {
+    record = record.collection<Record<string, unknown>>(parent[i]).record(parent[i + 1]);
+  }
+  return record;
+}
+
+/**
+ * Invoke an AEP-136/151 custom method and return the raw {@link Response} so
+ * callers can assert on status (a 202 carrying an operation for async methods,
+ * or a pre-flight rejection). `path` is engine-relative, e.g.
+ * `/documents/abc123:classify`.
  */
 export async function postCustomMethod(
   token: string,
   path: string,
   body?: unknown,
 ): Promise<Response> {
-  return req(path, { token, method: 'POST', body: body ?? {} });
-}
-
-export async function aepRemove(
-  token: string,
-  plural: string,
-  id: string,
-  parent?: ParentPath,
-  force = false,
-): Promise<void> {
-  const query = force ? '?force=true' : '';
-  const res = await req(`${pathFor(plural, parent)}/${id}${query}`, {
-    token,
-    method: 'DELETE',
+  return e2eClient(token).raw(path, {
+    method: 'POST',
+    body: (body ?? {}) as Record<string, unknown>,
   });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`delete ${plural}/${id} failed: ${res.status}`);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -167,24 +129,20 @@ export async function setAppFlag(
 ): Promise<void> {
   const flatField = `${appId.replace(/-/g, '_')}__${key}`;
   const payload = { [flatField]: value };
-  const existing = await aepList<AppFlagsRecord>(token, 'app-flags');
+  const flags = e2eClient(token).collection<AppFlagsRecord>('app-flags');
+  const existing = await flags.listAll();
   if (existing.length > 0) {
-    await aepUpdate<AppFlagsRecord>(
-      token,
-      'app-flags',
-      existing[0].id,
-      payload,
-    );
+    await flags.record(existing[0].id).update(payload);
     return;
   }
-  await aepCreate<AppFlagsRecord>(token, 'app-flags', payload);
+  await flags.create(payload);
 }
 
 /** Delete every app-flags singleton record (resets all flags to defaults). */
 export async function resetAppFlags(token: string) {
-  const records = await aepList<AppFlagsRecord>(token, 'app-flags');
-  for (const record of records) {
-    await aepRemove(token, 'app-flags', record.id);
+  const flags = e2eClient(token).collection<AppFlagsRecord>('app-flags');
+  for (const record of await flags.listAll()) {
+    await deleteIfPresent(token, 'app-flags', record.id);
   }
 }
 
@@ -210,7 +168,7 @@ export async function createUser(
   adminToken: string,
   data: CreateUserInput,
 ): Promise<UserRecord> {
-  return aepCreate<UserRecord>(adminToken, 'users', {
+  return e2eClient(adminToken).collection<UserRecord>('users').create({
     email: data.email,
     password: data.password,
     display_name: data.display_name || '',
@@ -227,12 +185,12 @@ export async function deleteUsersExcept(
   adminToken: string,
   preserveIds: string[],
 ) {
-  const users = await aepList<{ id: string }>(adminToken, 'users');
+  const users = await e2eClient(adminToken).collection<{ id: string }>('users').listAll();
   const keep = new Set(preserveIds);
   for (const u of users) {
     if (keep.has(u.id)) continue;
     // Users own child resources (notifications, preferences); force-cascade.
-    await aepRemove(adminToken, 'users', u.id, undefined, true);
+    await deleteIfPresent(adminToken, 'users', u.id, { force: true });
   }
 }
 
@@ -250,7 +208,7 @@ export async function createGroup(
   adminToken: string,
   name: string,
 ): Promise<GroupRecord> {
-  return aepCreate<GroupRecord>(adminToken, 'groups', { name });
+  return e2eClient(adminToken).collection<GroupRecord>('groups').create({ name });
 }
 
 /** Add a user to a group via the parented `/groups/{id}/group-memberships`. */
@@ -259,8 +217,9 @@ export async function addGroupMember(
   groupId: string,
   userId: string,
 ): Promise<void> {
-  await aepCreate(adminToken, 'group-memberships', { user: userId }, [
-    'groups',
-    groupId,
-  ]);
+  await e2eClient(adminToken)
+    .collection('groups')
+    .record(groupId)
+    .collection('group-memberships')
+    .create({ user: userId });
 }

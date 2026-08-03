@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepCreate, aepGet, aepList } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient, listOrEmpty } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { PeoplePage } from './PeoplePage';
 import {
   createPerson,
@@ -58,16 +58,14 @@ test.describe('People Multiple Addresses', () => {
     expect(sharedData).not.toBeNull();
     if (!sharedData) throw new Error('Expected shared data to exist');
 
-    const primaryAddress = await aepGet<AddressRecord>(
-      userToken,
-      'addresses',
-      sharedData.address_id!,
-    );
+    const primaryAddress = await e2eClient(userToken)
+      .collection<AddressRecord>('addresses')
+      .get(sharedData.address_id!);
     expect(primaryAddress.line1).toBe('123 Main St');
     expect(primaryAddress.shared_data_id || undefined).toBeUndefined();
 
     // Additional addresses: list all then filter client-side.
-    const allAddresses = await aepList<AddressRecord>(userToken, 'addresses');
+    const allAddresses = await listOrEmpty<AddressRecord>(userToken, 'addresses');
     const additionalAddresses = allAddresses.filter(
       (a) => a.shared_data_id === sharedData.id,
     );
@@ -99,7 +97,7 @@ test.describe('People Multiple Addresses', () => {
     await peoplePage.submitPersonForm();
     await authenticatedPage.waitForLoadState('networkidle');
 
-    const people = await aepList<{ id: string; name: string }>(userToken, 'people');
+    const people = await listOrEmpty<{ id: string; name: string }>(userToken, 'people');
     const jane = people.find((p) => p.name === 'Jane Smith');
     expect(jane).toBeDefined();
     if (!jane) throw new Error('Expected to find Jane Smith');
@@ -108,14 +106,12 @@ test.describe('People Multiple Addresses', () => {
     expect(sharedData).not.toBeNull();
     if (!sharedData) throw new Error('Expected shared data to exist');
 
-    const primaryAddress = await aepGet<AddressRecord>(
-      userToken,
-      'addresses',
-      sharedData.address_id!,
-    );
+    const primaryAddress = await e2eClient(userToken)
+      .collection<AddressRecord>('addresses')
+      .get(sharedData.address_id!);
     expect(primaryAddress.line1).toBe('789 Pine Blvd');
 
-    const allAddresses = await aepList<AddressRecord>(userToken, 'addresses');
+    const allAddresses = await listOrEmpty<AddressRecord>(userToken, 'addresses');
     const additionalAddresses = allAddresses.filter(
       (a) => a.shared_data_id === sharedData.id,
     );
@@ -133,7 +129,7 @@ test.describe('People Multiple Addresses', () => {
     const sharedData = await getPersonSharedData(userToken, person.id);
     if (!sharedData) throw new Error('Expected shared data to exist');
 
-    const secondAddress = await aepCreate<AddressRecord>(userToken, 'addresses', {
+    const secondAddress = await e2eClient(userToken).collection<AddressRecord>('addresses').create({
       line1: '222 Second St',
       shared_data_id: sharedData.id,
       created_by: `users/${userId}`,
@@ -154,7 +150,7 @@ test.describe('People Multiple Addresses', () => {
     await peoplePage.submitPersonForm();
     await authenticatedPage.waitForLoadState('networkidle');
 
-    const allAddresses = await aepList<AddressRecord>(userToken, 'addresses');
+    const allAddresses = await listOrEmpty<AddressRecord>(userToken, 'addresses');
     void allAddresses.find((a) => a.id === secondAddress.id);
 
     const updatedSharedData = await getPersonSharedData(userToken, person.id);

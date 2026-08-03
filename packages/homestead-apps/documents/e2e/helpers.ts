@@ -5,12 +5,10 @@
  */
 
 import {
-  aepCreateMultipart,
-  aepList,
-  aepRemove,
+  deleteIfPresent,
+  e2eClient,
   postCustomMethod,
 } from '../../../../tests/e2e/utils/aepbase-helpers';
-import { getAepbaseUrl } from '../../../../tests/e2e/config/aepbase.setup';
 import { DOC_MARKERS } from '../../../../tests/e2e/config/ai-stub';
 
 const DOCUMENTS = 'documents';
@@ -64,7 +62,7 @@ export async function uploadDocument(
   formData.append('resource', JSON.stringify(resource));
   formData.append('file', blob, 'document.pdf');
 
-  return aepCreateMultipart<DocumentRecord>(token, DOCUMENTS, formData);
+  return e2eClient(token).collection<DocumentRecord>(DOCUMENTS).create(formData);
 }
 
 /** Invoke the real classify method on a document; returns its 202 operation. */
@@ -95,9 +93,10 @@ export async function waitForParse(
   timeoutMs = 20_000,
 ): Promise<DocumentRecord> {
   const deadline = Date.now() + timeoutMs;
+  const documents = e2eClient(token).collection<DocumentRecord>(DOCUMENTS);
   // A short fixed step is fine in a helper — this is not a Playwright auto-wait.
   for (;;) {
-    const [doc] = (await aepList<DocumentRecord>(token, DOCUMENTS)).filter((d) => d.id === id);
+    const doc = await documents.get(id).catch(() => undefined);
     if (doc && doc.parse_status !== 'pending') return doc;
     if (Date.now() > deadline) {
       throw new Error(`document ${id} still pending after ${timeoutMs}ms`);
@@ -108,33 +107,28 @@ export async function waitForParse(
 
 /**
  * List documents matching a filter — exercises the Phase 1 union columns
- * (`metadata.doc_type == …`) end to end. `aepList` can't carry a filter, so this
- * hits the collection directly.
+ * (`metadata.doc_type == …`) end to end.
  */
 export async function listDocuments(
   token: string,
   filter: string,
 ): Promise<DocumentRecord[]> {
-  const url = `${getAepbaseUrl()}/${DOCUMENTS}?max_page_size=200&filter=${encodeURIComponent(filter)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`filtered list failed: ${res.status} ${await res.text()}`);
-  const body = (await res.json()) as { results?: DocumentRecord[] };
-  return body.results ?? [];
+  return e2eClient(token).collection<DocumentRecord>(DOCUMENTS).listAll({ filter });
 }
 
 export async function listOperations(token: string): Promise<OperationRecord[]> {
-  return aepList<OperationRecord>(token, OPERATIONS);
+  return e2eClient(token).collection<OperationRecord>(OPERATIONS).listAll();
 }
 
 export async function deleteAllDocuments(token: string): Promise<void> {
-  for (const doc of await aepList<DocumentRecord>(token, DOCUMENTS)) {
-    await aepRemove(token, DOCUMENTS, doc.id).catch(() => {});
+  for (const doc of await e2eClient(token).collection<DocumentRecord>(DOCUMENTS).listAll()) {
+    await deleteIfPresent(token, DOCUMENTS, doc.id);
   }
 }
 
 /** Drop any operations left behind, so a stray `running` one can't spin the bell. */
 export async function deleteAllOperations(token: string): Promise<void> {
-  for (const op of await aepList<OperationRecord>(token, OPERATIONS)) {
-    await aepRemove(token, OPERATIONS, op.id).catch(() => {});
+  for (const op of await e2eClient(token).collection<OperationRecord>(OPERATIONS).listAll()) {
+    await deleteIfPresent(token, OPERATIONS, op.id);
   }
 }

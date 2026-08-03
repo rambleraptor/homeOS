@@ -13,11 +13,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import {
-  aepGet,
-  aepList,
-  resetAppFlags,
-} from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient, listOrEmpty, resetAppFlags } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { RecipesPage } from './RecipesPage';
 import { createRecipe, deleteAllRecipes, testRecipes } from './helpers';
 
@@ -61,7 +57,7 @@ test.describe('Recipes CRUD', () => {
     await recipesPage.expectRecipeInList(recipe.title);
 
     // Confirm the parsed ingredients made it into aepbase intact.
-    const all = await aepList<RecipeRecord>(adminToken, 'recipes');
+    const all = await listOrEmpty<RecipeRecord>(adminToken, 'recipes');
     const created = all.find((r) => r.title === recipe.title);
     expect(created).toBeDefined();
     expect(created?.parsed_ingredients).toHaveLength(recipe.parsed_ingredients.length);
@@ -89,7 +85,7 @@ test.describe('Recipes CRUD', () => {
     await recipesPage.expectRecipeInList(newTitle);
     await recipesPage.expectRecipeNotInList(seed.title);
 
-    const updated = await aepGet<RecipeRecord>(adminToken, 'recipes', created.id);
+    const updated = await e2eClient(adminToken).collection<RecipeRecord>('recipes').get(created.id);
     expect(updated.title).toBe(newTitle);
   });
 

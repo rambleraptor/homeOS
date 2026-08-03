@@ -3,7 +3,7 @@
  * REST API.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../../tests/e2e/utils/aepbase-helpers';
 
 export interface CreatePictionaryTeamInput {
   players: string[];
@@ -41,37 +41,33 @@ export async function createPictionaryGame(
   game: PictionaryGameRecord;
   teams: PictionaryTeamRecord[];
 }> {
-  const game = await aepCreate<PictionaryGameRecord>(
-    token,
-    'pictionary-games',
-    {
-      played_at: data.played_at || new Date().toISOString(),
-      location: data.location,
-      winning_word: data.winning_word,
-      notes: data.notes,
-    },
-  );
+  const hs = e2eClient(token);
+  const game = await hs.collection<PictionaryGameRecord>('pictionary-games').create({
+    played_at: data.played_at || new Date().toISOString(),
+    location: data.location,
+    winning_word: data.winning_word,
+    notes: data.notes,
+  });
+  const teamsCollection = hs
+    .collection('pictionary-games')
+    .record(game.id)
+    .collection<PictionaryTeamRecord>('pictionary-teams');
   const teams: PictionaryTeamRecord[] = [];
   for (let i = 0; i < data.teams.length; i++) {
     const team = data.teams[i];
-    const created = await aepCreate<PictionaryTeamRecord>(
-      token,
-      'pictionary-teams',
-      {
-        players: team.players,
-        won: team.won ?? false,
-        rank: team.rank ?? i + 1,
-      },
-      ['pictionary-games', game.id],
-    );
+    const created = await teamsCollection.create({
+      players: team.players,
+      won: team.won ?? false,
+      rank: team.rank ?? i + 1,
+    });
     teams.push(created);
   }
   return { game, teams };
 }
 
 export async function deleteAllPictionaryGames(token: string) {
-  const items = await aepList<{ id: string }>(token, 'pictionary-games');
+  const items = await e2eClient(token).collection<{ id: string }>('pictionary-games').listAll();
   for (const item of items) {
-    await aepRemove(token, 'pictionary-games', item.id, undefined, true);
+    await deleteIfPresent(token, 'pictionary-games', item.id, { force: true });
   }
 }

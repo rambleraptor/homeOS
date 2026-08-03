@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { GiftCardsPage } from './GiftCardsPage';
 import {
   createGiftCard,
@@ -64,7 +64,7 @@ test.describe('Gift Cards CRUD', () => {
     );
 
     // Verify the card was updated in the database
-    const updatedCard = await aepGet<{ amount: number }>(userToken, 'gift-cards', createdCard.id);
+    const updatedCard = await e2eClient(userToken).collection<{ amount: number }>('gift-cards').get(createdCard.id);
     expect(updatedCard.amount).toBe(newAmount);
 
     // Verify the updated amount appears in the UI

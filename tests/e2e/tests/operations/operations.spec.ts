@@ -14,7 +14,7 @@
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { OperationsPage } from '../../pages/OperationsPage';
-import { aepList } from '../../utils/aepbase-helpers';
+import { listOrEmpty } from '../../utils/aepbase-helpers';
 import {
   classifyDocument,
   deleteAllDocuments,
@@ -93,7 +93,7 @@ test.describe('Operations (AEP-151)', () => {
     await expect
       .poll(
         async () => {
-          const [record] = (await aepList<OperationRecord>(userToken, OPERATIONS)).filter(
+          const [record] = (await listOrEmpty<OperationRecord>(userToken, OPERATIONS)).filter(
             (o) => o.id === operation.id,
           );
           return record?.done ?? false;
@@ -102,7 +102,7 @@ test.describe('Operations (AEP-151)', () => {
       )
       .toBe(true);
 
-    const [settled] = (await aepList<OperationRecord>(userToken, OPERATIONS)).filter(
+    const [settled] = (await listOrEmpty<OperationRecord>(userToken, OPERATIONS)).filter(
       (o) => o.id === operation.id,
     );
     expect(settled.status).toBe('succeeded');

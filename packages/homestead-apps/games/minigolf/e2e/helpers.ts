@@ -3,7 +3,7 @@
  * REST API.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../../tests/e2e/utils/aepbase-helpers';
 
 interface CreateGameInput {
   /** Player resource paths: `["people/{id}", ...]`. */
@@ -27,7 +27,7 @@ export async function createGame(
   token: string,
   data: CreateGameInput,
 ): Promise<GameRecord> {
-  return aepCreate<GameRecord>(token, 'games', {
+  return e2eClient(token).collection<GameRecord>('games').create({
     players: data.players,
     hole_count: data.hole_count,
     location: data.location,
@@ -37,8 +37,8 @@ export async function createGame(
 }
 
 export async function deleteAllGames(token: string) {
-  const items = await aepList<{ id: string }>(token, 'games');
+  const items = await e2eClient(token).collection<{ id: string }>('games').listAll();
   for (const item of items) {
-    await aepRemove(token, 'games', item.id, undefined, true);
+    await deleteIfPresent(token, 'games', item.id, { force: true });
   }
 }

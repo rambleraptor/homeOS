@@ -11,7 +11,7 @@
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { CreditCardsPage } from '../../pages/CreditCardsPage';
-import { aepList, aepRemove } from '../../utils/aepbase-helpers';
+import { deleteIfPresent, listOrEmpty } from '../../utils/aepbase-helpers';
 
 interface CardRec {
   id: string;
@@ -19,10 +19,10 @@ interface CardRec {
 }
 
 async function clearCards(token: string): Promise<void> {
-  const cards = await aepList<CardRec>(token, 'credit-cards');
+  const cards = await listOrEmpty<CardRec>(token, 'credit-cards');
   for (const card of cards) {
     // Cards own perk (and grandchild redemption) rows — force-cascade.
-    await aepRemove(token, 'credit-cards', card.id, undefined, true);
+    await deleteIfPresent(token, 'credit-cards', card.id, { force: true });
   }
 }
 
@@ -86,13 +86,12 @@ test.describe('Credit Cards — nested perk/redemption flow', () => {
     // The perk must land under the card's nested collection, not a flat one.
     await expect
       .poll(async () => {
-        const cards = await aepList<CardRec>(userToken, 'credit-cards');
+        const cards = await listOrEmpty<CardRec>(userToken, 'credit-cards');
         const card = cards.find((c) => c.name === 'E2E Chase Sapphire');
         if (!card) return 0;
-        const perks = await aepList<{ name: string }>(userToken, 'perks', [
-          'credit-cards',
-          card.id,
-        ]);
+        const perks = await listOrEmpty<{ name: string }>(userToken, 'perks', {
+          parent: ['credit-cards', card.id],
+        });
         return perks.filter((p) => p.name === 'Travel Credit').length;
       })
       .toBe(1);

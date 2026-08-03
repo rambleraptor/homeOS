@@ -114,5 +114,6 @@ const res = await hs.raw('/streaming/path'); // raw Response
 - **Strategies** (`src/auth/*`) are the only thing that differs between the
   browser, server, and CLI callers.
 
-This package is intentionally standalone; adopting it inside the SPA, server,
-and CLI is a follow-up.
+This package is intentionally standalone. The server (routes, crons, migrations,
+app workers) and the e2e suite talk to the engine exclusively through it;
+adopting it inside the SPA and CLI is still a follow-up.

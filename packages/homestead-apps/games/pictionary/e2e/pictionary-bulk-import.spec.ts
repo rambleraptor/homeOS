@@ -8,11 +8,7 @@
  */
 
 import { test, expect } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
-import {
-  aepGet,
-  aepList,
-  postCustomMethod,
-} from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient, listOrEmpty, postCustomMethod } from '../../../../../tests/e2e/utils/aepbase-helpers';
 import { deleteAllPictionaryGames } from './helpers';
 import {
   createPerson,
@@ -58,11 +54,11 @@ async function bulkImport(
   const { id } = (await res.json()) as { id: string };
 
   await expect
-    .poll(async () => (await aepGet<OperationRow>(token, 'operations', id)).done, {
+    .poll(async () => (await e2eClient(token).collection<OperationRow>('operations').get(id)).done, {
       timeout: 15_000,
     })
     .toBe(true);
-  return aepGet<OperationRow>(token, 'operations', id);
+  return e2eClient(token).collection<OperationRow>('operations').get(id);
 }
 
 test.describe('Pictionary bulk import', () => {
@@ -92,17 +88,16 @@ test.describe('Pictionary bulk import', () => {
     const operation = await bulkImport(userToken, { format: 'csv', data: toBase64(csv) });
     expect(operation.response?.created).toBe(1);
 
-    const games = await aepList<GameRow>(userToken, 'pictionary-games');
+    const games = await listOrEmpty<GameRow>(userToken, 'pictionary-games');
     expect(games).toHaveLength(1);
     expect(games[0].location).toBe('Living Room');
     expect(games[0].winning_word).toBe('banana');
     // A bare date is anchored to UTC midnight so it round-trips.
     expect(games[0].played_at).toBe('2026-04-25T00:00:00.000Z');
 
-    const teams = await aepList<TeamRow>(userToken, 'pictionary-teams', [
-      'pictionary-games',
-      games[0].id,
-    ]);
+    const teams = await listOrEmpty<TeamRow>(userToken, 'pictionary-teams', {
+      parent: ['pictionary-games', games[0].id],
+    });
     expect(teams).toHaveLength(2);
 
     const byRank = [...teams].sort((a, b) => a.rank - b.rank);
@@ -126,7 +121,7 @@ test.describe('Pictionary bulk import', () => {
 
     expect(operation.response?.summary).toEqual({ total: 1, valid: 0, invalid: 1 });
     expect(operation.response?.items?.[0].errors[0]).toContain('Nobody');
-    expect(await aepList<GameRow>(userToken, 'pictionary-games')).toHaveLength(0);
+    expect(await listOrEmpty<GameRow>(userToken, 'pictionary-games')).toHaveLength(0);
   });
 
   test('rejects a row whose winner names a team the row has no players for', async ({

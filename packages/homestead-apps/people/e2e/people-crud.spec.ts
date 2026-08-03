@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { PeoplePage } from './PeoplePage';
 import {
   createPerson,
@@ -50,13 +50,13 @@ test.describe('People CRUD', () => {
     });
 
     // Check person record
-    const updated = await aepGet<{ name: string }>(userToken, 'people', created.id);
+    const updated = await e2eClient(userToken).collection<{ name: string }>('people').get(created.id);
     expect(updated.name).toBe('Updated Name');
 
     // Check shared data and address
     const sharedData = await getPersonSharedData(userToken, created.id);
     if (sharedData?.address_id) {
-      const address = await aepGet<{ line1: string }>(userToken, 'addresses', sharedData.address_id);
+      const address = await e2eClient(userToken).collection<{ line1: string }>('addresses').get(sharedData.address_id);
       expect(address.line1).toBe('456 New Ave');
     } else {
       throw new Error('Expected shared data with address_id');

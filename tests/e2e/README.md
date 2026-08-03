@@ -43,7 +43,7 @@ tests/e2e/                            # Cross-cutting test plumbing
 │   ├── settings/
 │   └── users/
 ├── utils/
-│   ├── aepbase-helpers.ts            # Generic REST primitives only
+│   ├── aepbase-helpers.ts            # e2eClient() + shared seed/cleanup helpers
 │   └── test-helpers.ts
 ├── package.json
 ├── playwright.config.ts              # Discovers specs under both roots
@@ -74,11 +74,12 @@ Each test run:
 
 #### Fixtures
 
-**`userToken`** - Authenticated bearer token for direct aepbase REST calls
+**`userToken`** - Authenticated bearer token for direct aepbase calls, made
+through the shared client via `e2eClient(token)`
 
 ```typescript
 test('example', async ({ userToken }) => {
-  await aepCreate(userToken, 'gift-cards', { ... });
+  await e2eClient(userToken).collection('gift-cards').create({ ... });
 });
 ```
 
@@ -195,7 +196,7 @@ shared fixture, generic REST helpers, and core POMs live under
 ```typescript
 // packages/homestead-apps/gift-cards/e2e/gift-card-crud.spec.ts
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { GiftCardsPage } from './GiftCardsPage';
 import { createGiftCard, deleteAllGiftCards, testGiftCards } from './helpers';
 
@@ -211,7 +212,9 @@ test.describe('Gift Cards CRUD', () => {
   test('should edit a gift card', async ({ userToken }) => {
     const created = await createGiftCard(userToken, testGiftCards[0]);
     // … exercise the UI …
-    const updated = await aepGet<{ amount: number }>(userToken, 'gift-cards', created.id);
+    const updated = await e2eClient(userToken)
+      .collection<{ amount: number }>('gift-cards')
+      .get(created.id);
     expect(updated.amount).toBe(75);
   });
 });
@@ -252,9 +255,11 @@ test('should edit gift card', async ({ userToken }) => {
 });
 ```
 
-Need a primitive that the app helpers don't expose (e.g. `aepGet`
-or `aepList`)? Import it directly from
-`../../../../tests/e2e/utils/aepbase-helpers`.
+Need direct engine access the app helpers don't expose? Import
+`e2eClient` from `../../../../tests/e2e/utils/aepbase-helpers` and use the
+client's fluent API (`e2eClient(token).collection('x').get(id)`). For a list
+that tolerates a forbidden/absent collection (returning `[]`), use the
+`listOrEmpty(token, plural)` helper from the same module.
 
 ## Best Practices
 

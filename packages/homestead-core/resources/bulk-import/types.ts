@@ -161,7 +161,7 @@ export interface BulkImportSaveResult {
  * people creates everyone and then resolves partner-by-name in a second pass;
  * pictionary creates a game plus its team children.
  *
- * Defaults to one `aepCreate` per item against the resource's own collection.
+ * Defaults to one create per item against the resource's own collection.
  */
 export type BulkImportSaver<T = unknown> = (args: {
   items: ParsedItem<T>[];
