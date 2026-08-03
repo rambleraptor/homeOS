@@ -12,7 +12,8 @@
  * *this* request are re-indexed, so a metadata-only PATCH doesn't touch the file.
  */
 
-import { authenticate, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { sha256Hex } from '@rambleraptor/homestead-core/server/hash';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { makeOperationLogger } from '@rambleraptor/homestead-core/resources/operations';
@@ -162,7 +163,7 @@ async function stampContentHash(
   try {
     const hash = sha256Hex(new Uint8Array(await blob.arrayBuffer()));
     if (hash === existing) return;
-    await aepUpdate(plural, recordId, { content_hash: hash }, token);
+    await serverClient(token).collection(plural).record(recordId).update({ content_hash: hash });
   } catch (err) {
     logFailure('content-hash', def.singular, recordId, err);
   }

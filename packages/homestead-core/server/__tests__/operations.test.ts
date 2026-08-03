@@ -1,27 +1,28 @@
 /**
- * Server-side operationStore. The engine loopback (aepCreate/aepUpdate) is
- * mocked, so these assert the token-lease bookkeeping that keeps a detached
+ * Server-side operationStore. The engine loopback (the shared homestead-client)
+ * is mocked, so these assert the token-lease bookkeeping that keeps a detached
  * operation's caller token alive across its lifetime — the fix for
  * email-ingested documents whose classify/index operations were stranded when
  * the cron revoked its short-lived admin token out from under them.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createFakeServerClient } from './fake-server-client';
 
-const aepCreate = vi.fn();
-const aepUpdate = vi.fn();
-vi.mock('../aepbase', () => ({
-  aepCreate: (...a: unknown[]) => aepCreate(...a),
-  aepUpdate: (...a: unknown[]) => aepUpdate(...a),
+const fake = createFakeServerClient();
+vi.mock('../client', () => ({
+  serverClient: () => fake.client,
 }));
+
+const { createFn, updateFn } = fake;
 
 import { operationStore } from '../operations';
 import { leaseToken, leaseCount } from '../token-lease';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  aepCreate.mockResolvedValue({ id: 'op-1', done: false });
-  aepUpdate.mockResolvedValue({});
+  createFn.mockResolvedValue({ id: 'op-1', done: false });
+  updateFn.mockResolvedValue({});
 });
 
 describe('operationStore token leasing', () => {
@@ -43,7 +44,7 @@ describe('operationStore token leasing', () => {
     await operationStore.create({ token: 'cron-tok-2', method: 'm' });
     expect(leaseCount('cron-tok-2')).toBe(2);
 
-    aepUpdate.mockRejectedValueOnce(new Error('network blip'));
+    updateFn.mockRejectedValueOnce(new Error('network blip'));
     await expect(
       operationStore.complete({ token: 'cron-tok-2', id: 'op-1', error: new Error('boom') }),
     ).rejects.toThrow('network blip');

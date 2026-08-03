@@ -185,8 +185,8 @@ schedule digests, cleanups, or reminders without any web surface (a
 
 Each handler runs with a short-lived **admin** bearer token minted per firing
 (the same mechanism the boot-time schema sync uses) and revoked when the handler
-settles. Pair it with the server-side aepbase helpers
-(`@rambleraptor/homestead-core/server/aepbase`) to read or write engine data.
+settles. Pair it with the shared client (`serverClient(token)` from
+`@rambleraptor/homestead-core/server/client`) to read or write engine data.
 
 Every firing runs inside an **operation** — the scheduler opens one, runs the
 handler, then marks it succeeded (with the handler's return value) or failed
@@ -215,10 +215,10 @@ crons: [
 // methods/, or a *.server.ts file) so the production build stubs them out of
 // the browser bundle.
 import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
-import { aepList } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 
 const handler: CronHandler = async ({ token, log }) => {
-  const items = await aepList('grocery-items', token);
+  const items = await serverClient(token).collection('grocery-items').listAll();
   await log(`digesting ${items.length} items`);   // appears in the Operations app
   // …send a digest, prune stale rows, etc.
   return { digested: items.length };               // recorded as the operation's response

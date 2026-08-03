@@ -25,11 +25,8 @@ import {
   getEmailProvider,
 } from '@rambleraptor/homestead-core/server/email/config';
 import { isAiConfigured } from '@rambleraptor/homestead-core/server/ai/config';
-import {
-  aepbaseFetch,
-  aepCreateMultipart,
-  aepList,
-} from '@rambleraptor/homestead-core/server/aepbase';
+import type { CollectionRef } from '@rambleraptor/homestead-client';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { sha256Hex } from '@rambleraptor/homestead-core/server/hash';
 import type { EmailAttachment } from '@rambleraptor/homestead-core/server/email/types';
 import { DOCUMENTS } from '../resources';
@@ -58,8 +55,11 @@ function attachmentKey(index: number, att: EmailAttachment): string {
  * content hash even though its per-message attachment key differs. `content_hash`
  * is hex, so it's safe to inline into the filter expression.
  */
-async function contentHashExists(token: string, hash: string): Promise<boolean> {
-  const matches = await aepList<Document>(DOCUMENTS, token, undefined, `content_hash == '${hash}'`);
+async function contentHashExists(
+  documents: CollectionRef<Document>,
+  hash: string,
+): Promise<boolean> {
+  const matches = await documents.listAll({ filter: `content_hash == '${hash}'` });
   return matches.length > 0;
 }
 
@@ -69,6 +69,7 @@ const handler: CronHandler = async ({ token, log }) => {
     return { skipped: true };
   }
 
+  const documents = serverClient(token).collection<Document>(DOCUMENTS);
   const provider = getEmailProvider();
   const query = getEmailConfig()?.query ?? 'has:attachment';
   const refs = await provider.listMessages({ query, maxResults: MAX_MESSAGES });
@@ -117,12 +118,9 @@ const handler: CronHandler = async ({ token, log }) => {
     }
 
     // Which of this message's attachments are already filed?
-    const existing = await aepList<Document>(
-      DOCUMENTS,
-      token,
-      undefined,
-      `source_email_id == '${ref.id}'`,
-    );
+    const existing = await documents.listAll({
+      filter: `source_email_id == '${ref.id}'`,
+    });
     const filed = new Set(
       existing.map((d) => d.source_email_attachment).filter((v): v is string => !!v),
     );
@@ -141,7 +139,7 @@ const handler: CronHandler = async ({ token, log }) => {
         // earlier in this one) is a duplicate — don't file it again. The
         // attachment is still handled, so mark the key filed and let the
         // message trash normally; we just skip the redundant upload.
-        const isDuplicate = seenHashes.has(hash) || (await contentHashExists(token, hash));
+        const isDuplicate = seenHashes.has(hash) || (await contentHashExists(documents, hash));
         seenHashes.add(hash);
         if (isDuplicate) {
           duplicates++;
@@ -153,19 +151,21 @@ const handler: CronHandler = async ({ token, log }) => {
           continue;
         }
 
-        const doc = await aepCreateMultipart<Document>(
-          DOCUMENTS,
-          {
-            title: titleFromFilename(att.filename || 'email-attachment'),
-            mime_type: att.mimeType,
-            parse_status: 'pending',
-            source_email_id: ref.id,
-            source_email_attachment: key,
-            content_hash: hash,
-          },
-          { filename: att.filename || 'attachment', contentType: att.mimeType, bytes },
-          token,
-        );
+        const doc = await documents.create({
+          title: titleFromFilename(att.filename || 'email-attachment'),
+          mime_type: att.mimeType,
+          parse_status: 'pending',
+          source_email_id: ref.id,
+          source_email_attachment: key,
+          content_hash: hash,
+          // A File is a named Blob; the client auto-assembles it into the
+          // multipart upload the engine's `file` field expects. Copy into a
+          // fresh Uint8Array so the Buffer's backing store (typed as possibly
+          // SharedArrayBuffer) satisfies BlobPart's stricter DOM types.
+          file: new File([new Uint8Array(bytes)], att.filename || 'attachment', {
+            type: att.mimeType,
+          }),
+        });
         uploaded++;
         filed.add(key);
 
@@ -182,11 +182,7 @@ const handler: CronHandler = async ({ token, log }) => {
         // and must not block trashing the message.
         if (aiReady) {
           try {
-            await aepbaseFetch(`/${DOCUMENTS}/${doc.id}:classify`, {
-              token,
-              method: 'POST',
-              body: {},
-            });
+            await documents.record(doc.id).invoke('classify', {});
           } catch (error) {
             console.error(`[documents] classify trigger failed for ${doc.id}`, error);
           }

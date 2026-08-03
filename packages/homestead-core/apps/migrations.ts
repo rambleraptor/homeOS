@@ -21,8 +21,8 @@
  *
  * Handlers run headless (no user request), so the runner mints a short-lived
  * admin bearer token and hands it to the handler on {@link MigrationContext.token}.
- * Pair it with the server-side aepbase helpers
- * (`@rambleraptor/homestead-core/server/aepbase`) to read and rewrite engine
+ * Pair it with the shared client (`serverClient(token)` from
+ * `@rambleraptor/homestead-core/server/client`) to read and rewrite engine
  * data — going through the engine keeps references, file fields, validation,
  * and `update_time` intact, which raw SQL would bypass.
  *

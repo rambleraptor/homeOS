@@ -29,7 +29,7 @@ import {
   type ParsedItem,
 } from '../../resources/bulk-import/types';
 import { getAllResourceDefs, getResourceBulkImport } from '../../apps/registry';
-import { aepCreate } from '../aepbase';
+import { serverClient } from '../client';
 
 /**
  * Cap on the decoded input. Bulk import inherits the async dispatcher's
@@ -225,17 +225,16 @@ const defaultSaver = async ({
   ctx: BulkImportContext;
 }): Promise<BulkImportSaveResult> => {
   const stampsCreatedBy = resourceHasCreatedBy(ctx.plural);
+  const collection = serverClient(ctx.auth.token).collection(ctx.plural);
   let created = 0;
   const failed: BulkImportSaveResult['failed'] = [];
   for (const item of items) {
     const data = item.data as Record<string, unknown>;
     try {
-      await aepCreate(
-        ctx.plural,
+      await collection.create(
         stampsCreatedBy && data.created_by === undefined
           ? { ...data, created_by: ctx.auth.user.path }
           : data,
-        ctx.auth.token,
       );
       created++;
     } catch (error) {

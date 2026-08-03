@@ -25,11 +25,8 @@ import {
   aiGenerateObject,
   type ModelMessage,
 } from '@rambleraptor/homestead-core/server/ai/generate';
-import {
-  aepDownload,
-  aepGet,
-  aepUpdate,
-} from '@rambleraptor/homestead-core/server/aepbase';
+import { HomesteadError } from '@rambleraptor/homestead-client';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { DOCUMENTS } from '../resources';
 import {
   docTypeIds,
@@ -164,7 +161,7 @@ export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
   // Fetch up front so a missing record is a 404 rather than a failed operation.
   let doc: Document;
   try {
-    doc = await aepGet<Document>(DOCUMENTS, id, auth.token);
+    doc = await serverClient(auth.token).collection<Document>(DOCUMENTS).get(id);
   } catch {
     return Response.json(
       { error: 'Not found', message: `document ${id} not found` },
@@ -185,14 +182,18 @@ export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
 const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   const docId = id!;
   const types = getDocTypes();
-  const doc = await aepGet<Document>(DOCUMENTS, docId, auth.token);
+  const documents = serverClient(auth.token).collection<Document>(DOCUMENTS);
+  const doc = await documents.get(docId);
 
   // The stored bytes, pulled back over loopback as the caller.
-  const res = await aepDownload(DOCUMENTS, docId, 'file', auth.token);
-  if (!res.ok) {
-    throw new Error(`could not read the document's file: ${res.status}`);
+  let bytes: Buffer;
+  try {
+    const blob = await documents.record(docId).download('file');
+    bytes = Buffer.from(await blob.arrayBuffer());
+  } catch (err) {
+    const detail = err instanceof HomesteadError ? err.code : err;
+    throw new Error(`could not read the document's file: ${detail}`);
   }
-  const bytes = Buffer.from(await res.arrayBuffer());
   const base64 = bytes.toString('base64');
   // Sent as-is: Gemini reads application/pdf directly, so there's no
   // client-side rasterisation and no first-page-only limit.
@@ -220,7 +221,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
       `[documents] classify ${pass} failed for ${docId} ` +
         `(mime=${doc.mime_type ?? 'unknown'}, bytes=${bytes.length}, doc_types=${types.length})`,
     );
-    await aepUpdate<Document>(DOCUMENTS, docId, { parse_status: 'failed' }, auth.token);
+    await documents.record(docId).update({ parse_status: 'failed' });
     throw err;
   };
 
@@ -333,17 +334,12 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   const inferredTitle = templateTitle ?? classified.title?.trim();
   const setTitle = !doc.title_edited && inferredTitle ? { title: inferredTitle } : {};
 
-  const updated = await aepUpdate<Document>(
-    DOCUMENTS,
-    docId,
-    {
-      ...setTitle,
-      confidence,
-      metadata,
-      parse_status: matched ? 'parsed' : 'unmatched',
-    },
-    auth.token,
-  );
+  const updated = await documents.record(docId).update({
+    ...setTitle,
+    confidence,
+    metadata,
+    parse_status: matched ? 'parsed' : 'unmatched',
+  });
 
   // Fire the matched type's post-classify hook, if any. Guarded on `matched`
   // and on the document not already carrying a link, so a re-run ("Read again")
@@ -356,12 +352,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
         const { default: hook } = await docType.post_classify();
         const result = await hook({ document: updated, metadata, auth });
         if (result?.linked_resource) {
-          await aepUpdate<Document>(
-            DOCUMENTS,
-            docId,
-            { linked_resource: result.linked_resource },
-            auth.token,
-          );
+          await documents.record(docId).update({ linked_resource: result.linked_resource });
         }
       } catch (err) {
         console.error(

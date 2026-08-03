@@ -1,19 +1,24 @@
 /**
  * post_classify hook handlers: how a classified document's metadata maps onto
- * the HSA receipt / recipe it creates. `aepCreate` is mocked, so these assert
- * the body built for the downstream resource and the returned link — the field
- * coercions (date widening, enum fallback, null-dropping) are what break.
+ * the HSA receipt / recipe it creates. The shared homestead-client is mocked, so
+ * these assert the body built for the downstream resource and the returned link —
+ * the field coercions (date widening, enum fallback, null-dropping) are what break.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { createFakeServerClient } from '@rambleraptor/homestead-core/server/__tests__/fake-server-client';
 import type { Document } from '../../../types';
 
-const aepCreate = vi.fn();
-const aepList = vi.fn();
-vi.mock('@rambleraptor/homestead-core/server/aepbase', () => ({
-  aepCreate: (...args: unknown[]) => aepCreate(...args),
-  aepList: (...args: unknown[]) => aepList(...args),
+const fake = createFakeServerClient();
+const serverClientTokens: string[] = [];
+vi.mock('@rambleraptor/homestead-core/server/client', () => ({
+  serverClient: (token: string) => {
+    serverClientTokens.push(token);
+    return fake.client;
+  },
 }));
+
+const { createFn, listAllFn } = fake;
 
 import medicalReceiptHook from '../medical-receipt.server';
 import recipeHook from '../recipe.server';
@@ -33,10 +38,11 @@ const doc = (over: Partial<Document> = {}): Document => ({
 });
 
 beforeEach(() => {
-  aepCreate.mockReset();
-  aepCreate.mockResolvedValue({ id: 'created1' });
-  aepList.mockReset();
-  aepList.mockResolvedValue([]); // no people to match unless a test says so
+  createFn.mockReset();
+  createFn.mockResolvedValue({ id: 'created1' });
+  listAllFn.mockReset();
+  listAllFn.mockResolvedValue([]); // no people to match unless a test says so
+  serverClientTokens.length = 0;
 });
 
 describe('medical-receipt post_classify', () => {
@@ -57,10 +63,10 @@ describe('medical-receipt post_classify', () => {
       auth,
     });
 
-    expect(aepCreate).toHaveBeenCalledTimes(1);
-    const [plural, body, token] = aepCreate.mock.calls[0];
-    expect(plural).toBe('hsa-receipts');
-    expect(token).toBe('tok');
+    expect(createFn).toHaveBeenCalledTimes(1);
+    const [path, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/hsa-receipts');
+    expect(serverClientTokens).toContain('tok');
     expect(body).toMatchObject({
       merchant: 'CVS Pharmacy',
       service_date: '2026-03-15T00:00:00.000Z',
@@ -77,7 +83,7 @@ describe('medical-receipt post_classify', () => {
   });
 
   it('links the receipt to a person on an unambiguous patient-name match', async () => {
-    aepList.mockResolvedValue([
+    listAllFn.mockResolvedValue([
       { id: 'p1', name: 'Jamie', aliases: [] },
       { id: 'p2', name: 'Alex', aliases: ['Alexander'] },
     ]);
@@ -88,16 +94,16 @@ describe('medical-receipt post_classify', () => {
       auth,
     });
 
-    const [plural, body, token] = aepCreate.mock.calls[0];
-    expect(plural).toBe('hsa-receipts');
-    expect(token).toBe('tok');
-    expect(aepList).toHaveBeenCalledWith('people', 'tok');
+    const [path, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/hsa-receipts');
+    expect(serverClientTokens).toContain('tok');
+    expect(listAllFn).toHaveBeenCalledWith('/people', undefined);
     expect(body.patient).toBe('Jamie');
     expect(body.person).toBe('people/p1');
   });
 
   it('matches a patient name against a person alias', async () => {
-    aepList.mockResolvedValue([{ id: 'p2', name: 'Alex', aliases: ['Alexander'] }]);
+    listAllFn.mockResolvedValue([{ id: 'p2', name: 'Alex', aliases: ['Alexander'] }]);
 
     await medicalReceiptHook({
       document: doc(),
@@ -105,12 +111,12 @@ describe('medical-receipt post_classify', () => {
       auth,
     });
 
-    const [, body] = aepCreate.mock.calls[0];
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.person).toBe('people/p2');
   });
 
   it('leaves person unset when the patient name is ambiguous or unknown', async () => {
-    aepList.mockResolvedValue([
+    listAllFn.mockResolvedValue([
       { id: 'p1', name: 'Jamie', aliases: [] },
       { id: 'p3', name: 'Jamie', aliases: [] }, // two people named Jamie → ambiguous
     ]);
@@ -121,13 +127,13 @@ describe('medical-receipt post_classify', () => {
       auth,
     });
 
-    const [, body] = aepCreate.mock.calls[0];
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.patient).toBe('Jamie');
     expect(body.person).toBeUndefined();
   });
 
   it('still creates the receipt when the people lookup fails', async () => {
-    aepList.mockRejectedValue(new Error('boom'));
+    listAllFn.mockRejectedValue(new Error('boom'));
 
     await medicalReceiptHook({
       document: doc(),
@@ -135,8 +141,8 @@ describe('medical-receipt post_classify', () => {
       auth,
     });
 
-    expect(aepCreate).toHaveBeenCalledTimes(1);
-    const [, body] = aepCreate.mock.calls[0];
+    expect(createFn).toHaveBeenCalledTimes(1);
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.patient).toBe('Jamie');
     expect(body.person).toBeUndefined();
   });
@@ -147,7 +153,7 @@ describe('medical-receipt post_classify', () => {
       metadata: { doc_type: 'medical-receipt', category: 'Wellness' },
       auth,
     });
-    const [, body] = aepCreate.mock.calls[0];
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.category).toBe('Medical'); // 'Wellness' is not an HSA category
     expect(body.merchant).toBe('Scan 001'); // no merchant → document title
     expect(body.amount).toBe(0); // no amount → 0
@@ -173,9 +179,9 @@ describe('recipe post_classify', () => {
       auth,
     });
 
-    expect(aepCreate).toHaveBeenCalledTimes(1);
-    const [plural, body] = aepCreate.mock.calls[0];
-    expect(plural).toBe('recipes');
+    expect(createFn).toHaveBeenCalledTimes(1);
+    const [path, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/recipes');
     expect(body.title).toBe('Banana bread');
     expect(body.parsed_ingredients).toEqual([
       { item: 'flour', qty: 2, unit: 'cup', raw: '2 cups flour' },
@@ -196,7 +202,7 @@ describe('recipe post_classify', () => {
       metadata: { doc_type: 'recipe' },
       auth,
     });
-    const [, body] = aepCreate.mock.calls[0];
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.title).toBe('Untitled recipe');
     expect(body.parsed_ingredients).toEqual([]);
   });

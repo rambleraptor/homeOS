@@ -28,7 +28,7 @@ build stubs it out of the browser bundle:
 ```ts
 // packages/homestead-apps/gift-cards/migrations/backfill-status.ts
 import type { MigrationHandler } from '@rambleraptor/homestead-core/apps/migrations';
-import { aepList, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 
 interface GiftCard {
   id: string;
@@ -37,15 +37,16 @@ interface GiftCard {
 }
 
 const migrate: MigrationHandler = async ({ token, log }) => {
-  const cards = await aepList<GiftCard>('gift-cards', token);
+  const cards = serverClient(token).collection<GiftCard>('gift-cards');
+  const all = await cards.listAll();
   let patched = 0;
-  for (const card of cards) {
+  for (const card of all) {
     if (card.status) continue; // idempotent guard — skip rows already done
     const status = (card.balance ?? 0) > 0 ? 'active' : 'depleted';
-    await aepUpdate('gift-cards', card.id, { status }, token);
+    await cards.record(card.id).update({ status });
     if (++patched % 50 === 0) await log(`patched ${patched}…`);
   }
-  return { scanned: cards.length, patched }; // recorded in the ledger
+  return { scanned: all.length, patched }; // recorded in the ledger
 };
 
 export default migrate;
@@ -94,9 +95,9 @@ after the schema sync; its result and any `log()` lines land in the ledger.
    migration from re-running, but a *resumed* one (crash mid-run) re-executes
    from the top — so guard each record (skip rows already in the target shape)
    rather than assuming a clean slate.
-3. **Go through the engine, not raw SQL.** Use the
-   `@rambleraptor/homestead-core/server/aepbase` helpers so references, file
-   fields, and validation stay intact.
+3. **Go through the engine, not raw SQL.** Use the shared client
+   (`serverClient(token)` from `@rambleraptor/homestead-core/server/client`) so
+   references, file fields, and validation stay intact.
 4. **Return a small summary** (`{ scanned, patched }`) — it's stored as the
    migration's `result` and makes the ledger useful.
 5. **Mark destructive migrations** with `destructive: true`. It's recorded for

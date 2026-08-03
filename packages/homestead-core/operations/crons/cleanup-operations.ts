@@ -18,9 +18,8 @@
  * bundle. Runs headless with a short-lived admin token from the scheduler.
  */
 
-import { createHomesteadClient, bearerToken } from '@rambleraptor/homestead-client';
 import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
-import { AEPBASE_URL } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { OPERATIONS } from '@rambleraptor/homestead-core/resources/operations';
 
 /** Delete finished operations older than this many days. */
@@ -38,8 +37,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   // Anchor "now" to the firing time so the cutoff is deterministic.
   const cutoff = new Date(new Date(firedAt).getTime() - RETENTION_MS);
 
-  const hs = createHomesteadClient({ baseUrl: AEPBASE_URL, auth: bearerToken(token) });
-  const operations = hs.collection<StoredOperation>(OPERATIONS);
+  const operations = serverClient(token).collection<StoredOperation>(OPERATIONS);
 
   const all = await operations.listAll();
   const stale = all.filter(

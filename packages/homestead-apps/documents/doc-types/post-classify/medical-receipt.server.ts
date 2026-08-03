@@ -12,7 +12,7 @@
  * only ever reached through the lazy `post_classify` thunk on the doc type.
  */
 
-import { aepCreate, aepList } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import type { PostClassifyHandler } from '../docType';
 import { DOCUMENTS } from '../../resources';
 import { HSA_RECEIPTS } from '../../../hsa/resources';
@@ -59,7 +59,7 @@ async function resolvePersonPath(
   token: string,
 ): Promise<string | undefined> {
   try {
-    const people = await aepList<Person>(PEOPLE, token);
+    const people = await serverClient(token).collection<Person>(PEOPLE).listAll();
     // Empty `aliases` may come back absent; `matchPersonByName` spreads it.
     const normalized = people.map((p) => ({ ...p, aliases: p.aliases ?? [] }));
     const matched = matchPersonByName(name, normalized);
@@ -107,7 +107,9 @@ const handler: PostClassifyHandler = async ({ document, metadata, auth }) => {
   if (notes) receipt.notes = notes;
   if (document.created_by) receipt.created_by = document.created_by;
 
-  const created = await aepCreate<HSAReceipt>(HSA_RECEIPTS, receipt, auth.token);
+  const created = await serverClient(auth.token)
+    .collection<HSAReceipt>(HSA_RECEIPTS)
+    .create(receipt);
   return { linked_resource: `${HSA_RECEIPTS}/${created.id}` };
 };
 

@@ -10,10 +10,9 @@
  * legacy `full_text` field is removed.
  */
 
-import { createHomesteadClient, bearerToken } from '@rambleraptor/homestead-client';
 import type { CustomMethodHandler } from '@rambleraptor/homestead-core/resources/types';
 import { isEmbeddingConfigured } from '@rambleraptor/homestead-core/server/ai/config';
-import { AEPBASE_URL } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { embedTextIntoStore } from '@rambleraptor/homestead-core/server/vectors/index-file';
 import {
   DEFAULT_CHUNK_SIZE,
@@ -36,10 +35,7 @@ const handler: CustomMethodHandler = async ({ id, auth }) => {
     );
   }
 
-  const documents = createHomesteadClient({
-    baseUrl: AEPBASE_URL,
-    auth: bearerToken(auth.token),
-  }).collection<Document>(DOCUMENTS);
+  const documents = serverClient(auth.token).collection<Document>(DOCUMENTS);
 
   let doc: Document;
   try {

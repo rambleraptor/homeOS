@@ -33,14 +33,14 @@ vi.mock('@rambleraptor/homestead-core/server/ai/config', () => ({
   isAiConfigured: () => isAiConfigured(),
 }));
 
-const aepList = vi.fn();
-const aepCreateMultipart = vi.fn();
-const aepbaseFetch = vi.fn();
-vi.mock('@rambleraptor/homestead-core/server/aepbase', () => ({
-  aepList: (...a: unknown[]) => aepList(...a),
-  aepCreateMultipart: (...a: unknown[]) => aepCreateMultipart(...a),
-  aepbaseFetch: (...a: unknown[]) => aepbaseFetch(...a),
+import { createFakeServerClient } from '@rambleraptor/homestead-core/server/__tests__/fake-server-client';
+
+const fake = createFakeServerClient();
+vi.mock('@rambleraptor/homestead-core/server/client', () => ({
+  serverClient: () => fake.client,
 }));
+
+const { listAllFn, createFn, invokeFn } = fake;
 
 import handler from '../ingest-email';
 
@@ -65,9 +65,9 @@ beforeEach(() => {
   isEmailConfigured.mockReturnValue(true);
   getEmailConfig.mockReturnValue({ query: 'has:attachment' });
   isAiConfigured.mockReturnValue(true);
-  aepList.mockResolvedValue([]);
-  aepCreateMultipart.mockResolvedValue({ id: 'doc-1' } as Document);
-  aepbaseFetch.mockResolvedValue(new Response('{}'));
+  listAllFn.mockResolvedValue([]);
+  createFn.mockResolvedValue({ id: 'doc-1' } as Document);
+  invokeFn.mockResolvedValue({});
   // Distinct bytes per attachment by default, so content-hash dedup only fires
   // in the tests that deliberately supply identical bytes.
   provider.getAttachment.mockImplementation(async (_msgId: string, attId: string) =>
@@ -91,10 +91,10 @@ describe('documents-ingest-email', () => {
     const result = await handler(ctx);
 
     expect(provider.getAttachment).toHaveBeenCalledWith('m1', 'att-1');
-    expect(aepCreateMultipart).toHaveBeenCalledTimes(1);
-    const [plural, fields, file, token] = aepCreateMultipart.mock.calls[0];
-    expect(plural).toBe('documents');
-    expect(fields).toMatchObject({
+    expect(createFn).toHaveBeenCalledTimes(1);
+    const [path, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/documents');
+    expect(body).toMatchObject({
       title: 'receipt',
       mime_type: 'application/pdf',
       parse_status: 'pending',
@@ -102,14 +102,13 @@ describe('documents-ingest-email', () => {
       source_email_attachment: '0:receipt.pdf',
       content_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
-    expect(file).toMatchObject({ filename: 'receipt.pdf', contentType: 'application/pdf' });
-    expect(token).toBe('admin-tok');
+    // The file rides on the create body as a named File (auto-multipart).
+    expect(body.file).toBeInstanceOf(File);
+    expect((body.file as File).name).toBe('receipt.pdf');
+    expect((body.file as File).type).toBe('application/pdf');
 
-    // classify fired against the new doc
-    expect(aepbaseFetch).toHaveBeenCalledWith(
-      '/documents/doc-1:classify',
-      expect.objectContaining({ method: 'POST', token: 'admin-tok' }),
-    );
+    // classify fired against the new doc via the item-target custom method
+    expect(invokeFn).toHaveBeenCalledWith('/documents/doc-1', 'classify', {});
     expect(provider.trashMessage).toHaveBeenCalledWith('m1');
     expect(result).toEqual({ messages: 1, uploaded: 1, skipped: 0, duplicates: 0, trashed: 1 });
   });
@@ -128,13 +127,13 @@ describe('documents-ingest-email', () => {
     provider.listMessages.mockResolvedValue([{ id: 'm1' }]);
     provider.getMessage.mockResolvedValue(message());
     // Existing document for this message + attachment key.
-    aepList.mockResolvedValue([
+    listAllFn.mockResolvedValue([
       { id: 'old', source_email_attachment: '0:receipt.pdf' } as Document,
     ]);
 
     const result = await handler(ctx);
 
-    expect(aepCreateMultipart).not.toHaveBeenCalled();
+    expect(createFn).not.toHaveBeenCalled();
     expect(provider.trashMessage).toHaveBeenCalledWith('m1');
     expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 1, duplicates: 0, trashed: 1 });
   });
@@ -143,14 +142,16 @@ describe('documents-ingest-email', () => {
     provider.listMessages.mockResolvedValue([{ id: 'm1' }]);
     provider.getMessage.mockResolvedValue(message());
     // No same-message provenance match, but an existing doc has the same bytes.
-    aepList.mockImplementation(async (_p: string, _t: string, _parent: unknown, filter?: string) =>
-      filter?.startsWith('content_hash') ? [{ id: 'existing' } as Document] : [],
+    listAllFn.mockImplementation(async (_path: string, opts?: unknown) =>
+      (opts as { filter?: string })?.filter?.startsWith('content_hash')
+        ? [{ id: 'existing' } as Document]
+        : [],
     );
 
     const result = await handler(ctx);
 
     // Blocked before any upload — the duplicate is not filed again.
-    expect(aepCreateMultipart).not.toHaveBeenCalled();
+    expect(createFn).not.toHaveBeenCalled();
     expect(provider.trashMessage).toHaveBeenCalledWith('m1');
     expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, duplicates: 1, trashed: 1 });
   });
@@ -171,7 +172,7 @@ describe('documents-ingest-email', () => {
     const result = await handler(ctx);
 
     // First filed, second blocked as an in-run duplicate.
-    expect(aepCreateMultipart).toHaveBeenCalledTimes(1);
+    expect(createFn).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ messages: 1, uploaded: 1, skipped: 0, duplicates: 1, trashed: 1 });
   });
 
@@ -188,8 +189,10 @@ describe('documents-ingest-email', () => {
 
     const result = await handler(ctx);
 
-    expect(aepCreateMultipart).toHaveBeenCalledTimes(2);
-    const keys = aepCreateMultipart.mock.calls.map((c) => c[1].source_email_attachment);
+    expect(createFn).toHaveBeenCalledTimes(2);
+    const keys = createFn.mock.calls.map(
+      (c) => (c[1] as Record<string, unknown>).source_email_attachment,
+    );
     expect(keys).toEqual(['0:scan.pdf', '1:scan.pdf']);
     expect(result.uploaded).toBe(2);
     expect(result.trashed).toBe(1);
@@ -208,7 +211,7 @@ describe('documents-ingest-email', () => {
 
     const result = await handler(ctx);
 
-    expect(aepCreateMultipart).not.toHaveBeenCalled();
+    expect(createFn).not.toHaveBeenCalled();
     expect(provider.trashMessage).not.toHaveBeenCalled();
     expect(result).toEqual({ messages: 1, uploaded: 0, skipped: 0, duplicates: 0, trashed: 0 });
     // An all-zero run must say what it dropped, or it's undiagnosable.
@@ -260,7 +263,7 @@ describe('documents-ingest-email', () => {
         ],
       }),
     );
-    aepCreateMultipart
+    createFn
       .mockResolvedValueOnce({ id: 'doc-good' })
       .mockRejectedValueOnce(new Error('boom'));
 
@@ -278,8 +281,8 @@ describe('documents-ingest-email', () => {
 
     await handler(ctx);
 
-    expect(aepCreateMultipart).toHaveBeenCalledTimes(1);
-    expect(aepbaseFetch).not.toHaveBeenCalled();
+    expect(createFn).toHaveBeenCalledTimes(1);
+    expect(invokeFn).not.toHaveBeenCalled();
     expect(provider.trashMessage).toHaveBeenCalledWith('m1');
   });
 });
