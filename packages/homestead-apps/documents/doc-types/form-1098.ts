@@ -12,6 +12,7 @@ const form1098: DocType = {
   label: 'Form 1098',
   icon: () => import('lucide-react').then((m) => m.House),
   category: 'tax',
+  title_template: '1098 ({tax_year}) — {lender_name}',
   description:
     'A US tax form reporting mortgage interest a homeowner paid during the year. ' +
     'Titled "Form 1098" and "Mortgage Interest Statement", issued by the mortgage ' +
@@ -65,6 +66,14 @@ const form1098: DocType = {
       label: 'Property address',
       type: 'string',
       description: 'The address of the property securing the mortgage, if shown.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

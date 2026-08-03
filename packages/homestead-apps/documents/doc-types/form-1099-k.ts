@@ -12,6 +12,7 @@ const form1099K: DocType = {
   label: 'Form 1099-K',
   icon: () => import('lucide-react').then((m) => m.CreditCard),
   category: 'tax',
+  title_template: '1099-K ({tax_year}) — {filer_name}',
   description:
     'A US tax form reporting payments settled through a card processor or ' +
     'third-party network (e.g. a marketplace or payment app). Titled "Form 1099-K" ' +
@@ -62,6 +63,14 @@ const form1099K: DocType = {
       label: 'Box 4: Federal income tax withheld',
       type: 'number',
       description: 'Federal income tax withheld, from Box 4. Usually zero.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

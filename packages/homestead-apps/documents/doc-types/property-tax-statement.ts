@@ -13,6 +13,7 @@ const propertyTaxStatement: DocType = {
   label: 'Property tax statement',
   icon: () => import('lucide-react').then((m) => m.Building),
   category: 'tax',
+  title_template: 'Property Tax ({tax_year}) — {taxing_authority}',
   description:
     'A local government real estate property tax bill or statement, listing the ' +
     'taxing authority, the parcel, its assessed value, and the tax due. Layout ' +

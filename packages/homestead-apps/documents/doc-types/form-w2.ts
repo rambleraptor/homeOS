@@ -11,6 +11,7 @@ const formW2: DocType = {
   label: 'Form W-2',
   icon: () => import('lucide-react').then((m) => m.BadgeDollarSign),
   category: 'tax',
+  title_template: 'W-2 ({tax_year}) — {employer_name}',
   description:
     'A US tax form reporting wages paid by an employer and taxes withheld during ' +
     'the year. Titled "Form W-2" and "Wage and Tax Statement", laid out in ' +
@@ -77,6 +78,14 @@ const formW2: DocType = {
       label: 'Box 6: Medicare tax withheld',
       type: 'number',
       description: 'Medicare tax withheld, from Box 6.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

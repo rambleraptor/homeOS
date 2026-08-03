@@ -11,6 +11,7 @@ const form1099R: DocType = {
   label: 'Form 1099-R',
   icon: () => import('lucide-react').then((m) => m.PiggyBank),
   category: 'tax',
+  title_template: '1099-R ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting distributions from a pension, annuity, IRA, or other ' +
     'retirement plan. Titled "Form 1099-R" and "Distributions From Pensions, ' +
@@ -66,6 +67,14 @@ const form1099R: DocType = {
       label: 'Account number',
       type: 'string',
       description: 'The plan or account number the distribution came from, if shown.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

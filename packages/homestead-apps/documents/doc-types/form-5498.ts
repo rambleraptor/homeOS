@@ -12,6 +12,7 @@ const form5498: DocType = {
   label: 'Form 5498',
   icon: () => import('lucide-react').then((m) => m.Vault),
   category: 'tax',
+  title_template: '5498 ({tax_year}) — {trustee_name}',
   description:
     'A US tax form reporting contributions to an IRA during the year, plus its ' +
     'year-end value. Titled "Form 5498" and "IRA Contribution Information", issued ' +
@@ -66,6 +67,14 @@ const form5498: DocType = {
       description:
         'Which IRA-type box is checked in Box 7 — e.g. "IRA", "SEP", "SIMPLE", or ' +
         '"Roth IRA". Record the checked type.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

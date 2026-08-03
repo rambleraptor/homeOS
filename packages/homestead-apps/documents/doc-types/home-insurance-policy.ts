@@ -25,6 +25,7 @@ const homeInsurancePolicy: DocType = {
   id: 'home-insurance-policy',
   label: 'Home insurance policy',
   icon: () => import('lucide-react').then((m) => m.House),
+  title_template: 'Home Insurance — {named_insured}',
   description:
     'A homeowners (or renters) insurance policy — the contract between a ' +
     'homeowner or renter and an insurance carrier that covers the home and ' +

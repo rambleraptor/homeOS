@@ -7,7 +7,9 @@
  * a `recipe` record from the fields extracted here, so the same field shapes the
  * recipe resource declares (a structured ingredient list, ordered steps) are
  * extracted in the single classify pass. The document's AI-inferred title
- * becomes the recipe's title — this type declares no name field of its own.
+ * becomes the recipe's title — this type declares no name field of its own, and
+ * so deliberately omits a `title_template`: the dish name the model writes is a
+ * better title than any field this type extracts.
  */
 
 import type { DocType } from './docType';

@@ -11,6 +11,7 @@ const form1099G: DocType = {
   label: 'Form 1099-G',
   icon: () => import('lucide-react').then((m) => m.Building2),
   category: 'tax',
+  title_template: '1099-G ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting government payments such as unemployment compensation ' +
     'and state or local tax refunds. Titled "Form 1099-G" and "Certain Government ' +
@@ -54,6 +55,14 @@ const form1099G: DocType = {
       label: 'Box 4: Federal income tax withheld',
       type: 'number',
       description: 'Federal income tax withheld, from Box 4.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

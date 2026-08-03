@@ -11,6 +11,7 @@ const form5498Sa: DocType = {
   label: 'Form 5498-SA',
   icon: () => import('lucide-react').then((m) => m.Wallet),
   category: 'tax',
+  title_template: '5498-SA ({tax_year}) — {trustee_name}',
   description:
     'A US tax form reporting contributions to a health savings account during the ' +
     'year, plus its year-end value. Titled "Form 5498-SA" and "HSA, Archer MSA, or ' +
@@ -54,6 +55,14 @@ const form5498Sa: DocType = {
       label: 'Box 5: Fair market value of account',
       type: 'number',
       description: 'The account\'s fair market value at year end, from Box 5.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

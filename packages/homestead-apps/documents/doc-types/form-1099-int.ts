@@ -17,6 +17,7 @@ const form1099Int: DocType = {
   label: 'Form 1099-INT',
   icon: () => import('lucide-react').then((m) => m.Landmark),
   category: 'tax',
+  title_template: '1099-INT ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting interest income paid to an account holder during ' +
     'the year. Titled "Form 1099-INT" and "Interest Income", with numbered ' +
@@ -86,6 +87,14 @@ const form1099Int: DocType = {
       description:
         'Interest not subject to federal income tax, from Box 8, such as from ' +
         'municipal bond funds.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

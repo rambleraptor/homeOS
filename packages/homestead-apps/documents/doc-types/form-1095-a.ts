@@ -11,6 +11,7 @@ const form1095A: DocType = {
   label: 'Form 1095-A',
   icon: () => import('lucide-react').then((m) => m.ShieldPlus),
   category: 'tax',
+  title_template: '1095-A ({tax_year}) — {insurance_company_name}',
   description:
     'A US tax form reporting health coverage bought through the Health Insurance ' +
     'Marketplace, used to reconcile the premium tax credit on Form 8962. Titled ' +
@@ -59,6 +60,14 @@ const form1095A: DocType = {
       description:
         'The annual advance payment of the premium tax credit, from the Part III ' +
         'annual total (column C).',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

@@ -11,6 +11,7 @@ const form1099Sa: DocType = {
   label: 'Form 1099-SA',
   icon: () => import('lucide-react').then((m) => m.HeartPulse),
   category: 'tax',
+  title_template: '1099-SA ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting distributions from a health savings account (HSA) or ' +
     'medical savings account. Titled "Form 1099-SA" and "Distributions From an HSA, ' +
@@ -59,6 +60,14 @@ const form1099Sa: DocType = {
       label: 'Account number',
       type: 'string',
       description: 'The HSA/MSA account number, if shown.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

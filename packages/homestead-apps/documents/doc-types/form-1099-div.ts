@@ -13,6 +13,7 @@ const form1099Div: DocType = {
   label: 'Form 1099-DIV',
   icon: () => import('lucide-react').then((m) => m.Coins),
   category: 'tax',
+  title_template: '1099-DIV ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting dividends and other distributions paid on stock ' +
     'during the year. Titled "Form 1099-DIV" and "Dividends and Distributions", ' +
@@ -74,6 +75,14 @@ const form1099Div: DocType = {
       label: 'Box 7: Foreign tax paid',
       type: 'number',
       description: 'Foreign tax paid on the dividends, from Box 7. Often creditable.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

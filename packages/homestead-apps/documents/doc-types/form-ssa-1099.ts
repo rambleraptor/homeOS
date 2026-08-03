@@ -11,6 +11,7 @@ const formSsa1099: DocType = {
   label: 'Form SSA-1099',
   icon: () => import('lucide-react').then((m) => m.BadgeCheck),
   category: 'tax',
+  title_template: 'SSA-1099 ({tax_year}) — {beneficiary_name}',
   description:
     'A US tax form reporting the Social Security benefits a person received during ' +
     'the year. Titled "Form SSA-1099" and "Social Security Benefit Statement", ' +
@@ -50,6 +51,14 @@ const formSsa1099: DocType = {
       label: 'Box 6: Voluntary federal income tax withheld',
       type: 'number',
       description: 'Voluntary federal income tax withheld, from Box 6.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

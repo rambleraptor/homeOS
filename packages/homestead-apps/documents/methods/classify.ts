@@ -33,6 +33,8 @@ import {
 import { DOCUMENTS } from '../resources';
 import {
   docTypeIds,
+  freeTitlePlaceholders,
+  renderTitleTemplate,
   toExtractionSchema,
   UNKNOWN_DOC_TYPE,
   type DocType,
@@ -263,24 +265,72 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   let metadata: { doc_type: string; [field: string]: unknown } = {
     doc_type: UNKNOWN_DOC_TYPE,
   };
+  // A title rendered from the matched type's template — set only when the type
+  // has one and every placeholder filled. Null leaves the model-authored title
+  // in place (see the title selection below).
+  let templateTitle: string | null = null;
   if (matched) {
     const matchedType = getDocType(classified.doc_type)!;
+
+    // Free placeholders — a template name that isn't a field, e.g. `{tax_year}`
+    // on a form with no tax-year column — ride along as extra nullable strings on
+    // the extraction schema so the model reads them off the document in the same
+    // pass (no extra vision call). They're split back out below and never stored.
+    const freePlaceholders = freeTitlePlaceholders(matchedType);
+    const extractionSchema = freePlaceholders.length
+      ? toExtractionSchema(matchedType).extend(
+          Object.fromEntries(
+            freePlaceholders.map((name) => [
+              name,
+              z
+                .string()
+                .nullable()
+                .describe(
+                  `The value for the "{${name}}" placeholder in this document's ` +
+                    'title. Read it off the document exactly as printed; null if ' +
+                    'it is not shown.',
+                ),
+            ]),
+          ),
+        )
+      : toExtractionSchema(matchedType);
+
     let extracted: Record<string, unknown>;
     try {
       extracted = await aiGenerateObject({
         messages: withDocument(extractPrompt(matchedType)),
-        schema: toExtractionSchema(matchedType),
+        schema: extractionSchema,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
       });
     } catch (err) {
       return failClassify(err, 'extraction');
     }
-    metadata = { ...stripNulls(extracted), doc_type: classified.doc_type };
+
+    // Split the model's answer into the type's real fields (stored) and the
+    // free-placeholder values (title-only). Both render the template; only the
+    // fields — nulls dropped — become the stored metadata.
+    const fieldValues: Record<string, unknown> = { ...extracted };
+    const freeValues: Record<string, unknown> = {};
+    for (const name of freePlaceholders) {
+      freeValues[name] = fieldValues[name];
+      delete fieldValues[name];
+    }
+    metadata = { ...stripNulls(fieldValues), doc_type: classified.doc_type };
+
+    if (matchedType.title_template) {
+      templateTitle = renderTitleTemplate(matchedType.title_template, {
+        ...fieldValues,
+        ...freeValues,
+      });
+    }
   }
 
-  // Only adopt the inferred title when a human hasn't renamed the document.
-  // A blank model title never clobbers the existing (filename) default.
-  const inferredTitle = classified.title?.trim();
+  // Prefer the type's rendered template; fall back to the model-authored title —
+  // the only title for an unmatched document, a templateless type, or a template
+  // left with an unfilled placeholder. Only adopt a title when a human hasn't
+  // renamed the document, and never let a blank one clobber the existing
+  // (filename) default.
+  const inferredTitle = templateTitle ?? classified.title?.trim();
   const setTitle = !doc.title_edited && inferredTitle ? { title: inferredTitle } : {};
 
   const updated = await aepUpdate<Document>(

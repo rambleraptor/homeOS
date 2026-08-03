@@ -11,6 +11,7 @@ const form1099B: DocType = {
   label: 'Form 1099-B',
   icon: () => import('lucide-react').then((m) => m.TrendingUp),
   category: 'tax',
+  title_template: '1099-B ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting proceeds from securities a broker sold during the ' +
     'year. Titled "Form 1099-B" and "Proceeds From Broker and Barter Exchange ' +
@@ -75,6 +76,14 @@ const form1099B: DocType = {
       label: 'Box 4: Federal income tax withheld',
       type: 'number',
       description: 'Federal income tax withheld, from Box 4. Usually zero.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

@@ -12,6 +12,7 @@ const form1099Misc: DocType = {
   label: 'Form 1099-MISC',
   icon: () => import('lucide-react').then((m) => m.FileText),
   category: 'tax',
+  title_template: '1099-MISC ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting miscellaneous income such as rents, royalties, and ' +
     'prizes. Titled "Form 1099-MISC" and "Miscellaneous Information", with numbered ' +
@@ -63,6 +64,14 @@ const form1099Misc: DocType = {
       label: 'Box 6: Medical and health care payments',
       type: 'number',
       description: 'Medical and health-care payments, from Box 6.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

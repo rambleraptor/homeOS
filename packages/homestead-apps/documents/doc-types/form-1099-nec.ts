@@ -11,6 +11,7 @@ const form1099Nec: DocType = {
   label: 'Form 1099-NEC',
   icon: () => import('lucide-react').then((m) => m.Briefcase),
   category: 'tax',
+  title_template: '1099-NEC ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting pay to an independent contractor or freelancer. ' +
     'Titled "Form 1099-NEC" and "Nonemployee Compensation", with a prominent Box 1. ' +
@@ -52,6 +53,14 @@ const form1099Nec: DocType = {
       label: 'Box 5: State tax withheld',
       type: 'number',
       description: 'State income tax withheld, from Box 5, if any.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

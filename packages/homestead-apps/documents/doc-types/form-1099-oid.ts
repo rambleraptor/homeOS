@@ -11,6 +11,7 @@ const form1099Oid: DocType = {
   label: 'Form 1099-OID',
   icon: () => import('lucide-react').then((m) => m.Percent),
   category: 'tax',
+  title_template: '1099-OID ({tax_year}) — {payer_name}',
   description:
     'A US tax form reporting original issue discount — the interest that accrues ' +
     'on a bond issued below face value. Titled "Form 1099-OID" and "Original Issue ' +
@@ -59,6 +60,14 @@ const form1099Oid: DocType = {
       description:
         'OID on Treasury obligations, from Box 8. Often exempt from state tax; ' +
         'distinct from Box 1.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

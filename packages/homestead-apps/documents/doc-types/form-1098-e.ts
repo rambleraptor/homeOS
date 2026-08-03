@@ -11,6 +11,7 @@ const form1098E: DocType = {
   label: 'Form 1098-E',
   icon: () => import('lucide-react').then((m) => m.GraduationCap),
   category: 'tax',
+  title_template: '1098-E ({tax_year}) — {lender_name}',
   description:
     'A US tax form reporting student loan interest a borrower paid during the year. ' +
     'Titled "Form 1098-E" and "Student Loan Interest Statement", issued by the loan ' +
@@ -44,6 +45,14 @@ const form1098E: DocType = {
       label: 'Box 1: Student loan interest received',
       type: 'number',
       description: 'Student loan interest received by the lender during the year, from Box 1.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };

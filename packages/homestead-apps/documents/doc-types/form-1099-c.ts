@@ -12,6 +12,7 @@ const form1099C: DocType = {
   label: 'Form 1099-C',
   icon: () => import('lucide-react').then((m) => m.Eraser),
   category: 'tax',
+  title_template: '1099-C ({tax_year}) — {creditor_name}',
   description:
     'A US tax form reporting a debt a lender cancelled or forgave. Titled "Form ' +
     '1099-C" and "Cancellation of Debt", with a CREDITOR and a DEBTOR block. ' +
@@ -64,6 +65,14 @@ const form1099C: DocType = {
       type: 'number',
       description:
         'For a foreclosure or abandonment, the property\'s fair market value, from Box 7.',
+    },
+    tax_year: {
+      label: 'Tax year',
+      type: 'number',
+      description:
+        'The tax year this form reports, as a four-digit year (e.g. 2024). ' +
+        'Usually printed near the form title (often as "For calendar year ' +
+        'YYYY") or in a corner of the form.',
     },
   },
 };
