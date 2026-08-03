@@ -232,11 +232,13 @@ under `tests/e2e/`.
    contain interactions only — no assertions, no `console.log`.
 3. Add aepbase seed helpers (`create<Thing>`, `deleteAll<Things>`, any
    `test<Thing>` data fixtures) to
-   `packages/homestead-apps/<app-id>/e2e/helpers.ts`. Import the
-   generic REST primitives from
-   `../../../../tests/e2e/utils/aepbase-helpers` (one more `..` if your
-   app is nested under `games/`). Seeding via REST is 10-100× faster
-   than driving the UI.
+   `packages/homestead-apps/<app-id>/e2e/helpers.ts`. Build them on the
+   shared client via `e2eClient(token)` from
+   `../../../../tests/e2e/utils/aepbase-helpers` (one more `..` if your app
+   is nested under `games/`) — e.g.
+   `e2eClient(token).collection('<plural>').create(body)`, and
+   `deleteIfPresent(token, '<plural>', id)` in cleanup loops. Seeding via
+   the client is 10-100× faster than driving the UI.
 4. Create the spec at
    `packages/homestead-apps/<app-id>/e2e/<app-id>-crud.spec.ts`.
    Each test gets its own user (see existing fixtures) and cleans its own

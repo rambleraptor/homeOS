@@ -163,8 +163,9 @@ interactions; they don't contain assertions (except helper `expect…`
 methods) or `console.log` statements.
 
 #### 5. Test data setup
-Seed via aepbase REST (`tests/e2e/utils/aepbase-helpers.ts`), not through
-the UI. API seed is 10-100× faster.
+Seed via the shared client (`e2eClient` in
+`tests/e2e/utils/aepbase-helpers.ts`), not through the UI. Client seed is
+10-100× faster.
 
 #### 6. Adding a new app
 
