@@ -8,11 +8,7 @@
 
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { UsersPage } from '../../pages/UsersPage';
-import {
-  aepList,
-  createUser,
-  deleteUsersExcept,
-} from '../../utils/aepbase-helpers';
+import { createUser, deleteUsersExcept, listOrEmpty } from '../../utils/aepbase-helpers';
 
 const uniqueEmail = (tag: string) =>
   `users-e2e-${tag}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
@@ -45,7 +41,7 @@ test.describe('Users page (superuser)', () => {
     await usersPage.expectUserInList(email);
 
     // Verify backend state.
-    const users = await aepList<{ email: string; type?: string }>(adminToken, 'users');
+    const users = await listOrEmpty<{ email: string; type?: string }>(adminToken, 'users');
     const created = users.find((u) => u.email === email);
     expect(created).toBeTruthy();
     expect(created?.type).toBe('regular');
@@ -63,7 +59,7 @@ test.describe('Users page (superuser)', () => {
 
     await usersPage.expectUserInList(email);
 
-    const users = await aepList<{ email: string; type?: string }>(adminToken, 'users');
+    const users = await listOrEmpty<{ email: string; type?: string }>(adminToken, 'users');
     expect(users.find((u) => u.email === email)?.type).toBe('superuser');
   });
 
@@ -89,7 +85,7 @@ test.describe('Users page (superuser)', () => {
     // Modal should close.
     await expect(usersPage['page'].getByTestId('user-email-input')).not.toBeVisible();
 
-    const users = await aepList<{ id: string; display_name?: string; type?: string }>(
+    const users = await listOrEmpty<{ id: string; display_name?: string; type?: string }>(
       adminToken,
       'users',
     );
@@ -115,7 +111,7 @@ test.describe('Users page (superuser)', () => {
     // Row disappears.
     await expect(usersPage['page'].getByText(email)).toHaveCount(0);
 
-    const users = await aepList<{ id: string }>(adminToken, 'users');
+    const users = await listOrEmpty<{ id: string }>(adminToken, 'users');
     expect(users.find((u) => u.id === created.id)).toBeUndefined();
   });
 

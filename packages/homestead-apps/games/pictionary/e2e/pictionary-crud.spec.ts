@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepList } from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { listOrEmpty } from '../../../../../tests/e2e/utils/aepbase-helpers';
 import { PictionaryPage } from './PictionaryPage';
 import { createPictionaryGame, deleteAllPictionaryGames } from './helpers';
 import {
@@ -57,7 +57,7 @@ test.describe('Pictionary CRUD', () => {
     await pictionaryPage.expectWinningWord('Eiffel Tower');
 
     // Verify via API.
-    const games = await aepList<{
+    const games = await listOrEmpty<{
       id: string;
       location?: string;
       winning_word?: string;
@@ -66,10 +66,10 @@ test.describe('Pictionary CRUD', () => {
     expect(games[0].location).toBe('Orlando');
     expect(games[0].winning_word).toBe('Eiffel Tower');
 
-    const teams = await aepList<{ id: string; won?: boolean }>(
+    const teams = await listOrEmpty<{ id: string; won?: boolean }>(
       userToken,
       'pictionary-teams',
-      ['pictionary-games', games[0].id],
+      { parent: ['pictionary-games', games[0].id] },
     );
     expect(teams).toHaveLength(2);
     expect(teams.filter((t) => t.won === true)).toHaveLength(1);
@@ -113,7 +113,7 @@ test.describe('Pictionary CRUD', () => {
 
     await pictionaryPage.expectEmptyState();
 
-    const games = await aepList<{ id: string }>(userToken, 'pictionary-games');
+    const games = await listOrEmpty<{ id: string }>(userToken, 'pictionary-games');
     expect(games).toHaveLength(0);
   });
 });

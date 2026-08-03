@@ -3,7 +3,7 @@
  * `person-shared-data` records via the aepbase REST API.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 interface CreatePersonInput {
   name: string;
@@ -25,7 +25,8 @@ export async function createPerson(
   token: string,
   data: CreatePersonInput,
 ): Promise<PersonRecord> {
-  const person = await aepCreate<PersonRecord>(token, 'people', {
+  const hs = e2eClient(token);
+  const person = await hs.collection<PersonRecord>('people').create({
     name: data.name,
   });
 
@@ -35,11 +36,11 @@ export async function createPerson(
         'createPerson: createdByUserId is required when `address` is set',
       );
     }
-    const address = await aepCreate<{ id: string }>(token, 'addresses', {
+    const address = await hs.collection<{ id: string }>('addresses').create({
       line1: data.address,
       created_by: `users/${data.createdByUserId}`,
     });
-    await aepCreate(token, 'person-shared-data', {
+    await hs.collection('person-shared-data').create({
       person_a: person.id,
       person_b: undefined,
       address_id: address.id,
@@ -61,33 +62,35 @@ export async function createMultiplePeople(
 }
 
 export async function getPersonSharedData(token: string, personId: string) {
-  const all = await aepList<{
-    id: string;
-    person_a: string;
-    person_b?: string;
-    address_id?: string;
-  }>(token, 'person-shared-data');
+  const all = await e2eClient(token)
+    .collection<{
+      id: string;
+      person_a: string;
+      person_b?: string;
+      address_id?: string;
+    }>('person-shared-data')
+    .listAll();
   return all.find((s) => s.person_a === personId || s.person_b === personId) || null;
 }
 
 export async function deleteAllPeople(token: string) {
-  const items = await aepList<{ id: string }>(token, 'people');
+  const items = await e2eClient(token).collection<{ id: string }>('people').listAll();
   for (const item of items) {
-    await aepRemove(token, 'people', item.id);
+    await deleteIfPresent(token, 'people', item.id);
   }
 }
 
 export async function deleteAllAddresses(token: string) {
-  const items = await aepList<{ id: string }>(token, 'addresses');
+  const items = await e2eClient(token).collection<{ id: string }>('addresses').listAll();
   for (const item of items) {
-    await aepRemove(token, 'addresses', item.id);
+    await deleteIfPresent(token, 'addresses', item.id);
   }
 }
 
 export async function deleteAllPersonSharedData(token: string) {
-  const items = await aepList<{ id: string }>(token, 'person-shared-data');
+  const items = await e2eClient(token).collection<{ id: string }>('person-shared-data').listAll();
   for (const item of items) {
-    await aepRemove(token, 'person-shared-data', item.id);
+    await deleteIfPresent(token, 'person-shared-data', item.id);
   }
 }
 

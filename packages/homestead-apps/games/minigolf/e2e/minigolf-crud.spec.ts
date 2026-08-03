@@ -7,7 +7,7 @@
  */
 
 import { test, expect } from '../../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepList } from '../../../../../tests/e2e/utils/aepbase-helpers';
+import { listOrEmpty } from '../../../../../tests/e2e/utils/aepbase-helpers';
 import { MinigolfPage } from './MinigolfPage';
 import { deleteAllGames } from './helpers';
 import {
@@ -65,7 +65,7 @@ test.describe('Minigolf CRUD', () => {
     await minigolfPage.expectTotalFor(bob.id, 9);
 
     // Game should be persisted + completed.
-    const games = await aepList<{
+    const games = await listOrEmpty<{
       id: string;
       completed?: boolean;
       hole_count: number;

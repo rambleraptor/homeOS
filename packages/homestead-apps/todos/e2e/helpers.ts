@@ -2,7 +2,7 @@
  * Todos E2E helpers — seed todos and projects via the aepbase REST API.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 export type TodoStatus = 'pending' | 'do_later' | 'completed' | 'cancelled';
 
@@ -23,7 +23,7 @@ export async function createTodo(
     in_main?: boolean;
   },
 ): Promise<TodoRecord> {
-  return aepCreate<TodoRecord>(token, 'todos', {
+  return e2eClient(token).collection<TodoRecord>('todos').create({
     title: data.title,
     status: data.status ?? 'pending',
     ...(data.project_id ? { project: `projects/${data.project_id}` } : {}),
@@ -32,9 +32,9 @@ export async function createTodo(
 }
 
 export async function deleteAllTodos(token: string) {
-  const items = await aepList<{ id: string }>(token, 'todos');
+  const items = await e2eClient(token).collection<{ id: string }>('todos').listAll();
   for (const item of items) {
-    await aepRemove(token, 'todos', item.id);
+    await deleteIfPresent(token, 'todos', item.id);
   }
 }
 
@@ -47,13 +47,13 @@ export async function createProject(
   token: string,
   data: { name: string },
 ): Promise<ProjectRecord> {
-  return aepCreate<ProjectRecord>(token, 'projects', { name: data.name });
+  return e2eClient(token).collection<ProjectRecord>('projects').create({ name: data.name });
 }
 
 export async function deleteAllProjects(token: string) {
-  const items = await aepList<{ id: string }>(token, 'projects');
+  const items = await e2eClient(token).collection<{ id: string }>('projects').listAll();
   for (const item of items) {
-    await aepRemove(token, 'projects', item.id);
+    await deleteIfPresent(token, 'projects', item.id);
   }
 }
 
@@ -66,7 +66,7 @@ export async function createListTemplate(
   token: string,
   data: { name: string },
 ): Promise<ListTemplateRecord> {
-  return aepCreate<ListTemplateRecord>(token, 'list-templates', {
+  return e2eClient(token).collection<ListTemplateRecord>('list-templates').create({
     name: data.name,
   });
 }
@@ -76,18 +76,17 @@ export async function addTemplateItem(
   templateId: string,
   title: string,
 ): Promise<{ id: string; title: string }> {
-  return aepCreate<{ id: string; title: string }>(
-    token,
-    'template-items',
-    { title },
-    ['list-templates', templateId],
-  );
+  return e2eClient(token)
+    .collection('list-templates')
+    .record(templateId)
+    .collection<{ id: string; title: string }>('template-items')
+    .create({ title });
 }
 
 export async function deleteAllListTemplates(token: string) {
-  const items = await aepList<{ id: string }>(token, 'list-templates');
+  const items = await e2eClient(token).collection<{ id: string }>('list-templates').listAll();
   for (const item of items) {
     // Force the cascade so child template-items are removed with the parent.
-    await aepRemove(token, 'list-templates', item.id, undefined, true);
+    await deleteIfPresent(token, 'list-templates', item.id, { force: true });
   }
 }

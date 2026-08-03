@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import { aepGet } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { HSAPage } from './HSAPage';
 import {
   createHSAReceipt,
@@ -71,11 +71,9 @@ test.describe('HSA CRUD', () => {
     await hsaPage.markReceiptAsReimbursed(receiptData.merchant);
 
     // Verify status changed in database
-    const updatedReceipt = await aepGet<{ status: string }>(
-      userToken,
-      'hsa-receipts',
-      createdReceipt.id,
-    );
+    const updatedReceipt = await e2eClient(userToken)
+      .collection<{ status: string }>('hsa-receipts')
+      .get(createdReceipt.id);
     expect(updatedReceipt.status).toBe('Reimbursed');
 
     // Verify status changed in UI
@@ -123,11 +121,11 @@ test.describe('HSA CRUD', () => {
     });
 
     // Verify the edits persisted in the database.
-    const updated = await aepGet<{
+    const updated = await e2eClient(userToken).collection<{
       merchant: string;
       amount: number;
       status: string;
-    }>(userToken, 'hsa-receipts', created.id);
+    }>('hsa-receipts').get(created.id);
     expect(updated.merchant).toBe('Walgreens Pharmacy');
     expect(updated.amount).toBe(60.25);
     expect(updated.status).toBe('Reimbursed');

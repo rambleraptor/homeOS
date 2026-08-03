@@ -6,11 +6,7 @@
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';
-import {
-  aepGet,
-  aepList,
-  postCustomMethod,
-} from '../../../../tests/e2e/utils/aepbase-helpers';
+import { e2eClient, postCustomMethod } from '../../../../tests/e2e/utils/aepbase-helpers';
 import { deleteAllGiftCards } from './helpers';
 
 interface GiftCardRow {
@@ -58,12 +54,13 @@ async function bulkImport(
   expect(res.status).toBe(202);
   const { id } = (await res.json()) as { id: string };
 
+  const operations = e2eClient(token).collection<OperationRow>('operations');
   await expect
-    .poll(async () => (await aepGet<OperationRow>(token, 'operations', id)).done, {
+    .poll(async () => (await operations.get(id)).done, {
       timeout: 15_000,
     })
     .toBe(true);
-  return aepGet<OperationRow>(token, 'operations', id);
+  return operations.get(id);
 }
 
 test.describe('Gift Cards bulk import — API', () => {
@@ -81,7 +78,7 @@ test.describe('Gift Cards bulk import — API', () => {
 
     expect(operation.response?.dryRun).toBe(true);
     expect(operation.response?.summary).toEqual({ total: 3, valid: 3, invalid: 0 });
-    expect(await aepList<GiftCardRow>(userToken, 'gift-cards')).toHaveLength(0);
+    expect(await e2eClient(userToken).collection<GiftCardRow>('gift-cards').listAll()).toHaveLength(0);
   });
 
   test('imports every valid row when selectedIndices is omitted', async ({ userToken }) => {
@@ -95,7 +92,7 @@ test.describe('Gift Cards bulk import — API', () => {
     expect(operation.response?.created).toBe(3);
     expect(operation.response?.failed).toEqual([]);
 
-    const cards = await aepList<GiftCardRow>(userToken, 'gift-cards');
+    const cards = await e2eClient(userToken).collection<GiftCardRow>('gift-cards').listAll();
     expect(cards.map((c) => c.merchant).sort()).toEqual(['Amazon', 'Starbucks', 'Target']);
     const amazon = cards.find((c) => c.merchant === 'Amazon');
     expect(amazon?.amount).toBe(100);
@@ -111,7 +108,7 @@ test.describe('Gift Cards bulk import — API', () => {
     });
 
     expect(operation.response?.created).toBe(2);
-    const cards = await aepList<GiftCardRow>(userToken, 'gift-cards');
+    const cards = await e2eClient(userToken).collection<GiftCardRow>('gift-cards').listAll();
     expect(cards.map((c) => c.merchant).sort()).toEqual(['Amazon', 'Target']);
   });
 
@@ -123,7 +120,7 @@ test.describe('Gift Cards bulk import — API', () => {
 
     expect(operation.response?.summary).toEqual({ total: 2, valid: 1, invalid: 1 });
     expect(operation.response?.created).toBe(1);
-    expect(await aepList<GiftCardRow>(userToken, 'gift-cards')).toHaveLength(1);
+    expect(await e2eClient(userToken).collection<GiftCardRow>('gift-cards').listAll()).toHaveLength(1);
   });
 
   test('fails the operation when an invalid row is explicitly selected', async ({
@@ -137,7 +134,7 @@ test.describe('Gift Cards bulk import — API', () => {
     });
 
     expect(operation.error?.message).toContain('index 1 has errors');
-    expect(await aepList<GiftCardRow>(userToken, 'gift-cards')).toHaveLength(0);
+    expect(await e2eClient(userToken).collection<GiftCardRow>('gift-cards').listAll()).toHaveLength(0);
   });
 
   test('rejects an unknown format up front, with no operation created', async ({
@@ -145,14 +142,14 @@ test.describe('Gift Cards bulk import — API', () => {
   }) => {
     // AEP-151: an error that stops the operation from starting is an ordinary
     // error response, not a 202 followed by a failed operation.
-    const before = await aepList<OperationRow>(userToken, 'operations');
+    const before = await e2eClient(userToken).collection<OperationRow>('operations').listAll();
     const res = await postCustomMethod(userToken, '/gift-cards:bulk-import', {
       format: 'nonsense',
       data: toBase64(CSV),
     });
 
     expect(res.status).toBe(400);
-    expect(await aepList<OperationRow>(userToken, 'operations')).toHaveLength(before.length);
+    expect(await e2eClient(userToken).collection<OperationRow>('operations').listAll()).toHaveLength(before.length);
   });
 
   test('advertises its formats for discovery', async ({ request }) => {
@@ -236,7 +233,7 @@ test.describe('Gift Cards bulk import — page', () => {
     await authenticatedPage.getByTestId('import-button').click();
     await authenticatedPage.waitForURL(/\/gift-cards$/);
 
-    const cards = await aepList<GiftCardRow>(userToken, 'gift-cards');
+    const cards = await e2eClient(userToken).collection<GiftCardRow>('gift-cards').listAll();
     expect(cards.map((c) => c.merchant).sort()).toEqual(['Amazon', 'Target']);
   });
 

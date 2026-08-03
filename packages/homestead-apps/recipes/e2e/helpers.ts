@@ -3,7 +3,7 @@
  * sample data the recipes specs use.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 export interface RecipeIngredientInput {
   item: string;
@@ -41,7 +41,7 @@ export async function createRecipe(
   token: string,
   data: CreateRecipeInput,
 ): Promise<RecipeRecord> {
-  return aepCreate<RecipeRecord>(token, 'recipes', {
+  return e2eClient(token).collection<RecipeRecord>('recipes').create({
     title: data.title,
     source_pointer: data.source_pointer,
     parsed_ingredients: data.parsed_ingredients.map((ing) => ({
@@ -58,9 +58,9 @@ export async function createRecipe(
 }
 
 export async function deleteAllRecipes(token: string) {
-  const items = await aepList<{ id: string }>(token, 'recipes');
+  const items = await e2eClient(token).collection<{ id: string }>('recipes').listAll();
   for (const item of items) {
-    await aepRemove(token, 'recipes', item.id, undefined, true);
+    await deleteIfPresent(token, 'recipes', item.id, { force: true });
   }
 }
 

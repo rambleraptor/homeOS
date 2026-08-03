@@ -3,7 +3,7 @@
  * aepbase REST API.
  */
 
-import { aepCreate, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 export interface EventRecord {
   id: string;
@@ -42,16 +42,16 @@ export async function createEvent(
   }
   if (data.recurrence) payload.recurrence = data.recurrence;
   if (data.recurrence_rule) payload.recurrence_rule = data.recurrence_rule;
-  return aepCreate<EventRecord>(token, 'events', payload);
+  return e2eClient(token).collection<EventRecord>('events').create(payload);
 }
 
 export async function listEvents(token: string): Promise<EventRecord[]> {
-  return aepList<EventRecord>(token, 'events');
+  return e2eClient(token).collection<EventRecord>('events').listAll();
 }
 
 export async function deleteAllEvents(token: string) {
-  const items = await aepList<{ id: string }>(token, 'events');
+  const items = await e2eClient(token).collection<{ id: string }>('events').listAll();
   for (const item of items) {
-    await aepRemove(token, 'events', item.id);
+    await deleteIfPresent(token, 'events', item.id);
   }
 }

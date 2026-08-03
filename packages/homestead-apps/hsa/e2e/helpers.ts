@@ -3,7 +3,7 @@
  * aepbase REST API and test data the HSA specs use.
  */
 
-import { aepCreateMultipart, aepList, aepRemove } from '../../../../tests/e2e/utils/aepbase-helpers';
+import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
 
 interface CreateHSAReceiptInput {
   merchant: string;
@@ -50,7 +50,7 @@ export async function createHSAReceipt(
   formData.append('resource', JSON.stringify(resource));
   formData.append('receipt_file', blob, 'test-receipt.jpg');
 
-  return aepCreateMultipart<HSAReceiptRecord>(token, 'hsa-receipts', formData);
+  return e2eClient(token).collection<HSAReceiptRecord>('hsa-receipts').create(formData);
 }
 
 export async function createMultipleHSAReceipts(
@@ -65,9 +65,9 @@ export async function createMultipleHSAReceipts(
 }
 
 export async function deleteAllHSAReceipts(token: string) {
-  const items = await aepList<{ id: string }>(token, 'hsa-receipts');
+  const items = await e2eClient(token).collection<{ id: string }>('hsa-receipts').listAll();
   for (const item of items) {
-    await aepRemove(token, 'hsa-receipts', item.id);
+    await deleteIfPresent(token, 'hsa-receipts', item.id);
   }
 }
 

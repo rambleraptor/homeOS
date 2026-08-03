@@ -24,11 +24,9 @@
 import { test, expect } from '../../fixtures/aepbase.fixture';
 import { getAepbaseUrl, readAdminCreds } from '../../config/aepbase.setup';
 import {
-  aepCreate,
-  aepGet,
-  aepList,
-  aepRemove,
-  aepUpdate,
+  deleteIfPresent,
+  e2eClient,
+  listOrEmpty,
   createUser,
   type UserRecord,
 } from '../../utils/aepbase-helpers';
@@ -77,13 +75,13 @@ test.describe('permission enforcement', () => {
   test.afterEach(async () => {
     // Grants first (a deny left in place would break the next test), then rows.
     for (const id of createdGrants.splice(0)) {
-      await aepRemove(adminToken, ACCESS_GRANTS, id).catch(() => {});
+      await deleteIfPresent(adminToken, ACCESS_GRANTS, id);
     }
     for (const { plural, id } of created.splice(0)) {
-      await aepRemove(adminToken, plural, id).catch(() => {});
+      await deleteIfPresent(adminToken, plural, id);
     }
     for (const id of createdUsers.splice(0)) {
-      await aepRemove(adminToken, 'users', id, undefined, true).catch(() => {});
+      await deleteIfPresent(adminToken, 'users', id, { force: true });
     }
   });
 
@@ -96,7 +94,7 @@ test.describe('permission enforcement', () => {
   }
 
   async function makeTodo(token: string, title: string): Promise<Todo> {
-    const todo = await aepCreate<Todo>(token, TODOS, { title, status: 'pending' });
+    const todo = await e2eClient(token).collection<Todo>(TODOS).create({ title, status: 'pending' });
     created.push({ plural: TODOS, id: todo.id });
     return todo;
   }
@@ -109,17 +107,20 @@ test.describe('permission enforcement', () => {
     expect(todo.id).toBeTruthy();
 
     // Read + list
-    const fetched = await aepGet<Todo>(alice.token, TODOS, todo.id);
+    const fetched = await e2eClient(alice.token).collection<Todo>(TODOS).get(todo.id);
     expect(fetched.title).toBe('buy milk');
-    const listed = await aepList<Todo>(alice.token, TODOS);
+    const listed = await listOrEmpty<Todo>(alice.token, TODOS);
     expect(listed.some((t) => t.id === todo.id)).toBe(true);
 
     // Update
-    const updated = await aepUpdate<Todo>(alice.token, TODOS, todo.id, { status: 'completed' });
+    const updated = await e2eClient(alice.token)
+      .collection<Todo>(TODOS)
+      .record(todo.id)
+      .update({ status: 'completed' });
     expect(updated.status).toBe('completed');
 
     // Delete
-    await aepRemove(alice.token, TODOS, todo.id);
+    await deleteIfPresent(alice.token, TODOS, todo.id);
     expect(await getStatus(alice.token, `/${TODOS}/${todo.id}`)).toBe(404);
   });
 
@@ -133,7 +134,7 @@ test.describe('permission enforcement', () => {
     expect(await getStatus(bob.token, `/${TODOS}/${todo.id}`)).toBe(200);
 
     // Admin denies Bob read on the whole `todo` collection.
-    const deny = await aepCreate<Grant>(adminToken, ACCESS_GRANTS, {
+    const deny = await e2eClient(adminToken).collection<Grant>(ACCESS_GRANTS).create({
       subject_type: 'user',
       subject_id: bob.user.id,
       target_scope: 'collection',
@@ -145,12 +146,12 @@ test.describe('permission enforcement', () => {
 
     // Deny wins: Bob is blocked (403 on the record, empty list)...
     expect(await getStatus(bob.token, `/${TODOS}/${todo.id}`)).toBe(403);
-    expect((await aepList<Todo>(bob.token, TODOS)).some((t) => t.id === todo.id)).toBe(false);
+    expect((await listOrEmpty<Todo>(bob.token, TODOS)).some((t) => t.id === todo.id)).toBe(false);
     // ...while Alice still reads everything.
     expect(await getStatus(alice.token, `/${TODOS}/${todo.id}`)).toBe(200);
 
     // Lift the deny → Bob reads again.
-    await aepRemove(adminToken, ACCESS_GRANTS, deny.id);
+    await deleteIfPresent(adminToken, ACCESS_GRANTS, deny.id);
     createdGrants.splice(createdGrants.indexOf(deny.id), 1);
     expect(await getStatus(bob.token, `/${TODOS}/${todo.id}`)).toBe(200);
   });
@@ -160,7 +161,7 @@ test.describe('permission enforcement', () => {
     const todo = await makeTodo(alice.token, 'admin can still see me');
 
     // Deny *everyone* read on the todo collection.
-    const deny = await aepCreate<Grant>(adminToken, ACCESS_GRANTS, {
+    const deny = await e2eClient(adminToken).collection<Grant>(ACCESS_GRANTS).create({
       subject_type: 'everyone',
       target_scope: 'collection',
       resource_type: 'todo',
@@ -172,6 +173,6 @@ test.describe('permission enforcement', () => {
     // Alice (regular) is blocked; the superuser breaks glass.
     expect(await getStatus(alice.token, `/${TODOS}/${todo.id}`)).toBe(403);
     expect(await getStatus(adminToken, `/${TODOS}/${todo.id}`)).toBe(200);
-    expect((await aepList<Todo>(adminToken, TODOS)).some((t) => t.id === todo.id)).toBe(true);
+    expect((await listOrEmpty<Todo>(adminToken, TODOS)).some((t) => t.id === todo.id)).toBe(true);
   });
 });
