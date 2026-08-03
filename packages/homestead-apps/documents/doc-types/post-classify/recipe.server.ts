@@ -12,7 +12,7 @@
  * only ever reached through the lazy `post_classify` thunk on the doc type.
  */
 
-import { aepCreate } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import type { PostClassifyHandler } from '../docType';
 import { DOCUMENTS } from '../../resources';
 import { RECIPES } from '../../../recipes/resources';
@@ -84,7 +84,7 @@ const handler: PostClassifyHandler = async ({ document, metadata, auth }) => {
     asString(metadata.source_pointer) ?? `${DOCUMENTS}/${document.id}`;
   if (document.created_by) recipeBody.created_by = document.created_by;
 
-  const created = await aepCreate<Recipe>(RECIPES, recipeBody, auth.token);
+  const created = await serverClient(auth.token).collection<Recipe>(RECIPES).create(recipeBody);
   return { linked_resource: `${RECIPES}/${created.id}` };
 };
 

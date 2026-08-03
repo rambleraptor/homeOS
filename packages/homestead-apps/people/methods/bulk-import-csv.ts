@@ -20,7 +20,7 @@ import type {
   BulkImportSaver,
   ParsedItem,
 } from '@rambleraptor/homestead-core/resources/bulk-import/types';
-import { aepCreate, aepList, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { ADDRESSES, PEOPLE, PERSON_SHARED_DATA } from '../resources';
 
 /** A person as it comes from a CSV — flat, one row per person. */
@@ -128,34 +128,29 @@ async function createPerson(
 ): Promise<PersonRecord> {
   const data = item.data;
   const createdBy = ctx.auth.user.path;
+  const hs = serverClient(ctx.auth.token);
 
-  const person = await aepCreate<PersonRecord>(
-    PEOPLE,
-    { name: data.name, created_by: createdBy },
-    ctx.auth.token,
-  );
+  const person = await hs
+    .collection<PersonRecord>(PEOPLE)
+    .create({ name: data.name, created_by: createdBy });
 
   // Wifi credentials hang off an address record, so a row carrying only wifi
   // still needs one (with an empty `line1`) — otherwise the wifi it specified
   // would be silently dropped.
   if (!data.address && !data.wifi_network) return person;
 
-  const address = await aepCreate<{ id: string }>(
-    ADDRESSES,
-    {
-      line1: data.address ?? '',
-      wifi_network: data.wifi_network,
-      wifi_password: data.wifi_password,
-      created_by: createdBy,
-    },
-    ctx.auth.token,
-  );
+  const address = await hs.collection<{ id: string }>(ADDRESSES).create({
+    line1: data.address ?? '',
+    wifi_network: data.wifi_network,
+    wifi_password: data.wifi_password,
+    created_by: createdBy,
+  });
 
-  await aepCreate<SharedDataRecord>(
-    PERSON_SHARED_DATA,
-    { person_a: person.id, address_id: address.id, created_by: createdBy },
-    ctx.auth.token,
-  );
+  await hs.collection<SharedDataRecord>(PERSON_SHARED_DATA).create({
+    person_a: person.id,
+    address_id: address.id,
+    created_by: createdBy,
+  });
 
   return person;
 }
@@ -177,7 +172,8 @@ async function linkPartners(
     idByName.set(record.name.toLowerCase(), record.id);
   }
   try {
-    for (const person of await aepList<PersonRecord>(PEOPLE, ctx.auth.token)) {
+    const people = await serverClient(ctx.auth.token).collection<PersonRecord>(PEOPLE).listAll();
+    for (const person of people) {
       if (!idByName.has(person.name.toLowerCase())) {
         idByName.set(person.name.toLowerCase(), person.id);
       }
@@ -213,7 +209,9 @@ async function linkPartners(
 
 async function listSharedData(ctx: BulkImportContext): Promise<SharedDataRecord[]> {
   try {
-    return await aepList<SharedDataRecord>(PERSON_SHARED_DATA, ctx.auth.token);
+    return await serverClient(ctx.auth.token)
+      .collection<SharedDataRecord>(PERSON_SHARED_DATA)
+      .listAll();
   } catch {
     return [];
   }
@@ -236,23 +234,19 @@ async function setPartner(
     sharedData.find((s) => s.person_a === id || s.person_b === id);
 
   const existing = find(personId) ?? find(partnerId);
+  const shared = serverClient(ctx.auth.token).collection<SharedDataRecord>(PERSON_SHARED_DATA);
   if (!existing) {
-    const record = await aepCreate<SharedDataRecord>(
-      PERSON_SHARED_DATA,
-      { person_a: personId, person_b: partnerId, created_by: ctx.auth.user.path },
-      ctx.auth.token,
-    );
+    const record = await shared.create({
+      person_a: personId,
+      person_b: partnerId,
+      created_by: ctx.auth.user.path,
+    });
     sharedData.push(record);
     return;
   }
 
   const other = existing.person_a === personId ? partnerId : personId;
-  await aepUpdate<SharedDataRecord>(
-    PERSON_SHARED_DATA,
-    existing.id,
-    { person_b: other },
-    ctx.auth.token,
-  );
+  await shared.record(existing.id).update({ person_b: other });
   existing.person_b = other;
 }
 

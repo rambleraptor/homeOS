@@ -6,16 +6,13 @@
  * self-correct.
  */
 
-import {
-  aepCreate,
-  aepGet,
-  aepList,
-  aepRemove,
-  aepUpdate,
-  type ParentPath,
-} from '../aepbase';
+import type { HomesteadClient } from '@rambleraptor/homestead-client';
+import { collectionAt, serverClient } from '../client';
 import type { ChatToolCall } from '../../chat/types';
 import { parentIdParam, type ToolBinding } from './tools';
+
+/** Alternating `[plural, id, plural, id, ...]` segments naming a parent chain. */
+type ParentPath = string[];
 
 /** Cap on records returned to the model from a list call (context safety). */
 const LIST_CAP = 100;
@@ -55,7 +52,7 @@ function buildParentPath(
 async function validateReferences(
   binding: ToolBinding,
   body: Record<string, unknown>,
-  token: string,
+  hs: HomesteadClient,
 ): Promise<string | null> {
   for (const ref of binding.references) {
     const value = body[ref.field];
@@ -64,7 +61,7 @@ async function validateReferences(
     for (const id of ids) {
       if (typeof id !== 'string' || id.length === 0) continue;
       try {
-        await aepGet(ref.plural, id, token);
+        await hs.collection(ref.plural).get(id);
       } catch {
         return `no ${ref.plural} record with id "${id}" (referenced by "${ref.field}")`;
       }
@@ -112,45 +109,47 @@ export async function executeToolCall(
 
   try {
     const { plural } = binding.def;
+    const hs = serverClient(token);
     const parent = buildParentPath(binding, args);
+    const records = collectionAt(hs, plural, parent);
 
     switch (binding.op) {
       case 'create': {
         const body = buildBody(binding, args);
-        const refErr = await validateReferences(binding, body, token);
+        const refErr = await validateReferences(binding, body, hs);
         if (refErr) return { ...base, ok: false, error: refErr };
-        const result = await aepCreate(plural, body, token, parent);
+        const result = await records.create(body);
         return { ...base, ok: true, result };
       }
       case 'read': {
         const id = stringArg(args.id);
         if (id) {
-          return { ...base, ok: true, result: await aepGet(plural, id, token, parent) };
+          return { ...base, ok: true, result: await records.get(id) };
         }
-        const records = await aepList<unknown>(plural, token, parent);
+        const all = await records.listAll();
         const result =
-          records.length > LIST_CAP
+          all.length > LIST_CAP
             ? {
-                records: records.slice(0, LIST_CAP),
-                total: records.length,
+                records: all.slice(0, LIST_CAP),
+                total: all.length,
                 truncated: true,
               }
-            : { records, total: records.length };
+            : { records: all, total: all.length };
         return { ...base, ok: true, result };
       }
       case 'update': {
         const id = stringArg(args.id);
         if (!id) throw new Error('missing required parameter "id"');
         const body = buildBody(binding, args);
-        const refErr = await validateReferences(binding, body, token);
+        const refErr = await validateReferences(binding, body, hs);
         if (refErr) return { ...base, ok: false, error: refErr };
-        const result = await aepUpdate(plural, id, body, token, parent);
+        const result = await records.record(id).update(body);
         return { ...base, ok: true, result };
       }
       case 'delete': {
         const id = stringArg(args.id);
         if (!id) throw new Error('missing required parameter "id"');
-        await aepRemove(plural, id, token, parent);
+        await records.record(id).delete();
         return { ...base, ok: true, result: { deleted: true, id } };
       }
     }

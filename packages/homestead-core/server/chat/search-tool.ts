@@ -8,13 +8,13 @@
  * with citations for the model to quote.
  *
  * The vector index has no row-level scoping, so a raw hit could reference a
- * record the caller can't see. Every hit is therefore verified with `aepGet`
- * under the caller's own token — inaccessible records are dropped — so search
- * can never surface more than the user could read directly.
+ * record the caller can't see. Every hit is therefore re-fetched under the
+ * caller's own token — inaccessible records are dropped — so search can never
+ * surface more than the user could read directly.
  */
 
 import { z } from 'zod';
-import { aepGet } from '../aepbase';
+import { serverClient } from '../client';
 import { getEmbeddingModelId, isEmbeddingConfigured } from '../ai/config';
 import { aiEmbed, tool } from '../ai/generate';
 import { fileEmbeds } from '../../resources/ai-fields';
@@ -140,6 +140,7 @@ export function makeSearchTool(opts: {
     inputSchema,
     execute: async (args: z.infer<typeof inputSchema>) => {
       const { query } = args;
+      const hs = serverClient(opts.token);
       const limit = Math.min(Math.max(args.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
       const store = getVectorStore();
       if (!store) {
@@ -171,7 +172,7 @@ export function makeSearchTool(opts: {
         if (labelCache.has(ck)) return labelCache.get(ck);
         let label: string | undefined;
         try {
-          label = pickTitle(await aepGet(plural, id, opts.token));
+          label = pickTitle(await hs.collection(plural).get(id));
         } catch {
           label = undefined; // inaccessible target — leave the id unlabeled
         }
@@ -224,7 +225,7 @@ export function makeSearchTool(opts: {
         let rec = accessCache.get(key);
         if (rec === undefined) {
           try {
-            const record = await aepGet(plural, hit.record, opts.token);
+            const record = await hs.collection(plural).get(hit.record);
             rec = {
               title: pickTitle(record),
               references: await resolveReferences(hit.resource, record),

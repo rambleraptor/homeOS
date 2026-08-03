@@ -15,7 +15,8 @@
  */
 
 import { z } from 'zod';
-import { aepDownload, aepUpdate } from '../aepbase';
+import { HomesteadError } from '@rambleraptor/homestead-client';
+import { serverClient } from '../client';
 import { getEmbeddingModelId, isAiConfigured } from '../ai/config';
 import { aiEmbed, aiGenerateObject, type ModelMessage } from '../ai/generate';
 import { companionTextField } from '../../resources/ai-fields';
@@ -161,17 +162,22 @@ export interface IndexFileResult {
 export async function indexFile(input: IndexFileInput): Promise<IndexFileResult> {
   const { resource, plural, record, field, embed, token } = input;
 
-  const res = await aepDownload(plural, record, field, token);
-  if (!res.ok) {
-    throw new Error(`could not read ${plural}/${record} field "${field}": ${res.status}`);
+  const ref = serverClient(token).collection(plural).record(record);
+
+  let bytes: Uint8Array;
+  try {
+    const blob = await ref.download(field);
+    bytes = new Uint8Array(await blob.arrayBuffer());
+  } catch (err) {
+    const detail = err instanceof HomesteadError ? err.code : err;
+    throw new Error(`could not read ${plural}/${record} field "${field}": ${detail}`);
   }
-  const bytes = new Uint8Array(await res.arrayBuffer());
 
   const text = await extractText(bytes);
 
   // Store the extracted text on the companion field regardless of embedding, so
   // it's displayable and the chat model can read the whole document.
-  await aepUpdate(plural, record, { [companionTextField(field)]: text }, token);
+  await ref.update({ [companionTextField(field)]: text });
 
   if (!embed) {
     return { field, chars: text.length, chunks: 0 };

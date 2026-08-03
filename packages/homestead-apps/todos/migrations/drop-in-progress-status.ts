@@ -5,7 +5,7 @@
  */
 
 import type { MigrationHandler } from '@rambleraptor/homestead-core/apps/migrations';
-import { aepList, aepUpdate } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 
 interface TodoRow {
   id: string;
@@ -13,11 +13,12 @@ interface TodoRow {
 }
 
 const migrate: MigrationHandler = async ({ token, log }) => {
-  const todos = await aepList<TodoRow>('todos', token);
+  const collection = serverClient(token).collection<TodoRow>('todos');
+  const todos = await collection.listAll();
   let patched = 0;
   for (const todo of todos) {
     if (todo.status !== 'in_progress') continue; // idempotent guard
-    await aepUpdate('todos', todo.id, { status: 'pending' }, token);
+    await collection.record(todo.id).update({ status: 'pending' });
     if (++patched % 50 === 0) await log(`patched ${patched}…`);
   }
   return { scanned: todos.length, patched };

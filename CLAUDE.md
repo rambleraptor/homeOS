@@ -263,9 +263,13 @@ The `@rambleraptor/homestead-core` workspace package. Holds everything the
 SPA and apps share:
 
 - `api/aepbase.ts` — thin REST client wrapper for the engine (client-side)
-- `server/aepbase.ts` — server-side engine helper used by homestead-server's
-  routes (the client-side wrapper uses localStorage, so server code uses
-  this instead; it talks to the engine over loopback at the `/api/aep` prefix)
+- `server/client.ts` — `serverClient(token)`, the server-side construction of
+  the shared `@rambleraptor/homestead-client` (bound to the engine over loopback
+  at the `/api/aep` prefix with a bearer-token strategy). Server code — routes,
+  crons, migrations, app workers — does its CRUD through this.
+- `server/aepbase.ts` — the request-authentication seam: resolves a forwarded
+  bearer token to its user (`authenticate`) via the engine's `/users/me`, plus
+  the engine base URL (`AEPBASE_URL`) the client is pointed at
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `AppConfig`/`AppFlagDef` contract types
 - `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
@@ -430,7 +434,8 @@ stable globally-unique `id` and a lazily-imported handler kept under the app's
 once and records the outcome in the `_homestead_migrations` ledger table, so a
 succeeded migration is skipped forever after (a failed or interrupted one is
 retried next boot). Handlers get a short-lived admin token and rewrite data
-through the `@rambleraptor/homestead-core/server/aepbase` helpers — write them
+through the shared client (`serverClient(token)` from
+`@rambleraptor/homestead-core/server/client`) — write them
 idempotent, and never rename a shipped migration `id` (it's the ledger key).
 See [`packages/homestead-site/docs/guides/migrations.md`](packages/homestead-site/docs/guides/migrations.md).
 
@@ -550,8 +555,9 @@ reading/writing a single flag from any component.
    components. App hooks own their data access.
 3. **Respect existing patterns** — review similar code before implementing.
 4. **Use the aepbase wrapper** (`@rambleraptor/homestead-core/api/aepbase`)
-   for client-side data access, and
-   `@rambleraptor/homestead-core/server/aepbase` for server-side routes.
+   for client-side data access, and the shared client
+   (`serverClient(token)` from `@rambleraptor/homestead-core/server/client`)
+   for server-side routes, crons, and migrations.
 5. **Ask before touching schema** — `resources.ts` changes affect real data.
 6. **Security first** — validate inputs, sanitize outputs, follow OWASP.
 

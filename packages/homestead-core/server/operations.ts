@@ -6,7 +6,7 @@
  * Injected into the custom-method dispatcher by the `/api/aep` gateway.
  */
 
-import { aepCreate, aepUpdate } from './aepbase';
+import { serverClient } from './client';
 import { retainToken, releaseToken } from './token-lease';
 import {
   OPERATIONS,
@@ -20,17 +20,13 @@ import {
 
 export const operationStore: OperationStore = {
   async create({ token, method, title, createdBy, status }: CreateOperationInput): Promise<Operation> {
-    const op = await aepCreate<Operation>(
-      OPERATIONS,
-      {
-        done: false,
-        status: status ?? 'running',
-        method,
-        title: title ?? method,
-        created_by: createdBy ?? '',
-      },
-      token,
-    );
+    const op = await serverClient(token).collection<Operation>(OPERATIONS).create({
+      done: false,
+      status: status ?? 'running',
+      method,
+      title: title ?? method,
+      created_by: createdBy ?? '',
+    });
     // Hold the caller's token open until this operation settles (see complete).
     // A detached operation — one whose creator uses a short-lived, revocable
     // admin token (e.g. a cron firing) — otherwise races the revoke: its
@@ -42,7 +38,9 @@ export const operationStore: OperationStore = {
   },
 
   async start({ token, id }: { token: string; id: string }): Promise<void> {
-    await aepUpdate<Operation>(OPERATIONS, id, { status: 'running' }, token);
+    await serverClient(token).collection<Operation>(OPERATIONS).record(id).update({
+      status: 'running',
+    });
   },
 
   async complete({ token, id, response, error }: CompleteOperationInput): Promise<void> {
@@ -51,7 +49,7 @@ export const operationStore: OperationStore = {
         ? { done: true, status: 'failed', error: toOperationError(error) }
         : { done: true, status: 'succeeded', response: (response ?? {}) as Record<string, unknown> };
     try {
-      await aepUpdate<Operation>(OPERATIONS, id, patch, token);
+      await serverClient(token).collection<Operation>(OPERATIONS).record(id).update(patch);
     } finally {
       // Release the lease taken in create(), even if the terminal write failed —
       // the operation is settled either way. When this is the last reference the
@@ -63,7 +61,7 @@ export const operationStore: OperationStore = {
   async updateMetadata({ token, id, metadata }: UpdateMetadataInput): Promise<void> {
     // Merge-patch the `metadata` key. The engine replaces the object wholesale,
     // which is exactly what the logger wants (it sends the full logs array).
-    await aepUpdate<Operation>(OPERATIONS, id, { metadata }, token);
+    await serverClient(token).collection<Operation>(OPERATIONS).record(id).update({ metadata });
   },
 };
 

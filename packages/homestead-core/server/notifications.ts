@@ -10,13 +10,8 @@
  */
 
 import webpush from 'web-push';
-import {
-  authenticate,
-  aepList,
-  aepCreate,
-  aepRemove,
-  type AuthResult,
-} from './aepbase';
+import { authenticate, type AuthResult } from './aepbase';
+import { serverClient } from './client';
 
 interface NotificationSubscriptionRecord {
   id: string;
@@ -64,15 +59,14 @@ export async function sendNotificationForAuth(
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 
   const userId = auth.user.id;
-  const userParent = ['users', userId];
+  const hs = serverClient(auth.token);
+  const userRecord = hs.collection('users').record(userId);
 
   let subscriptions: NotificationSubscriptionRecord[];
   try {
-    subscriptions = await aepList<NotificationSubscriptionRecord>(
-      'notification-subscriptions',
-      auth.token,
-      userParent,
-    );
+    subscriptions = await userRecord
+      .collection<NotificationSubscriptionRecord>('notification-subscriptions')
+      .listAll();
   } catch (error) {
     console.error('Failed to fetch subscriptions:', error);
     return Response.json(
@@ -114,31 +108,25 @@ export async function sendNotificationForAuth(
       await webpush.sendNotification(sub.subscription_data, payload);
       sentCount++;
 
-      await aepCreate(
-        'notifications',
-        {
-          user_id: userId,
-          title: options.title,
-          message: options.body,
-          notification_type: 'system',
-          source_collection: options.sourceCollection,
-          source_id: options.sourceId,
-          read: false,
-          sent_at: new Date().toISOString(),
-        },
-        auth.token,
-        userParent,
-      );
+      await userRecord.collection('notifications').create({
+        user_id: userId,
+        title: options.title,
+        message: options.body,
+        notification_type: 'system',
+        source_collection: options.sourceCollection,
+        source_id: options.sourceId,
+        read: false,
+        sent_at: new Date().toISOString(),
+      });
     } catch (error: unknown) {
       const err = error as { statusCode?: number };
       failedCount++;
       if (err.statusCode === 404 || err.statusCode === 410) {
-        await aepRemove(
-          'notification-subscriptions',
-          sub.id,
-          auth.token,
-          userParent,
-        ).catch(() => undefined);
+        await userRecord
+          .collection('notification-subscriptions')
+          .record(sub.id)
+          .delete()
+          .catch(() => undefined);
       }
     }
   }

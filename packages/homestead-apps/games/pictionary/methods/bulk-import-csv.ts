@@ -30,7 +30,7 @@ import type {
   BulkImportSaveResult,
   BulkImportSaver,
 } from '@rambleraptor/homestead-core/resources/bulk-import/types';
-import { aepCreate, aepList } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { PEOPLE } from '../../../people/resources';
 import { PICTIONARY_GAMES, PICTIONARY_TEAMS } from '../resources';
 
@@ -224,7 +224,7 @@ interface PersonRecord {
 }
 
 async function loadPeopleMap(ctx: BulkImportContext): Promise<PeopleByName> {
-  const people = await aepList<PersonRecord>(PEOPLE, ctx.auth.token);
+  const people = await serverClient(ctx.auth.token).collection<PersonRecord>(PEOPLE).listAll();
   return new Map(people.map((p) => [p.name.toLowerCase(), p.id]));
 }
 
@@ -243,6 +243,8 @@ const parser: BulkImportParser<PictionaryGameCsvData> = {
 /** One row → one game record plus a team child per populated team column. */
 export const save: BulkImportSaver<PictionaryGameCsvData> = async ({ items, ctx }) => {
   const peopleByName = await loadPeopleMap(ctx);
+  const hs = serverClient(ctx.auth.token);
+  const games = hs.collection<{ id: string }>(PICTIONARY_GAMES);
   const createdBy = ctx.auth.user.path;
   let created = 0;
   const failed: BulkImportSaveResult['failed'] = [];
@@ -258,31 +260,23 @@ export const save: BulkImportSaver<PictionaryGameCsvData> = async ({ items, ctx 
         playerPaths: resolvePlayers(team, peopleByName),
       }));
 
-      const game = await aepCreate<{ id: string }>(
-        PICTIONARY_GAMES,
-        {
-          played_at: data.played_at,
-          location: data.location,
-          winning_word: data.winning_word,
-          notes: data.notes,
-          created_by: createdBy,
-        },
-        ctx.auth.token,
-      );
+      const game = await games.create({
+        played_at: data.played_at,
+        location: data.location,
+        winning_word: data.winning_word,
+        notes: data.notes,
+        created_by: createdBy,
+      });
 
+      const teamsCollection = games.record(game.id).collection(PICTIONARY_TEAMS);
       await Promise.all(
         teams.map((team) =>
-          aepCreate(
-            PICTIONARY_TEAMS,
-            {
-              players: team.playerPaths,
-              won: team.won,
-              rank: team.position,
-              created_by: createdBy,
-            },
-            ctx.auth.token,
-            [PICTIONARY_GAMES, game.id],
-          ),
+          teamsCollection.create({
+            players: team.playerPaths,
+            won: team.won,
+            rank: team.position,
+            created_by: createdBy,
+          }),
         ),
       );
       created++;

@@ -7,9 +7,9 @@
  *
  * Handlers run without a user request, so the scheduler mints a short-lived
  * admin bearer token per firing (like the boot-time schema sync) and hands it
- * to the handler on {@link CronContext.token}. Pair it with the server-side
- * aepbase helpers (`@rambleraptor/homestead-core/server/aepbase`) to read or
- * write engine data.
+ * to the handler on {@link CronContext.token}. Pair it with the shared client
+ * (`serverClient(token)` from `@rambleraptor/homestead-core/server/client`) to
+ * read or write engine data.
  *
  * Every firing runs inside an AEP-151 **operation** — the scheduler creates one
  * before invoking the handler and completes it (succeeded/failed) afterwards —

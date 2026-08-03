@@ -6,16 +6,24 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createFakeServerClient } from '../../__tests__/fake-server-client';
+
 // Paths are relative to THIS test file (in __tests__/), and must resolve to the
-// same modules search-tool.ts imports. aiEmbed would hit the network; aepGet
-// would hit the engine — mock both.
+// same modules search-tool.ts imports. aiEmbed would hit the network; the
+// homestead-client would hit the engine — mock both.
 vi.mock('../../ai/generate', async (importActual) => ({
   ...(await importActual<typeof import('../../ai/generate')>()),
   aiEmbed: vi.fn(async () => [[1, 0, 0]]),
 }));
-vi.mock('../../aepbase', () => ({ aepGet: vi.fn() }));
 
-import { aepGet } from '../../aepbase';
+const fake = createFakeServerClient();
+vi.mock('../../client', () => ({
+  serverClient: () => fake.client,
+}));
+
+/** Configure the record lookups by their resolved `/plural/id` path. */
+const getFn = fake.getFn;
+
 import { setEmbeddingConfig } from '../../ai/config';
 import { setVectorStore } from '../../vectors/store';
 import type { VectorHit, VectorStore } from '../../vectors/types';
@@ -93,7 +101,7 @@ describe('makeSearchTool — execute', () => {
   }
 
   it('returns accessible passages with plural-resource citations', async () => {
-    vi.mocked(aepGet).mockResolvedValue({ title: 'Tax Return' });
+    getFn.mockResolvedValue({ title: 'Tax Return' });
     const { execute, calls } = toolFor([hit('d1', 0, 'adjusted gross income', 0.9)]);
 
     const out = (await execute({ query: 'income' }, {} as never)) as {
@@ -115,9 +123,9 @@ describe('makeSearchTool — execute', () => {
   });
 
   it('drops hits for records the caller cannot read', async () => {
-    // d1 accessible, d2 forbidden (aepGet throws).
-    vi.mocked(aepGet).mockImplementation(async (_plural, id) => {
-      if (id === 'd2') throw new Error('403');
+    // d1 accessible, d2 forbidden (the record fetch throws).
+    getFn.mockImplementation(async (path: string) => {
+      if (path.endsWith('/d2')) throw new Error('403');
       return { title: 'Visible' };
     });
     const { execute } = toolFor([
@@ -143,9 +151,9 @@ describe('makeSearchTool — execute', () => {
     };
     setEmbeddingConfig({ provider: 'openai', model: 'm', auth: { apiKey: 'k' } });
     setVectorStore(fakeStore([hit('d1', 0, 'passage', 0.9)]));
-    vi.mocked(aepGet).mockImplementation(async (plural: string, id: string) => {
-      if (plural === 'documents' && id === 'd1') return { title: 'W-2', created_by: 'u-7' };
-      if (plural === 'users' && id === 'u-7') return { display_name: 'Alice' };
+    getFn.mockImplementation(async (path: string) => {
+      if (path === '/documents/d1') return { title: 'W-2', created_by: 'u-7' };
+      if (path === '/users/u-7') return { display_name: 'Alice' };
       throw new Error('404');
     });
     const t = makeSearchTool({ defs: [docWithRef], token: 't', record: noop })!;
@@ -161,7 +169,7 @@ describe('makeSearchTool — execute', () => {
   });
 
   it('verifies access once per record even across multiple chunks', async () => {
-    vi.mocked(aepGet).mockResolvedValue({ title: 'Doc' });
+    getFn.mockResolvedValue({ title: 'Doc' });
     const { execute } = toolFor([
       hit('d1', 0, 'chunk a', 0.9),
       hit('d1', 1, 'chunk b', 0.8),
@@ -169,6 +177,6 @@ describe('makeSearchTool — execute', () => {
 
     const out = (await execute({ query: 'x' }, {} as never)) as { results: unknown[] };
     expect(out.results).toHaveLength(2);
-    expect(vi.mocked(aepGet)).toHaveBeenCalledTimes(1);
+    expect(getFn).toHaveBeenCalledTimes(1);
   });
 });
