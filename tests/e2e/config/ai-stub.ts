@@ -62,6 +62,10 @@ export const STUB_DOCUMENT_1099 = {
   box_3_savings_bond_interest: null,
   box_4_federal_tax_withheld: 0,
   box_8_tax_exempt_interest: null,
+  // The form's `title_template` is `1099-INT ({tax_year}) — {payer_name}`, so the
+  // year is a real extracted field the handler renders into the title (2025 here
+  // keeps the rendered title matching the pass-1 `title` above).
+  tax_year: 2025,
 };
 
 /**
