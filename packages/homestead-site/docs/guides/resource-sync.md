@@ -25,11 +25,47 @@ fail the write it observes.
 
 ## Declaring one
 
-Syncs are declared at the **app level** — alongside `crons` and `migrations` —
-not nested on a resource definition. Each entry names the resource it watches by
-its `singular`. Because the target is named this way, a sync can watch the
-built-in **`user`** resource, which no app owns a `ResourceDefinition` for but
-which is a real resource in the engine.
+A sync names the resource it watches by its `singular`. Because the target is
+named this way — not nested on a resource definition — a sync can watch **any**
+resource, including the built-in **`user`** resource, which no app owns a
+`ResourceDefinition` for but which is a real resource in the engine.
+
+There are two places to declare one, merged at boot (ids must be unique across
+both):
+
+### In `homestead.config.ts` (operator-level)
+
+This is the place to sync a resource **no app owns** — most importantly `user`.
+You author it in the one file you already edit, using types re-exported from the
+same module as `HomesteadConfig`; you never touch an app's internals.
+
+```ts
+// homestead.config.ts
+import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
+
+const syncs: HomesteadConfig['syncs'] = [
+  {
+    id: 'users-mirror-to-maps',   // stable, globally unique — the operation key
+    resource: 'user',            // any resource singular; 'user' is built-in
+    title: 'Mirror user to Maps', // Operations-app label; defaults to id
+    // on: ['create', 'update', 'delete'],  // subset; default is all three
+    load: () => import('./syncs/mirror-user-to-maps'),
+  },
+];
+
+const config: HomesteadConfig = {
+  apps: [/* … */],
+  syncs,
+};
+export default config;
+```
+
+Config-level syncs are recorded under the app id `config`.
+
+### On an app (`AppConfig.syncs`)
+
+When the resource is one an app owns, declare the sync alongside that app's
+`crons` and `migrations`:
 
 ```ts
 // packages/homestead-apps/<feature>/app.config.ts
@@ -38,18 +74,16 @@ export const myApp: AppConfig = {
   // …
   syncs: [
     {
-      id: 'users-mirror-to-maps',   // stable, globally unique — the operation key
-      resource: 'user',             // target resource singular
-      title: 'Mirror user to Maps', // Operations-app label; defaults to id
-      // on: ['create', 'update', 'delete'],  // subset; default is all three
-      load: () => import('./syncs/mirror-user-to-maps'),
+      id: 'address-mirror-to-maps',
+      resource: 'address',
+      load: () => import('./syncs/mirror-address-to-maps'),
     },
   ],
 };
 ```
 
-Keep the handler under your app's `syncs/` directory (or name it `*.server.ts`)
-so the production build stubs it out of the browser bundle.
+Either way, keep the handler under a `syncs/` directory (or name it
+`*.server.ts`) so the production build stubs it out of the browser bundle.
 
 ## Writing a handler
 
@@ -69,9 +103,13 @@ A handler is a plain async function that default-exports. It receives a
 | `firedAt`   | RFC3339 timestamp of the firing. |
 | `log`       | Append a progress line to the firing's operation log. |
 
+The handler is server-only code. Import its types from the config module (the
+same one you import `HomesteadConfig` from) and `serverClient` from the server
+entry — both resolve at runtime and are stubbed out of the browser bundle:
+
 ```ts
-// packages/homestead-apps/my-app/syncs/mirror-user-to-maps.ts
-import type { SyncHandler } from '@rambleraptor/homestead-core/apps/sync';
+// ./syncs/mirror-user-to-maps.ts (next to homestead.config.ts)
+import type { SyncHandler } from '@rambleraptor/homestead-core/apps/config';
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
 
 const mirror: SyncHandler = async (ctx) => {
@@ -99,9 +137,9 @@ const mirror: SyncHandler = async (ctx) => {
 export default mirror;
 ```
 
-A full, commented reference lives at
-`packages/homestead-core/superuser/users/syncs/mirror-user-to-maps.example.ts`,
-with the matching (commented) `syncs` block in the Users app config.
+A commented starting point ships in `homestead.config.ts` (the `syncs` block
+near the top) — uncomment it and drop your handler at
+`./syncs/mirror-user-to-maps.ts`.
 
 ## How it runs
 
