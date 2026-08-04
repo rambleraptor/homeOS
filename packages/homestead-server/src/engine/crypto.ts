@@ -2,8 +2,9 @@
  * Encryption-at-rest for file bytes and extracted-text fields.
  *
  * Trust model: the server is trusted to decrypt. A single 32-byte master key
- * lives in the instance environment (never in the database or the data
- * directory). File bytes and the extracted-text companion columns are stored
+ * lives either in the instance environment or in a key file outside the data
+ * directory (never in the database or a backup). File bytes and the
+ * extracted-text companion columns are stored
  * as ciphertext so that a stolen disk, database, or backup is unreadable
  * without that key. It does NOT protect data from a compromised running
  * server or the operator — that is out of scope by design.
@@ -33,7 +34,9 @@
  */
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 /** Format version, bumped if the container layout ever changes. */
 export const FORMAT_VERSION = 1;
@@ -71,18 +74,46 @@ let cachedKey: Buffer | null = null;
 let cachedFrom: string | null = null;
 
 /**
- * Resolve the master key from the environment. `HOMESTEAD_MASTER_KEY` holds a
- * base64-encoded 32-byte key; `HOMESTEAD_MASTER_KEY_FILE` points at a file
- * containing the same. Returns null when neither is set (encryption disabled).
+ * Where `homestead key generate` writes the master key by default, kept in
+ * lockstep with the CLI's `defaultKeyPath()`. Resolving it here lets an
+ * operator turn encryption on with just `homestead key generate` + a restart —
+ * no environment editing. A test override (see `__setDefaultKeyPathForTests`)
+ * keeps the suite from ever reading a real key out of the developer's home dir.
+ */
+let defaultKeyPathOverride: string | null | undefined;
+function defaultMasterKeyPath(): string | null {
+  if (defaultKeyPathOverride !== undefined) return defaultKeyPathOverride;
+  return join(homedir(), '.homestead', 'master.key');
+}
+
+/**
+ * Resolve the master key, in the same precedence order the CLI reports:
+ * `HOMESTEAD_MASTER_KEY` (base64 inline) → `HOMESTEAD_MASTER_KEY_FILE` (a path)
+ * → the default key file (`~/.homestead/master.key`) if it exists. Returns null
+ * when none of those yields a key (encryption disabled). An explicitly
+ * configured file that can't be read is an error (the operator meant to use
+ * it); a merely-absent default file just means encryption is off.
  */
 function resolveMasterKey(): Buffer | null {
   const inline = process.env.HOMESTEAD_MASTER_KEY;
-  const file = process.env.HOMESTEAD_MASTER_KEY_FILE;
-  const source = inline ? `inline:${inline}` : file ? `file:${file}` : '';
-  if (!source) {
-    cachedKey = null;
-    cachedFrom = null;
-    return null;
+  const envFile = process.env.HOMESTEAD_MASTER_KEY_FILE;
+
+  let source: string;
+  let readPath: string | null = null;
+  if (inline) {
+    source = `inline:${inline}`;
+  } else if (envFile) {
+    source = `file:${envFile}`;
+    readPath = envFile;
+  } else {
+    const def = defaultMasterKeyPath();
+    if (!def || !existsSync(def)) {
+      cachedKey = null;
+      cachedFrom = null;
+      return null;
+    }
+    source = `default-file:${def}`;
+    readPath = def;
   }
   if (source === cachedFrom && cachedKey) return cachedKey;
 
@@ -91,10 +122,10 @@ function resolveMasterKey(): Buffer | null {
     raw = inline;
   } else {
     try {
-      raw = readFileSync(file as string, 'utf8');
+      raw = readFileSync(readPath as string, 'utf8');
     } catch (err) {
       throw new MissingMasterKeyError(
-        `cannot read HOMESTEAD_MASTER_KEY_FILE (${file}): ${(err as Error).message}`,
+        `cannot read master key file (${readPath}): ${(err as Error).message}`,
       );
     }
   }
@@ -236,4 +267,14 @@ export function decryptText(value: string, keyId: string): string {
 export function __resetMasterKeyCacheForTests(): void {
   cachedKey = null;
   cachedFrom = null;
+}
+
+/**
+ * Test-only: override the default key path (`~/.homestead/master.key`). Pass a
+ * path to point the fallback at a fixture, or `null` to disable the fallback so
+ * "no env var" reliably means encryption-off regardless of the host's home dir.
+ */
+export function __setDefaultKeyPathForTests(path: string | null): void {
+  defaultKeyPathOverride = path;
+  __resetMasterKeyCacheForTests();
 }
