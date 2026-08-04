@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Shield, User as UserIcon, Pencil, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Shield, User as UserIcon, Pencil, Trash2, Eye } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
@@ -8,6 +9,8 @@ import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/Co
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { fetchPermissionContextFor } from '@rambleraptor/homestead-core/permissions/client';
 import { useUsers } from '../hooks/useUsers';
 import { useCreateUser } from '../hooks/useCreateUser';
 import { useUpdateUser } from '../hooks/useUpdateUser';
@@ -16,7 +19,8 @@ import { UserForm } from './UserForm';
 import type { ManagedUser, UserFormData } from '../types';
 
 export function UsersHome() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, startViewAs } = useAuth();
+  const navigate = useNavigate();
   const toast = useToast();
   const { data: users, isLoading } = useUsers();
   const createUser = useCreateUser();
@@ -26,6 +30,31 @@ export function UsersHome() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
+  const [viewAsPendingId, setViewAsPendingId] = useState<string | null>(null);
+
+  // Enter a "view as" preview: resolve the target's real, server-side
+  // permission context first (so the client gates match what the server would
+  // enforce), then flip the effective identity and land on their dashboard.
+  const handleViewAs = async (u: ManagedUser) => {
+    setViewAsPendingId(u.id);
+    try {
+      const permissions = await fetchPermissionContextFor(u.id, aepbase.authStore.token);
+      if (!permissions) {
+        toast.error("Couldn't load this user's permissions.");
+        return;
+      }
+      startViewAs({
+        id: u.id,
+        name: u.display_name || u.email,
+        email: u.email,
+        type: u.type ?? 'regular',
+        permissions,
+      });
+      navigate('/dashboard');
+    } finally {
+      setViewAsPendingId(null);
+    }
+  };
 
   const handleCreate = async (data: UserFormData) => {
     try {
@@ -118,6 +147,22 @@ export function UsersHome() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    {!isSelf && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleViewAs(u)}
+                        disabled={viewAsPendingId !== null}
+                        title="See Homestead with this user's permissions"
+                        data-testid={`view-as-user-${u.id}`}
+                      >
+                        {viewAsPendingId === u.id ? (
+                          <Spinner size="sm" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
