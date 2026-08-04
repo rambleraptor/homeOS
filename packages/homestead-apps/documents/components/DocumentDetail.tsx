@@ -16,6 +16,7 @@ import {
   Loader2,
   Pencil,
   RefreshCw,
+  Scissors,
   Trash2,
 } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
@@ -23,6 +24,7 @@ import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { getDocType } from '../doc-types/registry';
 import { useDocument } from '../hooks/useDocument';
 import { useClassifyDocument } from '../hooks/useUploadDocument';
+import { useSplitDocument } from '../hooks/useSplitDocument';
 import { useDeleteDocument, useUpdateDocument } from '../hooks/useUpdateDocument';
 import { useDownloadDocument } from '../hooks/useDownloadDocument';
 import { DocumentMetadata } from './DocumentMetadata';
@@ -43,6 +45,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const update = useUpdateDocument();
   const remove = useDeleteDocument();
   const classify = useClassifyDocument();
+  const split = useSplitDocument();
   const download = useDownloadDocument();
 
   const handleSave = async (patch: Partial<Document>) => {
@@ -197,6 +200,19 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
               <RefreshCw className="h-4 w-4" />
               Read again with AI
             </button>
+            {doc.mime_type === 'application/pdf' && (
+              <button
+                type="button"
+                onClick={() => split.mutate(documentId)}
+                disabled={split.isPending || status === 'pending'}
+                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                data-testid="document-split"
+                title="Split this PDF into one document per form (e.g. a tax return)"
+              >
+                <Scissors className="h-4 w-4" />
+                Split into forms
+              </button>
+            )}
             <button
               type="button"
               onClick={handleDelete}

@@ -16,13 +16,21 @@ import type { NormRect, PageRaster } from './types';
 
 interface RedactionEditorProps {
   file: File;
+  /** Primary outcome — the redacted file, uploaded as a single document. */
   onComplete: (redacted: File) => void | Promise<void>;
+  /**
+   * Optional second outcome: hand the redacted file to the bundle-split flow
+   * instead. When set, the footer offers a "Redact & split" button alongside
+   * "Redact & upload", so a tax return can be blacked out *before* it's split
+   * into forms. Absent → the editor shows only the upload action (unchanged).
+   */
+  onSplit?: (redacted: File) => void | Promise<void>;
   onCancel: () => void;
 }
 
 const pct = (n: number): string => `${n * 100}%`;
 
-export function RedactionEditor({ file, onComplete, onCancel }: RedactionEditorProps) {
+export function RedactionEditor({ file, onComplete, onSplit, onCancel }: RedactionEditorProps) {
   const [pages, setPages] = useState<PageRaster[] | null>(null);
   const [previews, setPreviews] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -105,12 +113,15 @@ export function RedactionEditor({ file, onComplete, onCancel }: RedactionEditorP
     });
   };
 
-  const confirm = async () => {
+  // Flatten once, then hand the redacted file to whichever outcome the user
+  // picked. Both buttons route through here so the burn-in logic lives in one
+  // place regardless of what happens to the result next.
+  const finish = async (handler: (redacted: File) => void | Promise<void>) => {
     if (!pages) return;
     setBusy(true);
     setError(null);
     try {
-      await onComplete(await buildRedactedFile(file, pages, rectsByPage));
+      await handler(await buildRedactedFile(file, pages, rectsByPage));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Redaction failed');
       setBusy(false);
@@ -147,16 +158,27 @@ export function RedactionEditor({ file, onComplete, onCancel }: RedactionEditorP
           >
             Cancel
           </Button>
+          {onSplit && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void finish(onSplit)}
+              disabled={busy || !pages}
+              data-testid="redaction-split-confirm"
+            >
+              {`Redact & split${totalRects > 0 ? ` (${totalRects})` : ''}`}
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
-            onClick={() => void confirm()}
+            onClick={() => void finish(onComplete)}
             disabled={busy || !pages}
             data-testid="redaction-confirm"
           >
             {busy ? (
               <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Uploading…
+                <Loader2 className="h-4 w-4 animate-spin" /> Working…
               </span>
             ) : (
               `Redact & upload${totalRects > 0 ? ` (${totalRects})` : ''}`
