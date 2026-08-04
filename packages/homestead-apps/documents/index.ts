@@ -2,9 +2,9 @@ export { documentsApp } from './app.config';
 export { RedactionEditor } from './redaction/RedactionEditor';
 export { buildRedactedFile } from './redaction/redact';
 export type { NormRect, PageRaster } from './redaction/types';
-export { documentsResources, DOCUMENTS, DOC_TYPE_FIELD, PARSE_STATUSES } from './resources';
+export { documentsResources, DOCUMENTS, COLLECTIONS, DOC_TYPE_FIELD, PARSE_STATUSES } from './resources';
 export type { ParseStatus } from './resources';
-export type { Document, DocumentMetadata, ClassifyResult } from './types';
+export type { Document, DocumentMetadata, ClassifyResult, Collection } from './types';
 export {
   validateDocType,
   toVariants,

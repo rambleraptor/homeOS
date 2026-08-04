@@ -7,8 +7,9 @@
  * it. The stub is steered by the uploaded file's bytes — a `match` file parses
  * as a 1099-INT, `unknown` as unrecognised, `fail` throws in the model call.
  *
- * Documents are a top-level, household-shared collection, so each test cleans up
- * the documents and operations it creates.
+ * Documents are permission-governed (acl): each caller sees only their own,
+ * plus anything shared with them. Each test seeds and views as the same user and
+ * cleans up the documents and operations it creates.
  */
 
 import { test, expect } from '../../../../tests/e2e/fixtures/aepbase.fixture';

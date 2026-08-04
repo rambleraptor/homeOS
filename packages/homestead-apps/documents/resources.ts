@@ -3,6 +3,7 @@ import { toVariants, UNKNOWN_DOC_TYPE } from './doc-types/docType';
 import { BUILTIN_DOC_TYPES } from './doc-types/builtins';
 
 export const DOCUMENTS = 'documents' as const;
+export const COLLECTIONS = 'collections' as const;
 
 /** Discriminator property for the `metadata` union. Also the derived column. */
 export const DOC_TYPE_FIELD = 'doc_type' as const;
@@ -18,11 +19,35 @@ export type ParseStatus = (typeof PARSE_STATUSES)[number];
  */
 export const documentsResources: ResourceDefinition[] = [
   {
+    singular: 'collection',
+    plural: COLLECTIONS,
+    description:
+      'A named, folder-like grouping of documents. A document can belong to ' +
+      'many collections. Sharing a collection (via the permissions system) is ' +
+      'what grants other people access to the documents inside it.',
+    // Private to its owner until explicitly shared: the blanket household grant
+    // doesn't apply, only owner + record/collection grants do. This is what
+    // makes "share a collection" mean something.
+    access: { model: 'acl' },
+    user_settable_create: true,
+    fields: {
+      name: { type: 'string', required: true, description: 'Display name of the collection.' },
+      description: { type: 'string' },
+      /** A colour token for the folder chip, e.g. a hex string. Free-form. */
+      color: { type: 'string', description: 'Colour for the folder chip (e.g. a hex value).' },
+      created_by: { type: 'string', reference: { resource: 'user' } },
+    },
+  },
+  {
     singular: 'document',
     plural: DOCUMENTS,
     description:
       'An uploaded document — the file, its extracted text, and any metadata ' +
       'parsed from it when it matches a known document type.',
+    // Visibility is governed by the permissions system: a document is private
+    // to its owner plus whoever holds a grant (including the collection-scope
+    // grants a shared collection writes). Nothing is household-wide by default.
+    access: { model: 'acl' },
     user_settable_create: true,
     fields: {
       // `ai.embed` makes the platform extract the file's text into the
@@ -60,6 +85,21 @@ export const documentsResources: ResourceDefinition[] = [
         type: 'array',
         items: { type: 'string' },
         description: 'Free-form labels for organising and finding documents.',
+      },
+      /**
+       * Ids of the collections this document belongs to (many-to-many). A
+       * collection-scope grant on `document` filtered by `'<id>' in collections`
+       * is how sharing a collection reaches its documents, so membership lives
+       * here rather than on the collection. `set-null` drops the id from every
+       * document when a collection is deleted, keeping membership consistent.
+       */
+      collections: {
+        type: 'array',
+        items: {
+          type: 'string',
+          reference: { resource: 'collection', onDelete: 'set-null' },
+        },
+        description: 'Ids of the collections this document belongs to.',
       },
       /**
        * Recorded at upload because `:download` serves every file as
