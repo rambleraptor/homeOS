@@ -107,16 +107,19 @@ function normalizeName(name: string): string {
 /**
  * Resolve an extracted name to a stable person identity against the directory.
  *
- * When the name matches exactly one directory person (by name or any alias,
+ * When the name matches one directory person (by name or any alias,
  * case- and whitespace-insensitively), that person *is* the identity — so
  * "Robert Smith" and his alias "Bob Smith" collapse to one entry keyed by id
- * and labelled with his canonical name. A name the directory doesn't know (no
- * match, or an ambiguous one) falls back to a self-identity keyed by the
- * normalized name, so unknown people still dedupe by spelling without ever
- * being merged with a directory person.
+ * and labelled with his canonical name. Matching is `tokenSubset`-aware, so a
+ * longer printed name folds in too: a W-2's "Jane Marie Doe" resolves to the
+ * directory's "Jane Doe" without the middle name being registered as an alias
+ * — this is what keeps legal-name spellings off the facet as separate people. A
+ * name the directory doesn't know (no match, or an ambiguous one) falls back to
+ * a self-identity keyed by the normalized name, so unknown people still dedupe
+ * by spelling without ever being merged with a directory person.
  */
 export function personIdentity(name: string, people: Person[]): PersonFacet {
-  const match = matchPersonByName(name, people);
+  const match = matchPersonByName(name, people, { tokenSubset: true });
   if (match) return { value: `person:${match.id}`, label: match.name };
   return { value: `name:${normalizeName(name)}`, label: name.trim() };
 }
