@@ -27,6 +27,8 @@ export interface Todo {
   project?: string;
   /** When true, the todo also appears on the main view. */
   in_main?: boolean;
+  /** Category record id (within the project). Empty/missing = uncategorized. */
+  category?: string;
 }
 
 /**
@@ -76,6 +78,21 @@ export interface Project {
 }
 
 /**
+ * A named grouping of todos within a project list. Stored as a child of the
+ * project (`/projects/{id}/categories/{id}`), so the project id lives in the
+ * URL rather than as a stored field.
+ */
+export interface Category {
+  id: string;
+  path: string;
+  name: string;
+  /** Sort order within the project (ascending). Undefined sorts last. */
+  position?: number;
+  create_time: string;
+  update_time: string;
+}
+
+/**
  * A reusable checklist template. Instantiating one creates a new project
  * pre-filled with a `pending` todo for each of its items.
  */
@@ -97,12 +114,28 @@ export interface TemplateItem {
   id: string;
   path: string;
   title: string;
+  /** Template-category record id. Empty/missing = uncategorized. */
+  template_category?: string;
   create_time: string;
   update_time: string;
 }
 
 export interface TemplateItemFormData {
   title: string;
+}
+
+/**
+ * A named grouping of items within a {@link ListTemplate}. Stored as a child of
+ * the template (`/list-templates/{id}/template-categories/{id}`). Recreated as a
+ * project {@link Category} when the template is instantiated.
+ */
+export interface TemplateCategory {
+  id: string;
+  path: string;
+  name: string;
+  position?: number;
+  create_time: string;
+  update_time: string;
 }
 
 /**
@@ -135,4 +168,18 @@ export interface TodoBuckets {
  */
 export interface TodoProgress {
   green: number;
+}
+
+/** Sentinel id for the implicit "Uncategorized" group. */
+export const UNCATEGORIZED_ID = '__uncategorized__' as const;
+
+/**
+ * A category header plus the items grouped under it, for rendering a list
+ * grouped by category. `id` is a real category id or {@link UNCATEGORIZED_ID};
+ * `name` is null for the uncategorized group.
+ */
+export interface CategoryGroup<T> {
+  id: string;
+  name: string | null;
+  items: T[];
 }

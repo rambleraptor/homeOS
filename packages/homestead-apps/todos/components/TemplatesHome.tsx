@@ -10,8 +10,12 @@ import { useDeleteListTemplate } from '../hooks/useDeleteListTemplate';
 import { useTemplateItems } from '../hooks/useTemplateItems';
 import { useCreateTemplateItem } from '../hooks/useCreateTemplateItem';
 import { useDeleteTemplateItem } from '../hooks/useDeleteTemplateItem';
+import { useTemplateCategories } from '../hooks/useTemplateCategories';
+import { useCreateTemplateCategory } from '../hooks/useCreateTemplateCategory';
+import { useDeleteTemplateCategory } from '../hooks/useDeleteTemplateCategory';
 import { useInstantiateTemplate } from '../hooks/useInstantiateTemplate';
-import type { ListTemplate } from '../types';
+import { groupByCategory } from '../hooks/useCategories';
+import type { ListTemplate, TemplateItem } from '../types';
 
 export function TemplatesHome() {
   const templatesQuery = useListTemplates();
@@ -118,21 +122,49 @@ export function TemplatesHome() {
 function TemplateCard({ template }: { template: ListTemplate }) {
   const navigate = useNavigate();
   const itemsQuery = useTemplateItems(template.id);
+  const categoriesQuery = useTemplateCategories(template.id);
   const createItem = useCreateTemplateItem();
   const deleteItem = useDeleteTemplateItem();
+  const createCategory = useCreateTemplateCategory();
+  const deleteCategory = useDeleteTemplateCategory();
   const deleteTemplate = useDeleteListTemplate();
   const instantiate = useInstantiateTemplate();
   const [draftItem, setDraftItem] = useState('');
+  const [draftItemCategory, setDraftItemCategory] = useState('');
+  const [draftCategory, setDraftCategory] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const items = itemsQuery.data ?? [];
+  const categories = categoriesQuery.data ?? [];
+  const hasCategories = categories.length > 0;
+  const groups = groupByCategory(
+    items,
+    categories.map((c) => ({ id: c.id, name: c.name })),
+    (it: TemplateItem) => it.template_category,
+  );
 
   const handleAddItem = async (event: FormEvent) => {
     event.preventDefault();
     const title = draftItem.trim();
     if (!title) return;
-    await createItem.mutateAsync({ templateId: template.id, title });
+    await createItem.mutateAsync({
+      templateId: template.id,
+      title,
+      ...(draftItemCategory ? { templateCategory: draftItemCategory } : {}),
+    });
     setDraftItem('');
+  };
+
+  const handleAddCategory = async (event: FormEvent) => {
+    event.preventDefault();
+    const name = draftCategory.trim();
+    if (!name) return;
+    await createCategory.mutateAsync({
+      templateId: template.id,
+      name,
+      position: categories.length,
+    });
+    setDraftCategory('');
   };
 
   const handleCreateList = async () => {
@@ -142,6 +174,30 @@ function TemplateCard({ template }: { template: ListTemplate }) {
     });
     navigate('/todos', { state: { scope: project.id } });
   };
+
+  const renderItem = (item: TemplateItem) => (
+    <li
+      key={item.id}
+      data-testid={`template-item-${item.id}`}
+      className="flex items-center gap-3 px-4 py-2.5"
+    >
+      <span className="flex-1 font-body text-base text-text-main">
+        {item.title}
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          deleteItem.mutate({ templateId: template.id, itemId: item.id })
+        }
+        disabled={deleteItem.isPending}
+        aria-label={`Remove ${item.title}`}
+        data-testid={`template-item-${item.id}-delete`}
+        className="p-1.5 rounded-lg text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-40"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </li>
+  );
 
   return (
     <div
@@ -179,42 +235,121 @@ function TemplateCard({ template }: { template: ListTemplate }) {
         </button>
       </div>
 
-      <ul className="divide-y divide-gray-100" data-testid={`template-card-${template.id}-items`}>
-        {items.length === 0 ? (
-          <li className="px-4 py-3 text-sm text-text-muted font-body italic">
-            No items yet — add one below.
-          </li>
-        ) : (
-          items.map((item) => (
-            <li
-              key={item.id}
-              data-testid={`template-item-${item.id}`}
-              className="flex items-center gap-3 px-4 py-2.5"
-            >
-              <span className="flex-1 font-body text-base text-text-main">
-                {item.title}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  deleteItem.mutate({ templateId: template.id, itemId: item.id })
-                }
-                disabled={deleteItem.isPending}
-                aria-label={`Remove ${item.title}`}
-                data-testid={`template-item-${item.id}-delete`}
-                className="p-1.5 rounded-lg text-text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-40"
+      <div
+        data-testid={`template-card-${template.id}-categories`}
+        className="space-y-2 border-b border-gray-100 bg-bg-pearl/30 px-4 py-2.5"
+      >
+        <div className="flex flex-wrap items-center gap-1.5">
+          {categories.length === 0 ? (
+            <span className="font-body text-xs italic text-text-muted">
+              No categories — items land in one flat list.
+            </span>
+          ) : (
+            categories.map((category) => (
+              <span
+                key={category.id}
+                data-testid={`template-category-${category.id}`}
+                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-0.5 font-body text-xs text-text-main"
               >
-                <X className="w-4 h-4" />
-              </button>
+                {category.name}
+                <button
+                  type="button"
+                  onClick={() =>
+                    deleteCategory.mutate({
+                      templateId: template.id,
+                      id: category.id,
+                    })
+                  }
+                  disabled={deleteCategory.isPending}
+                  aria-label={`Delete category ${category.name}`}
+                  data-testid={`template-category-${category.id}-delete`}
+                  className="text-text-muted hover:text-red-500 disabled:opacity-40"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+        <form onSubmit={handleAddCategory} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={draftCategory}
+            onChange={(e) => setDraftCategory(e.target.value)}
+            placeholder="Add a category"
+            aria-label={`Add a category to ${template.name}`}
+            disabled={createCategory.isPending}
+            data-testid={`template-card-${template.id}-category-input`}
+            className="flex-1 bg-transparent outline-none font-body text-sm text-text-main placeholder:text-text-muted"
+          />
+          <button
+            type="submit"
+            disabled={createCategory.isPending || draftCategory.trim() === ''}
+            aria-label="Add category"
+            data-testid={`template-card-${template.id}-category-submit`}
+            className={cn(
+              'flex h-7 w-7 items-center justify-center rounded-full',
+              'bg-brand-navy text-white hover:bg-brand-navy/90 transition-colors',
+              'disabled:opacity-40 disabled:cursor-not-allowed',
+            )}
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </form>
+      </div>
+
+      <div data-testid={`template-card-${template.id}-items`}>
+        {items.length === 0 && !hasCategories ? (
+          <ul>
+            <li className="px-4 py-3 text-sm text-text-muted font-body italic">
+              No items yet — add one below.
             </li>
+          </ul>
+        ) : (
+          groups.map((group) => (
+            <div
+              key={group.id}
+              data-testid={`template-group-${group.id}`}
+            >
+              {hasCategories && (
+                <div className="px-4 pt-2 pb-1 font-display text-xs font-semibold text-brand-navy">
+                  {group.name ?? 'Uncategorized'}
+                </div>
+              )}
+              <ul className="divide-y divide-gray-100">
+                {group.items.length === 0 ? (
+                  <li className="px-4 py-2 text-xs text-text-muted font-body italic">
+                    No items in this category yet.
+                  </li>
+                ) : (
+                  group.items.map(renderItem)
+                )}
+              </ul>
+            </div>
           ))
         )}
-      </ul>
+      </div>
 
       <form
         onSubmit={handleAddItem}
         className="flex items-center gap-2 px-4 py-3 border-t border-gray-100 bg-bg-pearl/40"
       >
+        {hasCategories && (
+          <select
+            value={draftItemCategory}
+            onChange={(e) => setDraftItemCategory(e.target.value)}
+            aria-label="Category for new item"
+            data-testid={`template-card-${template.id}-item-category`}
+            className="rounded-lg border border-gray-200 bg-white px-2 py-1 font-body text-xs text-text-muted focus:border-accent-terracotta focus:outline-none"
+          >
+            <option value="">Uncategorized</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           type="text"
           value={draftItem}

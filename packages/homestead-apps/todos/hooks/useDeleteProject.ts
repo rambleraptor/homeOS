@@ -1,8 +1,11 @@
 /**
  * Deletes a project. Member todos fall back to the main project: PATCH each
- * todo to clear `project` and `in_main` first, then DELETE the project
- * record. Ordering matters — if a todo PATCH fails we leave the project
- * intact rather than orphaning todos with a dangling `project` reference.
+ * todo to clear `project`, `in_main`, and `category` first, then DELETE the
+ * project record (force-cascading its categories). Ordering matters — if a
+ * todo PATCH fails we leave the project intact rather than orphaning todos
+ * with a dangling `project` reference. Clearing `category` here also avoids a
+ * dangling category pointer, since categories live on the project and go with
+ * it.
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,10 +28,12 @@ export function useDeleteProject() {
           aepbase.update<Todo>(TODOS, t.id, {
             project: '',
             in_main: false,
+            category: '',
           }),
         ),
       );
-      await aepbase.remove(PROJECTS, projectId);
+      // Force-cascade so the project's category children are removed with it.
+      await aepbase.remove(PROJECTS, projectId, { force: true });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

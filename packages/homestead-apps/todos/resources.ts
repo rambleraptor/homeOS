@@ -8,8 +8,10 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
 export const TODOS = 'todos' as const;
 export const PERSONAL_TODOS = 'personal-todos' as const;
 export const PROJECTS = 'projects' as const;
+export const CATEGORIES = 'categories' as const;
 export const LIST_TEMPLATES = 'list-templates' as const;
 export const TEMPLATE_ITEMS = 'template-items' as const;
+export const TEMPLATE_CATEGORIES = 'template-categories' as const;
 
 export const todosResources: ResourceDefinition[] = [
   {
@@ -44,6 +46,27 @@ export const todosResources: ResourceDefinition[] = [
         type: 'boolean',
         description:
           'When true, the todo also appears on the main project view (only meaningful when project is set).',
+      },
+      category: {
+        type: 'string',
+        description:
+          'Optional grouping within the project list. Empty/missing means uncategorized.',
+        reference: { resource: 'category', onDelete: 'set-null' },
+      },
+    },
+  },
+  {
+    singular: 'category',
+    plural: CATEGORIES,
+    parents: ['project'],
+    description:
+      'A named grouping of todos within a project list (e.g. "Food", "Decorations").',
+    user_settable_create: true,
+    fields: {
+      name: { type: 'string', description: 'Category name.', required: true },
+      position: {
+        type: 'number',
+        description: 'Sort order within the project (ascending).',
       },
     },
   },
@@ -84,6 +107,27 @@ export const todosResources: ResourceDefinition[] = [
     user_settable_create: true,
     fields: {
       title: { type: 'string', description: 'Item title.', required: true },
+      template_category: {
+        type: 'string',
+        description:
+          'Optional grouping within the template. Empty/missing means uncategorized.',
+        reference: { resource: 'template-category', onDelete: 'set-null' },
+      },
+    },
+  },
+  {
+    singular: 'template-category',
+    plural: TEMPLATE_CATEGORIES,
+    parents: ['list-template'],
+    description:
+      'A named grouping of items within a list template. Recreated as a project category when the template is instantiated.',
+    user_settable_create: true,
+    fields: {
+      name: { type: 'string', description: 'Category name.', required: true },
+      position: {
+        type: 'number',
+        description: 'Sort order within the template (ascending).',
+      },
     },
   },
 ];

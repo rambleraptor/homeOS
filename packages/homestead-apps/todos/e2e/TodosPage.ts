@@ -2,7 +2,7 @@
  * Todos Page Object Model
  */
 
-import { Page, expect } from '@playwright/test';
+import { Page, expect, Locator } from '@playwright/test';
 
 export class TodosPage {
   constructor(private page: Page) {}
@@ -57,6 +57,59 @@ export class TodosPage {
   async expectNoFamilyMarker(title: string) {
     const testId = await this.rowTestId(title);
     await expect(this.page.getByTestId(`${testId}-family`)).toHaveCount(0);
+  }
+
+  // --- Categories (project view) ---
+
+  async addCategory(name: string) {
+    await this.page.getByTestId('todos-category-add-input').fill(name);
+    await this.page.getByTestId('todos-category-add-submit').click();
+    await expect(
+      this.page.getByTestId('todos-category-list').getByText(name, {
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
+
+  /** Choose the category new todos are added into ('' clears to Uncategorized). */
+  async selectAddCategory(name: string) {
+    await this.page
+      .getByTestId('todos-add-category')
+      .selectOption({ label: name });
+  }
+
+  /** Move an existing todo into a category via its per-row selector. */
+  async setTodoCategory(title: string, categoryName: string) {
+    const testId = await this.rowTestId(title);
+    await this.page
+      .getByTestId(`${testId}-category`)
+      .selectOption({ label: categoryName });
+  }
+
+  async deleteCategory(name: string) {
+    const item = this.page
+      .locator('[data-testid^="todos-category-item-"]')
+      .filter({ hasText: name })
+      .first();
+    await item.getByRole('button', { name: `Delete category ${name}` }).click();
+  }
+
+  private categoryGroup(name: string): Locator {
+    return this.page
+      .locator('[data-testid^="todos-category-group-"]')
+      .filter({ hasText: name })
+      .first();
+  }
+
+  async expectCategoryGroupVisible(name: string) {
+    await expect(this.categoryGroup(name)).toBeVisible();
+  }
+
+  /** The named todo appears inside the group whose header is `categoryName`. */
+  async expectTodoInGroup(categoryName: string, title: string) {
+    await expect(
+      this.categoryGroup(categoryName).getByText(title, { exact: true }),
+    ).toBeVisible();
   }
 
   private rowFor(title: string) {
