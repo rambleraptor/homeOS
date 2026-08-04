@@ -2,15 +2,23 @@ import { Link } from 'react-router-dom';
 import { Check, Moon, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
-import type { Todo, TodoStatus } from '../types';
+import type { Todo, TodoItem, TodoStatus } from '../types';
 
 export type TodoRowVariant = 'active' | 'doLater' | 'completed';
 
 interface TodoRowProps {
-  todo: Todo;
+  todo: Todo | TodoItem;
   variant: TodoRowVariant;
   onSetStatus: (status: TodoStatus) => void;
   disabled?: boolean;
+  /**
+   * When true, render the 👪 family marker before the title. Set on the main
+   * mixed view for family todos so they stand out from personal ones; left off
+   * inside project views (where every row is already family).
+   */
+  familyMarker?: boolean;
+  /** When true, show a subtle "you" hint — a family todo the viewer created. */
+  createdByYou?: boolean;
   /**
    * Read-only rows render no action buttons. Used for synthetic todos that
    * are derived from other apps' state (e.g. "Buy N groceries") and
@@ -114,6 +122,8 @@ export function TodoRow({
   onTogglePin,
   pinnedFromLabel,
   href,
+  familyMarker,
+  createdByYou,
 }: TodoRowProps) {
   const actions = readOnly ? [] : actionsForVariant(variant);
   const isCancelled = todo.status === 'cancelled';
@@ -129,7 +139,25 @@ export function TodoRow({
   );
   const titleContent = (
     <>
+      {familyMarker && (
+        <span
+          data-testid={`todo-row-${todo.id}-family`}
+          aria-label="Family todo"
+          title="Family todo — shared with everyone"
+          className="mr-1.5 select-none"
+        >
+          👪
+        </span>
+      )}
       {todo.title}
+      {createdByYou && (
+        <span
+          data-testid={`todo-row-${todo.id}-you`}
+          className="ml-2 text-xs font-body italic text-text-muted"
+        >
+          you
+        </span>
+      )}
       {pinnedFromLabel && (
         <span
           data-testid={`todo-row-${todo.id}-origin`}

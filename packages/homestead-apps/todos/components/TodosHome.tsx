@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, ListChecks, Loader2 } from 'lucide-react';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCreateTodo } from '../hooks/useCreateTodo';
+import { useCreatePersonalTodo } from '../hooks/useCreatePersonalTodo';
 import { useUpdateTodo } from '../hooks/useUpdateTodo';
+import { useUpdatePersonalTodo } from '../hooks/useUpdatePersonalTodo';
 import {
   SYNTHETIC_TODO_GROCERIES_ID,
   useSyntheticTodos,
@@ -12,7 +15,8 @@ import {
 import {
   MAIN_PROJECT_ID,
   type ProjectScope,
-  type Todo,
+  type TodoItem,
+  type TodoKind,
   type TodoStatus,
 } from '../types';
 import { TodoProgressBar } from './TodoProgressBar';
@@ -41,9 +45,14 @@ export function TodosHome() {
   const projectsQuery = useProjects();
   const synthetic = useSyntheticTodos();
   const create = useCreateTodo();
+  const createPersonal = useCreatePersonalTodo();
   const update = useUpdateTodo();
+  const updatePersonal = useUpdatePersonalTodo();
+  const currentUserId = aepbase.getCurrentUser()?.id;
 
   const isMain = scope === MAIN_PROJECT_ID;
+  const isUpdating = update.isPending || updatePersonal.isPending;
+  const isCreating = create.isPending || createPersonal.isPending;
   // Completion counts share the progress bar's basis: cancelled items are
   // excluded, so `done / total` matches the green percentage exactly.
   const nonCancelled = scoped.filter((t) => t.status !== 'cancelled');
@@ -53,7 +62,11 @@ export function TodosHome() {
     (projectsQuery.data ?? []).map((p) => [p.id, p]),
   );
 
-  const handleAdd = async (title: string) => {
+  const handleAdd = async (title: string, kind: TodoKind) => {
+    if (kind === 'personal') {
+      await createPersonal.mutateAsync({ title, status: 'pending' });
+      return;
+    }
     await create.mutateAsync({
       title,
       status: 'pending',
@@ -61,22 +74,26 @@ export function TodosHome() {
     });
   };
 
-  const handleSetStatus = (id: string, status: TodoStatus) => {
-    update.mutate({ id, data: { status } });
+  const handleSetStatus = (todo: TodoItem, status: TodoStatus) => {
+    if (todo.kind === 'personal') {
+      updatePersonal.mutate({ id: todo.id, data: { status } });
+      return;
+    }
+    update.mutate({ id: todo.id, data: { status } });
   };
 
   const handleTogglePin = (id: string, inMain: boolean) => {
     update.mutate({ id, data: { in_main: inMain } });
   };
 
-  const originLabelFor = (todo: Todo): string | undefined => {
+  const originLabelFor = (todo: TodoItem): string | undefined => {
     if (!isMain) return undefined;
     if (!todo.project) return undefined;
     const id = todo.project.replace(/^projects\//, '');
     return projectsById.get(id)?.name;
   };
 
-  const togglePinHandlerFor = (todo: Todo) => {
+  const togglePinHandlerFor = (todo: TodoItem) => {
     if (isMain) {
       // On main: only show the pin control for todos that originate in a
       // project (so users can unpin them). Native main-only todos shouldn't
@@ -86,6 +103,22 @@ export function TodosHome() {
     }
     return (inMain: boolean) => handleTogglePin(todo.id, inMain);
   };
+
+  // Shared per-row wiring for real (non-synthetic) todos. The family marker and
+  // "you" hint only apply on the main mixed view, where personal and family
+  // todos are interleaved; inside a project view every row is already family.
+  const rowProps = (todo: TodoItem) => ({
+    onSetStatus: (status: TodoStatus) => handleSetStatus(todo, status),
+    disabled: isUpdating,
+    onTogglePin: togglePinHandlerFor(todo),
+    pinnedFromLabel: originLabelFor(todo),
+    familyMarker: isMain && todo.kind === 'family',
+    createdByYou:
+      isMain &&
+      todo.kind === 'family' &&
+      Boolean(currentUserId) &&
+      todo.created_by === `users/${currentUserId}`,
+  });
 
   // Synthetic todos only belong on the main view.
   const showSynthetic = isMain;
@@ -102,7 +135,11 @@ export function TodosHome() {
         total={totalCount}
       />
 
-      <AddTodoInput onSubmit={handleAdd} disabled={create.isPending} />
+      <AddTodoInput
+        onSubmit={handleAdd}
+        disabled={isCreating}
+        allowPersonal={isMain}
+      />
 
       {isLoading && (
         <div className="flex items-center justify-center py-8">
@@ -160,10 +197,7 @@ export function TodosHome() {
                     key={todo.id}
                     todo={todo}
                     variant="active"
-                    onSetStatus={(status) => handleSetStatus(todo.id, status)}
-                    disabled={update.isPending}
-                    onTogglePin={togglePinHandlerFor(todo)}
-                    pinnedFromLabel={originLabelFor(todo)}
+                    {...rowProps(todo)}
                   />
                 ))}
               </div>
@@ -181,10 +215,7 @@ export function TodosHome() {
                   key={todo.id}
                   todo={todo}
                   variant="doLater"
-                  onSetStatus={(status) => handleSetStatus(todo.id, status)}
-                  disabled={update.isPending}
-                  onTogglePin={togglePinHandlerFor(todo)}
-                  pinnedFromLabel={originLabelFor(todo)}
+                  {...rowProps(todo)}
                 />
               ))}
             </CollapsibleSection>
@@ -202,10 +233,7 @@ export function TodosHome() {
                   key={todo.id}
                   todo={todo}
                   variant="completed"
-                  onSetStatus={(status) => handleSetStatus(todo.id, status)}
-                  disabled={update.isPending}
-                  onTogglePin={togglePinHandlerFor(todo)}
-                  pinnedFromLabel={originLabelFor(todo)}
+                  {...rowProps(todo)}
                 />
               ))}
             </CollapsibleSection>

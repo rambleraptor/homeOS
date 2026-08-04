@@ -6,6 +6,7 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
  * is a single-file change.
  */
 export const TODOS = 'todos' as const;
+export const PERSONAL_TODOS = 'personal-todos' as const;
 export const PROJECTS = 'projects' as const;
 export const LIST_TEMPLATES = 'list-templates' as const;
 export const TEMPLATE_ITEMS = 'template-items' as const;
@@ -43,6 +44,24 @@ export const todosResources: ResourceDefinition[] = [
         type: 'boolean',
         description:
           'When true, the todo also appears on the main project view (only meaningful when project is set).',
+      },
+    },
+  },
+  {
+    singular: 'personal-todo',
+    plural: PERSONAL_TODOS,
+    parents: ['user'],
+    description:
+      "A private, per-user todo item. Scoped to its owner by the user parent — " +
+      'only the owner (and superusers) can read or write it. Unlike the shared ' +
+      '`todo` resource, personal todos never belong to a project.',
+    user_settable_create: true,
+    fields: {
+      title: { type: 'string', description: 'Todo title.', required: true },
+      status: {
+        type: 'string',
+        enum: ['pending', 'do_later', 'completed', 'cancelled'],
+        required: true,
       },
     },
   },

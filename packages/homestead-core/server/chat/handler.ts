@@ -42,6 +42,11 @@ function buildSystemPrompt(user: AuthedUser, hasDocSearch: boolean): string {
     `- When a tool takes a "user_id" parameter (notifications, preferences,`,
     `  and other user-scoped data), use the signed-in user's id above. You`,
     '  can only act on data the signed-in user can access.',
+    '- Todos come in two kinds: personal (private to one user; tools named',
+    '  "*_personal_todo", user-scoped via user_id) and family (shared with the',
+    '  whole household; tools named "*_todo"). When a member asks to add or list',
+    "  todos without saying which, default to PERSONAL for the signed-in user.",
+    '  Use the family todo tools only when they say it is shared/family/household.',
     '- Record ids are server-assigned. When you are not sure of an id, read',
     '  (list) the collection first instead of guessing.',
     ...(hasDocSearch

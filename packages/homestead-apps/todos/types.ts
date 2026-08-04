@@ -29,6 +29,36 @@ export interface Todo {
   in_main?: boolean;
 }
 
+/**
+ * Which collection a todo lives in. `family` todos are the household-global
+ * `todo` resource (visible to everyone); `personal` todos are the
+ * user-parented `personal-todo` resource (visible only to their owner).
+ */
+export type TodoKind = 'family' | 'personal';
+
+/**
+ * A private, per-user todo. Stored under `/users/{uid}/personal-todos/{id}`,
+ * so ownership is encoded in the URL rather than a `created_by` field, and it
+ * never carries `project` / `in_main` — personal todos are a flat list that
+ * only surfaces on the main view.
+ */
+export interface PersonalTodo {
+  id: string;
+  path: string;
+  title: string;
+  status: TodoStatus;
+  create_time: string;
+  update_time: string;
+}
+
+/**
+ * Unified in-memory shape the UI renders. Family and personal todos are merged
+ * into a single list; `kind` tags each one's origin so rendering (the family
+ * marker) and mutation routing (which collection to write) can branch on it.
+ * `project` / `in_main` / `created_by` are only ever present on family todos.
+ */
+export type TodoItem = Todo & { kind: TodoKind };
+
 export interface TodoFormData {
   title: string;
 }
@@ -94,9 +124,9 @@ export type ProjectScope = string;
  * `cancelled`.
  */
 export interface TodoBuckets {
-  active: Todo[];
-  doLater: Todo[];
-  completed: Todo[];
+  active: TodoItem[];
+  doLater: TodoItem[];
+  completed: TodoItem[];
 }
 
 /**
