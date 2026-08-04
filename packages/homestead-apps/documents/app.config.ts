@@ -35,6 +35,12 @@ export const documentsApp: AppConfig = {
         component: () =>
           import('./components/DocumentsHome').then((m) => m.DocumentsHome),
       },
+      // Before `:id`, which would otherwise match "types" as a document id.
+      {
+        path: 'types',
+        component: () =>
+          import('./components/DocumentTypes').then((m) => m.DocumentTypes),
+      },
       {
         path: ':id',
         component: () =>

@@ -3,7 +3,8 @@
  */
 
 import { useMemo, useRef, useState } from 'react';
-import { Loader2, Upload, AlertCircle, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Loader2, Upload, AlertCircle, Shield, FileText } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
@@ -127,7 +128,20 @@ export function DocumentsHome() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Documents" subtitle="Upload a document and we'll read it for you" />
+      <PageHeader
+        title="Documents"
+        subtitle="Upload a document and we'll read it for you"
+        actions={
+          <Link
+            to="/documents/types"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            data-testid="document-types-link"
+          >
+            <FileText className="h-4 w-4" />
+            Supported types
+          </Link>
+        }
+      />
 
       <div>
         <input
