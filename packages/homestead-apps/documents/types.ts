@@ -28,6 +28,13 @@ export interface Document {
   tags?: string[];
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
+  /**
+   * Whether the stored file bytes are encrypted at rest. Derived server-side
+   * from the file field's DB marker (see engine `storedToMap`); absent when the
+   * document has no file. Legacy documents uploaded before encryption was
+   * enabled read back `false`.
+   */
+  file_encrypted?: boolean;
   mime_type?: string;
   /** SHA-256 (hex) of the file bytes; used to detect duplicate uploads. */
   content_hash?: string;

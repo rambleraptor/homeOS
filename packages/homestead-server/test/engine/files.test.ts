@@ -147,6 +147,8 @@ describe('file lifecycle', () => {
       await call(t.engine, 'GET', '/docs/d3', { token: t.adminToken })
     ).json();
     expect(got.attachment).toContain(':download?field=attachment');
+    // With no master key configured, stored bytes are plaintext.
+    expect(got.attachment_encrypted).toBe(false);
 
     const diskPath = filePath(t.filesDir, 'docs/d3', 'attachment');
     expect(existsSync(diskPath)).toBe(true);
