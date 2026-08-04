@@ -8,6 +8,8 @@ const schema: Schema = {
     title: { type: 'string' },
     pages: { type: 'integer' },
     in_print: { type: 'boolean' },
+    tags: { type: 'array', items: { type: 'string' } },
+    ratings: { type: 'array', items: { type: 'integer' } },
     id: { type: 'string', readOnly: true },
   },
 };
@@ -82,6 +84,34 @@ describe('compileFilter', () => {
     ]) {
       expect(() => compileFilter(bad, schema)).toThrow(/invalid filter/);
     }
+  });
+
+  test('membership on a scalar array (CEL `in`)', () => {
+    const f = compileFilter('"vip" in tags', schema);
+    expect(f.sql).toBe('EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)');
+    expect(f.params).toEqual(['vip']);
+  });
+
+  test('membership on a numeric array', () => {
+    const f = compileFilter('5 in ratings', schema);
+    expect(f.sql).toBe('EXISTS (SELECT 1 FROM json_each(ratings) WHERE value = ?)');
+    expect(f.params).toEqual([5]);
+  });
+
+  test('membership composes with && and keeps parameter order', () => {
+    const f = compileFilter('"vip" in tags && pages > 100', schema);
+    expect(f.sql).toBe(
+      'EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?) AND pages > ?',
+    );
+    expect(f.params).toEqual(['vip', 100]);
+  });
+
+  test('rejects `in` against a non-array field', () => {
+    expect(() => compileFilter('"x" in title', schema)).toThrow(/invalid filter/);
+  });
+
+  test('rejects `in` with a field on the left', () => {
+    expect(() => compileFilter('title in tags', schema)).toThrow(/invalid filter/);
   });
 
   test('values only travel as parameters', () => {

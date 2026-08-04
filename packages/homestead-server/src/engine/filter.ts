@@ -3,6 +3,12 @@
  * consumer ever passed a filter, so the TS engine supports the practical
  * subset — comparisons (==, !=, <, <=, >, >=) on schema fields combined with
  * && / || and parentheses — compiled to parameterized SQL.
+ *
+ * Array fields use CEL's membership operator (AEP-160 defers to the CEL
+ * language definition): `<value> in <array field>` tests whether the array
+ * contains that scalar element, compiled to a `json_each` existence check over
+ * the JSON-encoded column. Comprehension macros (`exists`/`all`) are not yet
+ * supported — this is scalar membership only.
  */
 
 import type { Schema } from './types';
@@ -70,6 +76,9 @@ function tokenize(input: string): Token[] {
       const word = m[0];
       if (word === 'true' || word === 'false') {
         tokens.push({ kind: 'bool', value: word === 'true' });
+      } else if (word === 'in') {
+        // `in` is a CEL reserved word (the membership operator), never a field.
+        tokens.push({ kind: 'op', value: 'in' });
       } else {
         tokens.push({ kind: 'ident', value: word });
       }
@@ -149,7 +158,7 @@ export function compileFilter(
 
     const params: (string | number)[] = [];
 
-    function parseOperand(): { sql: string; isField: boolean } {
+    function parseOperand(): { sql: string; isField: boolean; propType?: string } {
       const t = next();
       if (!t) throw new FilterError('unexpected end of filter');
       switch (t.kind) {
@@ -173,7 +182,12 @@ export function compileFilter(
           if (schema.properties?.[t.value]?.['x-aepbase-file-text-field'] === true) {
             throw new FilterError(`field ${JSON.stringify(t.value)} is encrypted and cannot be filtered`);
           }
-          return { sql: column, isField: true };
+          // propType is the declared type for a direct field; derived union
+          // columns don't carry one (they're never arrays).
+          const propType = fields.has(t.value)
+            ? schema.properties?.[t.value]?.type
+            : undefined;
+          return { sql: column, isField: true, propType };
         }
         case 'string':
           params.push(t.value);
@@ -199,6 +213,19 @@ export function compileFilter(
       }
       const left = parseOperand();
       const opTok = next();
+      if (opTok?.kind === 'op' && opTok.value === 'in') {
+        // CEL membership: `<value> in <array field>`. Compiles to an existence
+        // check over the JSON-array column; `left.sql` is the bound `?`, whose
+        // parameter was already pushed in operand order above.
+        const arr = parseOperand();
+        if (!arr.isField || arr.propType !== 'array') {
+          throw new FilterError("right side of 'in' must be an array field");
+        }
+        if (left.isField) {
+          throw new FilterError("left side of 'in' must be a value");
+        }
+        return `EXISTS (SELECT 1 FROM json_each(${arr.sql}) WHERE value = ${left.sql})`;
+      }
       if (!opTok || opTok.kind !== 'op' || !(opTok.value in COMPARISON_OPS)) {
         throw new FilterError('expected comparison operator');
       }
