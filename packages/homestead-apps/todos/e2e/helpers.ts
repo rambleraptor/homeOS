@@ -38,6 +38,48 @@ export async function deleteAllTodos(token: string) {
   }
 }
 
+export interface PersonalTodoRecord {
+  id: string;
+  title: string;
+  status: TodoStatus;
+}
+
+/** The current user's private todos live under `/users/{userId}/personal-todos`. */
+function personalTodos(token: string, userId: string) {
+  return e2eClient(token)
+    .collection('users')
+    .record(userId)
+    .collection<PersonalTodoRecord>('personal-todos');
+}
+
+export async function createPersonalTodo(
+  token: string,
+  userId: string,
+  data: { title: string; status?: TodoStatus },
+): Promise<PersonalTodoRecord> {
+  return personalTodos(token, userId).create({
+    title: data.title,
+    status: data.status ?? 'pending',
+  });
+}
+
+export async function listPersonalTodos(
+  token: string,
+  userId: string,
+): Promise<PersonalTodoRecord[]> {
+  return personalTodos(token, userId).listAll();
+}
+
+export async function deleteAllPersonalTodos(token: string, userId: string) {
+  const items = await listPersonalTodos(token, userId);
+  for (const item of items) {
+    await personalTodos(token, userId)
+      .record(item.id)
+      .delete()
+      .catch(() => undefined);
+  }
+}
+
 export interface ProjectRecord {
   id: string;
   name: string;

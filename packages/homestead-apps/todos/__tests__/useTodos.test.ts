@@ -3,15 +3,22 @@ import {
   bucketTodos,
   computeProgress,
   filterTodosForScope,
+  mergeTodosForScope,
 } from '../hooks/useTodos';
-import { MAIN_PROJECT_ID, type Todo, type TodoStatus } from '../types';
+import {
+  MAIN_PROJECT_ID,
+  type PersonalTodo,
+  type Todo,
+  type TodoItem,
+  type TodoStatus,
+} from '../types';
 
 function makeTodo(
   id: string,
   status: TodoStatus,
   createTime = '2025-01-01T00:00:00Z',
   extra: Partial<Todo> = {},
-): Todo {
+): TodoItem {
   return {
     id,
     path: `todos/${id}`,
@@ -19,7 +26,23 @@ function makeTodo(
     status,
     create_time: createTime,
     update_time: createTime,
+    kind: 'family',
     ...extra,
+  };
+}
+
+function makePersonal(
+  id: string,
+  status: TodoStatus,
+  createTime = '2025-01-01T00:00:00Z',
+): PersonalTodo {
+  return {
+    id,
+    path: `users/u1/personal-todos/${id}`,
+    title: `Personal ${id}`,
+    status,
+    create_time: createTime,
+    update_time: createTime,
   };
 }
 
@@ -119,5 +142,50 @@ describe('filterTodosForScope', () => {
     expect(
       filterTodosForScope([...todos, pinned], MAIN_PROJECT_ID).map((t) => t.id),
     ).toEqual(['a', 'c', 'e']);
+  });
+});
+
+describe('mergeTodosForScope', () => {
+  const family: Todo[] = [
+    makeTodo('fa', 'pending', '2025-01-01T00:00:00Z'),
+    makeTodo('fb', 'pending', '2025-01-03T00:00:00Z', {
+      project: 'projects/p1',
+    }),
+    makeTodo('fc', 'pending', '2025-01-04T00:00:00Z', {
+      project: 'projects/p1',
+      in_main: true,
+    }),
+  ];
+  const personal: PersonalTodo[] = [
+    makePersonal('pa', 'pending', '2025-01-02T00:00:00Z'),
+    makePersonal('pb', 'pending', '2025-01-05T00:00:00Z'),
+  ];
+
+  it('main scope: merges family-on-main with all personal, tagged by kind', () => {
+    const merged = mergeTodosForScope(family, personal, MAIN_PROJECT_ID);
+    // fa (no project) + fc (pinned) are the family-on-main set; both personal.
+    expect(merged.map((t) => t.id)).toEqual(['fa', 'pa', 'fc', 'pb']);
+    expect(merged.map((t) => t.kind)).toEqual([
+      'family',
+      'personal',
+      'family',
+      'personal',
+    ]);
+  });
+
+  it('main scope: interleaves the two streams by create_time', () => {
+    const merged = mergeTodosForScope(family, personal, MAIN_PROJECT_ID);
+    const times = merged.map((t) => t.create_time);
+    expect(times).toEqual([...times].sort());
+  });
+
+  it('project scope: family only — personal todos never belong to a project', () => {
+    const merged = mergeTodosForScope(family, personal, 'p1');
+    expect(merged.map((t) => t.id)).toEqual(['fb', 'fc']);
+    expect(merged.every((t) => t.kind === 'family')).toBe(true);
+  });
+
+  it('handles empty inputs', () => {
+    expect(mergeTodosForScope([], [], MAIN_PROJECT_ID)).toEqual([]);
   });
 });

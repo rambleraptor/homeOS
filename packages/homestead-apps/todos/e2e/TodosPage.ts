@@ -12,11 +12,51 @@ export class TodosPage {
     await this.page.getByTestId('todos-add-input').waitFor({ state: 'visible' });
   }
 
-  async addTodo(title: string) {
+  /**
+   * Add a todo. On the main view two buttons are offered (personal is the
+   * default); in a project view only the single family button exists. `kind`
+   * selects the button on the main view and is ignored in a project view.
+   */
+  async addTodo(title: string, kind: 'personal' | 'family' = 'personal') {
     const input = this.page.getByTestId('todos-add-input');
     await input.fill(title);
-    await this.page.getByTestId('todos-add-submit').click();
+    const personalBtn = this.page.getByTestId('todos-add-submit-personal');
+    if ((await personalBtn.count()) > 0) {
+      const id =
+        kind === 'family'
+          ? 'todos-add-submit-family'
+          : 'todos-add-submit-personal';
+      await this.page.getByTestId(id).click();
+    } else {
+      await this.page.getByTestId('todos-add-submit').click();
+    }
     await expect(input).toHaveValue('');
+  }
+
+  async addPersonalTodo(title: string) {
+    await this.addTodo(title, 'personal');
+  }
+
+  async addFamilyTodo(title: string) {
+    await this.addTodo(title, 'family');
+  }
+
+  private async rowTestId(title: string): Promise<string> {
+    const row = this.rowFor(title);
+    await row.waitFor({ state: 'visible' });
+    const testId = await row.getAttribute('data-testid');
+    if (!testId) throw new Error(`Row for "${title}" missing testid`);
+    return testId;
+  }
+
+  async expectFamilyMarker(title: string) {
+    const testId = await this.rowTestId(title);
+    await expect(this.page.getByTestId(`${testId}-family`)).toBeVisible();
+  }
+
+  async expectNoFamilyMarker(title: string) {
+    const testId = await this.rowTestId(title);
+    await expect(this.page.getByTestId(`${testId}-family`)).toHaveCount(0);
   }
 
   private rowFor(title: string) {

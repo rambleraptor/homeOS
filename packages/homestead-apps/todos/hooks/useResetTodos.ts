@@ -7,9 +7,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { TODOS } from '../resources';
+import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
+import { PERSONAL_TODOS, TODOS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import { MAIN_PROJECT_ID, type ProjectScope, type Todo } from '../types';
+import {
+  MAIN_PROJECT_ID,
+  type PersonalTodo,
+  type ProjectScope,
+  type Todo,
+} from '../types';
 import { filterTodosForScope } from './useTodos';
 
 export function useResetTodos(scope: ProjectScope = MAIN_PROJECT_ID) {
@@ -17,17 +23,43 @@ export function useResetTodos(scope: ProjectScope = MAIN_PROJECT_ID) {
 
   return useMutation({
     mutationFn: async (): Promise<number> => {
-      const todos = await aepbase.list<Todo>(TODOS);
-      const inScope = filterTodosForScope(todos, scope);
-      const stale = inScope.filter((t) => t.status !== 'pending');
-      await Promise.all(
-        stale.map((t) =>
-          aepbase.update<Todo>(TODOS, t.id, {
-            status: 'pending',
-          }),
-        ),
+      // Family todos in scope. Resetting these is a household-wide side effect
+      // (they're shared), matching the pre-existing behavior.
+      const family = await aepbase.list<Todo>(TODOS);
+      const staleFamily = filterTodosForScope(family, scope).filter(
+        (t) => t.status !== 'pending',
       );
-      return stale.length;
+      const writes: Promise<unknown>[] = staleFamily.map((t) =>
+        aepbase.update<Todo>(TODOS, t.id, { status: 'pending' }),
+      );
+      let count = staleFamily.length;
+
+      // Personal todos only ever appear on the main view, so they're only in
+      // scope there. They belong to the current user alone.
+      if (scope === MAIN_PROJECT_ID) {
+        const userId = aepbase.getCurrentUser()?.id;
+        if (userId) {
+          const parent = [USERS, userId];
+          const personal = await aepbase.list<PersonalTodo>(PERSONAL_TODOS, {
+            parent,
+          });
+          const stalePersonal = personal.filter((t) => t.status !== 'pending');
+          writes.push(
+            ...stalePersonal.map((t) =>
+              aepbase.update<PersonalTodo>(
+                PERSONAL_TODOS,
+                t.id,
+                { status: 'pending' },
+                { parent },
+              ),
+            ),
+          );
+          count += stalePersonal.length;
+        }
+      }
+
+      await Promise.all(writes);
+      return count;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

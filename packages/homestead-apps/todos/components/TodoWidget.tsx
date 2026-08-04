@@ -39,6 +39,8 @@ export function TodoWidget() {
           {active.map((todo) => {
             const href =
               todo.id === SYNTHETIC_TODO_GROCERIES_ID ? '/groceries' : null;
+            const isFamily = 'kind' in todo && todo.kind === 'family';
+            const label = isFamily ? `👪 ${todo.title}` : todo.title;
             return (
               <li
                 key={todo.id}
@@ -51,11 +53,11 @@ export function TodoWidget() {
                     data-testid={`todos-widget-item-${todo.id}-link`}
                     className="flex-1 font-display text-lg text-text-main truncate hover:text-accent-terracotta transition-colors"
                   >
-                    {todo.title}
+                    {label}
                   </Link>
                 ) : (
                   <span className="flex-1 font-display text-lg text-text-main truncate">
-                    {todo.title}
+                    {label}
                   </span>
                 )}
               </li>
