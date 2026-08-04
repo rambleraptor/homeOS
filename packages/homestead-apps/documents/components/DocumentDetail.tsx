@@ -28,6 +28,7 @@ import { useDownloadDocument } from '../hooks/useDownloadDocument';
 import { DocumentMetadata } from './DocumentMetadata';
 import { DocumentEditForm } from './DocumentEditForm';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
+import { DocumentEncryptionBadge } from './DocumentEncryptionBadge';
 import type { Document } from '../types';
 
 interface DocumentDetailProps {
@@ -133,6 +134,9 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
 
       <div className="flex items-center gap-3">
         <DocumentStatusBadge status={status} />
+        {typeof doc.file_encrypted === 'boolean' && (
+          <DocumentEncryptionBadge encrypted={doc.file_encrypted} />
+        )}
         {typeof doc.confidence === 'number' && status === 'parsed' && (
           <span className="text-xs text-gray-500" data-testid="document-confidence">
             {Math.round(doc.confidence * 100)}% confidence

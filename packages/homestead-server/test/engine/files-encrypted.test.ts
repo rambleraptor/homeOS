@@ -72,6 +72,12 @@ describe('encrypted file bytes at rest', () => {
     expect(got.attachment).toBe('http://localhost:8090/docs/d2:download?field=attachment');
   });
 
+  test('the wire response exposes a derived <field>_encrypted flag', async () => {
+    await upload('d4', 'x');
+    const got = await (await call(t.engine, 'GET', '/docs/d4', { token: t.adminToken })).json();
+    expect(got.attachment_encrypted).toBe(true);
+  });
+
   test('download fails closed (500) when the master key is gone', async () => {
     await upload('d3', 'confidential');
     delete process.env.HOMESTEAD_MASTER_KEY;

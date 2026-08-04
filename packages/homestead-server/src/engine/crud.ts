@@ -188,6 +188,11 @@ function storedToMap(
       continue;
     }
     m[name] = fileFieldDownloadUrl(reg.serverUrl, s.path, name);
+    // Surface the authoritative at-rest encryption marker as a read-only
+    // `<field>_encrypted` boolean. The marker lives only in the DB column (which
+    // we just overwrote with the download URL), so this derived flag is the only
+    // way a client can tell an encrypted file from legacy plaintext.
+    m[`${name}_encrypted`] = s.fields[name] === FILE_MARKER_ENCRYPTED;
   }
   return m;
 }
