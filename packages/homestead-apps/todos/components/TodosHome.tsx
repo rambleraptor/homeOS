@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, ListChecks, Loader2 } from 'lucide-react';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCreateTodo } from '../hooks/useCreateTodo';
@@ -15,7 +15,6 @@ import {
   type Todo,
   type TodoStatus,
 } from '../types';
-import { TodoHeader } from './TodoHeader';
 import { TodoProgressBar } from './TodoProgressBar';
 import { AddTodoInput } from './AddTodoInput';
 import { TodoRow } from './TodoRow';
@@ -34,6 +33,7 @@ export function TodosHome() {
   const {
     buckets,
     progress,
+    scoped,
     isLoading,
     isError,
     error,
@@ -44,6 +44,11 @@ export function TodosHome() {
   const update = useUpdateTodo();
 
   const isMain = scope === MAIN_PROJECT_ID;
+  // Completion counts share the progress bar's basis: cancelled items are
+  // excluded, so `done / total` matches the green percentage exactly.
+  const nonCancelled = scoped.filter((t) => t.status !== 'cancelled');
+  const doneCount = nonCancelled.filter((t) => t.status === 'completed').length;
+  const totalCount = nonCancelled.length;
   const projectsById = new Map(
     (projectsQuery.data ?? []).map((p) => [p.id, p]),
   );
@@ -84,14 +89,18 @@ export function TodosHome() {
 
   // Synthetic todos only belong on the main view.
   const showSynthetic = isMain;
+  const activeCount =
+    buckets.active.length + (showSynthetic ? synthetic.length : 0);
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <TodoHeader />
-
       <ProjectSwitcher scope={scope} onChange={setScope} />
 
-      <TodoProgressBar progress={progress} />
+      <TodoProgressBar
+        progress={progress}
+        done={doneCount}
+        total={totalCount}
+      />
 
       <AddTodoInput onSubmit={handleAdd} disabled={create.isPending} />
 
@@ -112,11 +121,20 @@ export function TodosHome() {
 
       {!isLoading && !isError && (
         <>
-          <div data-testid="todos-section-active">
+          <div data-testid="todos-section-active" className="space-y-3">
+            <div className="flex items-center gap-2 text-brand-navy">
+              <h2 className="font-display text-lg font-semibold">To Do</h2>
+              {activeCount > 0 && (
+                <span className="font-body text-sm font-medium text-text-muted">
+                  ({activeCount})
+                </span>
+              )}
+            </div>
             {buckets.active.length === 0 &&
             (!showSynthetic || synthetic.length === 0) ? (
-              <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center">
-                <p className="text-sm text-text-muted font-body italic">
+              <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
+                <ListChecks className="h-8 w-8 text-accent-terracotta/60" />
+                <p className="font-body text-sm text-text-muted">
                   Nothing pending — add an item above to get started.
                 </p>
               </div>
