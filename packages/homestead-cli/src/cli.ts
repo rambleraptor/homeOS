@@ -12,6 +12,7 @@ import {
   type AiChoice,
 } from './scaffold.ts';
 import { runDoctor, hasFailures, type Check } from './doctor.ts';
+import { generateKeyCmd, resolveKeyLocation } from './key.ts';
 
 async function main(argv: string[]): Promise<number> {
   const [sub, ...rest] = argv;
@@ -176,6 +177,8 @@ async function initCmd(args: string[]): Promise<number> {
       'ai-model': { type: 'string' },
       'ai-key-env': { type: 'string' },
       'no-ai': { type: 'boolean', default: false },
+      encryption: { type: 'boolean' },
+      'no-encryption': { type: 'boolean', default: false },
       'no-install': { type: 'boolean', default: false },
       yes: { type: 'boolean', short: 'y', default: false },
     },
@@ -205,12 +208,16 @@ async function initCmd(args: string[]): Promise<number> {
     return 1;
   }
 
+  // Encryption at rest (opt-in): whether to generate a master key on proceed.
+  const encryption = await resolveEncryptionChoice(values, interactive);
+
   if (interactive) {
     console.log('\nAbout to scaffold:');
-    console.log(`  directory : ${resolve(dir)}`);
+    console.log(`  directory  : ${resolve(dir)}`);
     console.log(
-      `  AI        : ${ai ? `${ai.provider} — ${ai.model} (key from ${ai.keyEnv})` : 'none'}`,
+      `  AI         : ${ai ? `${ai.provider} — ${ai.model} (key from ${ai.keyEnv})` : 'none'}`,
     );
+    console.log(`  encryption : ${encryption ? 'on (master key at ~/.homestead/master.key)' : 'off'}`);
     if (!(await promptYesNo('Proceed?', true))) {
       console.log('aborted.');
       return 1;
@@ -225,6 +232,10 @@ async function initCmd(args: string[]): Promise<number> {
     return 1;
   }
   console.log(`scaffolded Homestead project at ${root}`);
+
+  // Generate the master key (writes ~/.homestead/master.key, which the server
+  // auto-loads on boot). Skips with a note if a key is already configured.
+  if (encryption) setupEncryption();
 
   if (values['no-install'] === true) {
     console.log('skipping dependency install (--no-install); run it before `homestead start`.');
@@ -249,10 +260,46 @@ async function initCmd(args: string[]): Promise<number> {
   if (ai) {
     console.log(`  # ensure ${ai.keyEnv} is set in your environment (or a .env file)`);
   }
+  if (!encryption) {
+    console.log('  # run `homestead key generate` to turn on encryption at rest');
+  }
   console.log('  homestead start\n');
   console.log('Edit homestead.config.ts to pick which apps ship, or run');
   console.log('`homestead init-app <name>` — apps under ./apps/ are auto-discovered.');
   return 0;
+}
+
+/**
+ * Decide whether `init` should set up encryption at rest: `--no-encryption`
+ * wins, then an explicit `--encryption`, then an interactive prompt (default
+ * on). Non-interactive runs stay off unless `--encryption` is passed, so we
+ * never mint a must-back-up key behind a script's back.
+ */
+async function resolveEncryptionChoice(
+  values: { encryption?: boolean; 'no-encryption'?: boolean },
+  interactive: boolean,
+): Promise<boolean> {
+  if (values['no-encryption'] === true) return false;
+  if (values.encryption === true) return true;
+  if (!interactive) return false;
+  return promptYesNo('Enable encryption at rest? (generates a master key you must back up)', true);
+}
+
+/**
+ * Generate the master key at its default location unless one is already
+ * configured. The server auto-loads `~/.homestead/master.key`, so this is all
+ * it takes to turn encryption on for new writes after the next start.
+ */
+function setupEncryption(): void {
+  const existing = resolveKeyLocation();
+  if (existing.source !== 'none' && existing.value) {
+    const where =
+      existing.source === 'env' ? 'HOMESTEAD_MASTER_KEY' : (existing.path ?? 'the configured file');
+    console.log(`\nEncryption: a master key is already configured (${where}); leaving it in place.`);
+    return;
+  }
+  console.log('');
+  generateKeyCmd({}); // writes ~/.homestead/master.key (0600) + backup guidance
 }
 
 /**
@@ -483,6 +530,8 @@ function printUsage(): void {
       '  --ai-model=ID               Model id for the chosen provider.',
       '  --ai-key-env=NAME           Env var the config reads the API key from.',
       '  --no-ai                     Skip AI setup (overrides .env inference).',
+      '  --encryption                Generate a master key so encryption at rest is on.',
+      '  --no-encryption             Skip the encryption-at-rest key (overrides the prompt).',
       '  --no-install                Skip the dependency install step.',
       '  -y, --yes                   Accept defaults (incl. inferred AI); no prompts.',
       '',

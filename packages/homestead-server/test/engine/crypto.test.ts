@@ -10,6 +10,7 @@ import {
   MissingMasterKeyError,
   TEXT_PREFIX,
   __resetMasterKeyCacheForTests,
+  __setDefaultKeyPathForTests,
   decryptBytes,
   decryptText,
   encryptBytes,
@@ -30,8 +31,16 @@ function useKey(base64: string | null): void {
   __resetMasterKeyCacheForTests();
 }
 
+// Disable the `~/.homestead/master.key` fallback for every test here so a key
+// on the developer's machine can't turn an "encryption off" assertion on.
+// Individual tests opt into the fallback via __setDefaultKeyPathForTests(path).
+beforeEach(() => {
+  __setDefaultKeyPathForTests(null);
+});
+
 afterEach(() => {
   useKey(null);
+  __setDefaultKeyPathForTests(null);
 });
 
 describe('markers', () => {
@@ -71,6 +80,29 @@ describe('encryptionEnabled', () => {
     delete process.env.HOMESTEAD_MASTER_KEY_FILE;
     __resetMasterKeyCacheForTests();
     expect(() => encryptionEnabled()).toThrow(MissingMasterKeyError);
+  });
+
+  test('falls back to the default key file with no env var set', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'hs-key-'));
+    const keyPath = join(dir, 'master.key');
+    writeFileSync(keyPath, `${KEY_A}\n`);
+    try {
+      delete process.env.HOMESTEAD_MASTER_KEY;
+      delete process.env.HOMESTEAD_MASTER_KEY_FILE;
+      __setDefaultKeyPathForTests(keyPath); // stand in for ~/.homestead/master.key
+      expect(encryptionEnabled()).toBe(true);
+      const c = encryptText('from-default', OWNER);
+      expect(decryptText(c, OWNER)).toBe('from-default');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('is off when the default key file is absent', () => {
+    delete process.env.HOMESTEAD_MASTER_KEY;
+    delete process.env.HOMESTEAD_MASTER_KEY_FILE;
+    __setDefaultKeyPathForTests(join(tmpdir(), 'hs-nope', 'master.key'));
+    expect(encryptionEnabled()).toBe(false);
   });
 });
 

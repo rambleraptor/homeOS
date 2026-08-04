@@ -4,6 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Engine } from '../../src/engine/engine';
+import { __setDefaultKeyPathForTests } from '../../src/engine/crypto';
 import { generateId, generateToken, nowRFC3339 } from '../../src/engine/ids';
 import { hashPassword, insertToken, insertUser } from '../../src/engine/users';
 import type { User } from '../../src/engine/types';
@@ -17,6 +18,10 @@ export interface TestEngine {
 }
 
 export async function makeEngine(): Promise<TestEngine> {
+  // Disable the `~/.homestead/master.key` fallback so a key on the developer's
+  // machine never flips an engine test into encryption-on. Tests that want
+  // encryption set HOMESTEAD_MASTER_KEY explicitly (inline env wins anyway).
+  __setDefaultKeyPathForTests(null);
   const filesDir = mkdtempSync(join(tmpdir(), 'hs-engine-test-'));
   const engine = new Engine({
     dbPath: ':memory:',

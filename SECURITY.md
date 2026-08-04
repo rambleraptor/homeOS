@@ -57,13 +57,31 @@ closed** — the server errors rather than serving ciphertext as content.
 
 ## The master key
 
-A single 32-byte key per instance, supplied via the environment:
+A single 32-byte key per instance. The server resolves it in this order:
 
-- `HOMESTEAD_MASTER_KEY` — base64-encoded key (handy for containers), or
-- `HOMESTEAD_MASTER_KEY_FILE` — path to a file containing the same.
+1. `HOMESTEAD_MASTER_KEY` — base64-encoded key inline (handy for containers), or
+2. `HOMESTEAD_MASTER_KEY_FILE` — path to a file containing the same, or
+3. the default key file at `~/.homestead/master.key`, if it exists.
+
+The default-file step is the easy path: **`homestead key generate` writes that
+file and the server loads it on the next boot — no environment variable to
+set.** The env vars remain for containers and for pointing at a custom
+location.
 
 Encryption is **opt-in**: with no key configured the server behaves exactly as
 before (plaintext). New writes are encrypted once the server sees a key.
+
+### Enabling it
+
+```bash
+homestead key generate   # writes ~/.homestead/master.key (0600)
+# ...back the key up somewhere separate from your data...
+homestead start          # (or restart the service) — encryption is now on
+```
+
+`homestead init` also offers to do the `key generate` step for you. Existing
+plaintext files and text stay readable and are re-encrypted lazily the next
+time each record is written; there is no bulk re-encrypt of old data.
 
 ### Operator rules
 
@@ -84,7 +102,9 @@ homestead backup            # archive the data dir as ciphertext; refuses to inc
 homestead doctor            # checks key presence, location, and permissions
 ```
 
-Wire the key into a systemd deployment by adding
+For a systemd deployment, the default file works as long as it sits in the
+service user's home (`~/.homestead/master.key`). If the service runs as a
+different user, or you keep the key elsewhere, point at it explicitly by adding
 `HOMESTEAD_MASTER_KEY_FILE=/path/to/master.key` to the unit's `.env`
 (the generated service already loads it via `EnvironmentFile`).
 

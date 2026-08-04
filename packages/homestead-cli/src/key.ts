@@ -68,15 +68,22 @@ export function generateKeyCmd(opts: { file?: string; force?: boolean }): number
   writeFileSync(path, `${key}\n`, { mode: 0o600 });
   chmodSync(path, 0o600); // enforce perms even if the file pre-existed
 
+  const atDefault = path === defaultKeyPath();
   console.log(`wrote a new 32-byte master key to ${path} (mode 0600)`);
   console.log('');
   console.log('  ⚠  BACK THIS UP NOW, somewhere separate from your data/backups.');
   console.log('     If you lose it, encrypted files and text become unrecoverable.');
   console.log('');
-  console.log('  Point the server at it by setting, in your environment or .env:');
-  console.log(`     HOMESTEAD_MASTER_KEY_FILE=${path}`);
-  console.log('');
-  console.log('  Encryption turns on for new writes once the server sees the key.');
+  if (atDefault) {
+    // The default path is what the server reads on its own — no env editing.
+    console.log('  The server loads this key from the default location automatically.');
+    console.log('  Restart it, and encryption turns on for new writes.');
+  } else {
+    console.log('  Point the server at it by setting, in your environment or .env:');
+    console.log(`     HOMESTEAD_MASTER_KEY_FILE=${path}`);
+    console.log('');
+    console.log('  Encryption turns on for new writes once the server sees the key.');
+  }
   return 0;
 }
 
