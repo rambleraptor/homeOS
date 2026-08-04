@@ -14,16 +14,25 @@ import type { TemplateItem } from '../types';
 interface CreateTemplateItemParams {
   templateId: string;
   title: string;
+  /** Template-category record id. Omit for uncategorized. */
+  templateCategory?: string;
 }
 
 export function useCreateTemplateItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ templateId, title }: CreateTemplateItemParams) =>
+    mutationFn: async ({
+      templateId,
+      title,
+      templateCategory,
+    }: CreateTemplateItemParams) =>
       aepbase.create<TemplateItem>(
         TEMPLATE_ITEMS,
-        { title },
+        {
+          title,
+          ...(templateCategory ? { template_category: templateCategory } : {}),
+        },
         { parent: [LIST_TEMPLATES, templateId] },
       ),
     onSuccess: async () => {

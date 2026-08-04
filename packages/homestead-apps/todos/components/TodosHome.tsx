@@ -4,6 +4,7 @@ import { AlertCircle, ListChecks, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
+import { useCategories, groupTodosByCategory } from '../hooks/useCategories';
 import { useCreateTodo } from '../hooks/useCreateTodo';
 import { useCreatePersonalTodo } from '../hooks/useCreatePersonalTodo';
 import { useUpdateTodo } from '../hooks/useUpdateTodo';
@@ -22,6 +23,7 @@ import {
 import { TodoProgressBar } from './TodoProgressBar';
 import { AddTodoInput } from './AddTodoInput';
 import { TodoRow } from './TodoRow';
+import { CategoryManager } from './CategoryManager';
 import { CollapsibleSection } from './CollapsibleSection';
 import { ResetProgressButton } from './ResetProgressButton';
 import { ProjectSwitcher } from './ProjectSwitcher';
@@ -51,6 +53,14 @@ export function TodosHome() {
   const currentUserId = aepbase.getCurrentUser()?.id;
 
   const isMain = scope === MAIN_PROJECT_ID;
+  // Categories only exist inside a real project list.
+  const categoriesQuery = useCategories(isMain ? null : scope);
+  const categories = categoriesQuery.data ?? [];
+  const hasCategories = !isMain && categories.length > 0;
+  const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name }));
+  // Target category for newly-added todos in this project view.
+  const [addCategoryId, setAddCategoryId] = useState('');
+
   const isUpdating = update.isPending || updatePersonal.isPending;
   const isCreating = create.isPending || createPersonal.isPending;
   // Completion counts share the progress bar's basis: cancelled items are
@@ -71,6 +81,7 @@ export function TodosHome() {
       title,
       status: 'pending',
       ...(isMain ? {} : { project: `projects/${scope}` }),
+      ...(hasCategories && addCategoryId ? { category: addCategoryId } : {}),
     });
   };
 
@@ -80,6 +91,11 @@ export function TodosHome() {
       return;
     }
     update.mutate({ id: todo.id, data: { status } });
+  };
+
+  // Family todos in a project can be moved between categories ('' clears it).
+  const handleSetCategory = (todo: TodoItem, categoryId: string) => {
+    update.mutate({ id: todo.id, data: { category: categoryId } });
   };
 
   const handleTogglePin = (id: string, inMain: boolean) => {
@@ -118,7 +134,20 @@ export function TodosHome() {
       todo.kind === 'family' &&
       Boolean(currentUserId) &&
       todo.created_by === `users/${currentUserId}`,
+    // Category picker only in a project view that has categories.
+    ...(hasCategories
+      ? {
+          categoryOptions,
+          categoryValue: todo.category ?? '',
+          onSetCategory: (categoryId: string) =>
+            handleSetCategory(todo, categoryId),
+        }
+      : {}),
   });
+
+  // Active todos grouped by category (project view with categories); the
+  // uncategorized group is appended only when it has items.
+  const activeGroups = groupTodosByCategory(buckets.active, categories);
 
   // Synthetic todos only belong on the main view.
   const showSynthetic = isMain;
@@ -134,6 +163,35 @@ export function TodosHome() {
         done={doneCount}
         total={totalCount}
       />
+
+      {!isMain && (
+        <CategoryManager projectId={scope} categories={categories} />
+      )}
+
+      {hasCategories && (
+        <div className="flex items-center gap-2 px-1">
+          <label
+            htmlFor="todos-add-category"
+            className="font-body text-sm text-text-muted"
+          >
+            Add to
+          </label>
+          <select
+            id="todos-add-category"
+            data-testid="todos-add-category"
+            value={addCategoryId}
+            onChange={(e) => setAddCategoryId(e.target.value)}
+            className="rounded-lg border border-gray-200 bg-white px-2 py-1 font-body text-sm text-text-main focus:border-accent-terracotta focus:outline-none"
+          >
+            <option value="">Uncategorized</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <AddTodoInput
         onSubmit={handleAdd}
@@ -167,8 +225,45 @@ export function TodosHome() {
                 </span>
               )}
             </div>
-            {buckets.active.length === 0 &&
-            (!showSynthetic || synthetic.length === 0) ? (
+            {hasCategories ? (
+              <div className="space-y-4" data-testid="todos-active-groups">
+                {activeGroups.map((group) => (
+                  <div
+                    key={group.id}
+                    data-testid={`todos-category-group-${group.id}`}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-center gap-2 px-1">
+                      <h3 className="font-display text-sm font-semibold text-brand-navy">
+                        {group.name ?? 'Uncategorized'}
+                      </h3>
+                      {group.items.length > 0 && (
+                        <span className="font-body text-xs text-text-muted">
+                          ({group.items.length})
+                        </span>
+                      )}
+                    </div>
+                    {group.items.length === 0 ? (
+                      <p className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-3 text-center font-body text-xs text-text-muted">
+                        No items in this category yet.
+                      </p>
+                    ) : (
+                      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden divide-y divide-gray-100">
+                        {group.items.map((todo) => (
+                          <TodoRow
+                            key={todo.id}
+                            todo={todo}
+                            variant="active"
+                            {...rowProps(todo)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : buckets.active.length === 0 &&
+              (!showSynthetic || synthetic.length === 0) ? (
               <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
                 <ListChecks className="h-8 w-8 text-accent-terracotta/60" />
                 <p className="font-body text-sm text-text-muted">

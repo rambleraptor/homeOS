@@ -42,6 +42,27 @@ export class TemplatesPage {
       .click();
   }
 
+  async addCategory(templateName: string, name: string) {
+    const card = this.cardFor(templateName);
+    await card.getByPlaceholder('Add a category').fill(name);
+    await card.getByRole('button', { name: 'Add category' }).click();
+    await expect(card.getByText(name, { exact: true })).toBeVisible();
+  }
+
+  async addItemInCategory(
+    templateName: string,
+    title: string,
+    categoryName: string,
+  ) {
+    const card = this.cardFor(templateName);
+    await card
+      .getByRole('combobox', { name: 'Category for new item' })
+      .selectOption({ label: categoryName });
+    await card.locator('input[placeholder="Add an item"]').fill(title);
+    await card.getByRole('button', { name: 'Add item' }).click();
+    await expect(card.getByText(title, { exact: true })).toBeVisible();
+  }
+
   async createListFrom(templateName: string) {
     await this.cardFor(templateName)
       .getByRole('button', { name: `Create a list from ${templateName}` })

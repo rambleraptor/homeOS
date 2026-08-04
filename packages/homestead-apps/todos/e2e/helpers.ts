@@ -12,6 +12,7 @@ export interface TodoRecord {
   status: TodoStatus;
   project?: string;
   in_main?: boolean;
+  category?: string;
 }
 
 export async function createTodo(
@@ -21,6 +22,7 @@ export async function createTodo(
     status?: TodoStatus;
     project_id?: string;
     in_main?: boolean;
+    category_id?: string;
   },
 ): Promise<TodoRecord> {
   return e2eClient(token).collection<TodoRecord>('todos').create({
@@ -28,7 +30,12 @@ export async function createTodo(
     status: data.status ?? 'pending',
     ...(data.project_id ? { project: `projects/${data.project_id}` } : {}),
     ...(data.in_main !== undefined ? { in_main: data.in_main } : {}),
+    ...(data.category_id ? { category: data.category_id } : {}),
   });
+}
+
+export async function listTodos(token: string): Promise<TodoRecord[]> {
+  return e2eClient(token).collection<TodoRecord>('todos').listAll();
 }
 
 export async function deleteAllTodos(token: string) {
@@ -95,8 +102,39 @@ export async function createProject(
 export async function deleteAllProjects(token: string) {
   const items = await e2eClient(token).collection<{ id: string }>('projects').listAll();
   for (const item of items) {
-    await deleteIfPresent(token, 'projects', item.id);
+    // Force-cascade so category children are removed with the project.
+    await deleteIfPresent(token, 'projects', item.id, { force: true });
   }
+}
+
+export interface CategoryRecord {
+  id: string;
+  name: string;
+  position?: number;
+}
+
+/** Categories live under `/projects/{id}/categories`. */
+export async function createCategory(
+  token: string,
+  projectId: string,
+  data: { name: string; position?: number },
+): Promise<CategoryRecord> {
+  return e2eClient(token)
+    .collection('projects')
+    .record(projectId)
+    .collection<CategoryRecord>('categories')
+    .create({ name: data.name, position: data.position ?? 0 });
+}
+
+export async function listCategories(
+  token: string,
+  projectId: string,
+): Promise<CategoryRecord[]> {
+  return e2eClient(token)
+    .collection('projects')
+    .record(projectId)
+    .collection<CategoryRecord>('categories')
+    .listAll();
 }
 
 export interface ListTemplateRecord {
@@ -117,12 +155,36 @@ export async function addTemplateItem(
   token: string,
   templateId: string,
   title: string,
-): Promise<{ id: string; title: string }> {
+  templateCategoryId?: string,
+): Promise<{ id: string; title: string; template_category?: string }> {
   return e2eClient(token)
     .collection('list-templates')
     .record(templateId)
-    .collection<{ id: string; title: string }>('template-items')
-    .create({ title });
+    .collection<{ id: string; title: string; template_category?: string }>(
+      'template-items',
+    )
+    .create({
+      title,
+      ...(templateCategoryId ? { template_category: templateCategoryId } : {}),
+    });
+}
+
+export interface TemplateCategoryRecord {
+  id: string;
+  name: string;
+  position?: number;
+}
+
+export async function addTemplateCategory(
+  token: string,
+  templateId: string,
+  data: { name: string; position?: number },
+): Promise<TemplateCategoryRecord> {
+  return e2eClient(token)
+    .collection('list-templates')
+    .record(templateId)
+    .collection<TemplateCategoryRecord>('template-categories')
+    .create({ name: data.name, position: data.position ?? 0 });
 }
 
 export async function deleteAllListTemplates(token: string) {

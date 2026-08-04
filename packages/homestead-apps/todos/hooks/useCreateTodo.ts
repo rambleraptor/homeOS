@@ -6,6 +6,8 @@ interface CreateTodoBody {
   status: TodoStatus;
   /** aepbase resource path, e.g. `projects/{id}`. Omit for main scope. */
   project?: string;
+  /** Category record id (within the project). Omit for uncategorized. */
+  category?: string;
 }
 
 export function useCreateTodo() {

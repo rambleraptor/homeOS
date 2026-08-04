@@ -59,23 +59,28 @@ describe('useDeleteProject', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-    // Both member todos got patched
+    // Both member todos got patched — project, in_main, and category cleared
+    // so they fall back to main without a dangling category pointer.
     expect(aepbase.update).toHaveBeenCalledTimes(2);
     expect(aepbase.update).toHaveBeenCalledWith('todos', 'b', {
       project: '',
       in_main: false,
+      category: '',
     });
     expect(aepbase.update).toHaveBeenCalledWith('todos', 'c', {
       project: '',
       in_main: false,
+      category: '',
     });
     // Non-member todos were not touched
     const updateCalls = vi.mocked(aepbase.update).mock.calls.map((c) => c[1]);
     expect(updateCalls).not.toContain('a');
     expect(updateCalls).not.toContain('d');
 
-    // Project deleted
-    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'gone');
+    // Project deleted, force-cascading its category children.
+    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'gone', {
+      force: true,
+    });
   });
 
   it('still removes the project when no todos belong to it', async () => {
@@ -90,6 +95,8 @@ describe('useDeleteProject', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(aepbase.update).not.toHaveBeenCalled();
-    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'empty');
+    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'empty', {
+      force: true,
+    });
   });
 });
