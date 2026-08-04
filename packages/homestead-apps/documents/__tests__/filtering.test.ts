@@ -152,6 +152,18 @@ describe('collectPeople', () => {
       { value: 'name:sam doe', label: 'Sam Doe' },
     ]);
   });
+
+  it('folds a longer printed legal name into its directory person', () => {
+    // The W-2 names "Jane Doe"; this receipt prints her full legal name. Without
+    // it registered as an alias, subset matching still keeps them one entry.
+    const legalDoc = doc({ doc_type: 'medical-receipt', patient: 'Jane Marie Doe' });
+    const directory = [person('p1', 'Jane Doe')];
+    const facets = collectPeople([w2, legalDoc, policy], directory);
+    expect(facets).toEqual([
+      { value: 'person:p1', label: 'Jane Doe' },
+      { value: 'name:sam doe', label: 'Sam Doe' },
+    ]);
+  });
 });
 
 describe('collectDocTypeFacets', () => {
@@ -231,6 +243,19 @@ describe('filterDocuments', () => {
       directory,
     );
     expect(result).toEqual([w2, policy, aliasDoc]);
+  });
+
+  it('matches a directory person on a document that prints their legal name', () => {
+    // "Jane Marie Doe" isn't a registered alias, but subset matching folds it
+    // into "Jane Doe", so the person filter still catches that document.
+    const legalDoc = doc({ doc_type: 'medical-receipt', patient: 'Jane Marie Doe' });
+    const directory = [person('p1', 'Jane Doe')];
+    const result = filterDocuments(
+      [w2, receipt, policy, legalDoc],
+      filters({ person: 'person:p1' }),
+      directory,
+    );
+    expect(result).toEqual([w2, policy, legalDoc]);
   });
 
   it('searches titles', () => {
