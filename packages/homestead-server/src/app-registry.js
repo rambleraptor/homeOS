@@ -18,6 +18,7 @@ import {
   getAllUserSettingDefs,
   getAllCronHooks,
   getAllMigrations,
+  getAllResourceSyncs as getAppResourceSyncs,
 } from '@rambleraptor/homestead-core/apps/registry';
 import {
   ALWAYS_INSTALLED_APP_IDS,
@@ -89,6 +90,39 @@ export function embeddingConfig() {
 /** The `email` block of homestead.config.ts, or null when email is unconfigured. */
 export function emailConfig() {
   return config.email ?? null;
+}
+
+/**
+ * Every resource sync the instance runs: the app-declared ones (from
+ * `AppConfig.syncs`, aggregated by the core registry) plus the config-level
+ * ones an operator declares directly in `homestead.config.ts` (`config.syncs`).
+ * Config-level syncs carry `appId: 'config'` and are the way to attach a sync
+ * to a resource no app owns — notably the built-in `user`. Ids must be unique
+ * across both sources; a config sync whose id collides with an app sync (or
+ * that is missing an `id`/`resource`) is dropped with a warning.
+ */
+export function getAllResourceSyncs() {
+  const appSyncs = getAppResourceSyncs();
+  const seen = new Set(appSyncs.map((s) => s.id));
+  const configSyncs = [];
+  for (const sync of config.syncs ?? []) {
+    if (!sync || !sync.id || !sync.resource) {
+      console.warn(
+        '[app-registry] config sync missing id or resource; ignored',
+        sync && sync.id,
+      );
+      continue;
+    }
+    if (seen.has(sync.id)) {
+      console.warn(
+        `[app-registry] duplicate resource sync id "${sync.id}" from config; ignored`,
+      );
+      continue;
+    }
+    seen.add(sync.id);
+    configSyncs.push({ ...sync, appId: 'config' });
+  }
+  return [...appSyncs, ...configSyncs];
 }
 
 export {

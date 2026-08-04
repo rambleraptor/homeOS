@@ -32,6 +32,7 @@ import type {
 } from './types';
 import type { CronHook } from './cron';
 import type { Migration } from './migrations';
+import type { ResourceSync } from './sync';
 import type {
   ResourceCustomMethod,
   ResourceDefinition,
@@ -529,6 +530,57 @@ export function getAllMigrations(): RegisteredMigration[] {
       }
       seen.add(migration.id);
       out.push({ ...migration, appId: mod.id });
+    }
+    for (const child of mod.children ?? []) {
+      visit(child);
+    }
+  };
+  for (const mod of getAppRegistry().apps) {
+    visit(mod);
+  }
+  return out;
+}
+
+/**
+ * A resource sync paired with the id of the app that declared it. The appId
+ * rides along so the dispatcher can label log output and hand it to the
+ * handler's context without a separate sync→app index.
+ */
+export type RegisteredResourceSync = ResourceSync & { appId: string };
+
+/**
+ * Collect every resource sync declared by registered apps — top-level and
+ * nested — in declaration order. Consumed by the server's sync dispatcher on
+ * boot. Ids must be unique across all apps: a sync whose id was already seen is
+ * dropped with a warning, as is one missing an `id` or a `resource`, so the
+ * dispatcher never wires up an ambiguous or unroutable mirror.
+ *
+ * The target `resource` is *not* checked for existence here — that needs the
+ * full resource universe, which is assembled at server boot. `startServer`
+ * validates every aggregated sync's `resource` (via `validateSyncResources`)
+ * and fails fast on an unknown one.
+ */
+export function getAllResourceSyncs(): RegisteredResourceSync[] {
+  const out: RegisteredResourceSync[] = [];
+  const seen = new Set<string>();
+  const visit = (mod: AppConfig): void => {
+    for (const sync of mod.syncs ?? []) {
+      if (!sync.id || !sync.resource) {
+        logger.warn(
+          `Resource sync (app "${mod.id}") missing id or resource; ignored`,
+          { appId: mod.id, syncId: sync.id },
+        );
+        continue;
+      }
+      if (seen.has(sync.id)) {
+        logger.warn(
+          `Duplicate resource sync id "${sync.id}" (app "${mod.id}") ignored`,
+          { appId: mod.id, syncId: sync.id },
+        );
+        continue;
+      }
+      seen.add(sync.id);
+      out.push({ ...sync, appId: mod.id });
     }
     for (const child of mod.children ?? []) {
       visit(child);

@@ -141,6 +141,25 @@ const embedding: HomesteadConfig['embedding'] = embeddingApiKey
     }
   : undefined;
 
+// Resource syncs mirror a resource's records to an external system, one way,
+// after they change (create / update / delete). Declared here — not inside an
+// app — a sync can watch any resource by its `singular`, including the built-in
+// `user` resource that no app owns a definition for. Left commented out: turning
+// one on spawns an operation on every matching write. The handler is server-only
+// code you add to your project (e.g. ./syncs/mirror-user-to-maps.ts) and runs
+// with a short-lived admin token; see
+// packages/homestead-site/docs/guides/resource-sync.md.
+//
+// const syncs: HomesteadConfig['syncs'] = [
+//   {
+//     id: 'users-mirror-to-maps',   // stable, globally unique — the operation key
+//     resource: 'user',             // any resource singular; 'user' is built-in
+//     title: 'Mirror user to Maps',
+//     // on: ['create', 'update', 'delete'],  // subset; default is all three
+//     load: () => import('./syncs/mirror-user-to-maps'),
+//   },
+// ];
+
 const config: HomesteadConfig = {
   apps: [
     todosApp,
@@ -158,6 +177,7 @@ const config: HomesteadConfig = {
   ai,
   email,
   embedding,
+  // syncs,   // ← uncomment together with the `syncs` block above to enable
 };
 
 // A running `homestead start` watches this file (and the apps/ tree): edit it

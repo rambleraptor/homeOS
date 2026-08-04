@@ -1,4 +1,10 @@
 import type { AppConfig } from './types';
+import type { ResourceSync } from './sync';
+
+// Re-exported here so an operator can author a sync — its declaration and its
+// handler's `SyncContext`/`SyncHandler` types — from the same module they
+// already import `HomesteadConfig` from, without reaching into app internals.
+export type { SyncEvent, SyncContext, SyncHandler, ResourceSync } from './sync';
 
 /**
  * One OAuth provider in {@link OAuthConfig}. Field names mirror the JSON the
@@ -282,4 +288,19 @@ export interface HomesteadConfig {
    * never land in the client bundle. See {@link EmailConfig}.
    */
   email?: EmailConfig;
+
+  /**
+   * Optional resource syncs — server-side handlers that mirror a resource's
+   * records to an external system, one way, after they change (create / update
+   * / delete). Declared here (rather than only inside an app) so an operator
+   * can attach a sync to *any* resource by its `singular` name — including the
+   * built-in `user` resource, which no app owns a `ResourceDefinition` for.
+   *
+   * These are merged with the syncs apps declare via `AppConfig.syncs`; ids
+   * must be unique across both. Server-side only: each entry's `load` handler
+   * runs on the server (never the SPA bundle), gets a short-lived admin token,
+   * and fires out-of-band, so it can never block or fail the write it observes.
+   * See `docs/guides/resource-sync.md`.
+   */
+  syncs?: ResourceSync[];
 }

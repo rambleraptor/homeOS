@@ -321,6 +321,41 @@ export function validateReferenceTargets(defs: ResourceDefinition[]): void {
   }
 }
 
+/** A resource sync's identity for validation — a subset of `ResourceSync`. */
+export interface SyncResourceTarget {
+  id: string;
+  resource: string;
+  appId?: string;
+}
+
+/**
+ * Boot check: every resource sync must name a resource that actually exists on
+ * this instance, so a typo or a sync pointing at an app that isn't installed
+ * fails loudly at boot instead of silently never firing. The sibling of
+ * {@link validateReferenceTargets} for `AppConfig.syncs` / `HomesteadConfig.syncs`.
+ *
+ * `known` is the full set of resource singulars the instance declares — the
+ * caller passes it because some resources (the built-in `user`, and the
+ * dynamically-synced `user-preference` / `app-flag`) aren't in the static
+ * definition list. Throws a `[resources]`-prefixed error naming the offending
+ * sync and resource.
+ */
+export function validateSyncResources(
+  known: Iterable<string>,
+  syncs: readonly SyncResourceTarget[],
+): void {
+  const knownSet = known instanceof Set ? known : new Set(known);
+  for (const sync of syncs) {
+    if (!knownSet.has(sync.resource)) {
+      const where = sync.appId ? ` (app "${sync.appId}")` : '';
+      throw new Error(
+        `[resources] sync "${sync.id}"${where} targets unknown resource ` +
+          `"${sync.resource}" — no such resource is declared`,
+      );
+    }
+  }
+}
+
 /** Visit every reference in a field map, recursing into items/properties/variants. */
 function walkReferences(
   fields: Record<string, FieldDef>,

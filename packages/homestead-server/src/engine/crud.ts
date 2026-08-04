@@ -434,7 +434,16 @@ export async function handleCreate(
     return errorResponse(500, `failed to create resource: ${err instanceof Error ? err.message : err}`);
   }
 
-  return jsonResponse(storedToMap(reg, r, stored), 201);
+  const created = storedToMap(reg, r, stored);
+  // Post-commit mirror (fire-and-forget; never blocks or fails the write).
+  reg.syncDispatcher?.dispatch({
+    event: 'create',
+    resource: r.singular,
+    recordId: id,
+    record: created,
+    previous: null,
+  });
+  return jsonResponse(created, 201);
 }
 
 /**
@@ -526,6 +535,10 @@ export async function handleUpdate(
   const existing = getResource(reg.db, r.plural, path, r.schema);
   if (!existing) return errorResponse(404, `resource "${path}" not found`);
 
+  // Snapshot the pre-state for the sync's `previous`, before the patch mutates
+  // `existing.fields`. Only materialized when a dispatcher is wired.
+  const preState = reg.syncDispatcher ? storedToMap(reg, r, existing) : null;
+
   const { fields: patch, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
   preparePayload(r, patch, uploaded);
 
@@ -535,7 +548,16 @@ export async function handleUpdate(
   existing.update_time = now;
 
   updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
-  return jsonResponse(storedToMap(reg, r, existing));
+  const updated = storedToMap(reg, r, existing);
+  // Post-commit mirror (fire-and-forget).
+  reg.syncDispatcher?.dispatch({
+    event: 'update',
+    resource: r.singular,
+    recordId: match.id,
+    record: updated,
+    previous: preState,
+  });
+  return jsonResponse(updated);
 }
 
 export async function handleApply(
@@ -561,10 +583,22 @@ export async function handleApply(
     const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
     if (requiredErr) throw new HttpError(400, requiredErr);
 
+    // Snapshot the pre-state before the merge mutates `existing.fields`.
+    const preState = reg.syncDispatcher ? storedToMap(reg, r, existing) : null;
     applyMergePatch(r.schema, existing.fields, fields);
     existing.update_time = now;
     updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
-    return jsonResponse(storedToMap(reg, r, existing));
+    const updated = storedToMap(reg, r, existing);
+    // Post-commit mirror (fire-and-forget) — an apply onto an existing record
+    // is an update.
+    reg.syncDispatcher?.dispatch({
+      event: 'update',
+      resource: r.singular,
+      recordId: match.id,
+      record: updated,
+      previous: preState,
+    });
+    return jsonResponse(updated);
   }
 
   // Apply that creates a new resource: fill defaults, then validate required.
@@ -581,7 +615,16 @@ export async function handleApply(
     fields,
   };
   insertResource(reg.db, r.plural, stored, directParentIds(reg, r, match.parentIds), r.schema, ownerFor(caller));
-  return jsonResponse(storedToMap(reg, r, stored), 201);
+  const created = storedToMap(reg, r, stored);
+  // Post-commit mirror (fire-and-forget) — an apply that creates is a create.
+  reg.syncDispatcher?.dispatch({
+    event: 'create',
+    resource: r.singular,
+    recordId: match.id,
+    record: created,
+    previous: null,
+  });
+  return jsonResponse(created, 201);
 }
 
 /** The FK column naming a child row's direct parent (e.g. `credit_card_id`). */
@@ -706,6 +749,10 @@ export function handleDelete(reg: Registry, match: RouteMatch, req: Request): Re
   const restrictErr = checkReferenceRestrict(reg, r.singular, match.id);
   if (restrictErr) return errorResponse(409, `resource "${path}": ${restrictErr}`);
 
+  // Snapshot the record before it (and its subtree) is removed, for the sync's
+  // `previous`. Only materialized when a dispatcher is wired.
+  const preState = reg.syncDispatcher ? storedToMap(reg, r, existing) : null;
+
   const filePaths: string[] = [];
   reg.db.transaction(() => {
     applyReferenceCleanup(reg, r.singular, match.id, filePaths);
@@ -719,6 +766,14 @@ export function handleDelete(reg: Registry, match: RouteMatch, req: Request): Re
       // best-effort cleanup
     }
   }
+  // Post-commit mirror (fire-and-forget) — `record` is null on delete.
+  reg.syncDispatcher?.dispatch({
+    event: 'delete',
+    resource: r.singular,
+    recordId: match.id,
+    record: null,
+    previous: preState,
+  });
   return new Response(null, { status: 204 });
 }
 
@@ -788,10 +843,21 @@ export async function handleSingletonUpdate(
     return jsonResponse(singletonToMap(r, stored));
   }
 
+  const preState = reg.syncDispatcher ? singletonToMap(r, existing) : null;
   applyMergePatch(r.schema, existing.fields, patch);
   existing.update_time = now;
   updateResource(reg.db, r.plural, path, existing.fields, now, r.schema);
-  return jsonResponse(singletonToMap(r, existing));
+  const updated = singletonToMap(r, existing);
+  // Post-commit mirror (fire-and-forget). A singleton has no `id` field; key it
+  // by its stable single-row id.
+  reg.syncDispatcher?.dispatch({
+    event: 'update',
+    resource: r.singular,
+    recordId: singletonId(r, match.parentIds),
+    record: updated,
+    previous: preState,
+  });
+  return jsonResponse(updated);
 }
 
 /** The auto-registered `POST /{plural}/{id}:download` for file-field resources. */

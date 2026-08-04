@@ -96,6 +96,49 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // non-expiring token.
   engine.setSessionIssuer((userId) => authService.issueSession(userId));
 
+  // Wire the post-commit resource-sync dispatcher. Built from the aggregated
+  // app- and config-declared syncs, the engine's db, and the same shared
+  // OperationStore the cron scheduler uses (so sync firings appear as operations
+  // too). Set before the listener starts so writes are mirrored from the first
+  // request. Like crons, this doesn't depend on the schema sync having finished.
+  // Dispatch is fire-and-forget — a mirror never blocks or fails the write it
+  // observes.
+  const { createSyncDispatcher } = await import('./sync');
+  const { operationStore } = await import(
+    '@rambleraptor/homestead-core/server/operations'
+  );
+  const resourceSyncs = registry.getAllResourceSyncs();
+
+  // Fail fast if a sync names a resource that doesn't exist (a typo, or an app
+  // that isn't installed) — otherwise it would silently never fire. Validate
+  // against the full declared universe: the static definition lists plus the
+  // built-in `user` root and the two dynamically-synced engine-managed
+  // resources (`user-preference`, `app-flag`), which aren't in those lists.
+  const { validateSyncResources } = await import(
+    '@rambleraptor/homestead-core/resources/translate'
+  );
+  const { BUILTIN_RESOURCE_DEFS } = await import(
+    '@rambleraptor/homestead-core/resources/builtins'
+  );
+  const { PERMISSION_RESOURCE_DEFS } = await import(
+    '@rambleraptor/homestead-core/permissions/resources'
+  );
+  validateSyncResources(
+    [
+      'user',
+      'user-preference',
+      'app-flag',
+      ...BUILTIN_RESOURCE_DEFS.map((d) => d.singular),
+      ...PERMISSION_RESOURCE_DEFS.map((d) => d.singular),
+      ...registry.getAllResourceDefs().map((d) => d.singular),
+    ],
+    resourceSyncs,
+  );
+
+  engine.setSyncDispatcher(
+    createSyncDispatcher(engine.db, resourceSyncs, operationStore),
+  );
+
   // Homestead-as-OAuth-provider (authorization server). Opt-in via
   // auth.authServer.enabled. When on, create its tables up front.
   const authServerCfg = registry.authServerConfig();
@@ -194,9 +237,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   // logging), so this doesn't depend on the schema sync above having finished;
   // interval-based hooks fire well after boot regardless.
   const { startCronScheduler } = await import('./cron');
-  const { operationStore } = await import(
-    '@rambleraptor/homestead-core/server/operations'
-  );
+  // `operationStore` is imported above for the sync dispatcher; reuse it here.
   const cron = startCronScheduler(
     engine.db,
     registry.getAllCronHooks(),

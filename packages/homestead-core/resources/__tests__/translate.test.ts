@@ -8,6 +8,7 @@ import {
   toWireSchema,
   validateReferenceTargets,
   validateResourceDefinition,
+  validateSyncResources,
   variantSchemaName,
 } from '../translate';
 import type { FieldDef, ResourceDefinition } from '../types';
@@ -730,6 +731,43 @@ describe('validateReferenceTargets', () => {
     expect(() => validateReferenceTargets([nested])).toThrow(
       /field "scores\[\]\.player" references unknown resource "ghost"/,
     );
+  });
+});
+
+describe('validateSyncResources', () => {
+  const known = ['user', 'address', 'user-preference'];
+
+  it('accepts syncs whose resource is in the known set', () => {
+    expect(() =>
+      validateSyncResources(known, [
+        { id: 'a', resource: 'user' },
+        { id: 'b', resource: 'address' },
+      ]),
+    ).not.toThrow();
+  });
+
+  it('accepts an empty sync list', () => {
+    expect(() => validateSyncResources(known, [])).not.toThrow();
+  });
+
+  it('throws on an unknown resource, naming the sync and resource', () => {
+    expect(() =>
+      validateSyncResources(known, [{ id: 'mirror', resource: 'addres' }]),
+    ).toThrow(/sync "mirror" targets unknown resource "addres"/);
+  });
+
+  it('includes the app id in the message when present', () => {
+    expect(() =>
+      validateSyncResources(known, [
+        { id: 'mirror', resource: 'ghost', appId: 'config' },
+      ]),
+    ).toThrow(/sync "mirror" \(app "config"\) targets unknown resource "ghost"/);
+  });
+
+  it('accepts a Set as the known collection', () => {
+    expect(() =>
+      validateSyncResources(new Set(known), [{ id: 'a', resource: 'user' }]),
+    ).not.toThrow();
   });
 });
 

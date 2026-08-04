@@ -11,9 +11,11 @@ import type { AppFilterDecl } from '../shared/filters/types';
 import type { ResourceDefinition } from '../resources/types';
 import type { CronHook } from './cron';
 import type { Migration } from './migrations';
+import type { ResourceSync } from './sync';
 
 export type { CronContext, CronHandler, CronHook } from './cron';
 export type { MigrationContext, MigrationHandler, Migration } from './migrations';
+export type { SyncContext, SyncHandler, SyncEvent, ResourceSync } from './sync';
 
 /**
  * A lazily-loaded React component. The thunk resolves to either a module
@@ -310,6 +312,20 @@ export interface AppConfig {
    * `getAllMigrations()`.
    */
   migrations?: Migration[];
+
+  /**
+   * Optional resource syncs this app declares (see {@link ResourceSync}). Each
+   * names a target resource by `singular` and fires a handler *after* one of
+   * that resource's records is created, updated, or deleted, to mirror the
+   * change one-way to an external system. Firings are best-effort and
+   * asynchronous — the triggering write commits and returns first, then the
+   * sync runs out-of-band inside its own AEP-151 operation, so a mirror can
+   * never block or fail the write. Because the target is named at the app level
+   * (not nested on a `ResourceDefinition`), a sync can watch the built-in
+   * `user` resource as well as any app-owned collection. Aggregated across apps
+   * (and nested children) via `getAllResourceSyncs()` at server boot.
+   */
+  syncs?: ResourceSync[];
 
   /**
    * Web / presentation config: routing, navigation placement, the UI
