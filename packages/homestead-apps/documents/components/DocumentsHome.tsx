@@ -16,6 +16,7 @@ import { findDuplicateUploads } from '../duplicates';
 import { DocumentListItem } from './DocumentListItem';
 import { DocumentFilters } from './DocumentFilters';
 import { DuplicateUploadWarning } from './DuplicateUploadWarning';
+import { CollectionsBar, UNFILED, type CollectionSelection } from './CollectionsBar';
 import {
   collectDocTypeFacets,
   collectPeople,
@@ -38,6 +39,8 @@ export function DocumentsHome() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [splitNotice, setSplitNotice] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  // Top-level folder scope: null = all, 'unfiled' = no collection, else an id.
+  const [collection, setCollection] = useState<CollectionSelection>(null);
   // Ids from the most recent upload batch, checked for duplicates once the
   // server stamps their content hash (which arrives on a later list poll).
   // Dismissing or deleting a flagged upload drops it from here.
@@ -52,20 +55,31 @@ export function DocumentsHome() {
   // loading) it's empty, and every name degrades to a by-spelling identity.
   const { data: directory } = usePeople();
 
-  // Facets come from the whole list; the visible rows are what's left after the
+  // The selected collection scopes everything below it (facets included), so the
+  // facet counts and the visible rows both reflect the chosen folder.
+  const collectionScoped = useMemo(() => {
+    const all = documents ?? [];
+    if (collection === null) return all;
+    if (collection === UNFILED) {
+      return all.filter((d) => (d.collections ?? []).length === 0);
+    }
+    return all.filter((d) => (d.collections ?? []).includes(collection));
+  }, [documents, collection]);
+
+  // Facets come from the scoped list; the visible rows are what's left after the
   // filters. Both recompute only when the list, directory, or filters change.
   const docTypeFacets = useMemo(
-    () => collectDocTypeFacets(documents ?? []),
-    [documents],
+    () => collectDocTypeFacets(collectionScoped),
+    [collectionScoped],
   );
   const people = useMemo(
-    () => collectPeople(documents ?? [], directory ?? []),
-    [documents, directory],
+    () => collectPeople(collectionScoped, directory ?? []),
+    [collectionScoped, directory],
   );
-  const tagFacets = useMemo(() => collectTagFacets(documents ?? []), [documents]);
+  const tagFacets = useMemo(() => collectTagFacets(collectionScoped), [collectionScoped]);
   const visibleDocuments = useMemo(
-    () => filterDocuments(documents ?? [], filters, directory ?? []),
-    [documents, filters, directory],
+    () => filterDocuments(collectionScoped, filters, directory ?? []),
+    [collectionScoped, filters, directory],
   );
 
   // Duplicates among the last batch. Recomputes as the list polls, so a match
@@ -263,6 +277,14 @@ export function DocumentsHome() {
           split it into one document per form and read each on its own.
         </p>
       </div>
+
+      {documents && (
+        <CollectionsBar
+          documents={documents}
+          selected={collection}
+          onSelect={setCollection}
+        />
+      )}
 
       {splitNotice && (
         <div

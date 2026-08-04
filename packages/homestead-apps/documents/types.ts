@@ -26,6 +26,8 @@ export interface Document {
   title_edited?: boolean;
   /** Free-form labels a person attaches by hand to organise and find documents. */
   tags?: string[];
+  /** Ids of the collections this document belongs to (many-to-many). */
+  collections?: string[];
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
   /**
@@ -56,6 +58,23 @@ export interface Document {
   source_email_id?: string;
   /** Per-message attachment key `"{index}:{filename}"` for email-ingested docs. */
   source_email_attachment?: string;
+  create_time?: string;
+  update_time?: string;
+}
+
+/**
+ * A folder-like grouping of documents. A document can be in many collections
+ * (see `Document.collections`). Private to its owner until shared through the
+ * permissions system.
+ */
+export interface Collection {
+  id: string;
+  path: string;
+  name: string;
+  description?: string;
+  /** Colour token for the folder chip (e.g. a hex value). */
+  color?: string;
+  created_by?: string;
   create_time?: string;
   update_time?: string;
 }

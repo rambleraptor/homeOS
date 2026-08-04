@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import { getDocTypes, getDocType } from '../doc-types/registry';
 import { UNKNOWN_DOC_TYPE, type DocField } from '../doc-types/docType';
+import { useCollections, toggleMembership } from '../hooks/useCollections';
 import type { Document, DocumentMetadata } from '../types';
 
 interface DocumentEditFormProps {
@@ -56,8 +57,10 @@ export function DocumentEditForm({
   onSubmit,
 }: DocumentEditFormProps) {
   const docTypes = getDocTypes();
+  const { data: collections } = useCollections();
   const [title, setTitle] = useState(document.title ?? '');
   const [tags, setTags] = useState<string[]>(document.tags ?? []);
+  const [memberOf, setMemberOf] = useState<string[]>(document.collections ?? []);
   const [docTypeId, setDocTypeId] = useState(
     document.metadata?.doc_type ?? UNKNOWN_DOC_TYPE,
   );
@@ -109,6 +112,7 @@ export function DocumentEditForm({
       title: title.trim() || document.title || 'Untitled document',
       title_edited: true,
       tags,
+      collections: memberOf,
       metadata,
       // A human-set type is authoritative: matched → parsed, unknown → unmatched.
       parse_status: matched ? 'parsed' : 'unmatched',
@@ -149,6 +153,42 @@ export function DocumentEditForm({
           />
         </div>
       </div>
+
+      {collections && collections.length > 0 && (
+        <div data-testid="document-edit-collections">
+          <span className="block text-xs font-medium text-gray-700">Collections</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {collections.map((c) => {
+              const checked = memberOf.includes(c.id);
+              return (
+                <label
+                  key={c.id}
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
+                    checked
+                      ? 'border-gray-900 bg-gray-900 text-white'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={(e) =>
+                      setMemberOf((prev) => toggleMembership(prev, c.id, e.target.checked))
+                    }
+                    data-testid={`document-edit-collection-${c.id}`}
+                  />
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: c.color || '#4b5563' }}
+                  />
+                  {c.name}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div>
         <label htmlFor="doc-type" className="block text-xs font-medium text-gray-700">
