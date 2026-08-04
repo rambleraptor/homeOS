@@ -4,10 +4,11 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Upload, AlertCircle, Shield, FileText } from 'lucide-react';
+import { Loader2, Upload, AlertCircle, Shield, FileText, Scissors } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
+import { useUploadBundle } from '../hooks/useSplitDocument';
 import { RedactionEditor } from '../redaction/RedactionEditor';
 import { useDeleteDocument } from '../hooks/useUpdateDocument';
 import { usePeople } from '../../people/hooks/usePeople';
@@ -26,12 +27,16 @@ import {
 } from '../filtering';
 
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
+/** The bundle-split path takes a PDF only — a form boundary needs pages to cut. */
+const ACCEPT_PDF = 'application/pdf';
 
 export function DocumentsHome() {
   const inputRef = useRef<HTMLInputElement>(null);
   const redactInputRef = useRef<HTMLInputElement>(null);
+  const bundleInputRef = useRef<HTMLInputElement>(null);
   const [redactTarget, setRedactTarget] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [splitNotice, setSplitNotice] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   // Ids from the most recent upload batch, checked for duplicates once the
   // server stamps their content hash (which arrives on a later list poll).
@@ -40,6 +45,7 @@ export function DocumentsHome() {
 
   const { data: documents, isLoading, isError, error } = useDocuments();
   const upload = useUploadDocument();
+  const uploadBundle = useUploadBundle();
   const remove = useDeleteDocument();
   // The people directory resolves extracted names to canonical identities so
   // the person facet follows aliases. Absent (people app disabled / still
@@ -90,6 +96,27 @@ export function DocumentsHome() {
     if (inputRef.current) inputRef.current.value = '';
   };
 
+  // Splitting a bundle (a tax return, a batch scan) is its own entry point: it
+  // fires the `split` method instead of `classify`, so the plain upload path
+  // above is untouched. The constituent forms arrive in the list as they're read.
+  const handleBundle = async (files: FileList | null) => {
+    setUploadError(null);
+    setSplitNotice(null);
+    const file = files?.[0];
+    if (bundleInputRef.current) bundleInputRef.current.value = '';
+    if (!file) return;
+    try {
+      await uploadBundle.mutateAsync(file);
+      setSplitNotice(
+        `Splitting “${file.name}” into its separate forms — they'll appear below as they're read.`,
+      );
+    } catch (err) {
+      setUploadError(
+        `Couldn't upload ${file.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+    }
+  };
+
   // Redaction is a File → File step in front of the *same* upload flow: pick one
   // file, edit it, then upload the flattened result. The plain path above is
   // untouched, so uploading without redacting stays the default.
@@ -104,6 +131,26 @@ export function DocumentsHome() {
     try {
       await upload.mutateAsync(redacted);
       setRedactTarget(null);
+    } catch (err) {
+      setRedactTarget(null);
+      setUploadError(
+        `Couldn't upload ${redacted.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+    }
+  };
+
+  // The redact-then-split outcome: black out the bundle first, then feed the
+  // flattened PDF to the split flow instead of the plain upload. Offered only
+  // for PDFs (see the editor wiring below) — an image is a single page.
+  const handleRedactedSplit = async (redacted: File) => {
+    setSplitNotice(null);
+    try {
+      await uploadBundle.mutateAsync(redacted);
+      setRedactTarget(null);
+      setSplitNotice(
+        `Splitting the redacted “${redacted.name}” into its separate forms — they'll appear ` +
+          `below as they're read.`,
+      );
     } catch (err) {
       setRedactTarget(null);
       setUploadError(
@@ -161,6 +208,14 @@ export function DocumentsHome() {
           onChange={(e) => pickRedactTarget(e.target.files)}
           data-testid="document-redact-input"
         />
+        <input
+          ref={bundleInputRef}
+          type="file"
+          accept={ACCEPT_PDF}
+          className="hidden"
+          onChange={(e) => void handleBundle(e.target.files)}
+          data-testid="document-bundle-input"
+        />
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -186,17 +241,46 @@ export function DocumentsHome() {
             <Shield className="h-4 w-4" />
             Redact & upload
           </button>
+          <button
+            type="button"
+            onClick={() => bundleInputRef.current?.click()}
+            disabled={uploadBundle.isPending}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            data-testid="document-bundle-button"
+          >
+            {uploadBundle.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Scissors className="h-4 w-4" />
+            )}
+            Split a tax return
+          </button>
         </div>
         <p className="mt-2 text-xs text-gray-500">
           PDF or image. Multi-page PDFs are fine. Use “Redact &amp; upload” to black out sensitive
-          areas before the file leaves your device.
+          areas before the file leaves your device — you can split a redacted tax return into forms
+          from there too. Use “Split a tax return” for a single PDF made of several forms — we’ll
+          split it into one document per form and read each on its own.
         </p>
       </div>
+
+      {splitNotice && (
+        <div
+          className="flex items-center gap-2 rounded-md bg-blue-50 p-3 text-sm text-blue-700"
+          data-testid="document-split-notice"
+        >
+          <Scissors className="h-4 w-4 shrink-0" />
+          {splitNotice}
+        </div>
+      )}
 
       {redactTarget && (
         <RedactionEditor
           file={redactTarget}
           onComplete={handleRedacted}
+          onSplit={
+            redactTarget.type === 'application/pdf' ? handleRedactedSplit : undefined
+          }
           onCancel={() => setRedactTarget(null)}
         />
       )}

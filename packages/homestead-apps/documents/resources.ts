@@ -149,6 +149,16 @@ export const documentsResources: ResourceDefinition[] = [
         title: 'Classify document',
         load: () => import('./methods/classify'),
       },
+      // POST /api/aep/documents/{id}:split — reads the stored PDF, splits a
+      // bundle (e.g. a tax return) into one document per constituent form, and
+      // classifies each. A separate method from classify on purpose: a normal
+      // single-document upload never runs it.
+      split: {
+        target: 'item',
+        async: true,
+        title: 'Split bundle into documents',
+        load: () => import('./methods/split'),
+      },
       // Migration support for the full_text → file_text backfill; called by
       // scripts/backfill-document-embeddings.sh. Removable post-migration.
       reembed: {
