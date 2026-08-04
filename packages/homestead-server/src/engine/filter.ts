@@ -9,6 +9,9 @@
  * contains that scalar element, compiled to a `json_each` existence check over
  * the JSON-encoded column. Comprehension macros (`exists`/`all`) are not yet
  * supported — this is scalar membership only.
+ *
+ * `has(<field>)` is CEL's presence macro: true when the field is set (column
+ * non-null), and for a repeated field only when it is also non-empty.
  */
 
 import type { Schema } from './types';
@@ -148,6 +151,7 @@ export function compileFilter(
     let pos = 0;
 
     const peek = () => tokens[pos];
+    const peekAt = (ahead: number) => tokens[pos + ahead];
     const next = () => tokens[pos++];
     const expectOp = (value: string) => {
       const t = next();
@@ -210,6 +214,29 @@ export function compileFilter(
         const inner = parseOr();
         expectOp(')');
         return `(${inner})`;
+      }
+      // CEL presence macro `has(<field>)` — a complete boolean atom, no
+      // comparison operator follows. Only the `has(` call form is the macro;
+      // a bare `has` elsewhere still resolves as an ordinary field name.
+      if (
+        t?.kind === 'ident' &&
+        t.value === 'has' &&
+        peekAt(1)?.kind === 'op' &&
+        peekAt(1)?.value === '('
+      ) {
+        next(); // has
+        next(); // (
+        const operand = parseOperand();
+        expectOp(')');
+        if (!operand.isField) {
+          throw new FilterError('has() requires a field');
+        }
+        // A field is present when its column is non-null; a repeated field is
+        // present only when non-empty (CEL presence semantics for lists).
+        if (operand.propType === 'array') {
+          return `(${operand.sql} IS NOT NULL AND json_array_length(${operand.sql}) > 0)`;
+        }
+        return `${operand.sql} IS NOT NULL`;
       }
       const left = parseOperand();
       const opTok = next();

@@ -114,6 +114,31 @@ describe('compileFilter', () => {
     expect(() => compileFilter('title in tags', schema)).toThrow(/invalid filter/);
   });
 
+  test('has() presence on a scalar field', () => {
+    const f = compileFilter('has(title)', schema);
+    expect(f.sql).toBe('title IS NOT NULL');
+    expect(f.params).toEqual([]);
+  });
+
+  test('has() presence on an array field requires non-empty', () => {
+    const f = compileFilter('has(tags)', schema);
+    expect(f.sql).toBe('(tags IS NOT NULL AND json_array_length(tags) > 0)');
+    expect(f.params).toEqual([]);
+  });
+
+  test('has() composes with other predicates', () => {
+    const f = compileFilter('has(tags) && pages > 100', schema);
+    expect(f.sql).toBe(
+      '(tags IS NOT NULL AND json_array_length(tags) > 0) AND pages > ?',
+    );
+    expect(f.params).toEqual([100]);
+  });
+
+  test('rejects has() on a non-field and unknown field', () => {
+    expect(() => compileFilter('has("x")', schema)).toThrow(/invalid filter/);
+    expect(() => compileFilter('has(nope)', schema)).toThrow(/invalid filter/);
+  });
+
   test('values only travel as parameters', () => {
     const f = compileFilter(`title == "'; DROP TABLE books; --"`, schema);
     expect(f.sql).toBe('title = ?');
