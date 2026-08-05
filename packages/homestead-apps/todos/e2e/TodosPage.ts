@@ -61,7 +61,16 @@ export class TodosPage {
 
   // --- Categories (project view) ---
 
+  /** Expand the (collapsed-by-default) category manager panel if needed. */
+  async openCategoryManager() {
+    const toggle = this.page.getByTestId('todos-category-manager-toggle');
+    if ((await toggle.getAttribute('aria-expanded')) === 'false') {
+      await toggle.click();
+    }
+  }
+
   async addCategory(name: string) {
+    await this.openCategoryManager();
     await this.page.getByTestId('todos-category-add-input').fill(name);
     await this.page.getByTestId('todos-category-add-submit').click();
     await expect(
@@ -78,15 +87,8 @@ export class TodosPage {
       .selectOption({ label: name });
   }
 
-  /** Move an existing todo into a category via its per-row selector. */
-  async setTodoCategory(title: string, categoryName: string) {
-    const testId = await this.rowTestId(title);
-    await this.page
-      .getByTestId(`${testId}-category`)
-      .selectOption({ label: categoryName });
-  }
-
   async deleteCategory(name: string) {
+    await this.openCategoryManager();
     const item = this.page
       .locator('[data-testid^="todos-category-item-"]')
       .filter({ hasText: name })
@@ -143,11 +145,6 @@ export class TodosPage {
     await this.clickRowAction(title, 'undo');
   }
 
-  async resetProgress() {
-    await this.page.getByTestId('todos-reset').click();
-    await this.page.getByRole('button', { name: 'Reset' }).click();
-  }
-
   async selectMainProject() {
     await this.page.getByTestId('todos-project-pill-main').click();
   }
@@ -184,11 +181,18 @@ export class TodosPage {
     await this.page.getByTestId('todos-templates-link').click();
   }
 
-  async deleteCurrentProject() {
+  /**
+   * Delete the active project. By default its todos move to Main; pass
+   * `{ deleteTodos: true }` to remove the list's todos outright instead.
+   */
+  async deleteCurrentProject(opts: { deleteTodos?: boolean } = {}) {
     await this.page
       .locator('[data-testid^="todos-project-delete-"]')
       .first()
       .click();
+    if (opts.deleteTodos) {
+      await this.page.getByTestId('todos-project-delete-todos').check();
+    }
     await this.page.getByRole('button', { name: 'Delete' }).click();
   }
 

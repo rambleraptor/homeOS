@@ -99,4 +99,22 @@ test.describe('Todos projects', () => {
     await todosPage.expectProjectPillAbsent(project.id);
     await todosPage.expectInActive('Plant tomatoes');
   });
+
+  test('deleting a project with the delete-todos option removes its todos', async ({
+    adminToken,
+  }) => {
+    const project = await createProject(adminToken, { name: 'Garden' });
+    await createTodo(adminToken, {
+      title: 'Plant tomatoes',
+      project_id: project.id,
+    });
+    await todosPage.goto();
+
+    await todosPage.selectProject('Garden');
+    await todosPage.deleteCurrentProject({ deleteTodos: true });
+
+    // The list is gone and its todo did not fall back to main.
+    await todosPage.expectProjectPillAbsent(project.id);
+    await todosPage.expectRowAbsent('Plant tomatoes');
+  });
 });

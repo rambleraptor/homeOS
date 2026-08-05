@@ -25,7 +25,6 @@ import { AddTodoInput } from './AddTodoInput';
 import { TodoRow } from './TodoRow';
 import { CategoryManager } from './CategoryManager';
 import { CollapsibleSection } from './CollapsibleSection';
-import { ResetProgressButton } from './ResetProgressButton';
 import { ProjectSwitcher } from './ProjectSwitcher';
 
 export function TodosHome() {
@@ -57,7 +56,6 @@ export function TodosHome() {
   const categoriesQuery = useCategories(isMain ? null : scope);
   const categories = categoriesQuery.data ?? [];
   const hasCategories = !isMain && categories.length > 0;
-  const categoryOptions = categories.map((c) => ({ id: c.id, name: c.name }));
   // Target category for newly-added todos in this project view.
   const [addCategoryId, setAddCategoryId] = useState('');
 
@@ -91,11 +89,6 @@ export function TodosHome() {
       return;
     }
     update.mutate({ id: todo.id, data: { status } });
-  };
-
-  // Family todos in a project can be moved between categories ('' clears it).
-  const handleSetCategory = (todo: TodoItem, categoryId: string) => {
-    update.mutate({ id: todo.id, data: { category: categoryId } });
   };
 
   const handleTogglePin = (id: string, inMain: boolean) => {
@@ -134,15 +127,6 @@ export function TodosHome() {
       todo.kind === 'family' &&
       Boolean(currentUserId) &&
       todo.created_by === `users/${currentUserId}`,
-    // Category picker only in a project view that has categories.
-    ...(hasCategories
-      ? {
-          categoryOptions,
-          categoryValue: todo.category ?? '',
-          onSetCategory: (categoryId: string) =>
-            handleSetCategory(todo, categoryId),
-        }
-      : {}),
   });
 
   // Active todos grouped by category (project view with categories); the
@@ -335,10 +319,6 @@ export function TodosHome() {
           )}
         </>
       )}
-
-      <div className="flex justify-center pt-2">
-        <ResetProgressButton disabled={isLoading} scope={scope} />
-      </div>
     </div>
   );
 }

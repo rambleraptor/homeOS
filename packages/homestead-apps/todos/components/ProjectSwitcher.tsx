@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutTemplate, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
-import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
+import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useProjects } from '../hooks/useProjects';
 import { useCreateProject } from '../hooks/useCreateProject';
 import { useDeleteProject } from '../hooks/useDeleteProject';
@@ -21,6 +22,9 @@ export function ProjectSwitcher({ scope, onChange }: ProjectSwitcherProps) {
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  // When true, the delete removes the list's todos instead of moving them to
+  // the main list. Reset each time the dialog opens.
+  const [deleteTodos, setDeleteTodos] = useState(false);
 
   const projects = projectsQuery.data ?? [];
 
@@ -34,11 +38,21 @@ export function ProjectSwitcher({ scope, onChange }: ProjectSwitcherProps) {
     onChange(created.id);
   };
 
+  const openDeleteDialog = (id: string) => {
+    setDeleteTodos(false);
+    setConfirmDeleteId(id);
+  };
+
+  const closeDeleteDialog = () => {
+    setConfirmDeleteId(null);
+    setDeleteTodos(false);
+  };
+
   const handleDelete = async () => {
     if (!confirmDeleteId) return;
     const wasActive = confirmDeleteId === scope;
-    await deleteProject.mutateAsync(confirmDeleteId);
-    setConfirmDeleteId(null);
+    await deleteProject.mutateAsync({ projectId: confirmDeleteId, deleteTodos });
+    closeDeleteDialog();
     if (wasActive) onChange(MAIN_PROJECT_ID);
   };
 
@@ -67,7 +81,7 @@ export function ProjectSwitcher({ scope, onChange }: ProjectSwitcherProps) {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setConfirmDeleteId(p.id);
+                    openDeleteDialog(p.id);
                   }}
                   aria-label={`Delete project ${p.name}`}
                   data-testid={`todos-project-delete-${p.id}`}
@@ -150,17 +164,45 @@ export function ProjectSwitcher({ scope, onChange }: ProjectSwitcherProps) {
           Templates
         </Link>
       </div>
-      <ConfirmDialog
+      <Modal
         isOpen={confirmDeleteId !== null}
-        onClose={() => setConfirmDeleteId(null)}
-        onConfirm={handleDelete}
+        onClose={closeDeleteDialog}
         title="Delete project"
-        message="Its todos will move to the main project. Continue?"
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        variant="danger"
-        isLoading={deleteProject.isPending}
-      />
+      >
+        <div className="space-y-6">
+          <p className="text-gray-700">
+            {deleteTodos
+              ? 'This list and all of its todos will be deleted. Continue?'
+              : 'Its todos will move to the main project. Continue?'}
+          </p>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={deleteTodos}
+              onChange={(e) => setDeleteTodos(e.target.checked)}
+              data-testid="todos-project-delete-todos"
+              className="h-4 w-4 rounded border-gray-300 text-accent-terracotta focus:ring-accent-terracotta"
+            />
+            Delete this list&rsquo;s todos instead of moving them to Main
+          </label>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="secondary"
+              onClick={closeDeleteDialog}
+              disabled={deleteProject.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleDelete}
+              disabled={deleteProject.isPending}
+            >
+              {deleteProject.isPending ? 'Processing...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

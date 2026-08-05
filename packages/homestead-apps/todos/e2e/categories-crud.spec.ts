@@ -32,7 +32,7 @@ test.describe('Todo categories', () => {
     await deleteAllListTemplates(adminToken);
   });
 
-  test('groups todos by category, moves between them, and un-categorizes on delete', async ({
+  test('groups todos by category and un-categorizes on delete', async ({
     adminToken,
     authenticatedAdminPage,
   }) => {
@@ -53,12 +53,8 @@ test.describe('Todo categories', () => {
     await todos.addTodo('Cake');
     await todos.expectTodoInGroup('Food', 'Cake');
 
-    // Move it to "Fun" via the per-row selector.
-    await todos.setTodoCategory('Cake', 'Fun');
-    await todos.expectTodoInGroup('Fun', 'Cake');
-
-    // Deleting "Fun" leaves the todo in place (uncategorized), not deleted.
-    await todos.deleteCategory('Fun');
+    // Deleting "Food" leaves the todo in place (uncategorized), not deleted.
+    await todos.deleteCategory('Food');
     await todos.expectRowVisible('Cake');
   });
 

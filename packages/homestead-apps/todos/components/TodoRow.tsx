@@ -34,14 +34,6 @@ interface TodoRowProps {
   /** Origin label shown on main view rows pinned from a project. */
   pinnedFromLabel?: string;
   /**
-   * When set (project views), render a compact category selector so the todo
-   * can be moved between the project's categories. `categoryValue` is the
-   * current category id ('' = uncategorized).
-   */
-  categoryOptions?: { id: string; name: string }[];
-  categoryValue?: string;
-  onSetCategory?: (categoryId: string) => void;
-  /**
    * When set, the title is rendered as a link to this href. Used by synthetic
    * todos to deep-link into the source app (e.g. "Buy N groceries" links
    * to the groceries page).
@@ -132,9 +124,6 @@ export function TodoRow({
   href,
   familyMarker,
   createdByYou,
-  categoryOptions,
-  categoryValue,
-  onSetCategory,
 }: TodoRowProps) {
   const actions = readOnly ? [] : actionsForVariant(variant);
   const isCancelled = todo.status === 'cancelled';
@@ -199,28 +188,6 @@ export function TodoRow({
         <span className={titleClassName}>{titleContent}</span>
       )}
       <div className="flex items-center gap-1">
-        {onSetCategory && categoryOptions && !readOnly && (
-          <select
-            value={categoryValue ?? ''}
-            onChange={(e) => onSetCategory(e.target.value)}
-            disabled={disabled}
-            aria-label={`Category for ${todo.title}`}
-            data-testid={`todo-row-${todo.id}-category`}
-            className={cn(
-              'max-w-[9rem] rounded-lg border border-gray-200 bg-white px-2 py-1',
-              'font-body text-xs text-text-muted',
-              'focus:border-accent-terracotta focus:outline-none',
-              'disabled:opacity-40 disabled:cursor-not-allowed',
-            )}
-          >
-            <option value="">Uncategorized</option>
-            {categoryOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-              </option>
-            ))}
-          </select>
-        )}
         {onTogglePin && !readOnly && (
           <button
             type="button"
