@@ -88,6 +88,7 @@ export class TodosPage {
   }
 
   async deleteCategory(name: string) {
+    await this.openCategoryManager();
     const item = this.page
       .locator('[data-testid^="todos-category-item-"]')
       .filter({ hasText: name })
