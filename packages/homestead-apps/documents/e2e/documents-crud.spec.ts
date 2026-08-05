@@ -17,6 +17,7 @@ import { DOC_MARKERS } from '../../../../tests/e2e/config/ai-stub';
 import { DocumentsPage } from './DocumentsPage';
 import {
   classifyDocument,
+  classifyDocumentAs,
   deleteAllDocuments,
   deleteAllOperations,
   listDocuments,
@@ -196,6 +197,37 @@ test.describe('Documents', () => {
     const before = (await listOperations(userToken)).length;
 
     const { status } = await classifyDocument(userToken, doc.id);
+    expect(status).toBe(400);
+
+    const after = (await listOperations(userToken)).length;
+    expect(after).toBe(before);
+  });
+
+  test('forcing a doc type skips the AI guess and extracts that type', async ({
+    userToken,
+  }) => {
+    const doc = await uploadDocument(userToken, 'match', { title: 'forced-1099' });
+
+    const { status } = await classifyDocumentAs(userToken, doc.id, 'form-1099-int');
+    expect(status).toBe(202);
+
+    const settled = await waitForParse(userToken, doc.id);
+    expect(settled.parse_status).toBe('parsed');
+    expect(settled.metadata?.doc_type).toBe('form-1099-int');
+    // Full confidence is the forced-path signal: automatic classify would record
+    // the stub's pass-1 0.95, which forcing skips entirely.
+    expect(settled.confidence).toBe(1);
+    // Extraction (pass 2) still ran for the forced type.
+    expect(settled.metadata?.payer_name).toBe('Ally Bank');
+  });
+
+  test('forcing an unknown doc type is rejected pre-flight, creating no operation', async ({
+    userToken,
+  }) => {
+    const doc = await uploadDocument(userToken, 'match', { title: 'bad-force' });
+    const before = (await listOperations(userToken)).length;
+
+    const { status } = await classifyDocumentAs(userToken, doc.id, 'not-a-real-type');
     expect(status).toBe(400);
 
     const after = (await listOperations(userToken)).length;

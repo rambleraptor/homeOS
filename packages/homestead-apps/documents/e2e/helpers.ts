@@ -75,6 +75,22 @@ export async function classifyDocument(
   return { status: 202, operation: (await res.json()) as OperationRecord };
 }
 
+/**
+ * Invoke classify with a forced `doc_type`; returns its 202 operation. The
+ * handler skips pass-1 classification and extracts that type's fields directly.
+ */
+export async function classifyDocumentAs(
+  token: string,
+  id: string,
+  docType: string,
+): Promise<{ status: number; operation?: OperationRecord }> {
+  const res = await postCustomMethod(token, `/documents/${id}:classify`, {
+    doc_type: docType,
+  });
+  if (res.status !== 202) return { status: res.status };
+  return { status: 202, operation: (await res.json()) as OperationRecord };
+}
+
 /** Upload, classify, and wait for the document to leave `pending`. */
 export async function uploadAndClassify(
   token: string,

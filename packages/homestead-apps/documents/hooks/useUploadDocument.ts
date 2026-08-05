@@ -56,13 +56,21 @@ export function useUploadDocument() {
   });
 }
 
-/** Re-run classification on an existing document (e.g. after adding a doc type). */
+/**
+ * Re-run classification on an existing document (e.g. after adding a doc type).
+ *
+ * Pass `docType` to *force* the type: classify then skips its pass-1 guess and
+ * runs only field extraction for that type. Omit it to let the AI classify
+ * ("Read again"). Either way the document goes back to `pending` while the
+ * background parse runs.
+ */
 export function useClassifyDocument() {
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, docType }: { id: string; docType?: string }) => {
       await aepbase.update<Document>(DOCUMENTS, id, { parse_status: 'pending' });
       await invalidateDocuments();
-      return aepbase.customMethod<{ id: string }>(DOCUMENTS, 'classify', undefined, { id });
+      const body = docType ? { doc_type: docType } : undefined;
+      return aepbase.customMethod<{ id: string }>(DOCUMENTS, 'classify', body, { id });
     },
     onError: (error) => logger.error('Failed to reclassify document', error),
   });

@@ -13,6 +13,11 @@
  *
  * Preconditions live in `validate`, which runs before an Operation exists, so a
  * bad call gets a plain 4xx/503 rather than a 202 followed by a failed op.
+ *
+ * The body is normally empty — the method picks the type itself. A caller may
+ * pass `{ "doc_type": "<id>" }` to *force* that type: pass 1 is skipped and only
+ * the extraction pass runs, so a human's authoritative choice still gets its
+ * fields AI-filled. See `./forced-type`.
  */
 
 import { z } from 'zod';
@@ -37,6 +42,7 @@ import {
   type DocType,
 } from '../doc-types/docType';
 import { getDocType, getDocTypes } from '../doc-types/registry';
+import { parseForcedDocType } from './forced-type';
 import type { Document } from '../types';
 
 /**
@@ -144,7 +150,7 @@ function stripNulls(fields: Record<string, unknown>): Record<string, unknown> {
   );
 }
 
-export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
+export const validate: AsyncCustomMethodValidator = async ({ id, auth, request }) => {
   if (!isAiConfigured()) {
     return Response.json(
       { error: 'Service unavailable', message: 'AI is not configured on the server' },
@@ -154,6 +160,16 @@ export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
   if (!id) {
     return Response.json(
       { error: 'Bad request', message: 'classify is addressed on a single document' },
+      { status: 400 },
+    );
+  }
+
+  // A forced `doc_type` that names no known type is a 400 here, before any
+  // operation exists — never a 202 followed by a handler that can't proceed.
+  const forced = await parseForcedDocType(request);
+  if (forced.kind === 'invalid') {
+    return Response.json(
+      { error: 'Bad request', message: forced.message },
       { status: 400 },
     );
   }
@@ -179,9 +195,14 @@ export const validate: AsyncCustomMethodValidator = async ({ id, auth }) => {
   }
 };
 
-const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
+const handler: AsyncCustomMethodHandler = async ({ id, auth, request }) => {
   const docId = id!;
   const types = getDocTypes();
+
+  // A forced type (validated to a known id already) pins the classification and
+  // skips pass 1; an absent/invalid override falls through to normal pass-1.
+  const forced = await parseForcedDocType(request);
+  const forcedDocType = forced.kind === 'forced' ? forced.docType : null;
   const documents = serverClient(auth.token).collection<Document>(DOCUMENTS);
   const doc = await documents.get(docId);
 
@@ -225,32 +246,50 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
     throw err;
   };
 
-  // Pass 1 — classification. A deliberately tiny schema: a title, a confidence,
-  // and the type id as an enum. It carries none of the types' fields, so it
-  // stays small however many types are configured — the whole point of the
-  // split (see docTypeIds/toExtractionSchema). Extraction is pass 2 below.
-  const classifySchema = z.object({
-    title: z.string().describe('A short, human-readable title for the document.'),
-    confidence: z.number().describe('Confidence in the type match, 0 to 1.'),
-    doc_type: z
-      .enum(docTypeIds(types))
-      .describe(`The matching document type id, or "${UNKNOWN_DOC_TYPE}" if none.`),
-  });
+  // Pass 1 — classification. Skipped entirely when the caller forced a type:
+  // the human's choice is authoritative, so confidence is full and we go
+  // straight to extraction (pass 2). Otherwise a deliberately tiny schema — a
+  // title, a confidence, and the type id as an enum — carries none of the
+  // types' fields, so it stays small however many types are configured (the
+  // whole point of the split; see docTypeIds/toExtractionSchema).
+  let matchedDocType: string;
+  let confidence: number;
+  // The model-authored title, only when pass 1 ran; a forced call has none and
+  // relies on the matched type's title_template (or leaves the title as-is).
+  let modelTitle: string | undefined;
 
-  let classified: z.infer<typeof classifySchema>;
-  try {
-    classified = await aiGenerateObject({
-      messages: withDocument(classifyPrompt(types)),
-      schema: classifySchema,
-      maxOutputTokens: MAX_OUTPUT_TOKENS,
+  if (forcedDocType) {
+    matchedDocType = forcedDocType;
+    confidence = 1;
+  } else {
+    const classifySchema = z.object({
+      title: z.string().describe('A short, human-readable title for the document.'),
+      confidence: z.number().describe('Confidence in the type match, 0 to 1.'),
+      doc_type: z
+        .enum(docTypeIds(types))
+        .describe(`The matching document type id, or "${UNKNOWN_DOC_TYPE}" if none.`),
     });
-  } catch (err) {
-    return failClassify(err, 'classification');
+
+    let classified: z.infer<typeof classifySchema>;
+    try {
+      classified = await aiGenerateObject({
+        messages: withDocument(classifyPrompt(types)),
+        schema: classifySchema,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+      });
+    } catch (err) {
+      return failClassify(err, 'classification');
+    }
+
+    confidence = clampConfidence(classified.confidence);
+    matchedDocType =
+      classified.doc_type !== UNKNOWN_DOC_TYPE && confidence >= MIN_CONFIDENCE
+        ? classified.doc_type
+        : UNKNOWN_DOC_TYPE;
+    modelTitle = classified.title;
   }
 
-  const confidence = clampConfidence(classified.confidence);
-  const matched =
-    classified.doc_type !== UNKNOWN_DOC_TYPE && confidence >= MIN_CONFIDENCE;
+  const matched = matchedDocType !== UNKNOWN_DOC_TYPE;
 
   // Pass 2 — extraction, only when a type matched. The schema is that single
   // type's fields (small, and focused on the fields this document has), and the
@@ -271,7 +310,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   // in place (see the title selection below).
   let templateTitle: string | null = null;
   if (matched) {
-    const matchedType = getDocType(classified.doc_type)!;
+    const matchedType = getDocType(matchedDocType)!;
 
     // Free placeholders — a template name that isn't a field, e.g. `{tax_year}`
     // on a form with no tax-year column — ride along as extra nullable strings on
@@ -316,7 +355,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
       freeValues[name] = fieldValues[name];
       delete fieldValues[name];
     }
-    metadata = { ...stripNulls(fieldValues), doc_type: classified.doc_type };
+    metadata = { ...stripNulls(fieldValues), doc_type: matchedDocType };
 
     if (matchedType.title_template) {
       templateTitle = renderTitleTemplate(matchedType.title_template, {
@@ -331,7 +370,7 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth }) => {
   // left with an unfilled placeholder. Only adopt a title when a human hasn't
   // renamed the document, and never let a blank one clobber the existing
   // (filename) default.
-  const inferredTitle = templateTitle ?? classified.title?.trim();
+  const inferredTitle = templateTitle ?? modelTitle?.trim();
   const setTitle = !doc.title_edited && inferredTitle ? { title: inferredTitle } : {};
 
   const updated = await documents.record(docId).update({
