@@ -46,7 +46,7 @@ const visionPrescription: DocType = {
         'x 180, OS -0.75 x 175"). Leave blank if no astigmatism correction is ' +
         'given.',
     },
-    add: {
+    add_power: {
       label: 'Add',
       type: 'string',
       description:
