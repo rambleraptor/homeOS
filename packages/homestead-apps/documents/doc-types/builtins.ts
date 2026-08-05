@@ -13,6 +13,7 @@ import advanceDirective from './advance-directive';
 import afterVisitSummary from './after-visit-summary';
 import autoInsurancePolicy from './auto-insurance-policy';
 import dischargeSummary from './discharge-summary';
+import doctorNote from './doctor-note';
 import explanationOfBenefits from './explanation-of-benefits';
 import form1095A from './form-1095-a';
 import form1098 from './form-1098';
@@ -58,6 +59,7 @@ export const BUILTIN_DOC_TYPES: DocType[] = [
   labResult,
   prescription,
   afterVisitSummary,
+  doctorNote,
   dischargeSummary,
   advanceDirective,
   // Personal tax documents (category "tax").

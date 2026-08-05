@@ -1,14 +1,15 @@
 /**
- * After-visit summary — the recap a clinic or doctor's office hands over after
- * an outpatient visit: why you came, what was found, and what to do next.
+ * After-visit summary — the recap a clinic or doctor's office hands over after a
+ * medical encounter: the visit type and date, who you saw and where, the reason,
+ * the diagnoses, and the instructions and next steps.
  *
  * See form-1099-int.ts for the authoring notes; the same rules apply. Every
  * `description` is handed to the model verbatim, so they say where a value sits
- * on the summary and how to keep an outpatient recap distinct from a hospital
- * discharge.
+ * on the summary. The instructions field folds in medications, orders, and
+ * follow-up — the actionable part — rather than splitting them out.
  *
- * `patient`, `provider`, and `facility` are shared with the other medical types
- * on purpose, so the person, clinician, and place join the same filter facets.
+ * `provider` and `facility` are shared with the other medical types on purpose,
+ * so the clinician and place join the same filter facets.
  */
 
 import type { DocType } from './docType';
@@ -20,19 +21,31 @@ const afterVisitSummary: DocType = {
   category: 'medical',
   title_template: 'After-Visit Summary — {provider}',
   description:
-    'An after-visit summary (AVS) or visit summary — the recap a clinic or ' +
-    'doctor\'s office gives a patient after an outpatient appointment. It ' +
-    'covers the reason for the visit, what was assessed or diagnosed, and the ' +
-    'care instructions and follow-up. Use this type for an outpatient visit ' +
-    'recap; do not use it for a hospital discharge summary (an inpatient stay), ' +
-    'a lab result, or a bill.',
+    'An after-visit summary (AVS) — sometimes called a clinical visit summary — ' +
+    'is the recap a provider gives a patient at the end of a single encounter: ' +
+    'a doctor visit, urgent care, ER, telehealth appointment, or a hospital ' +
+    'discharge. It pulls that one visit into a single patient-facing document: ' +
+    'the visit type and date, who was seen and where, the reason for the visit, ' +
+    'the diagnoses made, and the instructions and next steps (medications, ' +
+    'orders, referrals, and when to return). It is a summary of one visit, not ' +
+    'a full medical record. Use this type for such a per-visit recap; do not use ' +
+    'it for a lab result, a prescription on its own, or a bill.',
   fields: {
-    patient: {
-      label: 'Patient',
+    visit_type: {
+      label: 'Visit type',
       type: 'string',
-      person: true,
       description:
-        'The person the visit was for, as named on the summary.',
+        'The kind of encounter this recap is for, e.g. "Annual physical", ' +
+        '"Follow-up", "Urgent care", "ER", or "Telehealth". Infer it from the ' +
+        'summary when not stated outright.',
+    },
+    visit_date: {
+      label: 'Date of visit',
+      type: 'string',
+      description:
+        'The date the encounter happened. Prefer an ISO date (YYYY-MM-DD) when ' +
+        'the parts are unambiguous; otherwise record it exactly as shown. Not ' +
+        'the date the summary was printed if they differ.',
     },
     provider: {
       label: 'Provider',
@@ -45,15 +58,8 @@ const afterVisitSummary: DocType = {
       label: 'Facility',
       type: 'string',
       description:
-        'The clinic, practice, or office where the visit took place, when ' +
-        'named. The facility name only. Leave blank if not shown.',
-    },
-    visit_date: {
-      label: 'Visit date',
-      type: 'string',
-      description:
-        'The date of the appointment this summary is for. Prefer an ISO date ' +
-        '(YYYY-MM-DD) when unambiguous; otherwise record it exactly as shown.',
+        'The clinic, practice, hospital, or office where the visit took place, ' +
+        'when named. The facility name only. Leave blank if not shown.',
     },
     reason_for_visit: {
       label: 'Reason for visit',
@@ -70,19 +76,12 @@ const afterVisitSummary: DocType = {
         'multiple separated by commas. Leave blank if none is stated.',
     },
     instructions: {
-      label: 'Instructions',
+      label: 'Instructions & next steps',
       type: 'string',
       description:
-        'The care instructions given to the patient — medications, activity, ' +
-        'self-care, or warning signs to watch for. Summarise the key points.',
-    },
-    follow_up: {
-      label: 'Follow-up',
-      type: 'string',
-      description:
-        'Any follow-up recommended — a return visit, referral, or test, with ' +
-        'timing when given (e.g. "Recheck in 2 weeks", "Referral to ' +
-        'cardiology"). Leave blank if none is stated.',
+        'The actionable part of the summary — new medications, lab or imaging ' +
+        'orders, referrals, self-care instructions, and when to return or ' +
+        'follow up. Summarise the key points.',
     },
   },
 };
