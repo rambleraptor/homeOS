@@ -9,7 +9,12 @@
  */
 
 import type { DocType } from './docType';
+import advanceDirective from './advance-directive';
+import afterVisitSummary from './after-visit-summary';
 import autoInsurancePolicy from './auto-insurance-policy';
+import dischargeSummary from './discharge-summary';
+import doctorNote from './doctor-note';
+import explanationOfBenefits from './explanation-of-benefits';
 import form1095A from './form-1095-a';
 import form1098 from './form-1098';
 import form1098E from './form-1098-e';
@@ -30,17 +35,35 @@ import form5498Sa from './form-5498-sa';
 import formSsa1099 from './form-ssa-1099';
 import formW2 from './form-w2';
 import formW2G from './form-w-2g';
+import healthInsuranceCard from './health-insurance-card';
 import homeInsurancePolicy from './home-insurance-policy';
+import immunizationRecord from './immunization-record';
+import labResult from './lab-result';
+import medicalBill from './medical-bill';
 import medicalReceipt from './medical-receipt';
+import prescription from './prescription';
 import propertyTaxStatement from './property-tax-statement';
 import recipe from './recipe';
 import scheduleK1 from './schedule-k-1';
+import visionPrescription from './vision-prescription';
 
 export const BUILTIN_DOC_TYPES: DocType[] = [
   autoInsurancePolicy,
   homeInsurancePolicy,
-  medicalReceipt,
   recipe,
+  // Personal medical/health documents (category "medical").
+  medicalReceipt,
+  medicalBill,
+  explanationOfBenefits,
+  healthInsuranceCard,
+  immunizationRecord,
+  labResult,
+  prescription,
+  visionPrescription,
+  afterVisitSummary,
+  doctorNote,
+  dischargeSummary,
+  advanceDirective,
   // Personal tax documents (category "tax").
   form1095A,
   form1098,
