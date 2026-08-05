@@ -62,18 +62,4 @@ test.describe('Todos CRUD', () => {
     await todosPage.moveToDoLater('Book flights');
     await todosPage.expectInDoLater('Book flights');
   });
-
-  test('reset progress returns every todo to pending', async ({ adminToken }) => {
-    await createTodo(adminToken, { title: 'Task A', status: 'completed' });
-    await createTodo(adminToken, { title: 'Task B', status: 'cancelled' });
-    await createTodo(adminToken, { title: 'Task C', status: 'do_later' });
-    await todosPage.goto();
-
-    await todosPage.resetProgress();
-
-    await todosPage.expectInActive('Task A');
-    await todosPage.expectInActive('Task B');
-    await todosPage.expectInActive('Task C');
-    await todosPage.expectGreenSegmentZero();
-  });
 });

@@ -55,7 +55,7 @@ describe('useDeleteProject', () => {
       wrapper: createWrapper(),
     });
 
-    await result.current.mutateAsync('gone');
+    await result.current.mutateAsync({ projectId: 'gone' });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -91,11 +91,42 @@ describe('useDeleteProject', () => {
       wrapper: createWrapper(),
     });
 
-    await result.current.mutateAsync('empty');
+    await result.current.mutateAsync({ projectId: 'empty' });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(aepbase.update).not.toHaveBeenCalled();
     expect(aepbase.remove).toHaveBeenCalledWith('projects', 'empty', {
+      force: true,
+    });
+  });
+
+  it('deletes member todos instead of moving them when deleteTodos is set', async () => {
+    const todos: Todo[] = [
+      makeTodo('a', 'projects/keep'),
+      makeTodo('b', 'projects/gone'),
+      makeTodo('c', 'projects/gone', true),
+      makeTodo('d'), // main only
+    ];
+    vi.mocked(aepbase.list).mockResolvedValue(todos);
+    vi.mocked(aepbase.remove).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDeleteProject(), {
+      wrapper: createWrapper(),
+    });
+
+    await result.current.mutateAsync({ projectId: 'gone', deleteTodos: true });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // Member todos are removed outright — no PATCH fallback to main.
+    expect(aepbase.update).not.toHaveBeenCalled();
+    expect(aepbase.remove).toHaveBeenCalledWith('todos', 'b');
+    expect(aepbase.remove).toHaveBeenCalledWith('todos', 'c');
+    // Non-member todos untouched.
+    const removedIds = vi.mocked(aepbase.remove).mock.calls.map((c) => c[1]);
+    expect(removedIds).not.toContain('a');
+    expect(removedIds).not.toContain('d');
+    // Project itself still force-deleted.
+    expect(aepbase.remove).toHaveBeenCalledWith('projects', 'gone', {
       force: true,
     });
   });

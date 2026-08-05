@@ -1,5 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import { Check, ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import type { Category } from '../types';
 import { useCreateCategory } from '../hooks/useCreateCategory';
@@ -24,6 +32,8 @@ export function CategoryManager({ projectId, categories }: CategoryManagerProps)
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [open, setOpen] = useState(false);
+  const Chevron = open ? ChevronDown : ChevronRight;
 
   const busy =
     createCategory.isPending ||
@@ -80,13 +90,28 @@ export function CategoryManager({ projectId, categories }: CategoryManagerProps)
       data-testid="todos-category-manager"
       className="rounded-2xl border border-gray-200 bg-surface-white shadow-sm"
     >
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        data-testid="todos-category-manager-toggle"
+        className={cn(
+          'flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-bg-pearl/40',
+          open && 'border-b border-gray-100',
+        )}
+      >
+        <Chevron className="h-4 w-4 text-text-muted" />
         <h3 className="flex-1 font-display text-sm font-semibold text-brand-navy">
           Categories
         </h3>
-      </div>
+        {categories.length > 0 && (
+          <span className="font-body text-xs text-text-muted">
+            ({categories.length})
+          </span>
+        )}
+      </button>
 
-      {categories.length > 0 && (
+      {open && categories.length > 0 && (
         <ul className="divide-y divide-gray-100" data-testid="todos-category-list">
           {categories.map((category, index) => {
             const isEditing = editingId === category.id;
@@ -179,6 +204,7 @@ export function CategoryManager({ projectId, categories }: CategoryManagerProps)
         </ul>
       )}
 
+      {open && (
       <form
         onSubmit={handleAdd}
         className="flex items-center gap-2 px-4 py-2.5 border-t border-gray-100 bg-bg-pearl/40"
@@ -207,6 +233,7 @@ export function CategoryManager({ projectId, categories }: CategoryManagerProps)
           <Plus className="w-4 h-4" />
         </button>
       </form>
+      )}
     </div>
   );
 }
