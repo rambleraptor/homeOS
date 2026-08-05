@@ -45,6 +45,7 @@ import prescription from './prescription';
 import propertyTaxStatement from './property-tax-statement';
 import recipe from './recipe';
 import scheduleK1 from './schedule-k-1';
+import visionPrescription from './vision-prescription';
 
 export const BUILTIN_DOC_TYPES: DocType[] = [
   autoInsurancePolicy,
@@ -58,6 +59,7 @@ export const BUILTIN_DOC_TYPES: DocType[] = [
   immunizationRecord,
   labResult,
   prescription,
+  visionPrescription,
   afterVisitSummary,
   doctorNote,
   dischargeSummary,
