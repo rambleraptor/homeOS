@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
-import { getDocType } from '../doc-types/registry';
+import { getDocType, getDocTypes } from '../doc-types/registry';
 import { useDocument } from '../hooks/useDocument';
 import { useClassifyDocument } from '../hooks/useUploadDocument';
 import { useSplitDocument } from '../hooks/useSplitDocument';
@@ -192,7 +192,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
           <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4">
             <button
               type="button"
-              onClick={() => classify.mutate(documentId)}
+              onClick={() => classify.mutate({ id: documentId })}
               disabled={classify.isPending || status === 'pending'}
               className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
               data-testid="document-reclassify"
@@ -200,6 +200,30 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
               <RefreshCw className="h-4 w-4" />
               Read again with AI
             </button>
+            {/* Force a type: skips the AI's guess and extracts that type's
+                fields directly — for when classification keeps getting it wrong. */}
+            <label htmlFor="document-force-type" className="sr-only">
+              Classify as a specific document type
+            </label>
+            <select
+              id="document-force-type"
+              value=""
+              onChange={(e) => {
+                const docType = e.target.value;
+                if (docType) classify.mutate({ id: documentId, docType });
+              }}
+              disabled={classify.isPending || status === 'pending'}
+              className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              data-testid="document-force-type"
+              title="Force this document to a specific type, then extract its fields"
+            >
+              <option value="">Classify as…</option>
+              {getDocTypes().map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
             {doc.mime_type === 'application/pdf' && (
               <button
                 type="button"
