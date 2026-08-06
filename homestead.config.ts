@@ -72,10 +72,18 @@ const authServerEnabled = ['1', 'true'].includes(
 // the Access application's AUD tag, and the MCP endpoint additionally trusts the
 // `Cf-Access-Jwt-Assertion` Access forwards (mapping its email to a Homestead
 // user). Its own OAuth still works, so this is purely additive.
+//
+// OAUTH_SERVER_CF_ACCESS_AUD accepts a comma-separated list, so multiple Access
+// applications can front the same endpoint (e.g. the origin's app AND an MCP
+// portal's app, which forward tokens with different `aud` claims) — a token is
+// accepted when its `aud` matches any of them.
 const cfAccessTeamDomain = fromEnv('OAUTH_SERVER_CF_ACCESS_TEAM_DOMAIN');
-const cfAccessAud = fromEnv('OAUTH_SERVER_CF_ACCESS_AUD');
+const cfAccessAud = (fromEnv('OAUTH_SERVER_CF_ACCESS_AUD') ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
 const cloudflareAccess =
-  cfAccessTeamDomain && cfAccessAud
+  cfAccessTeamDomain && cfAccessAud.length > 0
     ? { teamDomain: cfAccessTeamDomain, aud: cfAccessAud }
     : undefined;
 const authServer: NonNullable<HomesteadConfig['auth']>['authServer'] = authServerEnabled

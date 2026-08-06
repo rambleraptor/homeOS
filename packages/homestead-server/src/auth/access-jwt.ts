@@ -22,6 +22,23 @@ import type { CloudflareAccessConfig } from '@rambleraptor/homestead-core/apps/c
 /** The header Cloudflare Access injects at the origin, carrying the signed JWT. */
 export const ACCESS_JWT_HEADER = 'Cf-Access-Jwt-Assertion';
 
+/**
+ * Opt-in diagnostics for the Access-JWT path, gated by
+ * `HOMESTEAD_DEBUG_ACCESS_JWT`. When set, each rejection logs *why* (issuer /
+ * audience / signature / no user), so an operator wiring up Cloudflare Access
+ * can see exactly which check failed instead of a bare 401. Off by default, so
+ * normal operation never logs token claims.
+ */
+export function accessJwtDebugEnabled(): boolean {
+  return typeof process !== 'undefined' && !!process.env?.HOMESTEAD_DEBUG_ACCESS_JWT;
+}
+
+export function accessJwtDebug(reason: string, detail?: unknown): void {
+  if (!accessJwtDebugEnabled()) return;
+  if (detail === undefined) console.warn(`[access-jwt] ${reason}`);
+  else console.warn(`[access-jwt] ${reason}`, detail);
+}
+
 /** The identity extracted from a verified Access JWT. */
 export interface AccessIdentity {
   /** The authenticated user's email (the `email` claim). */
@@ -185,25 +202,45 @@ export function makeAccessJwtVerifier(
 
   return async function verify(req: Request): Promise<AccessIdentity | null> {
     const token = req.headers.get(ACCESS_JWT_HEADER);
-    if (!token) return null;
+    if (!token) {
+      accessJwtDebug(`no ${ACCESS_JWT_HEADER} header`);
+      return null;
+    }
 
     const parsed = parseJwt(token);
-    if (!parsed) return null;
+    if (!parsed) {
+      accessJwtDebug('jwt did not parse');
+      return null;
+    }
     const { header, payload, signingInput, signature } = parsed;
 
     // Claims are cheap to check and gate the (async) crypto work.
-    if (header.alg !== 'RS256' || !header.kid) return null;
-    if (payload.iss !== issuer) return null;
+    if (header.alg !== 'RS256' || !header.kid) {
+      accessJwtDebug('unexpected alg or missing kid', { alg: header.alg, kid: header.kid });
+      return null;
+    }
+    if (payload.iss !== issuer) {
+      accessJwtDebug('issuer mismatch', { got: payload.iss, want: issuer });
+      return null;
+    }
     const auds = Array.isArray(payload.aud) ? payload.aud : payload.aud ? [payload.aud] : [];
-    if (!auds.some((a) => audiences.has(a))) return null;
+    if (!auds.some((a) => audiences.has(a))) {
+      accessJwtDebug('audience mismatch', { got: auds, want: [...audiences] });
+      return null;
+    }
     const nowSeconds = now() / 1000;
     if (typeof payload.exp !== 'number' || payload.exp + CLOCK_SKEW_SECONDS < nowSeconds) {
+      accessJwtDebug('expired', { exp: payload.exp, now: nowSeconds });
       return null;
     }
     if (typeof payload.nbf === 'number' && payload.nbf - CLOCK_SKEW_SECONDS > nowSeconds) {
+      accessJwtDebug('not yet valid (nbf)', { nbf: payload.nbf, now: nowSeconds });
       return null;
     }
-    if (!payload.email) return null;
+    if (!payload.email) {
+      accessJwtDebug('no email claim');
+      return null;
+    }
 
     // Verify the signature, refetching the JWKS once if the kid is unknown
     // (Access rotates keys, so a fresh kid is expected, not an attack).
@@ -213,17 +250,25 @@ export function makeAccessJwtVerifier(
       keys = await loadKeys(certsUrl, fetchCerts, now, true);
       jwk = keys.get(header.kid);
     }
-    if (!jwk) return null;
+    if (!jwk) {
+      accessJwtDebug('kid not found in JWKS', { kid: header.kid, certsUrl });
+      return null;
+    }
 
     let ok: boolean;
     try {
       const key = await importRsaKey(jwk);
       ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, signingInput);
-    } catch {
+    } catch (e) {
+      accessJwtDebug('signature verification threw', e);
       return null;
     }
-    if (!ok) return null;
+    if (!ok) {
+      accessJwtDebug('signature invalid');
+      return null;
+    }
 
+    accessJwtDebug('verified', { email: payload.email });
     return { email: payload.email, sub: payload.sub };
   };
 }

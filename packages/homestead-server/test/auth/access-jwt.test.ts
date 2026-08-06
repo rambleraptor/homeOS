@@ -150,6 +150,23 @@ describe('makeAccessJwtVerifier', () => {
     expect(await verify(reqWith(token))).not.toBeNull();
   });
 
+  it('accepts either aud when configured with multiple (origin + portal)', async () => {
+    const PORTAL_AUD = 'portal-aud-cafef00d';
+    const multi = makeAccessJwtVerifier({
+      teamDomain: TEAM,
+      aud: [AUD, PORTAL_AUD],
+      now: () => NOW_MS,
+      fetchCerts: async () => ({ keys: [jwk] }),
+    });
+    const originToken = await signJwt(privateKey, { ...validPayload(), aud: AUD });
+    const portalToken = await signJwt(privateKey, { ...validPayload(), aud: PORTAL_AUD });
+    expect(await multi(reqWith(originToken))).not.toBeNull();
+    expect(await multi(reqWith(portalToken))).not.toBeNull();
+    // A tag in neither list is still rejected.
+    const strayToken = await signJwt(privateKey, { ...validPayload(), aud: 'stray-aud' });
+    expect(await multi(reqWith(strayToken))).toBeNull();
+  });
+
   it('caches the JWKS across verifications', async () => {
     const token = await signJwt(privateKey, validPayload());
     await verify(reqWith(token));

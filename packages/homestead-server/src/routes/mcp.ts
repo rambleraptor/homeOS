@@ -20,7 +20,7 @@ import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config'
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type { Engine } from '../engine/engine';
 import { verifyAccessToken, unauthorizedResponse } from '../auth/oauth/verify';
-import { makeAccessJwtVerifier, type AccessIdentity } from '../auth/access-jwt';
+import { makeAccessJwtVerifier, accessJwtDebug, type AccessIdentity } from '../auth/access-jwt';
 import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
@@ -100,12 +100,17 @@ export function makeMcpRoute(
       const identity = await accessVerifier(req);
       if (identity) {
         const found = getUserByEmail(engine.db, identity.email);
-        if (!found) return forbidden(`no Homestead user for ${identity.email}`);
+        if (!found) {
+          accessJwtDebug('no Homestead user for verified email', { email: identity.email });
+          return forbidden(`no Homestead user for ${identity.email}`);
+        }
         // Access-authenticated callers are unscoped → full read+write, matching
         // the endpoint's treatment of an unscoped OAuth token.
         const minted = mintTokenForUser(engine.db, found.user.id);
         return { token: minted.token, scope: null, release: minted.revoke };
       }
+    } else {
+      accessJwtDebug('Cloudflare Access not configured (auth.authServer.cloudflareAccess absent)');
     }
     return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');
   }
