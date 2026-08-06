@@ -183,12 +183,22 @@ export interface AdminToken {
 export function mintAdminToken(db: Database): AdminToken {
   const found = firstSuperuser(db);
   if (!found) throw new Error('no superuser exists; start the server once to bootstrap one');
+  return mintTokenForUser(db, found.id);
+}
+
+/**
+ * Mint a leased bearer token for a specific user id — the same lease semantics
+ * as {@link mintAdminToken} (see that doc), but for any user. Used by the MCP
+ * route when Cloudflare Access authenticates a caller: the endpoint runs the
+ * tools under the mapped user's token, then revokes it once the request settles.
+ */
+export function mintTokenForUser(db: Database, userId: string): AdminToken {
   const token = generateToken();
-  insertToken(db, token, found.id);
+  insertToken(db, token, userId);
   leaseToken(token, () => deleteToken(db, token));
   return {
     token,
-    userId: found.id,
+    userId,
     revoke: () => releaseToken(token),
   };
 }

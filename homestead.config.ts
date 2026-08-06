@@ -68,11 +68,22 @@ const oauth: NonNullable<HomesteadConfig['auth']>['oauth'] =
 const authServerEnabled = ['1', 'true'].includes(
   (fromEnv('OAUTH_SERVER_ENABLED') ?? '').toLowerCase(),
 );
+// Optional: put /api/mcp behind Cloudflare Access. Set both the team domain and
+// the Access application's AUD tag, and the MCP endpoint additionally trusts the
+// `Cf-Access-Jwt-Assertion` Access forwards (mapping its email to a Homestead
+// user). Its own OAuth still works, so this is purely additive.
+const cfAccessTeamDomain = fromEnv('OAUTH_SERVER_CF_ACCESS_TEAM_DOMAIN');
+const cfAccessAud = fromEnv('OAUTH_SERVER_CF_ACCESS_AUD');
+const cloudflareAccess =
+  cfAccessTeamDomain && cfAccessAud
+    ? { teamDomain: cfAccessTeamDomain, aud: cfAccessAud }
+    : undefined;
 const authServer: NonNullable<HomesteadConfig['auth']>['authServer'] = authServerEnabled
   ? {
       enabled: true,
       issuerUrl: fromEnv('OAUTH_SERVER_ISSUER_URL') ?? 'http://localhost:3000',
       scopesSupported: ['homestead'],
+      ...(cloudflareAccess ? { cloudflareAccess } : {}),
     }
   : undefined;
 
