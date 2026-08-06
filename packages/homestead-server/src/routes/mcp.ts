@@ -21,6 +21,7 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
 import type { Engine } from '../engine/engine';
 import { verifyAccessToken, unauthorizedResponse } from '../auth/oauth/verify';
 import { registerHomesteadTools } from '../mcp/register';
+import { scopeAllowsWrite } from '../mcp/scopes';
 
 /** The resource identifier MCP tokens are audience-bound to. */
 export function mcpAudience(issuerUrl: string): string {
@@ -62,7 +63,9 @@ export function makeMcpRoute(
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
     });
-    registerHomesteadTools(server, defs, verified.token);
+    registerHomesteadTools(server, defs, verified.token, {
+      write: scopeAllowsWrite(verified.scope),
+    });
     await server.connect(transport);
     try {
       const res = await transport.handleRequest(c.req.raw);
