@@ -23,6 +23,8 @@ import { makeWellKnownRoutes } from '../../src/auth/oauth/metadata';
 import { makeMcpRoute, mcpAudience } from '../../src/routes/mcp';
 import { registerHomesteadTools, type RegisterOptions } from '../../src/mcp/register';
 import { scopeAllowsWrite } from '../../src/mcp/scopes';
+import { seedUser } from '../engine/helpers';
+import type { AccessIdentity } from '../../src/auth/access-jwt';
 
 const CFG: AuthServerConfig = {
   enabled: true,
@@ -109,6 +111,109 @@ describe('MCP HTTP surface', () => {
       body: '{}',
     });
     expect(badRes.status).toBe(401);
+  });
+});
+
+describe('MCP behind Cloudflare Access', () => {
+  const HEADER = 'Cf-Access-Jwt-Assertion';
+  const initialize = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2025-06-18',
+      capabilities: {},
+      clientInfo: { name: 'test', version: '1' },
+    },
+  });
+
+  // A stub verifier standing in for real JWT verification (covered in
+  // access-jwt.test.ts): it maps the header value straight to an email.
+  const stubVerifier = async (req: Request): Promise<AccessIdentity | null> => {
+    const email = req.headers.get(HEADER);
+    return email ? { email } : null;
+  };
+
+  async function accessHarness() {
+    const t = await makeEngine();
+    createOAuthTables(t.engine.db);
+    const app = new Hono();
+    app.route(
+      '/api/mcp',
+      makeMcpRoute(t.engine, CFG, () => [BOOK], { accessVerifier: stubVerifier }),
+    );
+    return { t, app };
+  }
+
+  test('a request with a valid Access identity for a known user authenticates', async () => {
+    const { t, app } = await accessHarness();
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        [HEADER]: t.admin.email,
+      },
+      body: initialize,
+    });
+    expect(res.status).not.toBe(401);
+    expect(await res.text()).toContain('serverInfo');
+  });
+
+  test('an Access identity with no matching Homestead user is 403', async () => {
+    const { app } = await accessHarness();
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', [HEADER]: 'stranger@example.com' },
+      body: initialize,
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test('no Access header and no bearer is still 401', async () => {
+    const { app } = await accessHarness();
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test('the minted per-request token does not linger in the token table', async () => {
+    const { t, app } = await accessHarness();
+    const before = (
+      t.engine.db.query('SELECT COUNT(*) AS n FROM _tokens').get() as { n: number }
+    ).n;
+    await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        [HEADER]: t.admin.email,
+      },
+      body: initialize,
+    });
+    const after = (
+      t.engine.db.query('SELECT COUNT(*) AS n FROM _tokens').get() as { n: number }
+    ).n;
+    expect(after).toBe(before);
+  });
+
+  test('a mapped regular user still authenticates (not just the admin)', async () => {
+    const { t, app } = await accessHarness();
+    const { user } = await seedUser(t.engine, { email: 'member@example.com' });
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+        [HEADER]: user.email,
+      },
+      body: initialize,
+    });
+    expect(res.status).not.toBe(401);
+    expect(res.status).not.toBe(403);
   });
 });
 

@@ -48,6 +48,30 @@ export interface OAuthConfig {
 }
 
 /**
+ * Cloudflare Access in front of the MCP endpoint. When set, `/api/mcp` trusts
+ * the `Cf-Access-Jwt-Assertion` JWT that Access forwards to the origin: the
+ * token is verified (RS256 against the team's JWKS, plus issuer/audience/expiry)
+ * and its `email` claim is mapped to a Homestead user, whose permissions the MCP
+ * tools then run under. This is Cloudflare's "MCP server behind Access" model —
+ * Access owns authentication for the endpoint, in place of the endpoint's own
+ * OAuth challenge. Server-side only. Omit to keep MCP on its own OAuth.
+ */
+export interface CloudflareAccessConfig {
+  /**
+   * The Zero Trust team domain — a bare team name (`acme`), a host
+   * (`acme.cloudflareaccess.com`), or a full origin
+   * (`https://acme.cloudflareaccess.com`). Determines the expected token issuer
+   * and the JWKS URL (`<issuer>/cdn-cgi/access/certs`).
+   */
+  teamDomain: string;
+  /**
+   * The Access application's Audience (AUD) tag, or several. A token is accepted
+   * only when its `aud` claim matches one of these.
+   */
+  aud: string | string[];
+}
+
+/**
  * Homestead-as-OAuth-provider configuration. When enabled, the instance runs
  * an OAuth 2.1 Authorization Server so third-party client apps can be
  * authorized against a household account (discovery metadata, dynamic client
@@ -82,6 +106,14 @@ export interface AuthServerConfig {
    * is enabled; set false to run the AS without the MCP endpoint.
    */
   mcpEnabled?: boolean;
+  /**
+   * Put the MCP endpoint behind Cloudflare Access instead of (as a fallback to)
+   * its own OAuth. When set, a request carrying a valid `Cf-Access-Jwt-Assertion`
+   * is authenticated as the Homestead user whose email matches the token, so
+   * Access can gate `/api/mcp` directly. A normal audience-bound bearer token
+   * still works, so the endpoint's own OAuth is unaffected. Omit to disable.
+   */
+  cloudflareAccess?: CloudflareAccessConfig;
 }
 
 /** Authentication configuration for this instance. */

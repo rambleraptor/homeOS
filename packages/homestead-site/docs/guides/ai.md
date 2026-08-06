@@ -204,6 +204,32 @@ access. Clients that request no scope get full read + write, as before.
 > pointed at the engine's `/api/aep` prefix with a bearer token from
 > `homestead login`.
 
+### Put the endpoint behind Cloudflare Access
+
+By default the MCP endpoint is its own OAuth gate: it's reachable, but every
+request needs a valid Homestead token. If you'd rather have **Cloudflare
+Access** authenticate callers to `/api/mcp` (Cloudflare's "MCP server behind
+Access" model), give Homestead the team domain and the Access application's
+Audience (AUD) tag:
+
+```bash
+OAUTH_SERVER_CF_ACCESS_TEAM_DOMAIN=your-team   # or your-team.cloudflareaccess.com
+OAUTH_SERVER_CF_ACCESS_AUD=<application-aud-tag>
+```
+
+With both set, a request carrying Access's `Cf-Access-Jwt-Assertion` header is
+verified (RS256 against your team's JWKS, plus issuer/audience/expiry) and its
+`email` claim is mapped to the Homestead user of the same email — the MCP tools
+then run under that user's permissions. A Homestead user must already exist for
+each Access identity you expect to connect (an unknown email gets a `403`). The
+endpoint's own OAuth still works, so this is additive: you can front `/api/mcp`
+with Access without breaking direct OAuth clients.
+
+Because a machine MCP client can't complete an interactive Access login, this is
+the *only* way to have Access authenticate the endpoint itself — a plain Access
+self-hosted app in front of `/api/mcp` would intercept the OAuth handshake and
+break it.
+
 ---
 
 ## Teach a coding agent with skills

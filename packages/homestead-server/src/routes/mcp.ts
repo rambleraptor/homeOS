@@ -20,6 +20,9 @@ import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config'
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type { Engine } from '../engine/engine';
 import { verifyAccessToken, unauthorizedResponse } from '../auth/oauth/verify';
+import { makeAccessJwtVerifier, type AccessIdentity } from '../auth/access-jwt';
+import { getUserByEmail } from '../engine/users';
+import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
 import { scopeAllowsWrite } from '../mcp/scopes';
 
@@ -34,6 +37,33 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version',
 } as const;
 
+/** How a request to `/api/mcp` was authenticated, resolved to a caller token. */
+interface ResolvedCaller {
+  /** A bearer token the engine accepts for this caller. */
+  token: string;
+  /** The OAuth scope string, or null (Access-authenticated callers are unscoped). */
+  scope: string | null;
+  /** Release a token minted for this request; a no-op for a caller's own token. */
+  release: () => void;
+}
+
+/** Options for {@link makeMcpRoute}; the verifier override is a test seam. */
+export interface McpRouteOptions {
+  /**
+   * Override the Cloudflare Access JWT verifier. Defaults to one built from
+   * `cfg.cloudflareAccess` (absent → the Access fallback is disabled). Injected
+   * in tests so the route can be exercised without a live JWKS endpoint.
+   */
+  accessVerifier?: (req: Request) => Promise<AccessIdentity | null>;
+}
+
+function forbidden(message: string): Response {
+  return new Response(JSON.stringify({ error: 'forbidden', message }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+  });
+}
+
 /**
  * Build the `/api/mcp` route. `resolveDefs` yields the resource definitions to
  * expose as tools (the server passes the same union the chat handler uses); it
@@ -44,15 +74,45 @@ export function makeMcpRoute(
   engine: Engine,
   cfg: AuthServerConfig,
   resolveDefs: () => ResourceDefinition[],
+  opts: McpRouteOptions = {},
 ): Hono {
   const audience = mcpAudience(cfg.issuerUrl);
+  const accessVerifier =
+    opts.accessVerifier ??
+    (cfg.cloudflareAccess ? makeAccessJwtVerifier(cfg.cloudflareAccess) : null);
   const app = new Hono();
 
   app.options('/', () => new Response(null, { status: 204, headers: CORS_HEADERS }));
 
+  /**
+   * Resolve a request to a caller token. Tries the endpoint's own OAuth first
+   * (an audience-bound bearer), then — when Cloudflare Access is configured —
+   * falls back to a verified `Cf-Access-Jwt-Assertion`, mapping its email to a
+   * Homestead user and minting a short-lived token to act as them. Returns a
+   * Response to short-circuit (401/403) when neither path authenticates.
+   */
+  async function resolveCaller(req: Request): Promise<ResolvedCaller | Response> {
+    const verified = verifyAccessToken(engine.db, req, { audience });
+    if (verified) {
+      return { token: verified.token, scope: verified.scope, release: () => {} };
+    }
+    if (accessVerifier) {
+      const identity = await accessVerifier(req);
+      if (identity) {
+        const found = getUserByEmail(engine.db, identity.email);
+        if (!found) return forbidden(`no Homestead user for ${identity.email}`);
+        // Access-authenticated callers are unscoped → full read+write, matching
+        // the endpoint's treatment of an unscoped OAuth token.
+        const minted = mintTokenForUser(engine.db, found.user.id);
+        return { token: minted.token, scope: null, release: minted.revoke };
+      }
+    }
+    return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');
+  }
+
   app.all('/', async (c) => {
-    const verified = verifyAccessToken(engine.db, c.req.raw, { audience });
-    if (!verified) return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');
+    const caller = await resolveCaller(c.req.raw);
+    if (caller instanceof Response) return caller;
 
     const defs = resolveDefs();
 
@@ -63,8 +123,8 @@ export function makeMcpRoute(
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
     });
-    registerHomesteadTools(server, defs, verified.token, {
-      write: scopeAllowsWrite(verified.scope),
+    registerHomesteadTools(server, defs, caller.token, {
+      write: scopeAllowsWrite(caller.scope),
     });
     await server.connect(transport);
     try {
@@ -73,6 +133,9 @@ export function makeMcpRoute(
       return res;
     } finally {
       await transport.close();
+      // Release any token minted for an Access-authenticated caller. The lease
+      // defers the real delete until in-flight operations settle.
+      caller.release();
     }
   });
 
