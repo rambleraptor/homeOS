@@ -187,6 +187,18 @@ Homestead's sign-in and consent screen in your browser; approve it and the
 client is connected. The model can then list, read, and write your household
 resources.
 
+**Read-only vs. read + write.** The server advertises two scopes:
+
+| Scope              | Tools exposed                                            |
+| ------------------ | -------------------------------------------------------- |
+| `homestead:read`   | the `read_*` tools per resource, plus document search    |
+| `homestead:write`  | everything read grants, plus create / update / delete    |
+
+A client that requests `homestead:read` gets a read-only surface — the
+create/update/delete tools aren't even registered, so a read-only
+authorization can't mutate data. Request `homestead:write` (or both) for full
+access. Clients that request no scope get full read + write, as before.
+
 > Prefer an out-of-process option? The community
 > [`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) can still be
 > pointed at the engine's `/api/aep` prefix with a bearer token from

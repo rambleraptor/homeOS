@@ -21,7 +21,8 @@ import { AuthService } from '../../src/auth/service';
 import { createOAuthTables } from '../../src/auth/oauth/storage';
 import { makeWellKnownRoutes } from '../../src/auth/oauth/metadata';
 import { makeMcpRoute, mcpAudience } from '../../src/routes/mcp';
-import { registerHomesteadTools } from '../../src/mcp/register';
+import { registerHomesteadTools, type RegisterOptions } from '../../src/mcp/register';
+import { scopeAllowsWrite } from '../../src/mcp/scopes';
 
 const CFG: AuthServerConfig = {
   enabled: true,
@@ -111,10 +112,24 @@ describe('MCP HTTP surface', () => {
   });
 });
 
+describe('scopeAllowsWrite', () => {
+  it('grants write for the write scope, the legacy scope, and unscoped tokens', () => {
+    expect(scopeAllowsWrite('homestead:write')).toBe(true);
+    expect(scopeAllowsWrite('homestead:read homestead:write')).toBe(true);
+    expect(scopeAllowsWrite('homestead')).toBe(true);
+    expect(scopeAllowsWrite(null)).toBe(true);
+    expect(scopeAllowsWrite('')).toBe(true);
+  });
+
+  it('limits a read-only scope to reads', () => {
+    expect(scopeAllowsWrite('homestead:read')).toBe(false);
+  });
+});
+
 describe('MCP tool registration (over an in-memory client)', () => {
-  async function connectClient(defs: ResourceDefinition[]) {
+  async function connectClient(defs: ResourceDefinition[], opts?: RegisterOptions) {
     const server = new McpServer({ name: 'homestead', version: '0.2.0' });
-    registerHomesteadTools(server, defs, 'test-token');
+    registerHomesteadTools(server, defs, 'test-token', opts);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await server.connect(serverTransport);
     const client = new Client({ name: 'test-client', version: '1.0.0' });
@@ -131,6 +146,16 @@ describe('MCP tool registration (over an in-memory client)', () => {
     );
     // Embeddings/vector store aren't configured in this process → no search tool.
     expect(names).not.toContain('search_documents');
+    await client.close();
+  });
+
+  it('a read-only registration exposes only the read tool, no writers', async () => {
+    const client = await connectClient([BOOK], { write: false });
+    const names = (await client.listTools()).tools.map((tool) => tool.name);
+    expect(names).toContain('read_book');
+    expect(names).not.toContain('create_book');
+    expect(names).not.toContain('update_book');
+    expect(names).not.toContain('delete_book');
     await client.close();
   });
 

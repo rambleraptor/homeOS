@@ -12,8 +12,9 @@
 
 import { Hono } from 'hono';
 import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config';
+import { MCP_SCOPES_SUPPORTED } from '../../mcp/scopes';
 
-const DEFAULT_SCOPES = ['homestead'];
+const DEFAULT_SCOPES = MCP_SCOPES_SUPPORTED;
 
 /** Permissive CORS — browser-based OAuth clients fetch these cross-origin. */
 const CORS_HEADERS = {

@@ -64,7 +64,11 @@ export interface AuthServerConfig {
    * derived from the request) so it stays correct behind a reverse proxy.
    */
   issuerUrl: string;
-  /** Scopes advertised in metadata. Defaults to a single broad `homestead` scope. */
+  /**
+   * Scopes advertised in metadata. Defaults to the MCP read/write scopes
+   * (`homestead:read`, `homestead:write`), which the MCP server uses to expose
+   * a read-only or read+write tool surface.
+   */
   scopesSupported?: string[];
   /** Access-token lifetime in seconds (default 3600). */
   accessTokenTtlSeconds?: number;

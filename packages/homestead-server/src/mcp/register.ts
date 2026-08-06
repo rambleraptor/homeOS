@@ -28,20 +28,37 @@ function err(message: string): CallToolResult {
   return { content: [{ type: 'text', text: message }], isError: true };
 }
 
+/** Options controlling which tools are exposed. */
+export interface RegisterOptions {
+  /**
+   * Expose the write tools (create/update/delete). When false, only the
+   * read tools and document search are registered. Defaults to true.
+   */
+  write?: boolean;
+}
+
 /**
  * Register the CRUD tools (one set per resource) plus the semantic
  * `search_documents` tool (only when embeddings are configured) on `server`,
  * all executing against aepbase under `token` — so every action runs with
  * exactly the calling user's permissions.
+ *
+ * When `opts.write` is false, the create/update/delete tools are omitted and
+ * only the read-only surface (the `read_*` tools and document search) is
+ * exposed, so a read-only authorization can't mutate data.
  */
 export function registerHomesteadTools(
   server: McpServer,
   defs: ResourceDefinition[],
   token: string,
+  opts: RegisterOptions = {},
 ): void {
+  const write = opts.write ?? true;
   const { tools, bindings } = buildTools(defs);
 
   for (const [name, spec] of Object.entries(tools)) {
+    // Read-only authorizations get only the `read` tools; skip the writers.
+    if (!write && bindings.get(name)?.op !== 'read') continue;
     // buildTools always produces a z.object; the SDK accepts its raw shape as a
     // ZodRawShapeCompat and does its own JSON-Schema conversion + validation.
     const shape = (spec.inputSchema as z.ZodObject).shape;
