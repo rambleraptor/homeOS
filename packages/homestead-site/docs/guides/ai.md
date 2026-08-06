@@ -225,10 +225,26 @@ each Access identity you expect to connect (an unknown email gets a `403`). The
 endpoint's own OAuth still works, so this is additive: you can front `/api/mcp`
 with Access without breaking direct OAuth clients.
 
+`OAUTH_SERVER_CF_ACCESS_AUD` takes a **comma-separated list** of AUD tags. If
+you reach the endpoint through more than one Access application — for example an
+**MCP portal** in front of the origin's own app — each forwards a token with a
+*different* `aud`, so list both:
+
+```bash
+OAUTH_SERVER_CF_ACCESS_AUD=<origin-app-aud>,<portal-app-aud>
+```
+
 Because a machine MCP client can't complete an interactive Access login, this is
 the *only* way to have Access authenticate the endpoint itself — a plain Access
 self-hosted app in front of `/api/mcp` would intercept the OAuth handshake and
 break it.
+
+**Debugging a rejected token.** If Access-fronted requests come back `401`, set
+`HOMESTEAD_DEBUG_ACCESS_JWT=1` and restart. Each rejection then logs the exact
+reason (`issuer mismatch`, `audience mismatch`, `signature invalid`, `no
+Homestead user for <email>`, or `Cloudflare Access not configured`), so you can
+see which check failed. Leave it unset in normal operation — it's off by default
+and never logs token claims otherwise.
 
 ---
 
