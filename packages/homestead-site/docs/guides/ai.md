@@ -240,11 +240,13 @@ self-hosted app in front of `/api/mcp` would intercept the OAuth handshake and
 break it.
 
 **Debugging a rejected token.** If Access-fronted requests come back `401`, set
-`HOMESTEAD_DEBUG_ACCESS_JWT=1` and restart. Each rejection then logs the exact
-reason (`issuer mismatch`, `audience mismatch`, `signature invalid`, `no
-Homestead user for <email>`, or `Cloudflare Access not configured`), so you can
-see which check failed. Leave it unset in normal operation — it's off by default
-and never logs token claims otherwise.
+`HOMESTEAD_LOG_LEVEL=debug` and restart, then watch the logs (filter for the
+`access-jwt` scope). Each rejection logs the exact reason (`issuer mismatch`,
+`audience mismatch`, `signature invalid`, `no Homestead user for <email>`, or
+`Cloudflare Access not configured`), so you can see which check failed. If you
+see **no** `access-jwt` line at all for an attempt, the request never reached
+Homestead — the failure is upstream in Cloudflare/the client, not here. Return
+the level to `info` once you're done.
 
 ---
 
