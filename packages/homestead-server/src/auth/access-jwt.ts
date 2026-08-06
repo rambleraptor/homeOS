@@ -18,26 +18,20 @@
  */
 
 import type { CloudflareAccessConfig } from '@rambleraptor/homestead-core/apps/config';
+import { createLogger } from '../log';
 
 /** The header Cloudflare Access injects at the origin, carrying the signed JWT. */
 export const ACCESS_JWT_HEADER = 'Cf-Access-Jwt-Assertion';
 
 /**
- * Opt-in diagnostics for the Access-JWT path, gated by
- * `HOMESTEAD_DEBUG_ACCESS_JWT`. When set, each rejection logs *why* (issuer /
- * audience / signature / no user), so an operator wiring up Cloudflare Access
- * can see exactly which check failed instead of a bare 401. Off by default, so
- * normal operation never logs token claims.
+ * Diagnostics for the Access-JWT path. Each rejection logs *why* (issuer /
+ * audience / signature / no user) at `debug`, so an operator wiring up
+ * Cloudflare Access can see which check failed instead of a bare 401 — enable
+ * with `HOMESTEAD_LOG_LEVEL=debug`. Shared with the MCP route so both log under
+ * the one `access-jwt` scope. Uses the project logger (not `console`) so it
+ * respects the level/format knobs and survives the launcher's line-pipe.
  */
-export function accessJwtDebugEnabled(): boolean {
-  return typeof process !== 'undefined' && !!process.env?.HOMESTEAD_DEBUG_ACCESS_JWT;
-}
-
-export function accessJwtDebug(reason: string, detail?: unknown): void {
-  if (!accessJwtDebugEnabled()) return;
-  if (detail === undefined) console.warn(`[access-jwt] ${reason}`);
-  else console.warn(`[access-jwt] ${reason}`, detail);
-}
+export const accessJwtLog = createLogger('access-jwt');
 
 /** The identity extracted from a verified Access JWT. */
 export interface AccessIdentity {
@@ -203,42 +197,42 @@ export function makeAccessJwtVerifier(
   return async function verify(req: Request): Promise<AccessIdentity | null> {
     const token = req.headers.get(ACCESS_JWT_HEADER);
     if (!token) {
-      accessJwtDebug(`no ${ACCESS_JWT_HEADER} header`);
+      accessJwtLog.debug(`no ${ACCESS_JWT_HEADER} header`);
       return null;
     }
 
     const parsed = parseJwt(token);
     if (!parsed) {
-      accessJwtDebug('jwt did not parse');
+      accessJwtLog.debug('jwt did not parse');
       return null;
     }
     const { header, payload, signingInput, signature } = parsed;
 
     // Claims are cheap to check and gate the (async) crypto work.
     if (header.alg !== 'RS256' || !header.kid) {
-      accessJwtDebug('unexpected alg or missing kid', { alg: header.alg, kid: header.kid });
+      accessJwtLog.debug('unexpected alg or missing kid', { alg: header.alg, kid: header.kid });
       return null;
     }
     if (payload.iss !== issuer) {
-      accessJwtDebug('issuer mismatch', { got: payload.iss, want: issuer });
+      accessJwtLog.debug('issuer mismatch', { got: payload.iss, want: issuer });
       return null;
     }
     const auds = Array.isArray(payload.aud) ? payload.aud : payload.aud ? [payload.aud] : [];
     if (!auds.some((a) => audiences.has(a))) {
-      accessJwtDebug('audience mismatch', { got: auds, want: [...audiences] });
+      accessJwtLog.debug('audience mismatch', { got: auds.join(','), want: [...audiences].join(',') });
       return null;
     }
     const nowSeconds = now() / 1000;
     if (typeof payload.exp !== 'number' || payload.exp + CLOCK_SKEW_SECONDS < nowSeconds) {
-      accessJwtDebug('expired', { exp: payload.exp, now: nowSeconds });
+      accessJwtLog.debug('expired', { exp: payload.exp, now: nowSeconds });
       return null;
     }
     if (typeof payload.nbf === 'number' && payload.nbf - CLOCK_SKEW_SECONDS > nowSeconds) {
-      accessJwtDebug('not yet valid (nbf)', { nbf: payload.nbf, now: nowSeconds });
+      accessJwtLog.debug('not yet valid (nbf)', { nbf: payload.nbf, now: nowSeconds });
       return null;
     }
     if (!payload.email) {
-      accessJwtDebug('no email claim');
+      accessJwtLog.debug('no email claim');
       return null;
     }
 
@@ -251,7 +245,7 @@ export function makeAccessJwtVerifier(
       jwk = keys.get(header.kid);
     }
     if (!jwk) {
-      accessJwtDebug('kid not found in JWKS', { kid: header.kid, certsUrl });
+      accessJwtLog.debug('kid not found in JWKS', { kid: header.kid, certsUrl });
       return null;
     }
 
@@ -260,15 +254,15 @@ export function makeAccessJwtVerifier(
       const key = await importRsaKey(jwk);
       ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, signingInput);
     } catch (e) {
-      accessJwtDebug('signature verification threw', e);
+      accessJwtLog.debug('signature verification failed', { err: e });
       return null;
     }
     if (!ok) {
-      accessJwtDebug('signature invalid');
+      accessJwtLog.debug('signature invalid');
       return null;
     }
 
-    accessJwtDebug('verified', { email: payload.email });
+    accessJwtLog.debug('verified', { email: payload.email });
     return { email: payload.email, sub: payload.sub };
   };
 }
