@@ -1,4 +1,4 @@
-import { Bell, BellOff, Bug } from 'lucide-react';
+import { Bell, BellOff } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
@@ -140,7 +140,7 @@ export function SettingsHome() {
                       </p>
                     </div>
                   )}
-                  <div>
+                  <div className="flex flex-wrap gap-2">
                     {isEnabled ? (
                       <Button
                         variant="secondary"
@@ -161,37 +161,20 @@ export function SettingsHome() {
                           : 'Enable Notifications'}
                       </Button>
                     )}
+                    {isEnabled && (
+                      <Button
+                        variant="secondary"
+                        onClick={handleSendTestNotification}
+                        disabled={sendTestNotification.isPending}
+                      >
+                        {sendTestNotification.isPending
+                          ? 'Sending...'
+                          : 'Send Test Notification'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        )}
-
-        {isBrowserSupported && (
-          <Card>
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                How Notifications Work
-              </h3>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li>
-                  • You'll receive notifications based on your event reminder
-                  preferences
-                </li>
-                <li>
-                  • Notifications can be sent the day of, day before, or week
-                  before an event
-                </li>
-                <li>
-                  • You can manage notification preferences for each event
-                  individually
-                </li>
-                <li>
-                  • All notifications are stored in the Notification Center for
-                  later review
-                </li>
-              </ul>
             </div>
           </Card>
         )}
@@ -214,35 +197,6 @@ export function SettingsHome() {
           </div>
         </div>
       )}
-
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Debug Mode
-        </h2>
-
-        <Card>
-          <div className="flex items-start gap-4">
-            <Bug className="w-6 h-6 text-purple-500 mt-1" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 mb-2">
-                Test Push Notifications
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Send an immediate test push notification to verify that your notification system is working correctly.
-              </p>
-              <Button
-                onClick={handleSendTestNotification}
-                disabled={sendTestNotification.isPending}
-                variant="secondary"
-              >
-                {sendTestNotification.isPending
-                  ? 'Sending...'
-                  : 'Send Test Notification'}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
 
       <div>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
