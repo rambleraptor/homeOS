@@ -21,6 +21,7 @@ import { AuthService } from '../../src/auth/service';
 import { createOAuthTables } from '../../src/auth/oauth/storage';
 import { makeWellKnownRoutes } from '../../src/auth/oauth/metadata';
 import { makeMcpRoute, mcpAudience } from '../../src/routes/mcp';
+import { resolveMcpConfig } from '../../src/mcp/config';
 import { registerHomesteadTools, type RegisterOptions } from '../../src/mcp/register';
 import { scopeAllowsWrite } from '../../src/mcp/scopes';
 import { seedUser } from '../engine/helpers';
@@ -31,6 +32,9 @@ const CFG: AuthServerConfig = {
   issuerUrl: 'https://home.example.com',
   scopesSupported: ['homestead'],
 };
+
+/** The resolved MCP config the route takes, in the legacy `both` shape. */
+const MCP_CFG = resolveMcpConfig(undefined, CFG)!;
 
 const BOOK: ResourceDefinition = {
   singular: 'book',
@@ -47,7 +51,7 @@ async function httpHarness() {
   const auth = new AuthService(t.engine.db);
   const app = new Hono();
   app.route('/.well-known', makeWellKnownRoutes(CFG));
-  app.route('/api/mcp', makeMcpRoute(t.engine, CFG, () => [BOOK]));
+  app.route('/api/mcp', makeMcpRoute(t.engine, MCP_CFG, () => [BOOK]));
   return { t, auth, app };
 }
 
@@ -140,7 +144,7 @@ describe('MCP behind Cloudflare Access', () => {
     const app = new Hono();
     app.route(
       '/api/mcp',
-      makeMcpRoute(t.engine, CFG, () => [BOOK], { accessVerifier: stubVerifier }),
+      makeMcpRoute(t.engine, MCP_CFG, () => [BOOK], { accessVerifier: stubVerifier }),
     );
     return { t, app };
   }

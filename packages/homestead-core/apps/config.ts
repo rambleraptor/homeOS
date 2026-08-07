@@ -116,6 +116,50 @@ export interface AuthServerConfig {
   cloudflareAccess?: CloudflareAccessConfig;
 }
 
+/**
+ * How the MCP endpoint authenticates its callers.
+ *
+ * - `cloudflare-access` — **only** a verified `Cf-Access-Jwt-Assertion` is
+ *   accepted. Cloudflare Access sits in front of `/api/mcp`, authenticates the
+ *   caller, and forwards the signed assertion; Homestead runs no OAuth of its
+ *   own, publishes no discovery documents, and issues no tokens. This is
+ *   Cloudflare's recommended shape for a self-hosted MCP server that validates
+ *   the Access JWT.
+ * - `oauth` — only Homestead's own audience-bound bearer tokens are accepted,
+ *   which requires the authorization server ({@link AuthServerConfig}) to be
+ *   enabled. Clients discover it from the endpoint's `401` challenge.
+ * - `both` — try the bearer token first, then fall back to the Access JWT.
+ */
+export type McpAuthMode = 'cloudflare-access' | 'oauth' | 'both';
+
+/**
+ * The first-party MCP server at `/api/mcp`.
+ *
+ * Declared separately from {@link AuthServerConfig} so the endpoint can run
+ * *without* Homestead's OAuth authorization server: under
+ * `auth: 'cloudflare-access'` the instance mounts only `/api/mcp` and leaves
+ * `/oauth2/*` and `/.well-known/*` unmounted entirely, so there is no public
+ * OAuth surface to attack. Omit this block to keep the legacy behaviour, where
+ * MCP is derived from `auth.authServer`.
+ */
+export interface McpConfig {
+  /** Master switch for `/api/mcp`. Defaults to true when the block is present. */
+  enabled?: boolean;
+  /** How callers authenticate. Defaults to `both` for backwards compatibility. */
+  auth?: McpAuthMode;
+  /**
+   * Cloudflare Access application in front of the endpoint. Required for the
+   * `cloudflare-access` mode and for the fallback in `both`.
+   */
+  cloudflareAccess?: CloudflareAccessConfig;
+  /**
+   * The resource identifier that OAuth-issued MCP tokens are audience-bound to
+   * (RFC 8707). Only meaningful for the `oauth`/`both` modes; defaults to
+   * `<authServer.issuerUrl>/api/mcp`.
+   */
+  resourceUrl?: string;
+}
+
 /** Authentication configuration for this instance. */
 export interface AuthConfig {
   /** OAuth login (Homestead as client). Omit (or omit `providers`) to disable. */
@@ -297,6 +341,15 @@ export interface HomesteadConfig {
    * when the launcher evaluates this file server-side.
    */
   auth?: AuthConfig;
+
+  /**
+   * Optional MCP server configuration. Omit to derive MCP from
+   * `auth.authServer` (the legacy coupling, where the endpoint only exists
+   * alongside Homestead's OAuth server). Set it to run `/api/mcp` on its own —
+   * notably with `auth: 'cloudflare-access'`, which needs no OAuth server and
+   * therefore exposes no `/oauth2/*` or `/.well-known/*` surface at all.
+   */
+  mcp?: McpConfig;
 
   /**
    * Optional AI configuration (provider, model, credentials). Consumed by the

@@ -1,22 +1,25 @@
 /**
  * First-party MCP server at `/api/mcp` (Streamable HTTP).
  *
- * A thin OAuth 2.1 resource server: each request's bearer token is validated
- * against the auth service (audience-bound to this resource), then the AI
- * chat's tools are re-exposed over MCP, executed under the caller's token. The
- * server is stateless and rebuilt per request so tools bind to that caller —
- * exactly like `handleChat` rebuilds tools per request.
+ * The AI chat's tools are re-exposed over MCP and executed under the calling
+ * user's own token. The server is stateless and rebuilt per request so tools
+ * bind to that caller — exactly like `handleChat` rebuilds tools per request.
  *
- * Clients authorize with zero manual steps: an unauthenticated request returns
- * 401 with a `WWW-Authenticate` pointer to the protected-resource metadata,
- * from which the client discovers the authorization server, self-registers
- * (DCR) and runs the consent flow.
+ * How a caller authenticates depends on the resolved {@link ResolvedMcpConfig}
+ * mode:
+ *  - `oauth`/`both` — a bearer token audience-bound to this resource. An
+ *    unauthenticated request returns 401 with a `WWW-Authenticate` pointer to
+ *    the protected-resource metadata, from which the client discovers the
+ *    authorization server, self-registers (DCR) and runs the consent flow.
+ *  - `cloudflare-access` — **only** a verified `Cf-Access-Jwt-Assertion`
+ *    forwarded by Cloudflare Access. There is no bearer path and no discovery
+ *    pointer: Access owns the challenge, so the instance publishes no OAuth
+ *    surface at all.
  */
 
 import { Hono } from 'hono';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type { Engine } from '../engine/engine';
 import { verifyAccessToken, unauthorizedResponse } from '../auth/oauth/verify';
@@ -25,11 +28,9 @@ import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
 import { scopeAllowsWrite } from '../mcp/scopes';
+import type { ResolvedMcpConfig } from '../mcp/config';
 
-/** The resource identifier MCP tokens are audience-bound to. */
-export function mcpAudience(issuerUrl: string): string {
-  return `${issuerUrl.replace(/\/+$/, '')}/api/mcp`;
-}
+export { mcpAudience } from '../mcp/config';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -72,29 +73,45 @@ function forbidden(message: string): Response {
  */
 export function makeMcpRoute(
   engine: Engine,
-  cfg: AuthServerConfig,
+  cfg: ResolvedMcpConfig,
   resolveDefs: () => ResourceDefinition[],
   opts: McpRouteOptions = {},
 ): Hono {
-  const audience = mcpAudience(cfg.issuerUrl);
+  const bearerAllowed = cfg.mode !== 'cloudflare-access';
+  const accessAllowed = cfg.mode !== 'oauth';
   const accessVerifier =
     opts.accessVerifier ??
-    (cfg.cloudflareAccess ? makeAccessJwtVerifier(cfg.cloudflareAccess) : null);
+    (accessAllowed && cfg.cloudflareAccess ? makeAccessJwtVerifier(cfg.cloudflareAccess) : null);
   const app = new Hono();
 
   app.options('/', () => new Response(null, { status: 204, headers: CORS_HEADERS }));
 
   /**
-   * Resolve a request to a caller token. Tries the endpoint's own OAuth first
-   * (an audience-bound bearer), then — when Cloudflare Access is configured —
-   * falls back to a verified `Cf-Access-Jwt-Assertion`, mapping its email to a
-   * Homestead user and minting a short-lived token to act as them. Returns a
-   * Response to short-circuit (401/403) when neither path authenticates.
+   * A plain 401. In `cloudflare-access` mode the endpoint advertises no
+   * authorization server of its own — Access issues the challenge — so no
+   * `WWW-Authenticate` discovery pointer is emitted.
+   */
+  function unauthorized(): Response {
+    if (cfg.issuerUrl) return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');
+    return new Response(JSON.stringify({ error: 'unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+    });
+  }
+
+  /**
+   * Resolve a request to a caller token. Depending on the mode, tries the
+   * endpoint's own OAuth (an audience-bound bearer) and/or a verified
+   * `Cf-Access-Jwt-Assertion` — mapping the latter's email to a Homestead user
+   * and minting a short-lived token to act as them. Returns a Response to
+   * short-circuit (401/403) when nothing authenticates.
    */
   async function resolveCaller(req: Request): Promise<ResolvedCaller | Response> {
-    const verified = verifyAccessToken(engine.db, req, { audience });
-    if (verified) {
-      return { token: verified.token, scope: verified.scope, release: () => {} };
+    if (bearerAllowed && cfg.audience) {
+      const verified = verifyAccessToken(engine.db, req, { audience: cfg.audience });
+      if (verified) {
+        return { token: verified.token, scope: verified.scope, release: () => {} };
+      }
     }
     if (accessVerifier) {
       const identity = await accessVerifier(req);
@@ -109,10 +126,10 @@ export function makeMcpRoute(
         const minted = mintTokenForUser(engine.db, found.user.id);
         return { token: minted.token, scope: null, release: minted.revoke };
       }
-    } else {
-      accessJwtLog.debug('Cloudflare Access not configured (auth.authServer.cloudflareAccess absent)');
+    } else if (accessAllowed) {
+      accessJwtLog.debug('Cloudflare Access not configured (mcp.cloudflareAccess absent)');
     }
-    return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');
+    return unauthorized();
   }
 
   app.all('/', async (c) => {

@@ -187,27 +187,35 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   publicApp.all('/oauth/*', (c) => engine.fetch(c.req.raw));
 
   // OAuth authorization server (Homestead as provider): discovery metadata +
-  // the /oauth2 endpoints. Only mounted when configured.
+  // the /oauth2 endpoints. Only mounted when configured — an MCP endpoint that
+  // authenticates through Cloudflare Access needs none of this, so nothing here
+  // is published in that mode.
   if (authServerCfg?.enabled) {
     const { makeWellKnownRoutes } = await import('./auth/oauth/metadata');
     const { makeOAuthServerRoutes } = await import('./auth/oauth/routes');
     publicApp.route('/.well-known', makeWellKnownRoutes(authServerCfg));
     publicApp.route('/oauth2', makeOAuthServerRoutes(engine.db, authService, authServerCfg));
-    // First-party MCP server. Authorizes through the AS above, so it's on by
-    // default when the AS is enabled (opt out with auth.authServer.mcpEnabled).
-    if (authServerCfg.mcpEnabled !== false) {
-      const { makeMcpRoute } = await import('./routes/mcp');
-      const { BUILTIN_RESOURCE_DEFS } = await import(
-        '@rambleraptor/homestead-core/resources/builtins'
-      );
-      publicApp.route(
-        '/api/mcp',
-        makeMcpRoute(engine, authServerCfg, () => [
-          ...BUILTIN_RESOURCE_DEFS,
-          ...registry.getAllResourceDefs(),
-        ]),
-      );
-    }
+  }
+
+  // First-party MCP server, mounted independently of the authorization server:
+  // with `mcp.auth: 'cloudflare-access'` the endpoint runs with Access as the
+  // sole identity layer and no OAuth surface at all. With no `mcp` block the
+  // legacy shape is derived from `auth.authServer`.
+  const { resolveMcpConfig } = await import('./mcp/config');
+  const mcpCfg = resolveMcpConfig(registry.mcpConfig() ?? undefined, authServerCfg ?? undefined);
+  if (mcpCfg) {
+    const { makeMcpRoute } = await import('./routes/mcp');
+    const { BUILTIN_RESOURCE_DEFS } = await import(
+      '@rambleraptor/homestead-core/resources/builtins'
+    );
+    publicApp.route(
+      '/api/mcp',
+      makeMcpRoute(engine, mcpCfg, () => [
+        ...BUILTIN_RESOURCE_DEFS,
+        ...registry.getAllResourceDefs(),
+      ]),
+    );
+    log.info('mcp endpoint enabled', { path: '/api/mcp', auth: mcpCfg.mode });
   }
 
   let stopPublic: () => Promise<void> | void;

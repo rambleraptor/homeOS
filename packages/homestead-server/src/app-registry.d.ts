@@ -5,6 +5,7 @@ import type {
   AuthServerConfig,
   EmailConfig,
   EmbeddingConfig,
+  McpConfig,
 } from '@rambleraptor/homestead-core/apps/config';
 import type {
   RegisteredCronHook,
@@ -17,6 +18,7 @@ import type { OAuthConfig } from './engine/oauth';
 export function appAccessMap(): AppAccessMap | null;
 export function oauthConfig(): OAuthConfig | null;
 export function authServerConfig(): AuthServerConfig | null;
+export function mcpConfig(): McpConfig | null;
 export function aiConfig(): AiConfig | null;
 export function embeddingConfig(): EmbeddingConfig | null;
 export function emailConfig(): EmailConfig | null;

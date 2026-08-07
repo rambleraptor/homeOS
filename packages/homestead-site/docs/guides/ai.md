@@ -210,7 +210,21 @@ By default the MCP endpoint is its own OAuth gate: it's reachable, but every
 request needs a valid Homestead token. If you'd rather have **Cloudflare
 Access** authenticate callers to `/api/mcp` (Cloudflare's "MCP server behind
 Access" model), give Homestead the team domain and the Access application's
-Audience (AUD) tag:
+Audience (AUD) tag.
+
+::: tip Access-only mode (no public OAuth surface)
+Set `MCP_AUTH=cloudflare-access` and turn the authorization server **off**
+(`OAUTH_SERVER_ENABLED` unset). The instance then mounts `/api/mcp` alone: a
+verified `Cf-Access-Jwt-Assertion` is the only accepted credential, no bearer
+token is honoured, and `/oauth2/*` and `/.well-known/*` are never mounted — so
+there is no public OAuth surface at all. Cloudflare permits enabling **Managed
+OAuth** on the Access application for exactly this case ("only enable Managed
+OAuth for MCP servers that validate the Access JWT"), which Homestead does.
+
+This is the recommended shape when Access fronts the endpoint. The other modes
+are `oauth` (only Homestead's own bearer tokens) and `both` (the legacy
+default: bearer first, then the Access JWT).
+:::
 
 ```bash
 OAUTH_SERVER_CF_ACCESS_TEAM_DOMAIN=your-team   # or your-team.cloudflareaccess.com

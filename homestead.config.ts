@@ -97,6 +97,31 @@ const authServer: NonNullable<HomesteadConfig['auth']>['authServer'] = authServe
 
 const auth: HomesteadConfig['auth'] = oauth || authServer ? { oauth, authServer } : undefined;
 
+// The MCP endpoint (/api/mcp). MCP_AUTH picks how callers authenticate:
+//
+//   cloudflare-access  Access sits in front of /api/mcp and forwards a signed
+//                      `Cf-Access-Jwt-Assertion`, which is the ONLY credential
+//                      accepted. Homestead runs no OAuth server of its own, so
+//                      no /oauth2/* or /.well-known/* is published at all —
+//                      nothing public to attack. Needs the CF_ACCESS vars above
+//                      (and enable Managed OAuth on the Access application,
+//                      which Cloudflare permits for servers that validate the
+//                      Access JWT — Homestead does).
+//   oauth              Only Homestead's own audience-bound bearer tokens.
+//   both               Bearer first, then the Access JWT (the legacy default).
+//
+// Leave MCP_AUTH unset to keep the historical behaviour, where MCP is derived
+// from auth.authServer.
+const mcpAuth = fromEnv('MCP_AUTH') as 'cloudflare-access' | 'oauth' | 'both' | undefined;
+const mcp: HomesteadConfig['mcp'] = mcpAuth
+  ? {
+      enabled: true,
+      auth: mcpAuth,
+      ...(cloudflareAccess ? { cloudflareAccess } : {}),
+      ...(fromEnv('MCP_RESOURCE_URL') ? { resourceUrl: fromEnv('MCP_RESOURCE_URL') } : {}),
+    }
+  : undefined;
+
 // AI is opt-in: enabled only when an API key is present in the launcher's
 // environment. Set the key via AI_API_KEY; with no key set, `ai` is undefined
 // and AI endpoints return 503. The defaults below (Gemini) can be overridden
@@ -193,6 +218,7 @@ const config: HomesteadConfig = {
     gamesApp,
   ],
   auth,
+  mcp,
   ai,
   email,
   embedding,

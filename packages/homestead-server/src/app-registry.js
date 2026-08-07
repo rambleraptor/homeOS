@@ -77,6 +77,11 @@ export function authServerConfig() {
   return config.auth?.authServer ?? null;
 }
 
+/** The `mcp` block of homestead.config.ts, or null when absent (legacy shape). */
+export function mcpConfig() {
+  return config.mcp ?? null;
+}
+
 /** The `ai` block of homestead.config.ts, or null when AI is unconfigured. */
 export function aiConfig() {
   return config.ai ?? null;
