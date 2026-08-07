@@ -7,7 +7,7 @@
  * and an {@link ExternalAuthConfig} member.
  */
 
-import type { AuthServerConfig, ExternalAuthConfig } from '@rambleraptor/homestead-core/apps/config';
+import type { ExternalAuthConfig } from '@rambleraptor/homestead-core/apps/config';
 import { cloudflareAccessAuthenticator } from './access-jwt';
 import type { RequestAuthenticator } from './authenticator';
 
@@ -26,21 +26,7 @@ function buildAuthenticator(cfg: ExternalAuthConfig): RequestAuthenticator {
   }
 }
 
-/**
- * Normalize an {@link AuthServerConfig} to its ordered list of external-auth
- * descriptors, folding the deprecated `cloudflareAccess` field into the
- * {@link ExternalAuthConfig} union (unless an equivalent entry is already in
- * `externalAuth`). Callers pass the result to {@link buildAuthenticators}.
- */
-export function externalAuthConfigs(cfg: AuthServerConfig): ExternalAuthConfig[] {
-  const configs = [...(cfg.externalAuth ?? [])];
-  if (cfg.cloudflareAccess && !configs.some((c) => c.provider === 'cloudflare-access')) {
-    configs.push({ provider: 'cloudflare-access', ...cfg.cloudflareAccess });
-  }
-  return configs;
-}
-
 /** Build the ordered authenticator chain from a list of descriptors. */
-export function buildAuthenticators(configs: ExternalAuthConfig[]): RequestAuthenticator[] {
+export function buildAuthenticators(configs: ExternalAuthConfig[] = []): RequestAuthenticator[] {
   return configs.map(buildAuthenticator);
 }

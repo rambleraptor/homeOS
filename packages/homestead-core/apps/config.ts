@@ -145,13 +145,6 @@ export interface AuthServerConfig {
    * endpoint's own OAuth is unaffected. Omit to run MCP on OAuth alone.
    */
   externalAuth?: ExternalAuthConfig[];
-  /**
-   * @deprecated Use {@link externalAuth} with a `cloudflare-access` entry. Kept
-   * as a soft-migration alias — when set (and not already present in
-   * `externalAuth`), it is folded into the authenticator list as a
-   * `cloudflare-access` provider.
-   */
-  cloudflareAccess?: CloudflareAccessConfig;
 }
 
 /** Authentication configuration for this instance. */

@@ -22,7 +22,7 @@ import type { Engine } from '../engine/engine';
 import { verifyAccessToken, unauthorizedResponse } from '../auth/oauth/verify';
 import { accessJwtLog } from '../auth/access-jwt';
 import type { RequestAuthenticator } from '../auth/authenticator';
-import { buildAuthenticators, externalAuthConfigs } from '../auth/providers';
+import { buildAuthenticators } from '../auth/providers';
 import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
@@ -53,9 +53,8 @@ interface ResolvedCaller {
 export interface McpRouteOptions {
   /**
    * Override the external-auth chain. Defaults to the authenticators built from
-   * `cfg.externalAuth` (plus the deprecated `cfg.cloudflareAccess` alias; empty
-   * → OAuth only). Injected in tests so the route can be exercised without a
-   * live JWKS endpoint.
+   * `cfg.externalAuth` (empty → OAuth only). Injected in tests so the route can
+   * be exercised without a live JWKS endpoint.
    */
   authenticators?: RequestAuthenticator[];
 }
@@ -80,7 +79,7 @@ export function makeMcpRoute(
   opts: McpRouteOptions = {},
 ): Hono {
   const audience = mcpAudience(cfg.issuerUrl);
-  const authenticators = opts.authenticators ?? buildAuthenticators(externalAuthConfigs(cfg));
+  const authenticators = opts.authenticators ?? buildAuthenticators(cfg.externalAuth);
   const app = new Hono();
 
   app.options('/', () => new Response(null, { status: 204, headers: CORS_HEADERS }));
