@@ -82,16 +82,18 @@ const cfAccessAud = (fromEnv('OAUTH_SERVER_CF_ACCESS_AUD') ?? '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
-const cloudflareAccess =
+const externalAuth: NonNullable<
+  NonNullable<HomesteadConfig['auth']>['authServer']
+>['externalAuth'] =
   cfAccessTeamDomain && cfAccessAud.length > 0
-    ? { teamDomain: cfAccessTeamDomain, aud: cfAccessAud }
+    ? [{ provider: 'cloudflare-access', teamDomain: cfAccessTeamDomain, aud: cfAccessAud }]
     : undefined;
 const authServer: NonNullable<HomesteadConfig['auth']>['authServer'] = authServerEnabled
   ? {
       enabled: true,
       issuerUrl: fromEnv('OAUTH_SERVER_ISSUER_URL') ?? 'http://localhost:3000',
       scopesSupported: ['homestead'],
-      ...(cloudflareAccess ? { cloudflareAccess } : {}),
+      ...(externalAuth ? { externalAuth } : {}),
     }
   : undefined;
 

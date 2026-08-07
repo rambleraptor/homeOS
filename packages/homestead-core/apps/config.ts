@@ -55,6 +55,10 @@ export interface OAuthConfig {
  * tools then run under. This is Cloudflare's "MCP server behind Access" model —
  * Access owns authentication for the endpoint, in place of the endpoint's own
  * OAuth challenge. Server-side only. Omit to keep MCP on its own OAuth.
+ *
+ * This is the provider-neutral settings shape (the verifier's inputs). A
+ * {@link CloudflareAccessAuthConfig} is the same thing plus the `provider`
+ * discriminator that lets it live in the {@link ExternalAuthConfig} list.
  */
 export interface CloudflareAccessConfig {
   /**
@@ -70,6 +74,31 @@ export interface CloudflareAccessConfig {
    */
   aud: string | string[];
 }
+
+/**
+ * Cloudflare Access as an {@link ExternalAuthConfig} member. The `provider`
+ * discriminator names the authenticator the server builds from it; the rest is
+ * the plain {@link CloudflareAccessConfig} settings.
+ */
+export interface CloudflareAccessAuthConfig extends CloudflareAccessConfig {
+  provider: 'cloudflare-access';
+}
+
+/**
+ * A pluggable request authenticator fronting the MCP endpoint, as a plain-data
+ * descriptor. This is a discriminated union over `provider` — exactly like
+ * {@link EmailConfig} — so `homestead.config.ts` (which the SPA imports) only
+ * ever holds settings, never a live server-side authenticator. At boot the
+ * server narrows on `provider` to build the matching authenticator (see
+ * `homestead-server/src/auth/providers.ts`). Add a provider by adding a member
+ * here plus a case in that factory.
+ *
+ * Each authenticator verifies an inbound request and, on success, reports the
+ * caller's email; the endpoint maps that to a Homestead user and runs under
+ * their permissions. A normal audience-bound OAuth bearer is always tried
+ * first, so these are additive fallbacks, not replacements.
+ */
+export type ExternalAuthConfig = CloudflareAccessAuthConfig;
 
 /**
  * Homestead-as-OAuth-provider configuration. When enabled, the instance runs
@@ -107,11 +136,20 @@ export interface AuthServerConfig {
    */
   mcpEnabled?: boolean;
   /**
-   * Put the MCP endpoint behind Cloudflare Access instead of (as a fallback to)
-   * its own OAuth. When set, a request carrying a valid `Cf-Access-Jwt-Assertion`
-   * is authenticated as the Homestead user whose email matches the token, so
-   * Access can gate `/api/mcp` directly. A normal audience-bound bearer token
-   * still works, so the endpoint's own OAuth is unaffected. Omit to disable.
+   * Pluggable request authenticators fronting the MCP endpoint, tried in order
+   * after the endpoint's own audience-bound OAuth bearer. Each is a plain-data
+   * {@link ExternalAuthConfig} descriptor the server turns into a live
+   * authenticator at boot. A request carrying credentials one of them verifies
+   * is authenticated as the Homestead user whose email it reports, so an
+   * external gateway (Cloudflare Access today) can gate `/api/mcp` directly. The
+   * endpoint's own OAuth is unaffected. Omit to run MCP on OAuth alone.
+   */
+  externalAuth?: ExternalAuthConfig[];
+  /**
+   * @deprecated Use {@link externalAuth} with a `cloudflare-access` entry. Kept
+   * as a soft-migration alias — when set (and not already present in
+   * `externalAuth`), it is folded into the authenticator list as a
+   * `cloudflare-access` provider.
    */
   cloudflareAccess?: CloudflareAccessConfig;
 }

@@ -24,7 +24,7 @@ import { makeMcpRoute, mcpAudience } from '../../src/routes/mcp';
 import { registerHomesteadTools, type RegisterOptions } from '../../src/mcp/register';
 import { scopeAllowsWrite } from '../../src/mcp/scopes';
 import { seedUser } from '../engine/helpers';
-import type { AccessIdentity } from '../../src/auth/access-jwt';
+import type { AuthIdentity, RequestAuthenticator } from '../../src/auth/authenticator';
 
 const CFG: AuthServerConfig = {
   enabled: true,
@@ -127,11 +127,14 @@ describe('MCP behind Cloudflare Access', () => {
     },
   });
 
-  // A stub verifier standing in for real JWT verification (covered in
+  // A stub authenticator standing in for real JWT verification (covered in
   // access-jwt.test.ts): it maps the header value straight to an email.
-  const stubVerifier = async (req: Request): Promise<AccessIdentity | null> => {
-    const email = req.headers.get(HEADER);
-    return email ? { email } : null;
+  const stubAuthenticator: RequestAuthenticator = {
+    name: 'stub',
+    async authenticate(req: Request): Promise<AuthIdentity | null> {
+      const email = req.headers.get(HEADER);
+      return email ? { email } : null;
+    },
   };
 
   async function accessHarness() {
@@ -140,7 +143,7 @@ describe('MCP behind Cloudflare Access', () => {
     const app = new Hono();
     app.route(
       '/api/mcp',
-      makeMcpRoute(t.engine, CFG, () => [BOOK], { accessVerifier: stubVerifier }),
+      makeMcpRoute(t.engine, CFG, () => [BOOK], { authenticators: [stubAuthenticator] }),
     );
     return { t, app };
   }
