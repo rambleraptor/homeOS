@@ -154,22 +154,24 @@ Each registered device is a `notification-subscription` record, and carries an
 item-target custom method (AEP-136) that pushes to that one device:
 
 ```
-POST /api/aep/notification-subscriptions/{id}:send
+POST /api/aep/notification-subscriptions/{id}:send-notification
 ```
 
 The caller is resolved from auth, so the addressed id is all that's needed —
 the user-parented form
-(`/api/aep/users/{user-id}/notification-subscriptions/{id}:send`) works too.
-Because it's a standard AEP custom method (not a bespoke route), it's reachable
-from anything that speaks the engine — the CLI, scripts, `curl`:
+(`/api/aep/users/{user-id}/notification-subscriptions/{id}:send-notification`)
+works too. Because it's a standard AEP custom method (not a bespoke route),
+it's reachable from anything that speaks the engine — the CLI, scripts, `curl`
+— and it's described in the OpenAPI doc (`/api/aep/openapi.json`) with its
+request and response schemas:
 
 ```bash
 # Bare POST → sends a test notification to that device
-curl -X POST "$HOMESTEAD_URL/api/aep/notification-subscriptions/$DEVICE_ID:send" \
+curl -X POST "$HOMESTEAD_URL/api/aep/notification-subscriptions/$DEVICE_ID:send-notification" \
   -H "Authorization: Bearer $TOKEN"
 
 # Or pass a JSON body to send real content
-curl -X POST "$HOMESTEAD_URL/api/aep/notification-subscriptions/$DEVICE_ID:send" \
+curl -X POST "$HOMESTEAD_URL/api/aep/notification-subscriptions/$DEVICE_ID:send-notification" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{ "title": "Dinner", "body": "Roast is ready", "url": "/recipes/42" }'
 ```
@@ -181,7 +183,7 @@ send — one inbox row is recorded. List a user's device ids with
 `GET /api/aep/users/{user-id}/notification-subscriptions`.
 
 From the client, invoke it with
-`aepbase.customMethod('notification-subscriptions', 'send', body, { id })`.
+`aepbase.customMethod('notification-subscriptions', 'send-notification', body, { id })`.
 
 ---
 

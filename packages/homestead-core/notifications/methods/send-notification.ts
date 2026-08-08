@@ -1,10 +1,13 @@
 /**
- * `notification-subscription:send` custom method (AEP-136), item-target.
+ * `notification-subscription:send-notification` custom method (AEP-136),
+ * item-target.
  *
  * Dispatched by the sidecar gateway as
- * `POST /api/aep/notification-subscriptions/{id}:send` (the user-parented form
- * `POST /api/aep/users/{uid}/notification-subscriptions/{id}:send` works too —
- * the caller is resolved from auth, so the addressed id is all that matters).
+ * `POST /api/aep/notification-subscriptions/{id}:send-notification` (the
+ * user-parented form
+ * `POST /api/aep/users/{uid}/notification-subscriptions/{id}:send-notification`
+ * works too — the caller is resolved from auth, so the addressed id is all that
+ * matters).
  *
  * Sends a push notification to a *single* device — the addressed
  * notification-subscription — and records one inbox row, via

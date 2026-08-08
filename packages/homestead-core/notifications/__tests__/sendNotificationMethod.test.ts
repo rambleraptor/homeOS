@@ -1,6 +1,6 @@
 /**
- * Tests for the `notification-subscription:send` custom method — the
- * item-target handler that pushes to a single device (and gives CLI/AEP
+ * Tests for the `notification-subscription:send-notification` custom method —
+ * the item-target handler that pushes to a single device (and gives CLI/AEP
  * callers a way to do so).
  *
  * `sendNotificationForAuth` is mocked so the real web-push module never loads.
@@ -38,7 +38,7 @@ function makeCtx(overrides: Partial<CustomMethodContext>): CustomMethodContext {
   } as CustomMethodContext;
 }
 
-describe('notification-subscription:send', () => {
+describe('notification-subscription:send-notification', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('targets the addressed device and sends a default test notification', async () => {
