@@ -193,9 +193,9 @@ Seed via the shared client (`e2eClient` in
 Feature apps ship in the `@rambleraptor/homestead-apps` workspace
 package at `packages/homestead-apps/<feature>/`. The registry, the
 `AppConfig`/`AppFlagDef` types, and the always-installed core apps
-(`settings`, `superuser`, `users`, `chat`) live in the
-`@rambleraptor/homestead-core` package (`packages/homestead-core/`) because
-they are part of the core experience. `packages/homestead-app/src/apps/registry.ts` is
+(`dashboard`, `settings`, `superuser`, `users`, `chat`, `notifications`) live
+in the `@rambleraptor/homestead-core` package (`packages/homestead-core/`)
+because they are part of the core experience. `packages/homestead-app/src/apps/registry.ts` is
 just a boot shim that installs the registry singleton with the operator's
 apps from `homestead.config.ts` plus those core apps.
 
@@ -273,18 +273,20 @@ SPA and apps share:
   the engine base URL (`AEPBASE_URL`) the client is pointed at
 - `auth/` — AuthContext, types, route guards
 - `apps/` — registry, the `AppConfig`/`AppFlagDef` contract types
-- `settings/`, `superuser/`, `users/`, `chat/` — the always-installed core
-  apps (`chat` is the AI assistant; its server half lives in
-  `server/chat/`)
+- `dashboard/`, `settings/`, `superuser/`, `users/`, `chat/`,
+  `notifications/` — the always-installed core apps (`chat` is the AI
+  assistant; its server half lives in `server/chat/`. `notifications` owns the
+  web-push inbox + subscription management; its server half lives in
+  `server/notifications.ts`)
 - `layout/`, `shared/`, `resources/`, `app-flags/`, `user-settings/` —
   shared chrome, components, and schema/sync plumbing
 
 ### Feature apps package (`packages/homestead-apps/`)
 
-The user-facing feature apps (`credit-cards`, `dashboard`, `events`,
-`games`, `gift-cards`, `groceries`, `hsa`, `notifications`, `people`,
-`recipes`, `todos`) live here as the `@rambleraptor/homestead-apps`
-workspace package. Apps import `@rambleraptor/homestead-core/...`
+The user-facing feature apps (`credit-cards`, `events`, `games`,
+`gift-cards`, `groceries`, `hsa`, `people`, `recipes`, `todos`) live here as
+the `@rambleraptor/homestead-apps` workspace package. (`dashboard` and
+`notifications` are always-installed core apps and live in `homestead-core`.) Apps import `@rambleraptor/homestead-core/...`
 through the workspace + a TypeScript path alias defined in
 `packages/homestead-apps/tsconfig.json`.
 
