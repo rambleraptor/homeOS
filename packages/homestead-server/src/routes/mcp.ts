@@ -20,7 +20,9 @@ import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config'
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
 import type { Engine } from '../engine/engine';
 import { verifyAccessToken, unauthorizedResponse } from '../auth/oauth/verify';
-import { makeAccessJwtVerifier, accessJwtLog, type AccessIdentity } from '../auth/access-jwt';
+import { accessJwtLog } from '../auth/access-jwt';
+import type { RequestAuthenticator } from '../auth/authenticator';
+import { buildAuthenticators } from '../auth/providers';
 import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
@@ -47,14 +49,14 @@ interface ResolvedCaller {
   release: () => void;
 }
 
-/** Options for {@link makeMcpRoute}; the verifier override is a test seam. */
+/** Options for {@link makeMcpRoute}; the authenticator override is a test seam. */
 export interface McpRouteOptions {
   /**
-   * Override the Cloudflare Access JWT verifier. Defaults to one built from
-   * `cfg.cloudflareAccess` (absent → the Access fallback is disabled). Injected
-   * in tests so the route can be exercised without a live JWKS endpoint.
+   * Override the external-auth chain. Defaults to the authenticators built from
+   * `cfg.externalAuth` (empty → OAuth only). Injected in tests so the route can
+   * be exercised without a live JWKS endpoint.
    */
-  accessVerifier?: (req: Request) => Promise<AccessIdentity | null>;
+  authenticators?: RequestAuthenticator[];
 }
 
 function forbidden(message: string): Response {
@@ -77,40 +79,39 @@ export function makeMcpRoute(
   opts: McpRouteOptions = {},
 ): Hono {
   const audience = mcpAudience(cfg.issuerUrl);
-  const accessVerifier =
-    opts.accessVerifier ??
-    (cfg.cloudflareAccess ? makeAccessJwtVerifier(cfg.cloudflareAccess) : null);
+  const authenticators = opts.authenticators ?? buildAuthenticators(cfg.externalAuth);
   const app = new Hono();
 
   app.options('/', () => new Response(null, { status: 204, headers: CORS_HEADERS }));
 
   /**
    * Resolve a request to a caller token. Tries the endpoint's own OAuth first
-   * (an audience-bound bearer), then — when Cloudflare Access is configured —
-   * falls back to a verified `Cf-Access-Jwt-Assertion`, mapping its email to a
-   * Homestead user and minting a short-lived token to act as them. Returns a
-   * Response to short-circuit (401/403) when neither path authenticates.
+   * (an audience-bound bearer), then walks the external-auth chain in order:
+   * the first authenticator that resolves an identity wins, and its email is
+   * mapped to a Homestead user whose id backs a short-lived minted token.
+   * Returns a Response to short-circuit (401/403) when nothing authenticates.
    */
   async function resolveCaller(req: Request): Promise<ResolvedCaller | Response> {
     const verified = verifyAccessToken(engine.db, req, { audience });
     if (verified) {
       return { token: verified.token, scope: verified.scope, release: () => {} };
     }
-    if (accessVerifier) {
-      const identity = await accessVerifier(req);
-      if (identity) {
-        const found = getUserByEmail(engine.db, identity.email);
-        if (!found) {
-          accessJwtLog.debug('no Homestead user for verified email', { email: identity.email });
-          return forbidden(`no Homestead user for ${identity.email}`);
-        }
-        // Access-authenticated callers are unscoped → full read+write, matching
-        // the endpoint's treatment of an unscoped OAuth token.
-        const minted = mintTokenForUser(engine.db, found.user.id);
-        return { token: minted.token, scope: null, release: minted.revoke };
+    if (authenticators.length === 0) {
+      accessJwtLog.debug('no external authenticators configured (auth.authServer.externalAuth empty)');
+    }
+    for (const authenticator of authenticators) {
+      const identity = await authenticator.authenticate(req);
+      if (!identity) continue;
+      const found = getUserByEmail(engine.db, identity.email);
+      if (!found) {
+        accessJwtLog.debug('no Homestead user for verified email', {
+          email: identity.email,
+          via: authenticator.name,
+        });
+        return forbidden(`no Homestead user for ${identity.email}`);
       }
-    } else {
-      accessJwtLog.debug('Cloudflare Access not configured (auth.authServer.cloudflareAccess absent)');
+      const minted = mintTokenForUser(engine.db, found.user.id);
+      return { token: minted.token, scope: identity.scope ?? null, release: minted.revoke };
     }
     return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');
   }

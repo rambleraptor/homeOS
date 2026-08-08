@@ -243,7 +243,7 @@ break it.
 `HOMESTEAD_LOG_LEVEL=debug` and restart, then watch the logs (filter for the
 `access-jwt` scope). Each rejection logs the exact reason (`issuer mismatch`,
 `audience mismatch`, `signature invalid`, `no Homestead user for <email>`, or
-`Cloudflare Access not configured`), so you can see which check failed. If you
+`no external authenticators configured`), so you can see which check failed. If you
 see **no** `access-jwt` line at all for an attempt, the request never reached
 Homestead — the failure is upstream in Cloudflare/the client, not here. Return
 the level to `info` once you're done.

@@ -18,6 +18,7 @@
  */
 
 import type { CloudflareAccessConfig } from '@rambleraptor/homestead-core/apps/config';
+import type { AuthIdentity, RequestAuthenticator } from './authenticator';
 import { createLogger } from '../log';
 
 /** The header Cloudflare Access injects at the origin, carrying the signed JWT. */
@@ -264,6 +265,23 @@ export function makeAccessJwtVerifier(
 
     accessJwtLog.debug('verified', { email: payload.email });
     return { email: payload.email, sub: payload.sub };
+  };
+}
+
+/**
+ * Wrap the Access JWT verifier as a {@link RequestAuthenticator}, mapping the
+ * verified {@link AccessIdentity} to the provider-neutral {@link AuthIdentity}.
+ * Access-authenticated callers are unscoped (`scope: null`) → full read+write,
+ * matching how the endpoint treats an unscoped OAuth token.
+ */
+export function cloudflareAccessAuthenticator(cfg: CloudflareAccessConfig): RequestAuthenticator {
+  const verify = makeAccessJwtVerifier(cfg);
+  return {
+    name: 'cloudflare-access',
+    async authenticate(req: Request): Promise<AuthIdentity | null> {
+      const id = await verify(req);
+      return id ? { email: id.email, subject: id.sub, scope: null } : null;
+    },
   };
 }
 
