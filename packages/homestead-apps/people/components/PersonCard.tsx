@@ -72,13 +72,15 @@ export function PersonCard({
         <div className="flex items-start gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <Link
-                to={`/people/${person.id}`}
-                className="font-semibold text-gray-900 hover:text-blue-600 hover:underline"
-                data-testid="person-detail-link"
-              >
-                {person.name}
-              </Link>
+              <h3 className="font-semibold text-gray-900">
+                <Link
+                  to={`/people/${person.id}`}
+                  className="hover:text-blue-600 hover:underline"
+                  data-testid="person-detail-link"
+                >
+                  {person.name}
+                </Link>
+              </h3>
               {partner && (
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Users className="w-3 h-3" aria-label="Partner icon" />
