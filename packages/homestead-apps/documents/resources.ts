@@ -102,6 +102,21 @@ export const documentsResources: ResourceDefinition[] = [
         description: 'Ids of the collections this document belongs to.',
       },
       /**
+       * Ids of the people this document is about (many-to-many). Seeded on
+       * classify from the names a doc type extracts (resolved against the People
+       * directory) and editable by hand; a document may have none. `set-null`
+       * drops a deleted person's id from every document, keeping the link
+       * consistent — mirrors `collections` above.
+       */
+      people: {
+        type: 'array',
+        items: {
+          type: 'string',
+          reference: { resource: 'person', onDelete: 'set-null' },
+        },
+        description: 'Ids of the people this document is about.',
+      },
+      /**
        * Recorded at upload because `:download` serves every file as
        * `application/octet-stream` — the classify handler can't recover the
        * real type from the bytes it reads back, and the model needs it.

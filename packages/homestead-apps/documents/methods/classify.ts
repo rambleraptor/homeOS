@@ -43,6 +43,9 @@ import {
 } from '../doc-types/docType';
 import { getDocType, getDocTypes } from '../doc-types/registry';
 import { parseForcedDocType } from './forced-type';
+import { resolveDocumentPersonIds } from '../personLinks';
+import { PEOPLE } from '../../people/resources';
+import type { Person } from '../../people/types';
 import type { Document } from '../types';
 
 /**
@@ -379,6 +382,37 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth, request }) => {
     metadata,
     parse_status: matched ? 'parsed' : 'unmatched',
   });
+
+  // Seed the document's people link from the names this type extracted — but
+  // only when it has none yet, so a re-classify ("Read again") never clobbers a
+  // link a human has since curated. Resolves each extracted name against the
+  // People directory (the same matching the documents person facet uses).
+  // Best-effort: a directory read or link write that fails is logged, never
+  // fatal to the classification, which has already succeeded.
+  if (matched && !(doc.people && doc.people.length > 0)) {
+    try {
+      const rows = await serverClient(auth.token)
+        .collection<{ id: string; name: string; aliases?: string[] }>(PEOPLE)
+        .listAll();
+      const directory = rows.map(
+        (row): Person => ({
+          id: row.id,
+          name: row.name,
+          aliases: row.aliases ?? [],
+          addresses: [],
+          created_by: '',
+          created: '',
+          updated: '',
+        }),
+      );
+      const peopleIds = resolveDocumentPersonIds(updated, directory);
+      if (peopleIds.length > 0) {
+        await documents.record(docId).update({ people: peopleIds });
+      }
+    } catch (err) {
+      console.error(`[documents] seeding people failed for ${docId}`, err);
+    }
+  }
 
   // Fire the matched type's post-classify hook, if any. Guarded on `matched`
   // and on the document not already carrying a link, so a re-run ("Read again")

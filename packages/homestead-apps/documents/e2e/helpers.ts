@@ -65,6 +65,32 @@ export async function uploadDocument(
   return e2eClient(token).collection<DocumentRecord>(DOCUMENTS).create(formData);
 }
 
+/**
+ * Seed a document already linked to people (and optionally already classified to
+ * a doc type), without going through classify. Lets a spec exercise the stored
+ * `people` link and the person detail page directly, with no AI in the loop.
+ */
+export async function createDocumentWithPeople(
+  token: string,
+  opts: { title: string; docType?: string; people: string[] },
+): Promise<DocumentRecord> {
+  const blob = new Blob([new TextEncoder().encode('linked-doc')], {
+    type: 'application/pdf',
+  });
+  const resource: Record<string, unknown> = {
+    title: opts.title,
+    title_edited: true,
+    mime_type: 'application/pdf',
+    parse_status: opts.docType ? 'parsed' : 'unmatched',
+    people: opts.people,
+    ...(opts.docType ? { metadata: { doc_type: opts.docType } } : {}),
+  };
+  const formData = new FormData();
+  formData.append('resource', JSON.stringify(resource));
+  formData.append('file', blob, 'document.pdf');
+  return e2eClient(token).collection<DocumentRecord>(DOCUMENTS).create(formData);
+}
+
 /** Invoke the real classify method on a document; returns its 202 operation. */
 export async function classifyDocument(
   token: string,
