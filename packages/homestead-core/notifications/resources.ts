@@ -51,5 +51,13 @@ export const notificationsResources: ResourceDefinition[] = [
           'Human-readable name for the device this subscription belongs to (e.g. "Chrome on macOS").',
       },
     },
+    // POST /api/aep/notification-subscriptions/{id}:send — push a notification
+    // to this one device (defaults to a test notification with no body).
+    customMethods: {
+      send: {
+        target: 'item',
+        load: () => import('./methods/send-notification'),
+      },
+    },
   },
 ];
