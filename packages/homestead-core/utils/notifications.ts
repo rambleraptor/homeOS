@@ -1,11 +1,13 @@
 import { logger } from './logger';
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+// Baked into the SPA bundle at build time from VAPID_PUBLIC_KEY (see
+// vite.config.ts). The public key is safe to expose to the browser.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
 
-if (!VAPID_PUBLIC_KEY) {
+if (typeof window !== 'undefined' && !VAPID_PUBLIC_KEY) {
   logger.error(
-    'NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set. Web push notifications will not work. ' +
-      'Please set this environment variable in your .env.local file. ' +
+    'VAPID_PUBLIC_KEY is not set. Web push notifications will not work. ' +
+      'Set it in packages/homestead-app/.env before building. ' +
       'You can generate VAPID keys using: npx web-push generate-vapid-keys'
   );
 }
@@ -101,15 +103,4 @@ export function describeCurrentDevice(): string {
     : 'Browser';
 
   return `${browser} on ${os}`;
-}
-
-export function showNotification(title: string, options?: NotificationOptions): void {
-  if (!isNotificationSupported()) {
-    logger.warn('Notifications are not supported');
-    return;
-  }
-
-  if (Notification.permission === 'granted') {
-    new Notification(title, options);
-  }
 }

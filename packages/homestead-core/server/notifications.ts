@@ -2,8 +2,8 @@
  * Reusable utility for sending push notifications to an authenticated user.
  *
  * Handles VAPID configuration, subscription fetching, push delivery,
- * expired subscription cleanup, and notification record creation — all
- * against aepbase.
+ * expired subscription cleanup, and inbox record creation (one row per send,
+ * whether or not a push was delivered) — all against aepbase.
  *
  * Runtime-agnostic: returns a Web `Response`, so it works under Next, the
  * Bun sidecar, and app workers alike.
@@ -95,15 +95,6 @@ export async function sendNotificationForAuth(
     }
   }
 
-  if (enabledSubs.length === 0) {
-    return Response.json({
-      success: false,
-      message:
-        'No active push subscriptions found. Please enable notifications first.',
-      timestamp: new Date().toISOString(),
-    });
-  }
-
   let sentCount = 0;
   let failedCount = 0;
 
@@ -125,17 +116,6 @@ export async function sendNotificationForAuth(
 
       await webpush.sendNotification(sub.subscription_data, payload);
       sentCount++;
-
-      await userRecord.collection('notifications').create({
-        user_id: userId,
-        title: options.title,
-        message: options.body,
-        notification_type: 'system',
-        source_collection: options.sourceCollection,
-        source_id: options.sourceId,
-        read: false,
-        sent_at: new Date().toISOString(),
-      });
     } catch (error: unknown) {
       const err = error as { statusCode?: number };
       failedCount++;
@@ -149,9 +129,43 @@ export async function sendNotificationForAuth(
     }
   }
 
+  // Record the notification in the user's inbox exactly once — regardless of
+  // how many devices it reached, or whether any did. The inbox is the durable
+  // record of what was sent; web push is best-effort delivery layered on top,
+  // so a user with no (or only stale) subscriptions still sees the message.
+  try {
+    await userRecord.collection('notifications').create({
+      user_id: userId,
+      title: options.title,
+      message: options.body,
+      notification_type: 'system',
+      source_collection: options.sourceCollection,
+      source_id: options.sourceId,
+      read: false,
+      sent_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Failed to record notification in inbox:', error);
+    return Response.json(
+      { error: 'Failed to record notification' },
+      { status: 500 },
+    );
+  }
+
+  const deviceCount = enabledSubs.length;
+  let message: string;
+  if (deviceCount === 0) {
+    message = 'Saved to your inbox. No devices are subscribed for push notifications.';
+  } else if (sentCount === 0) {
+    message = `Saved to your inbox, but push delivery failed on all ${deviceCount} device(s).`;
+  } else {
+    message = `Notification sent to ${sentCount} of ${deviceCount} device(s) and saved to your inbox.`;
+  }
+
   return Response.json({
-    success: sentCount > 0,
-    message: `Notification sent to ${sentCount} subscription(s)`,
+    success: true,
+    recorded: true,
+    message,
     sent: sentCount,
     failed: failedCount,
     timestamp: new Date().toISOString(),

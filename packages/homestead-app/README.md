@@ -46,10 +46,12 @@ Copy `.env.example` to `.env` and configure:
 # http://127.0.0.1:3000/api/aep — only set this when the engine is elsewhere.
 AEPBASE_URL=http://127.0.0.1:3000/api/aep
 NEXT_PUBLIC_APP_NAME=Homestead
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PUBLIC_KEY=your_vapid_public_key
 ```
 
-**Note**: Environment variables in Next.js must be prefixed with `NEXT_PUBLIC_` to be accessible in the browser.
+**Note**: `VAPID_PUBLIC_KEY` is baked into the SPA bundle at build time (see
+`vite.config.ts`) so the browser can subscribe with it; the same variable signs
+pushes server-side.
 
 ## Project Structure
 

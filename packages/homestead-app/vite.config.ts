@@ -120,7 +120,10 @@ export default defineConfig(({ mode }) => ({
     'process.env.NEXT_PUBLIC_COMMIT_DATE': JSON.stringify(commitDate),
     'process.env.NEXT_PUBLIC_COMMIT_MESSAGE': JSON.stringify(commitMessage),
     'process.env.NEXT_PUBLIC_BUILD_ID': JSON.stringify(commitHash),
-    'process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY': JSON.stringify(
+    // Bake the public VAPID key into the browser bundle. The legacy
+    // NEXT_PUBLIC_VAPID_PUBLIC_KEY is still honored as a fallback so existing
+    // .env files keep working.
+    'process.env.VAPID_PUBLIC_KEY': JSON.stringify(
       process.env.VAPID_PUBLIC_KEY ??
         process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ??
         '',
