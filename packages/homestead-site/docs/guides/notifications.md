@@ -205,3 +205,14 @@ Run a manual smoke test: with the dev stack running, `POST` to
 `/api/notifications/send-test` from the browser DevTools console. (The Settings
 page wires this up via `useSendTestNotification`.) You see a push and a new row
 in your inbox.
+
+By default the test goes to every device the user has registered. To target a
+single device, send its `notification-subscription` id in the body:
+
+```json
+{ "subscriptionId": "<notification-subscription-id>" }
+```
+
+The Settings screen lists each registered device (by a friendly label derived
+from its user agent) and uses this to send a test to — or deregister — one
+device at a time.

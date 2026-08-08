@@ -26,6 +26,12 @@ export interface UserNotificationOptions {
   url: string;
   sourceCollection?: string;
   sourceId?: string;
+  /**
+   * Restrict delivery to a single notification-subscription (device) by id.
+   * Omit to deliver to every enabled subscription. Used by the settings
+   * screen's per-device "send test" action.
+   */
+  subscriptionId?: string;
 }
 
 export async function sendUserNotification(
@@ -75,7 +81,19 @@ export async function sendNotificationForAuth(
     );
   }
 
-  const enabledSubs = subscriptions.filter((sub) => sub.enabled === true);
+  let enabledSubs = subscriptions.filter((sub) => sub.enabled === true);
+
+  if (options.subscriptionId) {
+    enabledSubs = enabledSubs.filter((sub) => sub.id === options.subscriptionId);
+    if (enabledSubs.length === 0) {
+      return Response.json({
+        success: false,
+        message:
+          'That device is no longer registered for notifications. Please refresh and try again.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 
   if (enabledSubs.length === 0) {
     return Response.json({

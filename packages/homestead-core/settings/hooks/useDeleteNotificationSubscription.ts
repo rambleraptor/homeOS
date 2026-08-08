@@ -2,41 +2,28 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { NOTIFICATION_SUBSCRIPTIONS } from '@rambleraptor/homestead-core/notifications/constants';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import type { NotificationSubscription } from '../types';
+import { notificationSubscriptionsKey } from './useNotificationSubscriptions';
 
-interface AepNotificationSubscription extends NotificationSubscription {
-  path: string;
-  create_time: string;
-  update_time: string;
-}
-
+/**
+ * Deregister a single device by its subscription id. The caller (SettingsHome)
+ * is responsible for browser-unsubscribing first when the id belongs to the
+ * current device.
+ */
 export function useDeleteNotificationSubscription() {
   const queryClient = useQueryClient();
   return useMutation({
     // SettingsHome wraps browser push-unsubscribe steps around this write and
     // shows its own message, so skip the global mutation error toast here.
     meta: { skipErrorToast: true },
-    mutationFn: async () => {
+    mutationFn: async (subscriptionId: string) => {
       const userId = aepbase.getCurrentUser()?.id;
       if (!userId) throw new Error('User not authenticated');
-      const parent = [USERS, userId];
-      const existing = await aepbase.list<AepNotificationSubscription>(
-        NOTIFICATION_SUBSCRIPTIONS,
-        { parent },
-      );
-      if (existing.length > 0) {
-        await aepbase.remove(
-          NOTIFICATION_SUBSCRIPTIONS,
-          existing[0].id,
-          { parent },
-        );
-      }
+      await aepbase.remove(NOTIFICATION_SUBSCRIPTIONS, subscriptionId, {
+        parent: [USERS, userId],
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.app('settings').list({ type: 'notification-subscription' }),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationSubscriptionsKey });
     },
   });
 }

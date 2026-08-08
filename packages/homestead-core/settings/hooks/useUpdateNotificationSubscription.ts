@@ -2,20 +2,25 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { NOTIFICATION_SUBSCRIPTIONS } from '@rambleraptor/homestead-core/notifications/constants';
-import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import type { NotificationSubscription } from '../types';
+import {
+  notificationSubscriptionsKey,
+  type AepNotificationSubscription,
+} from './useNotificationSubscriptions';
 
 interface UpdateSubscriptionData {
   subscription: PushSubscription;
   enabled: boolean;
+  deviceLabel?: string;
 }
 
-interface AepNotificationSubscription extends NotificationSubscription {
-  path: string;
-  create_time: string;
-  update_time: string;
-}
-
+/**
+ * Register (or refresh) the push subscription for the *current* device.
+ *
+ * A user can have many subscriptions — one per browser/device — so we dedup by
+ * the push `endpoint`: if a record for this endpoint already exists we patch it
+ * in place, otherwise we create a new one. This keeps re-subscribing on the
+ * same device from piling up duplicate rows.
+ */
 export function useUpdateNotificationSubscription() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -27,16 +32,26 @@ export function useUpdateNotificationSubscription() {
       if (!userId) throw new Error('User not authenticated');
 
       const parent = [USERS, userId];
+      const subscriptionJson = data.subscription.toJSON();
+      const endpoint = data.subscription.endpoint;
+
       const existing = await aepbase.list<AepNotificationSubscription>(
         NOTIFICATION_SUBSCRIPTIONS,
         { parent },
       );
+      const match = existing.find(
+        (sub) => sub.subscription_data?.endpoint === endpoint,
+      );
 
-      if (existing.length > 0) {
+      if (match) {
         return await aepbase.update<AepNotificationSubscription>(
           NOTIFICATION_SUBSCRIPTIONS,
-          existing[0].id,
-          { subscription_data: data.subscription, enabled: data.enabled },
+          match.id,
+          {
+            subscription_data: subscriptionJson,
+            enabled: data.enabled,
+            ...(data.deviceLabel ? { device_label: data.deviceLabel } : {}),
+          },
           { parent },
         );
       }
@@ -44,16 +59,15 @@ export function useUpdateNotificationSubscription() {
         NOTIFICATION_SUBSCRIPTIONS,
         {
           user_id: userId,
-          subscription_data: data.subscription,
+          subscription_data: subscriptionJson,
           enabled: data.enabled,
+          ...(data.deviceLabel ? { device_label: data.deviceLabel } : {}),
         },
         { parent },
       );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.app('settings').list({ type: 'notification-subscription' }),
-      });
+      queryClient.invalidateQueries({ queryKey: notificationSubscriptionsKey });
     },
   });
 }
