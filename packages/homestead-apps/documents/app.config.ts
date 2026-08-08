@@ -25,6 +25,16 @@ export const documentsApp: AppConfig = {
       load: () => import('./crons/ingest-email'),
     },
   ],
+  // Seed the new `document.people` link from the names each document already
+  // extracted, so a person's detail page has documents on day one. One-shot and
+  // idempotent (skips documents already linked).
+  migrations: [
+    {
+      id: 'documents-backfill-people',
+      title: 'Backfill document people from extracted names',
+      load: () => import('./migrations/backfill-people'),
+    },
+  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.FileText),
     basePath: '/documents',

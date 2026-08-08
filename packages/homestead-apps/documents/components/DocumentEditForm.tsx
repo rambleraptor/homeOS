@@ -17,6 +17,7 @@ import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInpu
 import { getDocTypes, getDocType } from '../doc-types/registry';
 import { UNKNOWN_DOC_TYPE, type DocField } from '../doc-types/docType';
 import { useCollections, toggleMembership } from '../hooks/useCollections';
+import { usePeople } from '../../people/hooks/usePeople';
 import type { Document, DocumentMetadata } from '../types';
 
 interface DocumentEditFormProps {
@@ -58,9 +59,11 @@ export function DocumentEditForm({
 }: DocumentEditFormProps) {
   const docTypes = getDocTypes();
   const { data: collections } = useCollections();
+  const { data: people } = usePeople();
   const [title, setTitle] = useState(document.title ?? '');
   const [tags, setTags] = useState<string[]>(document.tags ?? []);
   const [memberOf, setMemberOf] = useState<string[]>(document.collections ?? []);
+  const [linkedPeople, setLinkedPeople] = useState<string[]>(document.people ?? []);
   const [docTypeId, setDocTypeId] = useState(
     document.metadata?.doc_type ?? UNKNOWN_DOC_TYPE,
   );
@@ -113,6 +116,7 @@ export function DocumentEditForm({
       title_edited: true,
       tags,
       collections: memberOf,
+      people: linkedPeople,
       metadata,
       // A human-set type is authoritative: matched → parsed, unknown → unmatched.
       parse_status: matched ? 'parsed' : 'unmatched',
@@ -183,6 +187,40 @@ export function DocumentEditForm({
                     style={{ backgroundColor: c.color || '#4b5563' }}
                   />
                   {c.name}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {people && people.length > 0 && (
+        <div data-testid="document-edit-people">
+          <span className="block text-xs font-medium text-gray-700">People</span>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {people.map((person) => {
+              const checked = linkedPeople.includes(person.id);
+              return (
+                <label
+                  key={person.id}
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
+                    checked
+                      ? 'border-gray-900 bg-gray-900 text-white'
+                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={(e) =>
+                      setLinkedPeople((prev) =>
+                        toggleMembership(prev, person.id, e.target.checked),
+                      )
+                    }
+                    data-testid={`document-edit-person-${person.id}`}
+                  />
+                  {person.name}
                 </label>
               );
             })}

@@ -37,6 +37,13 @@ export const peopleApp: AppConfig = {
         path: 'import',
         component: () => import('./bulk-import').then((m) => m.PeopleBulkImport),
       },
+      // After the static `import` path so it isn't captured as a person id.
+      {
+        path: ':id',
+        component: () =>
+          import('./components/PersonDetailRoute').then((m) => m.PersonDetailRoute),
+        dynamic: true,
+      },
     ],
     section: 'Relationships',
     showInNav: true,

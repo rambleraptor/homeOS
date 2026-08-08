@@ -11,6 +11,7 @@ import {
   toWireSchema,
 } from '@rambleraptor/homestead-core/resources/translate';
 import { documentsResources, COLLECTIONS } from '../resources';
+import { peopleResources } from '../../people/resources';
 
 const byId = (singular: string) =>
   documentsResources.find((d) => d.singular === singular)!;
@@ -22,9 +23,13 @@ describe('collections resource', () => {
     }
   });
 
-  test('cross-resource references resolve (collection + user)', () => {
-    // `user` is a built-in root target; `collection` is declared alongside.
-    expect(() => validateReferenceTargets(documentsResources)).not.toThrow();
+  test('cross-resource references resolve (collection + user + person)', () => {
+    // `user` is a built-in root target; `collection` is declared alongside; the
+    // document `people` field references `person`, which lives in the people app,
+    // so the boot-time check resolves it across the merged resource set.
+    expect(() =>
+      validateReferenceTargets([...documentsResources, ...peopleResources]),
+    ).not.toThrow();
   });
 
   test('collection is a private (acl) resource', () => {
@@ -41,6 +46,14 @@ describe('collections resource', () => {
     expect(collections?.items?.reference?.resource).toBe('collection');
     // Deleting a collection drops the id from each document's membership.
     expect(collections?.items?.reference?.onDelete).toBe('set-null');
+  });
+
+  test('document people field references person with set-null', () => {
+    const people = byId('document').fields.people;
+    expect(people?.type).toBe('array');
+    expect(people?.items?.reference?.resource).toBe('person');
+    // Deleting a person drops their id from each document's people list.
+    expect(people?.items?.reference?.onDelete).toBe('set-null');
   });
 
   test('the collections field translates to an array wire property', () => {

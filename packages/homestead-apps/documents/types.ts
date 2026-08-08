@@ -28,6 +28,11 @@ export interface Document {
   tags?: string[];
   /** Ids of the collections this document belongs to (many-to-many). */
   collections?: string[];
+  /**
+   * Ids of the people this document is about (many-to-many). Seeded on classify
+   * from the names its doc type extracts, and editable by hand; may be empty.
+   */
+  people?: string[];
   /** Presence marker on read, not a usable URL — fetch bytes via `download`. */
   file?: string;
   /**
