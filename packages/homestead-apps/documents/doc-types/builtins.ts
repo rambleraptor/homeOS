@@ -11,6 +11,7 @@
 import type { DocType } from './docType';
 import advanceDirective from './advance-directive';
 import afterVisitSummary from './after-visit-summary';
+import applianceManual from './appliance-manual';
 import autoInsurancePolicy from './auto-insurance-policy';
 import dischargeSummary from './discharge-summary';
 import doctorNote from './doctor-note';
@@ -46,10 +47,14 @@ import propertyTaxStatement from './property-tax-statement';
 import recipe from './recipe';
 import scheduleK1 from './schedule-k-1';
 import visionPrescription from './vision-prescription';
+import warranty from './warranty';
 
 export const BUILTIN_DOC_TYPES: DocType[] = [
+  // Home / household documents (category "home").
   autoInsurancePolicy,
   homeInsurancePolicy,
+  applianceManual,
+  warranty,
   recipe,
   // Personal medical/health documents (category "medical").
   medicalReceipt,
