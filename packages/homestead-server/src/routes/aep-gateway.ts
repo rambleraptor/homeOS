@@ -10,9 +10,13 @@ import { Hono } from 'hono';
 import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
 import { operationStore } from '@rambleraptor/homestead-core/server/operations';
 import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/custom-methods/dispatcher';
-import { bulkImportCustomMethod } from '@rambleraptor/homestead-core/server/bulk-import/method';
-import { getResourceCustomMethod } from '../app-registry';
+import {
+  allBulkImportCustomMethods,
+  bulkImportCustomMethod,
+} from '@rambleraptor/homestead-core/server/bulk-import/method';
+import { getResourceCustomMethod, getAllResourceCustomMethods } from '../app-registry';
 import { handleCrudWithIndexing } from './file-index-trigger';
+import { injectCustomMethods } from './openapi-custom-methods';
 import type { Engine } from '../engine/engine';
 
 /**
@@ -50,6 +54,20 @@ export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
     const url = new URL(c.req.url);
     // The engine-relative path (everything after `/api/aep`), query included.
     const path = url.pathname.slice(PREFIX.length) + url.search;
+
+    // The engine builds /openapi.json from its own registry and can't see
+    // app-declared custom methods (the gateway owns those). Enrich its doc on
+    // the way out so custom methods appear as first-class AEP-136 paths.
+    if (c.req.method === 'GET' && url.pathname.slice(PREFIX.length).split('?')[0] === '/openapi.json') {
+      const res = await passthrough(c.req.raw, path);
+      if (!res.ok) return res;
+      const doc = (await res.json()) as Parameters<typeof injectCustomMethods>[0];
+      injectCustomMethods(doc, {
+        ...allBulkImportCustomMethods(),
+        ...getAllResourceCustomMethods(),
+      });
+      return Response.json(doc);
+    }
 
     // Auto-index uploads to `ai`-enabled file fields. Returns null for anything
     // it doesn't own (custom methods, non-file writes) so dispatch proceeds.

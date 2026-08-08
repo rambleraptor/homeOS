@@ -420,6 +420,26 @@ export interface ResourceCustomMethod {
    */
   title?: string;
   /**
+   * Human-readable description emitted onto the generated OpenAPI path for this
+   * method (AEP-136). Optional — custom methods work without it, but declaring
+   * it (plus {@link request}/{@link response}) makes the method self-describing
+   * in `/openapi.json` instead of only in the `/api/custom-methods` shim.
+   */
+  description?: string;
+  /**
+   * JSON Schema for the request body, emitted as the `requestBody` schema on the
+   * generated OpenAPI path. Omit for methods that take no body. Written as raw
+   * JSON Schema (the same wire shape the engine emits), not the authoring
+   * `FieldDef` map.
+   */
+  request?: Record<string, unknown>;
+  /**
+   * JSON Schema for the success response body. Emitted as the `200` response
+   * schema (sync methods) or the `x-aep-long-running-operation.response` schema
+   * (async methods). Omit to fall back to a generic object.
+   */
+  response?: Record<string, unknown>;
+  /**
    * Lazy import of the handler app. The dispatcher awaits this on demand
    * and invokes the default export — a {@link CustomMethodHandler} for sync
    * methods, or an {@link AsyncCustomMethodHandler} when `async` is true.

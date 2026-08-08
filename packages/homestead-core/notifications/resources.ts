@@ -51,5 +51,64 @@ export const notificationsResources: ResourceDefinition[] = [
           'Human-readable name for the device this subscription belongs to (e.g. "Chrome on macOS").',
       },
     },
+    // POST /api/aep/notification-subscriptions/{id}:send-notification — push a
+    // notification to this one device (defaults to a test notification when the
+    // body is omitted).
+    customMethods: {
+      'send-notification': {
+        target: 'item',
+        description:
+          'Send a push notification to this one device and record one inbox row. With no body, sends a test notification.',
+        request: {
+          type: 'object',
+          description:
+            'Optional overrides; omit the body entirely to send a test notification.',
+          properties: {
+            title: {
+              type: 'string',
+              description: 'Notification title (default: "Test Notification").',
+            },
+            body: { type: 'string', description: 'Notification body text.' },
+            tag: {
+              type: 'string',
+              description:
+                'Collapse key; same-tag pushes replace each other (default: "device-test").',
+            },
+            url: {
+              type: 'string',
+              description:
+                'Path opened when the notification is clicked (default: "/notifications").',
+            },
+            sourceCollection: {
+              type: 'string',
+              description:
+                'aepbase plural the notification is about (e.g. "recipes").',
+            },
+            sourceId: {
+              type: 'string',
+              description: 'Record id the notification is about.',
+            },
+          },
+        },
+        response: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean' },
+            recorded: {
+              type: 'boolean',
+              description: 'Whether the inbox row was written.',
+            },
+            message: { type: 'string' },
+            sent: { type: 'integer', description: 'Devices the push reached.' },
+            failed: {
+              type: 'integer',
+              description: 'Devices the push failed on.',
+            },
+            timestamp: { type: 'string', format: 'date-time' },
+          },
+        },
+        load: () => import('./methods/send-notification'),
+      },
+    },
   },
 ];

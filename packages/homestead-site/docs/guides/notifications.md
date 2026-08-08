@@ -11,6 +11,7 @@ This page covers:
 - [Send a notification](#send-a-notification)
 - [Send from a custom method](#send-from-a-custom-method)
 - [Send from a server route](#send-from-a-server-route)
+- [Send to a specific device](#send-to-a-specific-device)
 - [Read notifications](#read-notifications)
 - [Add notifications to a new app](#add-notifications-to-a-new-app)
 - [Test notifications](#test-notifications)
@@ -144,6 +145,45 @@ notificationsRoute.post('/send-test', (c) =>
   }),
 );
 ```
+
+---
+
+## Send to a specific device
+
+Each registered device is a `notification-subscription` record, and carries an
+item-target custom method (AEP-136) that pushes to that one device:
+
+```
+POST /api/aep/notification-subscriptions/{id}:send-notification
+```
+
+The caller is resolved from auth, so the addressed id is all that's needed —
+the user-parented form
+(`/api/aep/users/{user-id}/notification-subscriptions/{id}:send-notification`)
+works too. Because it's a standard AEP custom method (not a bespoke route),
+it's reachable from anything that speaks the engine — the CLI, scripts, `curl`
+— and it's described in the OpenAPI doc (`/api/aep/openapi.json`) with its
+request and response schemas:
+
+```bash
+# Bare POST → sends a test notification to that device
+curl -X POST "$HOMESTEAD_URL/api/aep/notification-subscriptions/$DEVICE_ID:send-notification" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Or pass a JSON body to send real content
+curl -X POST "$HOMESTEAD_URL/api/aep/notification-subscriptions/$DEVICE_ID:send-notification" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{ "title": "Dinner", "body": "Roast is ready", "url": "/recipes/42" }'
+```
+
+The body is optional and mirrors `UserNotificationOptions` (`title`, `body`,
+`tag`, `url`, `sourceCollection`, `sourceId`); with no body it sends a test
+notification. Delivery is restricted to the addressed device, and — like every
+send — one inbox row is recorded. List a user's device ids with
+`GET /api/aep/users/{user-id}/notification-subscriptions`.
+
+From the client, invoke it with
+`aepbase.customMethod('notification-subscriptions', 'send-notification', body, { id })`.
 
 ---
 
