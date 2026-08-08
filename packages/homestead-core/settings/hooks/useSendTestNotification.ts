@@ -7,12 +7,16 @@ interface TestNotificationResponse {
   timestamp: string;
 }
 
+/**
+ * Send a test notification. Pass a `subscriptionId` to target a single device;
+ * omit it to send to every enabled device.
+ */
 export function useSendTestNotification() {
   return useMutation({
     // SettingsHome shows its own admin-access hint on failure, so skip the
     // global mutation error toast here.
     meta: { skipErrorToast: true },
-    mutationFn: async () => {
+    mutationFn: async (subscriptionId?: string) => {
       const token = aepbase.authStore.token;
       const userId = aepbase.getCurrentUser()?.id || '';
       const res = await fetch('/api/notifications/send-test', {
@@ -20,7 +24,9 @@ export function useSendTestNotification() {
         headers: {
           Authorization: `Bearer ${token}`,
           'X-User-Id': userId,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify(subscriptionId ? { subscriptionId } : {}),
       });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);

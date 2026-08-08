@@ -45,6 +45,11 @@ export const notificationsResources: ResourceDefinition[] = [
     fields: {
       subscription_data: { type: 'object', required: true },
       enabled: { type: 'boolean' },
+      device_label: {
+        type: 'string',
+        description:
+          'Human-readable name for the device this subscription belongs to (e.g. "Chrome on macOS").',
+      },
     },
   },
 ];

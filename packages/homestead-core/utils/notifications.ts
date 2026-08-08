@@ -75,6 +75,34 @@ export async function getCurrentPushSubscription(): Promise<PushSubscription | n
   return registration.pushManager.getSubscription();
 }
 
+/**
+ * Best-effort friendly name for the current device, derived from the user
+ * agent — e.g. "Chrome on macOS". Stored on a push subscription so the
+ * settings screen can list registered devices by name.
+ */
+export function describeCurrentDevice(): string {
+  if (typeof navigator === 'undefined') return 'Unknown device';
+  const ua = navigator.userAgent;
+
+  const os =
+    /iPhone|iPad|iPod/.test(ua) ? 'iOS'
+    : /Android/.test(ua) ? 'Android'
+    : /Mac OS X|Macintosh/.test(ua) ? 'macOS'
+    : /Windows/.test(ua) ? 'Windows'
+    : /Linux/.test(ua) ? 'Linux'
+    : 'Unknown OS';
+
+  const browser =
+    /Edg\//.test(ua) ? 'Edge'
+    : /OPR\/|Opera/.test(ua) ? 'Opera'
+    : /Chrome\//.test(ua) ? 'Chrome'
+    : /Firefox\//.test(ua) ? 'Firefox'
+    : /Safari\//.test(ua) ? 'Safari'
+    : 'Browser';
+
+  return `${browser} on ${os}`;
+}
+
 export function showNotification(title: string, options?: NotificationOptions): void {
   if (!isNotificationSupported()) {
     logger.warn('Notifications are not supported');
