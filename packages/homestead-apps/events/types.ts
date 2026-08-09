@@ -48,3 +48,21 @@ export interface EventFormData {
   recurrence?: EventRecurrence;
   recurrence_rule?: string;
 }
+
+/**
+ * Stored reminder lead times. `none` is not a stored value — it's the absence
+ * of an `event-reminder` record — but the UI models it as a fourth option so a
+ * single control can turn a reminder off (delete the record) or on.
+ */
+export type ReminderLead = 'day_of' | 'week_before' | 'both';
+export type ReminderChoice = 'none' | ReminderLead;
+
+/** A user's reminder preference for one event (`/users/{id}/event-reminders`). */
+export interface EventReminder {
+  id: string;
+  /** Bare event id (no `events/` prefix). */
+  event_id: string;
+  lead: ReminderLead;
+  create_time?: string;
+  update_time?: string;
+}

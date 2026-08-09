@@ -2,8 +2,10 @@
 
 Send push notifications from your app to a user, and optionally read them back.
 Homestead signs and delivers the web push to the user's devices and records it
-in their inbox. A notification always goes to the **calling** user — you don't
-manage push subscriptions or inbox rows yourself.
+in their inbox. A request-driven notification goes to the **calling** user —
+you don't manage push subscriptions or inbox rows yourself. A background job
+(e.g. a cron) can instead target any user by id — see
+[Send from a background job](#send-from-a-background-job).
 
 This page covers:
 
@@ -11,6 +13,7 @@ This page covers:
 - [Send a notification](#send-a-notification)
 - [Send from a custom method](#send-from-a-custom-method)
 - [Send from a server route](#send-from-a-server-route)
+- [Send from a background job](#send-from-a-background-job)
 - [Send to a specific device](#send-to-a-specific-device)
 - [Read notifications](#read-notifications)
 - [Add notifications to a new app](#add-notifications-to-a-new-app)
@@ -145,6 +148,44 @@ notificationsRoute.post('/send-test', (c) =>
   }),
 );
 ```
+
+---
+
+## Send from a background job
+
+A cron (or any headless job) has no calling user, so it targets a recipient by
+id with `sendNotificationToUser(token, userId, options)`. Pass the short-lived
+admin token the scheduler hands your handler (`ctx.token`); it can read that
+user's subscriptions and write their inbox row. The `options` are the same
+`UserNotificationOptions`, plus two extras a reminder wants to set:
+
+| Field              | Description                                                          |
+|--------------------|----------------------------------------------------------------------|
+| `notificationType` | Inbox `notification_type` to record (`day_of` / `week_before` / …). Defaults to `system`. |
+| `scheduledFor`     | The occurrence the notification is about, stored on `scheduled_for`. |
+
+The events reminder cron
+([`packages/homestead-apps/events/crons/notify.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/events/crons/notify.ts))
+is the working example — it fans out to each user's per-event reminder:
+
+```ts
+import { sendNotificationToUser } from '@rambleraptor/homestead-core/server/notifications';
+
+await sendNotificationToUser(ctx.token, userId, {
+  title: `Today: ${event.name}`,
+  body: `${event.name} is today.`,
+  tag: `event-${event.id}-day_of`,
+  url: '/events',
+  sourceCollection: 'events',
+  sourceId: event.id,
+  notificationType: 'day_of',
+  scheduledFor: occurrence.toISOString(),
+});
+```
+
+Recording the send in the inbox (with `sourceId` + `notificationType` +
+`scheduledFor`) also gives a natural dedup key: check for an existing row before
+sending so a re-run never double-notifies.
 
 ---
 

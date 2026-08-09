@@ -468,8 +468,9 @@ export type RegisteredCronHook = CronHook & { appId: string };
  * Collect every cron hook declared by registered apps — top-level and
  * nested. Consumed by the server's scheduler on boot. Ids must be unique
  * across all apps: a hook whose id was already seen is dropped with a
- * warning, as is one with a non-positive `intervalSeconds`, so the
- * scheduler never sets up a broken or ambiguous timer.
+ * warning, as is one that doesn't declare exactly one valid schedule (a
+ * positive `intervalSeconds` or a `dailyAtHour` in 0–23), so the scheduler
+ * never sets up a broken or ambiguous timer.
  */
 export function getAllCronHooks(): RegisteredCronHook[] {
   const out: RegisteredCronHook[] = [];
@@ -483,9 +484,28 @@ export function getAllCronHooks(): RegisteredCronHook[] {
         );
         continue;
       }
-      if (!(hook.intervalSeconds > 0)) {
+      const hasInterval = hook.intervalSeconds !== undefined;
+      const hasDaily = hook.dailyAtHour !== undefined;
+      if (hasInterval === hasDaily) {
+        logger.warn(
+          `Cron hook "${hook.id}" (app "${mod.id}") must declare exactly one of intervalSeconds or dailyAtHour; ignored`,
+          { appId: mod.id, hookId: hook.id },
+        );
+        continue;
+      }
+      if (hasInterval && !(hook.intervalSeconds! > 0)) {
         logger.warn(
           `Cron hook "${hook.id}" (app "${mod.id}") has a non-positive intervalSeconds; ignored`,
+          { appId: mod.id, hookId: hook.id },
+        );
+        continue;
+      }
+      if (
+        hasDaily &&
+        !(Number.isInteger(hook.dailyAtHour) && hook.dailyAtHour! >= 0 && hook.dailyAtHour! <= 23)
+      ) {
+        logger.warn(
+          `Cron hook "${hook.id}" (app "${mod.id}") has a dailyAtHour outside 0–23; ignored`,
           { appId: mod.id, hookId: hook.id },
         );
         continue;

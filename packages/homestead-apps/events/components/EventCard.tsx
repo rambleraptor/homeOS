@@ -7,6 +7,7 @@ import {
   parseNthWeekdayRule,
 } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { usePeople } from '../../people/hooks/usePeople';
+import { EventReminderSelect } from './EventReminderSelect';
 import type { Event } from '../types';
 
 const ORDINAL_BY_N: Record<number, string> = {
@@ -156,6 +157,9 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
+        <EventReminderSelect eventId={event.id} />
       </div>
     </Card>
   );
