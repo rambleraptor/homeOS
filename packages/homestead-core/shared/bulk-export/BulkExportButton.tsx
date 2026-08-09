@@ -24,14 +24,14 @@ export interface BulkExportButtonProps {
   plural: string;
   /** Button label. Defaults to `Export`. */
   label?: string;
-  /** aepbase list-filter forwarded to the export (e.g. the active list filter). */
-  filter?: string;
   /**
-   * Explicit record-id allowlist — export exactly these records. Omit (or pass
-   * `undefined`) to export everything; pass an empty array to disable the
-   * button ("nothing selected").
+   * aepbase list-filter forwarded to the export. This is also how a record
+   * selection travels — pass `selectionFilter(selectedIds)` (an `id in [...]`
+   * filter) to export exactly the ticked rows.
    */
-  ids?: string[];
+  filter?: string;
+  /** Disable the button (e.g. a selection with nothing ticked). */
+  disabled?: boolean;
   /** Override the download filename. */
   filename?: string;
   variant?: 'primary' | 'secondary';
@@ -41,7 +41,7 @@ export function BulkExportButton({
   plural,
   label = 'Export',
   filter,
-  ids,
+  disabled = false,
   filename,
   variant = 'secondary',
 }: BulkExportButtonProps) {
@@ -67,14 +67,12 @@ export function BulkExportButton({
   // loading its formats). Render nothing rather than a dead button.
   if (formats.length === 0) return null;
 
-  // A selection was requested but is empty — the button has nothing to export.
-  const emptySelection = ids !== undefined && ids.length === 0;
-  const disabled = exporter.isPending || emptySelection;
+  const isDisabled = exporter.isPending || disabled;
 
   const runExport = async (format?: BulkExportFormatInfo) => {
     setOpen(false);
     try {
-      await exporter.mutateAsync({ format: format?.id, filter, ids, filename });
+      await exporter.mutateAsync({ format: format?.id, filter, filename });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Export failed');
     }
@@ -86,7 +84,7 @@ export function BulkExportButton({
       <Button
         variant={variant}
         onClick={() => runExport(formats[0])}
-        disabled={disabled}
+        disabled={isDisabled}
         data-testid="export-button"
       >
         <Download className="w-4 h-4 mr-2" />
@@ -101,7 +99,7 @@ export function BulkExportButton({
       <Button
         variant={variant}
         onClick={() => setOpen((v) => !v)}
-        disabled={disabled}
+        disabled={isDisabled}
         data-testid="export-button"
         aria-haspopup="menu"
         aria-expanded={open}

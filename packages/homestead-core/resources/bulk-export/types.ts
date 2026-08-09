@@ -68,22 +68,13 @@ export type BulkExportSource<T = unknown> = (args: {
    * aepbase list-filter string from the request's `?filter=` query param, or
    * undefined for "everything". A custom source may honor it or ignore it; the
    * default source passes it straight through to the collection list.
+   *
+   * This is also how an explicit record selection travels: the engine's `id`
+   * column is filterable and `in` accepts a list literal, so the UI exports
+   * exactly the rows a user ticked with `id in ["a", "b", ...]` — no separate
+   * selection channel needed.
    */
   filter?: string;
-  /**
-   * Explicit record-id allowlist from the request's `?ids=` query param, or
-   * undefined for "all records". The export analog of bulk import's
-   * `selectedIndices` — it's how the UI exports exactly the rows the user
-   * ticked.
-   *
-   * A record's `id` is not a filterable schema field, so this can't be folded
-   * into {@link filter} — it's a separate channel. And a source's rows may not
-   * carry the id (people's rows drop it), so **a custom source must apply `ids`
-   * itself**, while it still holds the records: use {@link selectByIds}, which
-   * also enforces the reject-on-missing-id contract. Composes with `filter`
-   * (both narrow, AND). The default source applies it for you.
-   */
-  ids?: string[];
 }) => Promise<T[]> | T[];
 
 /**

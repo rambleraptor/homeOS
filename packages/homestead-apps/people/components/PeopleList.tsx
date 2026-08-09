@@ -14,7 +14,7 @@ import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbo
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useRowSelection } from '@rambleraptor/homestead-core/shared/hooks/useRowSelection';
-import { BulkExportButton } from '@rambleraptor/homestead-core/shared/bulk-export';
+import { BulkExportButton, selectionFilter } from '@rambleraptor/homestead-core/shared/bulk-export';
 import {
   FilterBar,
   AppFiltersProvider,
@@ -139,7 +139,8 @@ function PeopleListInner({ hasAny }: { hasAny: boolean }) {
                 </span>
                 <BulkExportButton
                   plural={PEOPLE}
-                  ids={selection.selectedIds}
+                  filter={selectionFilter(selection.selectedIds)}
+                  disabled={selection.count === 0}
                   label="Export selected"
                 />
                 <Button variant="secondary" size="sm" onClick={selection.clear}>

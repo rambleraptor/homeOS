@@ -4,11 +4,18 @@
  * subset — comparisons (==, !=, <, <=, >, >=) on schema fields combined with
  * && / || and parentheses — compiled to parameterized SQL.
  *
- * Array fields use CEL's membership operator (AEP-160 defers to the CEL
- * language definition): `<value> in <array field>` tests whether the array
- * contains that scalar element, compiled to a `json_each` existence check over
- * the JSON-encoded column. Comprehension macros (`exists`/`all`) are not yet
- * supported — this is scalar membership only.
+ * The `in` membership operator (AEP-160 defers to the CEL language definition)
+ * has both standard `A in list(A)` forms:
+ *   - `<value> in <array field>` tests whether a stored array column contains
+ *     that scalar element, compiled to a `json_each` existence check.
+ *   - `<field> in [<literal>, ...]` tests whether a field's value is one of a
+ *     list literal, compiled to SQL `IN (?, ...)`. This is what lets a caller
+ *     select an explicit set of records, e.g. `id in ["a", "b"]`.
+ * Comprehension macros (`exists`/`all`) are not supported.
+ *
+ * `id` is filterable (it's the real primary-key column on every resource
+ * table), which is what makes `id in [...]` selection work. The other standard
+ * fields (`path`, `create_time`, `update_time`) stay non-filterable.
  *
  * `has(<field>)` is CEL's presence macro: true when the field is set (column
  * non-null), and for a repeated field only when it is also non-empty.
@@ -41,7 +48,7 @@ function tokenize(input: string): Token[] {
       i++;
       continue;
     }
-    if (c === '(' || c === ')') {
+    if (c === '(' || c === ')' || c === '[' || c === ']' || c === ',') {
       tokens.push({ kind: 'op', value: c });
       i++;
       continue;
@@ -143,6 +150,10 @@ export function compileFilter(
     const fields = new Set(
       Object.keys(schema.properties ?? {}).filter((n) => !STANDARD_FIELDS.has(n)),
     );
+    // `id` is the primary-key column on every resource table, so it's safe to
+    // filter on (unlike `path`/timestamps, which stay excluded). This is what
+    // makes `id in [...]` record selection expressible as a filter.
+    fields.add('id');
     // Union paths (`metadata.doc_type`) resolve to the derived column the DDL
     // generated for them, so a filter seeks an index instead of scanning.
     const derived = new Map(
@@ -207,6 +218,35 @@ export function compileFilter(
       }
     }
 
+    /**
+     * Parse a `[a, b, c]` list literal (the right side of `in`), pushing each
+     * element's value as a bound parameter. Elements must be literals — a list
+     * of field references has no meaning here. Returns the element count so the
+     * caller can emit the matching `IN (?, ?, ...)` placeholders. `[]` is legal
+     * (count 0), which the caller turns into a constant-false predicate.
+     */
+    function parseListLiteral(): number {
+      expectOp('[');
+      if (peek()?.kind === 'op' && peek()?.value === ']') {
+        next();
+        return 0;
+      }
+      let count = 0;
+      for (;;) {
+        const element = parseOperand();
+        if (element.isField) {
+          throw new FilterError('list elements must be literal values');
+        }
+        count++;
+        const t = next();
+        if (t?.kind === 'op' && t.value === ']') break;
+        if (!(t?.kind === 'op' && t.value === ',')) {
+          throw new FilterError("expected ',' or ']' in list literal");
+        }
+      }
+      return count;
+    }
+
     function parseComparison(): string {
       const t = peek();
       if (t?.kind === 'op' && t.value === '(') {
@@ -241,12 +281,25 @@ export function compileFilter(
       const left = parseOperand();
       const opTok = next();
       if (opTok?.kind === 'op' && opTok.value === 'in') {
-        // CEL membership: `<value> in <array field>`. Compiles to an existence
-        // check over the JSON-array column; `left.sql` is the bound `?`, whose
-        // parameter was already pushed in operand order above.
+        // CEL `in` has two `A in list(A)` forms.
+        if (peek()?.kind === 'op' && peek()?.value === '[') {
+          // `<field> in [<literal>, ...]` → SQL `IN (?, ...)`. The value tested
+          // must be a field (a stored column), the list all literals.
+          if (!left.isField) {
+            throw new FilterError("left side of 'in [...]' must be a field");
+          }
+          const count = parseListLiteral();
+          // `x in []` is always false; SQLite's `IN ()` is a syntax error, so
+          // emit a constant-false predicate instead.
+          if (count === 0) return '0';
+          return `${left.sql} IN (${Array(count).fill('?').join(', ')})`;
+        }
+        // `<value> in <array field>`: an existence check over the JSON-array
+        // column. `left.sql` is the bound `?`, whose parameter was already
+        // pushed in operand order above.
         const arr = parseOperand();
         if (!arr.isField || arr.propType !== 'array') {
-          throw new FilterError("right side of 'in' must be an array field");
+          throw new FilterError("right side of 'in' must be an array field or a list literal");
         }
         if (left.isField) {
           throw new FilterError("left side of 'in' must be a value");

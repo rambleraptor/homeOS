@@ -19,5 +19,5 @@
 
 export { BulkExportButton } from './BulkExportButton';
 export type { BulkExportButtonProps } from './BulkExportButton';
-export { useBulkExport, useBulkExportFormats } from './useBulkExport';
+export { useBulkExport, useBulkExportFormats, selectionFilter } from './useBulkExport';
 export type { BulkExportInput } from './useBulkExport';

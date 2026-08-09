@@ -48,15 +48,27 @@ export function useBulkExportFormats(plural: string) {
 export interface BulkExportInput {
   /** Format id to export; defaults to the resource's first declared format. */
   format?: string;
-  /** aepbase list-filter passed to the source; omit for everything. */
-  filter?: string;
   /**
-   * Explicit record-id allowlist — export exactly these records. Omit for all.
-   * The server rejects the whole export (400) if any id no longer exists.
+   * aepbase list-filter passed to the source; omit for everything. An explicit
+   * record selection travels here as `id in ["a", "b", ...]` — see
+   * {@link selectionFilter}.
    */
-  ids?: string[];
+  filter?: string;
   /** Override the download filename; defaults to what the server names it. */
   filename?: string;
+}
+
+/**
+ * Build the list-filter that selects an explicit set of records by id:
+ * `id in ["a", "b"]`. The engine's `id` column is filterable and its `in`
+ * operator takes a list literal, so a checkbox selection needs no bespoke API —
+ * it's just a filter. Returns undefined for an empty selection (nothing to
+ * export). Ids are server-generated and quote-free, so they slot straight into
+ * the CEL string literals.
+ */
+export function selectionFilter(ids: string[]): string | undefined {
+  if (ids.length === 0) return undefined;
+  return `id in [${ids.map((id) => `"${id}"`).join(', ')}]`;
 }
 
 /** Pull the filename out of a `Content-Disposition: attachment; filename="…"`. */
@@ -76,7 +88,6 @@ export function useBulkExport(plural: string) {
       const params = new URLSearchParams();
       if (input.format) params.set('format', input.format);
       if (input.filter) params.set('filter', input.filter);
-      if (input.ids && input.ids.length > 0) params.set('ids', input.ids.join(','));
       if (input.filename) params.set('filename', input.filename);
       const qs = params.toString();
       const url = `${AEP_BASE}/${plural}:${BULK_EXPORT_VERB}${qs ? `?${qs}` : ''}`;
