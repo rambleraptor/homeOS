@@ -14,17 +14,25 @@ import {
   allBulkImportCustomMethods,
   bulkImportCustomMethod,
 } from '@rambleraptor/homestead-core/server/bulk-import/method';
+import {
+  allBulkExportCustomMethods,
+  bulkExportCustomMethod,
+} from '@rambleraptor/homestead-core/server/bulk-export/method';
 import { getResourceCustomMethod, getAllResourceCustomMethods } from '../app-registry';
 import { handleCrudWithIndexing } from './file-index-trigger';
 import { injectCustomMethods } from './openapi-custom-methods';
 import type { Engine } from '../engine/engine';
 
 /**
- * An explicit `customMethods` entry wins over the synthesized `:bulk-import`,
- * so a resource with unusual needs can still hand-write the verb.
+ * An explicit `customMethods` entry wins over the synthesized `:bulk-import` /
+ * `:bulk-export`, so a resource with unusual needs can still hand-write the verb.
  */
 function resolveMethod(plural: string, verb: string) {
-  return getResourceCustomMethod(plural, verb) ?? bulkImportCustomMethod(plural, verb);
+  return (
+    getResourceCustomMethod(plural, verb) ??
+    bulkImportCustomMethod(plural, verb) ??
+    bulkExportCustomMethod(plural, verb)
+  );
 }
 
 const PREFIX = '/api/aep';
@@ -64,6 +72,7 @@ export function makeAepGateway(engine: Engine, engineOrigin: string): Hono {
       const doc = (await res.json()) as Parameters<typeof injectCustomMethods>[0];
       injectCustomMethods(doc, {
         ...allBulkImportCustomMethods(),
+        ...allBulkExportCustomMethods(),
         ...getAllResourceCustomMethods(),
       });
       return Response.json(doc);

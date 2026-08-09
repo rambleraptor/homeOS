@@ -14,26 +14,39 @@ import {
   bulkImportFormatInfo,
   BULK_IMPORT_VERB,
 } from '@rambleraptor/homestead-core/server/bulk-import/method';
+import {
+  allBulkExportCustomMethods,
+  bulkExportFormatInfo,
+  BULK_EXPORT_VERB,
+} from '@rambleraptor/homestead-core/server/bulk-export/method';
 import { getAllResourceCustomMethods } from '../app-registry';
 
 export async function customMethodsResponse(): Promise<Response> {
   const declared = getAllResourceCustomMethods();
-  const registered = { ...allBulkImportCustomMethods(), ...declared };
+  const registered = {
+    ...allBulkImportCustomMethods(),
+    ...allBulkExportCustomMethods(),
+    ...declared,
+  };
 
   const methods = await Promise.all(
     Object.entries(registered).map(async ([key, def]) => {
       const [plural, verb] = key.split(':', 2);
-      // Only bulk-import methods carry format metadata, and resolving it loads
-      // the parsers — so don't ask for it on every other verb.
-      const formats =
+      // Only bulk-import / bulk-export methods carry format metadata, and
+      // resolving it loads the (de)serializers — so don't ask for it on every
+      // other verb.
+      const bulkImport =
         verb === BULK_IMPORT_VERB ? await bulkImportFormatInfo(plural) : undefined;
+      const bulkExport =
+        verb === BULK_EXPORT_VERB ? await bulkExportFormatInfo(plural) : undefined;
       return {
         plural,
         verb,
         target: def.target ?? 'collection',
         method: def.method ?? 'POST',
         async: def.async ?? false,
-        ...(formats ? { bulkImport: { formats } } : {}),
+        ...(bulkImport ? { bulkImport: { formats: bulkImport } } : {}),
+        ...(bulkExport ? { bulkExport: { formats: bulkExport } } : {}),
       };
     }),
   );

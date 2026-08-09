@@ -10,6 +10,7 @@
  */
 
 import type { BulkImportDef } from './bulk-import/types';
+import type { BulkExportDef } from './bulk-export/types';
 
 // ----------------------------------------------------------------------------
 // Authoring format — what apps write in `resources.ts`
@@ -518,4 +519,13 @@ export interface ResourceDefinition {
    * `core/resources/bulk-import/types.ts`.
    */
   bulkImport?: BulkImportDef<any>;
+  /**
+   * Opt this resource into bulk export — the mirror of {@link bulkImport}. The
+   * registry synthesizes a read-only `GET /<plural>:bulk-export` custom method
+   * from the declaration, so it needs no entry in `customMethods` and no per-app
+   * handler or page. Server-only, and never reaches aepbase (the schema-sync
+   * wire payload is an explicit whitelist). See
+   * `core/resources/bulk-export/types.ts`.
+   */
+  bulkExport?: BulkExportDef<any>;
 }

@@ -124,6 +124,7 @@ export default defineConfig({
             { text: 'App Flags', link: '/guides/app-flags' },
             { text: 'Notifications', link: '/guides/notifications' },
             { text: 'Bulk Import', link: '/guides/bulk-import' },
+            { text: 'Bulk Export', link: '/guides/bulk-export' },
           ],
         },
         {

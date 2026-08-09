@@ -24,6 +24,7 @@ What an app can do beyond rendering a page.
 - **[App Flags](./app-flags)** — typed, household-wide settings an app can declare and read.
 - **[Notifications](./notifications)** — send push notifications to users.
 - **[Bulk Import](./bulk-import)** — add CSV import to an app.
+- **[Bulk Export](./bulk-export)** — add CSV (and more) export to an app.
 - **[Data Migrations](./migrations)** — backfill and rewrite existing records when your schema changes.
 
 ## Using Homestead

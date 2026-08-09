@@ -38,6 +38,7 @@ import type {
   ResourceDefinition,
 } from '../resources/types';
 import type { BulkImportDef } from '../resources/bulk-import/types';
+import type { BulkExportDef } from '../resources/bulk-export/types';
 import { logger } from '../utils/logger';
 
 class AppRegistryImpl implements AppRegistry {
@@ -636,6 +637,32 @@ export function getAllResourceBulkImports(): Record<string, BulkImportDef> {
   const out: Record<string, BulkImportDef> = {};
   for (const def of getAllResourceDefs()) {
     if (def.bulkImport) out[def.plural] = def.bulkImport;
+  }
+  return out;
+}
+
+/**
+ * Resolve a resource's bulk-export declaration by plural, if it has one. The
+ * mirror of {@link getResourceBulkImport}: a pure registry read the discovery
+ * endpoint and the shared handler both use.
+ */
+export function getResourceBulkExport(
+  plural: string,
+): BulkExportDef | undefined {
+  for (const def of getAllResourceDefs()) {
+    if (def.plural === plural && def.bulkExport) return def.bulkExport;
+  }
+  return undefined;
+}
+
+/**
+ * Every resource that opts into bulk export, keyed by plural. Backs the
+ * discovery endpoint's format listing and the CLI's help output.
+ */
+export function getAllResourceBulkExports(): Record<string, BulkExportDef> {
+  const out: Record<string, BulkExportDef> = {};
+  for (const def of getAllResourceDefs()) {
+    if (def.bulkExport) out[def.plural] = def.bulkExport;
   }
   return out;
 }

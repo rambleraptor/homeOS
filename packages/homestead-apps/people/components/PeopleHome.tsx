@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Upload } from 'lucide-react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { BulkExportButton } from '@rambleraptor/homestead-core/shared/bulk-export';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useCreatePerson } from '../hooks/useCreatePerson';
 import { PersonForm } from './PersonForm';
 import { PeopleList } from './PeopleList';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { PEOPLE } from '../resources';
 import type { PersonFormData } from '../types';
 
 export function PeopleHome() {
@@ -38,6 +40,7 @@ export function PeopleHome() {
               <Upload className="w-4 h-4 mr-2" />
               Import
             </Button>
+            <BulkExportButton plural={PEOPLE} />
             <Button onClick={() => setIsCreateModalOpen(true)} data-testid="add-person-button">
               <Plus className="w-4 h-4 mr-2" />
               Add Person
