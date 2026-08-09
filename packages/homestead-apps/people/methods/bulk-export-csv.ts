@@ -51,9 +51,11 @@ interface SharedDataRecord {
 export const source: BulkExportSource<PersonCsvData> = async ({
   ctx,
   filter,
+  options,
 }: {
   ctx: BulkExportContext;
   filter?: string;
+  options?: Record<string, boolean>;
 }) => {
   const hs = serverClient(ctx.auth.token);
   // `people` is the rows to output (filtered — a selection arrives as an
@@ -83,12 +85,42 @@ export const source: BulkExportSource<PersonCsvData> = async ({
     }
   }
 
-  return people.map((person) => {
+  // Each output person paired with the address hanging off their shared-data.
+  const withAddress = people.map((person) => {
     const links = linksByPerson.get(person.id) ?? [];
-    const withAddress = links.find((l) => l.address_id);
-    const address = withAddress?.address_id
-      ? addressById.get(withAddress.address_id)
-      : undefined;
+    const addressId = links.find((l) => l.address_id)?.address_id;
+    return { person, links, addressId, address: addressId ? addressById.get(addressId) : undefined };
+  });
+
+  if (options?.combine_households) {
+    // One row per household — people who share an address_id — computed *within
+    // the output set*: an unticked partner is not pulled in. People with no
+    // address are their own household.
+    const groups = new Map<string, typeof withAddress>();
+    const order: string[] = [];
+    for (const entry of withAddress) {
+      const key = entry.addressId ?? `solo:${entry.person.id}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+        order.push(key);
+      }
+      groups.get(key)!.push(entry);
+    }
+    return order.map((key) => {
+      const members = groups.get(key)!;
+      const address = members[0].address;
+      return {
+        name: members.map((m) => m.person.name).join(' & '),
+        address: address?.line1 || undefined,
+        wifi_network: address?.wifi_network || undefined,
+        wifi_password: address?.wifi_password || undefined,
+        // The household is one row now, so a partner column would be redundant.
+        partner_name: undefined,
+      };
+    });
+  }
+
+  return withAddress.map(({ person, links, address }) => {
     const partnerLink = links.find(
       (l) => l.person_a && l.person_b && (l.person_a === person.id || l.person_b === person.id),
     );

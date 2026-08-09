@@ -12,37 +12,60 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { authStore } from '@rambleraptor/homestead-core/api/aepbase';
-import type { BulkExportFormatInfo } from '@rambleraptor/homestead-core/resources/bulk-export/types';
+import type {
+  BulkExportFormatInfo,
+  BulkExportOption,
+} from '@rambleraptor/homestead-core/resources/bulk-export/types';
 
 const BULK_EXPORT_VERB = 'bulk-export';
 const AEP_BASE = '/api/aep';
 
+interface BulkExportInfo {
+  formats: BulkExportFormatInfo[];
+  options: BulkExportOption[];
+}
+
 interface CustomMethodInfo {
   plural: string;
   verb: string;
-  bulkExport?: { formats: BulkExportFormatInfo[] };
+  bulkExport?: Partial<BulkExportInfo>;
 }
 
 /**
- * The formats a resource can be exported to, from the server's discovery
- * endpoint. Fetched rather than bundled — serializers are server-only — so one
- * button serves every app with no per-app UI code.
+ * A resource's bulk-export metadata (formats + options) from the server's
+ * discovery endpoint. Fetched rather than bundled — the (de)serializers are
+ * server-only — so the screen learns what it can offer at runtime. The two
+ * hooks below `select` off this one query, so they share a single fetch.
  */
-export function useBulkExportFormats(plural: string) {
+function useBulkExportInfo<T>(plural: string, select: (info: BulkExportInfo) => T) {
   return useQuery({
-    queryKey: ['bulk-export', 'formats', plural],
-    // Formats only change on deploy.
+    queryKey: ['bulk-export', 'info', plural],
+    // Metadata only changes on deploy.
     staleTime: Infinity,
-    queryFn: async (): Promise<BulkExportFormatInfo[]> => {
+    queryFn: async (): Promise<BulkExportInfo> => {
       const res = await fetch('/api/custom-methods');
-      if (!res.ok) throw new Error('Could not load export formats');
+      if (!res.ok) throw new Error('Could not load export metadata');
       const { methods } = (await res.json()) as { methods: CustomMethodInfo[] };
       const method = methods.find(
         (m) => m.plural === plural && m.verb === BULK_EXPORT_VERB,
       );
-      return method?.bulkExport?.formats ?? [];
+      return {
+        formats: method?.bulkExport?.formats ?? [],
+        options: method?.bulkExport?.options ?? [],
+      };
     },
+    select,
   });
+}
+
+/** The formats a resource can be exported to. */
+export function useBulkExportFormats(plural: string) {
+  return useBulkExportInfo(plural, (info) => info.formats);
+}
+
+/** The export toggles a resource declares (e.g. "combine households"). */
+export function useBulkExportOptions(plural: string) {
+  return useBulkExportInfo(plural, (info) => info.options);
 }
 
 export interface BulkExportInput {
@@ -54,6 +77,8 @@ export interface BulkExportInput {
    * {@link selectionFilter}.
    */
   filter?: string;
+  /** Values for the resource's declared export options, keyed by option id. */
+  options?: Record<string, boolean>;
   /** Override the download filename; defaults to what the server names it. */
   filename?: string;
 }
@@ -88,6 +113,9 @@ export function useBulkExport(plural: string) {
       const params = new URLSearchParams();
       if (input.format) params.set('format', input.format);
       if (input.filter) params.set('filter', input.filter);
+      for (const [id, value] of Object.entries(input.options ?? {})) {
+        params.set(id, String(value));
+      }
       if (input.filename) params.set('filename', input.filename);
       const qs = params.toString();
       const url = `${AEP_BASE}/${plural}:${BULK_EXPORT_VERB}${qs ? `?${qs}` : ''}`;

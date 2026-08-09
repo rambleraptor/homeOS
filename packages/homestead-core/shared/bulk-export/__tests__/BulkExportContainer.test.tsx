@@ -5,11 +5,19 @@ import { MemoryRouter } from 'react-router-dom';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { BulkExportContainer } from '../BulkExportContainer';
 
-// Stub the export button so the test can read the filter/label the container
-// derives from the selection, without exercising the download itself.
+// Stub the export button so the test can read the filter/label/options the
+// container derives, without exercising the download itself.
 vi.mock('../BulkExportButton', () => ({
-  BulkExportButton: ({ filter, label }: { filter?: string; label?: string }) => (
-    <div data-testid="export-btn" data-filter={filter ?? ''}>
+  BulkExportButton: ({
+    filter,
+    label,
+    options,
+  }: {
+    filter?: string;
+    label?: string;
+    options?: Record<string, boolean>;
+  }) => (
+    <div data-testid="export-btn" data-filter={filter ?? ''} data-options={JSON.stringify(options ?? {})}>
       {label}
     </div>
   ),
@@ -90,6 +98,41 @@ describe('BulkExportContainer', () => {
     vi.mocked(aepbase.list).mockResolvedValue([]);
     renderScreen();
     expect(await screen.findByText(/No people to export yet/i)).toBeInTheDocument();
+  });
+
+  it('renders declared options and passes their values to the export', async () => {
+    // The container reads options from the discovery endpoint.
+    const methods = [
+      {
+        plural: 'people',
+        verb: 'bulk-export',
+        bulkExport: {
+          formats: [],
+          options: [
+            { id: 'combine_households', type: 'boolean', default: false, label: 'Combine household members into one row' },
+          ],
+        },
+      },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ methods }), { status: 200 })),
+    );
+    try {
+      renderScreen();
+      const toggle = await screen.findByTestId('export-option-combine_households');
+      // Default false → export carries the default.
+      await waitFor(() =>
+        expect(exportBtn()).toHaveAttribute('data-options', '{"combine_households":false}'),
+      );
+
+      fireEvent.click(toggle);
+      await waitFor(() =>
+        expect(exportBtn()).toHaveAttribute('data-options', '{"combine_households":true}'),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('narrows select-all to the filtered rows', async () => {

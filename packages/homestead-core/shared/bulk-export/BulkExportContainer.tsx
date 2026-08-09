@@ -32,7 +32,7 @@ import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbo
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { useRowSelection } from '@rambleraptor/homestead-core/shared/hooks/useRowSelection';
 import { BulkExportButton } from './BulkExportButton';
-import { selectionFilter } from './useBulkExport';
+import { selectionFilter, useBulkExportOptions } from './useBulkExport';
 import { defaultLabel, type BulkExportPageConfig, type BulkExportRecord } from './types';
 
 interface BulkExportContainerProps {
@@ -58,6 +58,18 @@ export function BulkExportContainer({ config }: BulkExportContainerProps) {
 
   const selection = useRowSelection(visible.map((r) => r.id));
   const count = selection.count;
+
+  // Declared export toggles (e.g. "combine households"). We store only the
+  // user's overrides; the effective value falls back to each option's default.
+  const options = useBulkExportOptions(plural).data ?? [];
+  const [optionOverrides, setOptionOverrides] = useState<Record<string, boolean>>({});
+  const optionValues = useMemo(
+    () =>
+      Object.fromEntries(
+        options.map((o) => [o.id, optionOverrides[o.id] ?? o.default ?? false]),
+      ),
+    [options, optionOverrides],
+  );
 
   return (
     <div className="space-y-6">
@@ -86,9 +98,28 @@ export function BulkExportContainer({ config }: BulkExportContainerProps) {
           plural={plural}
           variant="primary"
           filter={count > 0 ? selectionFilter(selection.selectedIds) : undefined}
+          options={optionValues}
           label={count > 0 ? `Export ${count} selected` : `Export all ${appNamePlural}`}
         />
       </div>
+
+      {options.length > 0 && (
+        <fieldset className="rounded-md border border-border p-3 space-y-2">
+          <legend className="px-1 text-sm font-medium text-text-muted">Options</legend>
+          {options.map((option) => (
+            <label key={option.id} className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={optionValues[option.id]}
+                onCheckedChange={(on) =>
+                  setOptionOverrides((prev) => ({ ...prev, [option.id]: on }))
+                }
+                data-testid={`export-option-${option.id}`}
+              />
+              <span className="text-sm">{option.label}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       {recordsQuery.isLoading ? (
         <div className="flex items-center justify-center h-64">

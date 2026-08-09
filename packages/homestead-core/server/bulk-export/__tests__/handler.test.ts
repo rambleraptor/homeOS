@@ -9,7 +9,10 @@ import type {
   CustomMethodContext,
   ResourceDefinition,
 } from '../../../resources/types';
-import type { BulkExportSource } from '../../../resources/bulk-export/types';
+import type {
+  BulkExportOption,
+  BulkExportSource,
+} from '../../../resources/bulk-export/types';
 
 // The default source lists the resource's own collection through the server
 // client; stub it so that path is observable without the engine.
@@ -22,7 +25,7 @@ vi.mock('../../client', () => ({ serverClient: () => ({ collection }) }));
 
 const { default: bulkExport } = await import('../handler');
 
-function defWith(source?: BulkExportSource): ResourceDefinition {
+function defWith(source?: BulkExportSource, options?: BulkExportOption[]): ResourceDefinition {
   return {
     singular: 'thing',
     plural: 'things',
@@ -38,6 +41,7 @@ function defWith(source?: BulkExportSource): ResourceDefinition {
         },
       ],
       ...(source ? { source: async () => ({ source }) } : {}),
+      ...(options ? { options } : {}),
     },
   };
 }
@@ -93,6 +97,37 @@ describe('bulk-export handler', () => {
 
     expect(source).toHaveBeenCalledWith(
       expect.objectContaining({ filter: 'active', ctx: expect.objectContaining({ plural: 'things' }) }),
+    );
+  });
+
+  const combineOption: BulkExportOption[] = [
+    { id: 'combine_households', type: 'boolean', default: false, label: 'Combine' },
+  ];
+
+  it('parses a declared boolean option and passes it to the source', async () => {
+    const source = vi.fn(async () => [{ name: 'x' }]);
+    register(defWith(source, combineOption));
+    await bulkExport(ctx('http://x/api/aep/things:bulk-export?combine_households=true'));
+    expect(source).toHaveBeenCalledWith(
+      expect.objectContaining({ options: { combine_households: true } }),
+    );
+  });
+
+  it('fills a declared option with its default when the caller omits it', async () => {
+    const source = vi.fn(async () => [{ name: 'x' }]);
+    register(defWith(source, combineOption));
+    await bulkExport(ctx('http://x/api/aep/things:bulk-export'));
+    expect(source).toHaveBeenCalledWith(
+      expect.objectContaining({ options: { combine_households: false } }),
+    );
+  });
+
+  it('ignores query params that are not declared options', async () => {
+    const source = vi.fn(async () => [{ name: 'x' }]);
+    register(defWith(source, combineOption));
+    await bulkExport(ctx('http://x/api/aep/things:bulk-export?nonsense=true'));
+    expect(source).toHaveBeenCalledWith(
+      expect.objectContaining({ options: { combine_households: false } }),
     );
   });
 

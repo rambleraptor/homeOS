@@ -75,6 +75,14 @@ export type BulkExportSource<T = unknown> = (args: {
    * selection channel needed.
    */
   filter?: string;
+  /**
+   * Values of the resource's declared export {@link BulkExportOption}s, keyed by
+   * option id, from the request's query params. Every declared option is present
+   * (its declared `default` fills in when the caller omitted it), so a source
+   * can read `options.combine_households` without a presence check. The default
+   * source ignores them; only a custom source acts on them.
+   */
+  options?: Record<string, boolean>;
 }) => Promise<T[]> | T[];
 
 /**
@@ -117,6 +125,23 @@ export interface BulkExportFormat {
   load: () => Promise<{ default: BulkExportSerializer }>;
 }
 
+/**
+ * A toggle offered on the export screen — a per-resource knob that changes how
+ * the source shapes the export (e.g. "combine household members into one row").
+ * Rendered generically by the screen from this declaration; its meaning lives
+ * entirely in the resource's {@link BulkExportSource}. Only boolean options are
+ * supported for now.
+ */
+export interface BulkExportOption {
+  /** Query-param key and the key under {@link BulkExportSource}'s `options`. */
+  id: string;
+  /** Checkbox label shown on the export screen. */
+  label: string;
+  type: 'boolean';
+  /** Applied when the caller omits the option. Defaults to `false`. */
+  default?: boolean;
+}
+
 /** What a resource declares to opt into bulk export. */
 export interface BulkExportDef<T = unknown> {
   /** Formats this resource can be exported to. At least one. */
@@ -130,6 +155,12 @@ export interface BulkExportDef<T = unknown> {
    * source directly would drag server-only code into the browser bundle.
    */
   source?: () => Promise<{ source: BulkExportSource<T> }>;
+  /**
+   * Toggles the export screen renders and passes to the source (see
+   * {@link BulkExportOption}). Only a custom `source` can act on them. Option
+   * ids must not collide with the reserved params `format`/`filter`/`filename`.
+   */
+  options?: BulkExportOption[];
 }
 
 // ----------------------------------------------------------------------------

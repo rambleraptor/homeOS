@@ -22,5 +22,10 @@ export type { BulkExportButtonProps } from './BulkExportButton';
 export { BulkExportContainer } from './BulkExportContainer';
 export { defaultLabel } from './types';
 export type { BulkExportPageConfig, BulkExportRecord } from './types';
-export { useBulkExport, useBulkExportFormats, selectionFilter } from './useBulkExport';
+export {
+  useBulkExport,
+  useBulkExportFormats,
+  useBulkExportOptions,
+  selectionFilter,
+} from './useBulkExport';
 export type { BulkExportInput } from './useBulkExport';
