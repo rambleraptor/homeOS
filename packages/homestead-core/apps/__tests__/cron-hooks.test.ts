@@ -71,6 +71,52 @@ describe('getAllCronHooks', () => {
     expect(warn).toHaveBeenCalledTimes(2);
   });
 
+  test('collects a valid dailyAtHour hook', () => {
+    initializeAppRegistry([
+      app('alpha', [
+        { id: 'daily', dailyAtHour: 9, load: async () => ({ default: noop }) },
+      ]),
+    ]);
+
+    const hooks = getAllCronHooks();
+    expect(hooks.map((h) => [h.id, h.dailyAtHour])).toEqual([['daily', 9]]);
+    expect(hooks[0].intervalSeconds).toBeUndefined();
+  });
+
+  test('drops a hook that declares neither or both schedules, with a warning', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    initializeAppRegistry([
+      app('alpha', [
+        { id: 'neither', load: async () => ({ default: noop }) },
+        {
+          id: 'both',
+          intervalSeconds: 60,
+          dailyAtHour: 9,
+          load: async () => ({ default: noop }),
+        },
+        { id: 'ok', dailyAtHour: 0, load: async () => ({ default: noop }) },
+      ]),
+    ]);
+
+    expect(getAllCronHooks().map((h) => h.id)).toEqual(['ok']);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  test('drops a dailyAtHour outside 0–23, with a warning', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    initializeAppRegistry([
+      app('alpha', [
+        { id: 'high', dailyAtHour: 24, load: async () => ({ default: noop }) },
+        { id: 'neg', dailyAtHour: -1, load: async () => ({ default: noop }) },
+        { id: 'frac', dailyAtHour: 9.5, load: async () => ({ default: noop }) },
+        { id: 'ok', dailyAtHour: 23, load: async () => ({ default: noop }) },
+      ]),
+    ]);
+
+    expect(getAllCronHooks().map((h) => h.id)).toEqual(['ok']);
+    expect(warn).toHaveBeenCalledTimes(3);
+  });
+
   test('returns an empty list when no app declares a hook', () => {
     initializeAppRegistry([app('alpha', undefined)]);
     expect(getAllCronHooks()).toEqual([]);

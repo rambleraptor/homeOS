@@ -2,7 +2,12 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import { Database } from '../src/engine/sqlite';
 import { createUserTables, getUserByToken } from '../src/engine/users';
 import { createSuperuser } from '../src/bootstrap';
-import { cronOperationMethod, runCronHook, startCronScheduler } from '../src/cron';
+import {
+  cronOperationMethod,
+  nextDailyFire,
+  runCronHook,
+  startCronScheduler,
+} from '../src/cron';
 import type { RegisteredCronHook } from '@rambleraptor/homestead-core/apps/registry';
 import type { CronContext, CronHandler } from '@rambleraptor/homestead-core/apps/types';
 import type {
@@ -362,5 +367,52 @@ describe('startCronScheduler', () => {
     await sleep(20);
     expect(() => scheduler.stop()).not.toThrow();
     db.close();
+  });
+
+  test('a dailyAtHour hook with runOnStart fires at boot and stop() halts it', async () => {
+    const db = await freshDb();
+    const { store, completed } = fakeOperationStore();
+    let calls = 0;
+    const scheduler = startCronScheduler(
+      db,
+      [hook('daily', async () => void calls++, { runOnStart: true, intervalSeconds: undefined, dailyAtHour: 9 })],
+      store,
+    );
+
+    await waitUntil(() => calls === 1);
+    expect(calls).toBe(1);
+    await waitUntil(() => completed.length === 1);
+
+    // The next real firing is up to a day out, so nothing else lands here.
+    scheduler.stop();
+    await sleep(60);
+    expect(calls).toBe(1);
+    db.close();
+  });
+});
+
+describe('nextDailyFire', () => {
+  test('returns today at the target hour when it is still ahead', () => {
+    const from = new Date(2026, 0, 15, 6, 30, 0); // 06:30 local
+    const next = nextDailyFire(from, 9);
+    expect(next).toEqual(new Date(2026, 0, 15, 9, 0, 0, 0));
+  });
+
+  test('rolls to tomorrow when the target hour has passed', () => {
+    const from = new Date(2026, 0, 15, 9, 30, 0); // 09:30, past 09:00
+    const next = nextDailyFire(from, 9);
+    expect(next).toEqual(new Date(2026, 0, 16, 9, 0, 0, 0));
+  });
+
+  test('rolls to tomorrow when exactly at the target hour (avoids an immediate re-fire)', () => {
+    const from = new Date(2026, 0, 15, 9, 0, 0, 0);
+    const next = nextDailyFire(from, 9);
+    expect(next).toEqual(new Date(2026, 0, 16, 9, 0, 0, 0));
+  });
+
+  test('crosses a month boundary correctly', () => {
+    const from = new Date(2026, 0, 31, 23, 0, 0); // Jan 31, 23:00
+    const next = nextDailyFire(from, 9);
+    expect(next).toEqual(new Date(2026, 1, 1, 9, 0, 0, 0)); // Feb 1, 09:00
   });
 });

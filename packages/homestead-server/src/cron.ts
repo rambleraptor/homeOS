@@ -3,7 +3,9 @@
  *
  * On boot, `startServer` hands the aggregated hook list (from the app
  * registry's `getAllCronHooks`) to {@link startCronScheduler}, which sets up
- * one interval timer per hook. Each firing mints a short-lived admin bearer
+ * one timer per hook — a fixed-cadence `setInterval` for an `intervalSeconds`
+ * hook, or a self-rearming `setTimeout` aimed at the next local `dailyAtHour`
+ * for a daily hook (see {@link nextDailyFire}). Each firing mints a short-lived admin bearer
  * token in the server's own db — the same mechanism the boot-time schema sync
  * uses — invokes the lazily-imported handler with it, and revokes the token
  * when the handler settles.
@@ -50,6 +52,31 @@ const cronLog = createLogger('cron');
 export interface CronScheduler {
   /** Stop all timers. Idempotent. In-flight handlers are left to finish. */
   stop: () => void;
+}
+
+/**
+ * The next moment a `dailyAtHour` hook should fire: the next occurrence of
+ * `hour`:00 in the host's local timezone at or after `from`. If `from` is
+ * already past today's `hour`:00, it rolls to tomorrow. Building the target
+ * from the local Y/M/D components (rather than adding a fixed number of ms)
+ * keeps it anchored to the wall clock across DST transitions.
+ *
+ * Exported so the scheduling math can be unit-tested without timers.
+ */
+export function nextDailyFire(from: Date, hour: number): Date {
+  const target = new Date(
+    from.getFullYear(),
+    from.getMonth(),
+    from.getDate(),
+    hour,
+    0,
+    0,
+    0,
+  );
+  if (target.getTime() <= from.getTime()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target;
 }
 
 /** The `method` recorded on the operation a cron firing spawns. */
@@ -154,8 +181,12 @@ export function startCronScheduler(
   hooks: RegisteredCronHook[],
   operations: OperationStore,
 ): CronScheduler {
-  const timers: ReturnType<typeof setInterval>[] = [];
+  const intervalTimers: ReturnType<typeof setInterval>[] = [];
+  // Daily hooks re-arm a fresh timeout after every firing, so the handle we
+  // must clear on stop() changes over time — track the live set.
+  const dailyTimers = new Set<ReturnType<typeof setTimeout>>();
   const running = new Set<string>();
+  let stopped = false;
 
   const tick = async (hook: RegisteredCronHook): Promise<void> => {
     if (running.has(hook.id)) {
@@ -170,12 +201,31 @@ export function startCronScheduler(
     }
   };
 
+  // Arm the next firing of a daily hook and re-arm once it has run. Computing
+  // the delay fresh each time keeps it locked to the wall clock (and correct
+  // across DST) no matter how long a run took or when the process booted.
+  const scheduleDaily = (hook: RegisteredCronHook): void => {
+    if (stopped) return;
+    const now = new Date();
+    const delay = Math.max(0, nextDailyFire(now, hook.dailyAtHour!).getTime() - now.getTime());
+    const timer = setTimeout(() => {
+      dailyTimers.delete(timer);
+      void tick(hook).finally(() => scheduleDaily(hook));
+    }, delay);
+    if (typeof timer.unref === 'function') timer.unref();
+    dailyTimers.add(timer);
+  };
+
   for (const hook of hooks) {
     if (hook.runOnStart) void tick(hook);
-    const timer = setInterval(() => void tick(hook), hook.intervalSeconds * 1000);
-    // Never let a cron timer alone keep the process alive.
-    if (typeof timer.unref === 'function') timer.unref();
-    timers.push(timer);
+    if (hook.dailyAtHour !== undefined) {
+      scheduleDaily(hook);
+    } else {
+      const timer = setInterval(() => void tick(hook), hook.intervalSeconds! * 1000);
+      // Never let a cron timer alone keep the process alive.
+      if (typeof timer.unref === 'function') timer.unref();
+      intervalTimers.push(timer);
+    }
   }
 
   if (hooks.length > 0) {
@@ -186,8 +236,11 @@ export function startCronScheduler(
 
   return {
     stop: () => {
-      for (const timer of timers) clearInterval(timer);
-      timers.length = 0;
+      stopped = true;
+      for (const timer of intervalTimers) clearInterval(timer);
+      intervalTimers.length = 0;
+      for (const timer of dailyTimers) clearTimeout(timer);
+      dailyTimers.clear();
     },
   };
 }

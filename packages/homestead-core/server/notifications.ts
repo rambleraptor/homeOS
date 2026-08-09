@@ -19,6 +19,13 @@ interface NotificationSubscriptionRecord {
   enabled: boolean;
 }
 
+/** Inbox `notification_type` values a send may record. */
+export type NotificationType =
+  | 'day_of'
+  | 'day_before'
+  | 'week_before'
+  | 'system';
+
 export interface UserNotificationOptions {
   title: string;
   body: string;
@@ -32,6 +39,19 @@ export interface UserNotificationOptions {
    * screen's per-device "send test" action.
    */
   subscriptionId?: string;
+  /**
+   * The inbox `notification_type` to record. Defaults to `'system'` — the
+   * behavior every caller-initiated send has always had. Scheduled reminders
+   * (e.g. the events cron) set `'day_of'` / `'week_before'` so the inbox row
+   * reflects why it fired.
+   */
+  notificationType?: NotificationType;
+  /**
+   * The occurrence this notification is about, recorded on the inbox row's
+   * `scheduled_for`. Reminder senders set it so a given occurrence is only ever
+   * sent once (the dedup key); omit for ad-hoc sends.
+   */
+  scheduledFor?: string;
 }
 
 export async function sendUserNotification(
@@ -51,8 +71,28 @@ export async function sendUserNotification(
 // App workers receive an already-authenticated caller from the
 // dispatcher, so they call this directly instead of re-running
 // `authenticate()` (which would issue a second `/users/{id}` round-trip).
+// A caller-initiated send always targets the caller's own inbox and devices.
 export async function sendNotificationForAuth(
   auth: AuthResult,
+  options: UserNotificationOptions,
+): Promise<Response> {
+  return sendNotificationToUser(auth.token, auth.user.id, options);
+}
+
+/**
+ * Send a notification to an arbitrary user by id, using the caller's `token`
+ * for engine access. Unlike {@link sendNotificationForAuth}, the recipient is
+ * decoupled from whoever the token authenticates as — so a headless job (e.g.
+ * the events reminder cron) holding a short-lived admin token can push to, and
+ * record an inbox row under, any household user.
+ *
+ * The token must be able to read `/users/{userId}/notification-subscriptions`
+ * and write `/users/{userId}/notifications` — the per-firing admin token the
+ * cron scheduler mints qualifies.
+ */
+export async function sendNotificationToUser(
+  token: string,
+  userId: string,
   options: UserNotificationOptions,
 ): Promise<Response> {
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
@@ -64,8 +104,7 @@ export async function sendNotificationForAuth(
   }
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey);
 
-  const userId = auth.user.id;
-  const hs = serverClient(auth.token);
+  const hs = serverClient(token);
   const userRecord = hs.collection('users').record(userId);
 
   let subscriptions: NotificationSubscriptionRecord[];
@@ -138,7 +177,8 @@ export async function sendNotificationForAuth(
       user_id: userId,
       title: options.title,
       message: options.body,
-      notification_type: 'system',
+      notification_type: options.notificationType ?? 'system',
+      scheduled_for: options.scheduledFor,
       source_collection: options.sourceCollection,
       source_id: options.sourceId,
       read: false,

@@ -3,7 +3,9 @@
  *
  * An app declares `crons: CronHook[]` on its {@link AppConfig}; the server's
  * scheduler (`packages/homestead-server/src/cron.ts`) starts a timer per hook
- * on boot and invokes the lazily-imported handler every `intervalSeconds`.
+ * on boot and invokes the lazily-imported handler on the hook's schedule. A
+ * hook picks exactly one schedule: a fixed cadence via `intervalSeconds`, or a
+ * daily wall-clock firing via `dailyAtHour` (server-local time).
  *
  * Handlers run without a user request, so the scheduler mints a short-lived
  * admin bearer token per firing (like the boot-time schema sync) and hands it
@@ -91,12 +93,28 @@ export interface CronHook {
    * Seconds between firings. The scheduler runs the handler every
    * `intervalSeconds` seconds for as long as the server is up. Must be a
    * positive number; the registry drops a hook with a non-positive interval.
+   *
+   * Mutually exclusive with {@link dailyAtHour} — declare exactly one. The
+   * registry drops a hook that declares neither or both.
    */
-  intervalSeconds: number;
+  intervalSeconds?: number;
 
   /**
-   * Also run the handler once immediately at boot, in addition to the
-   * recurring interval. Defaults to `false` (first run is one interval in).
+   * Fire once a day at this hour (0–23) in the **server's local timezone**,
+   * on the minute boundary (HH:00). The scheduler aims each firing at the next
+   * occurrence of this hour and reschedules after every run, so it lands on the
+   * wall clock regardless of when the process booted and re-derives across DST.
+   *
+   * Mutually exclusive with {@link intervalSeconds} — declare exactly one. The
+   * registry drops a hook whose hour is outside 0–23.
+   */
+  dailyAtHour?: number;
+
+  /**
+   * Also run the handler once immediately at boot, in addition to the recurring
+   * schedule. Defaults to `false` (first run is one interval — or one day —
+   * in). Useful for a daily hook that should catch up if the server was down at
+   * its usual hour.
    */
   runOnStart?: boolean;
 

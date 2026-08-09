@@ -13,6 +13,17 @@ export const eventsApp: AppConfig = {
   name: 'Events',
   description: 'Track yearly-recurring household events',
   resources: eventsResources,
+  // Fire once a day at 09:00 (server-local) and notify each user about the
+  // events they asked to be reminded of — today's, and those a week out. The
+  // handler lives under `crons/` so it's stubbed out of the browser bundle.
+  crons: [
+    {
+      id: 'events-notify',
+      title: 'Recurring event reminders',
+      dailyAtHour: 9,
+      load: () => import('./crons/notify'),
+    },
+  ],
   userSettings: {
     countdown_event_id: {
       type: 'string',
