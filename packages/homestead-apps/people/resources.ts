@@ -35,6 +35,20 @@ export const peopleResources: ResourceDefinition[] = [
       // the whole selection at once, not a row-at-a-time create.
       save: () => import('./methods/bulk-import-csv'),
     },
+    bulkExport: {
+      formats: [
+        {
+          id: 'csv',
+          label: 'CSV',
+          mimeType: 'text/csv',
+          extension: 'csv',
+          load: () => import('./methods/bulk-export-csv'),
+        },
+      ],
+      // The inverse of the importer's saver: name + address + partner live
+      // across three collections, so exporting a flat row means joining them.
+      source: () => import('./methods/bulk-export-csv'),
+    },
   },
   {
     singular: 'person-shared-data',

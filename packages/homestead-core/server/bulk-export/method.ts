@@ -1,0 +1,100 @@
+/**
+ * Synthesizes the `<plural>:bulk-export` custom method from a resource's
+ * `bulkExport` declaration — the mirror of `../bulk-import/method.ts`.
+ *
+ * Declaring `bulkExport` *is* the registration — an app writes no entry under
+ * `customMethods` and no handler. Because the synthesized method dispatches like
+ * any other AEP-136 method, bulk export inherits auth, the `/api/aep` gateway,
+ * `GET /api/custom-methods` discovery, and `homestead resources` CLI support for
+ * free.
+ *
+ * Unlike bulk import this is a **synchronous GET** method: a download is a read
+ * that streams a file straight back, so it needs no operation, no request body,
+ * and no progress polling.
+ *
+ * This lives under `core/server/` on purpose. The synthesis has to name the
+ * handler in a `load()` thunk, and the handler imports the server aepbase
+ * wrapper; putting it in the shared registry would drag that into the client
+ * bundle, which the `methods/*` stub plugin only rescues for app-declared
+ * handlers.
+ */
+
+import type { ResourceCustomMethod } from '../../resources/types';
+import {
+  getAllResourceBulkExports,
+  getResourceBulkExport,
+} from '../../apps/registry';
+import type { BulkExportFormatInfo } from '../../resources/bulk-export/types';
+
+/** The verb every bulk-export-capable resource answers on. */
+export const BULK_EXPORT_VERB = 'bulk-export';
+
+/**
+ * The synthesized method for `plural`, or undefined when the resource doesn't
+ * opt in. A read-only GET that returns the file directly (not an operation).
+ */
+export function bulkExportCustomMethod(
+  plural: string,
+  verb: string,
+): ResourceCustomMethod | undefined {
+  if (verb !== BULK_EXPORT_VERB) return undefined;
+  if (!getResourceBulkExport(plural)) return undefined;
+  return {
+    target: 'collection',
+    method: 'GET',
+    title: `Bulk export ${plural}`,
+    load: () => import('./handler'),
+  };
+}
+
+/**
+ * Every synthesized bulk-export method, keyed `${plural}:bulk-export`, for
+ * callers that enumerate rather than resolve (the discovery endpoint, the CLI).
+ */
+export function allBulkExportCustomMethods(): Record<string, ResourceCustomMethod> {
+  const out: Record<string, ResourceCustomMethod> = {};
+  for (const plural of Object.keys(getAllResourceBulkExports())) {
+    const method = bulkExportCustomMethod(plural, BULK_EXPORT_VERB);
+    if (method) out[`${plural}:${BULK_EXPORT_VERB}`] = method;
+  }
+  return out;
+}
+
+/**
+ * Format metadata for `plural`, with the `load` thunks dropped — this crosses
+ * the wire to the UI's format picker, which needs the labels and column docs but
+ * must never see server-only code.
+ *
+ * Loading each serializer to read its `columns` is why this is async. That only
+ * ever happens server-side, and ESM caches the import, so it costs one load per
+ * format per process.
+ */
+export async function bulkExportFormatInfo(
+  plural: string,
+): Promise<BulkExportFormatInfo[] | undefined> {
+  const def = getResourceBulkExport(plural);
+  if (!def) return undefined;
+
+  return Promise.all(
+    def.formats.map(async (format) => ({
+      id: format.id,
+      label: format.label,
+      mimeType: format.mimeType,
+      extension: format.extension,
+      columns: await loadColumns(format),
+    })),
+  );
+}
+
+/** A serializer that won't load shouldn't sink the whole discovery response. */
+async function loadColumns(format: {
+  id: string;
+  load: () => Promise<{ default: { columns?: BulkExportFormatInfo['columns'] } }>;
+}) {
+  try {
+    return (await format.load()).default.columns;
+  } catch (error) {
+    console.error(`Could not load bulk-export serializer for format ${format.id}:`, error);
+    return undefined;
+  }
+}
