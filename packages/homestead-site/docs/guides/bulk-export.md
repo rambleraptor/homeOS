@@ -160,49 +160,45 @@ writes.
 
 ## Selecting which records
 
-Two channels narrow an export, and they compose (both apply, AND):
+Everything narrows through the one `filter` channel — including an explicit
+"export exactly these" selection. The engine's `id` column is filterable and its
+`in` operator takes a list literal, so a picked set of records is just a filter:
 
-- **`filter`** — an aepbase list-filter: a *predicate* ("everyone named Doe").
-- **`ids`** — an explicit record-id *allowlist* ("exactly these five"). This is
-  how the UI exports the rows a user ticked. A record's `id` isn't a filterable
-  schema field, so it can't be a `filter` — it's a separate channel.
+```
+id in ["p1", "p2", "p3"]
+```
 
-Both default to "everything," so a bare export is unchanged.
+That composes with any other predicate (both apply, AND), and defaults to
+"everything," so a bare export is unchanged. There's no separate selection API —
+a record that no longer exists simply isn't returned (the filter matches what's
+there), the same as any other filter.
 
-A missing id is rejected, not dropped: if `ids` names a record that's gone
-(deleted between listing and export), the whole export fails with `400` rather
-than quietly returning a shorter file — mirroring bulk import rejecting a
-selected index that isn't in the parse.
-
-Because a source's shaped rows may have dropped the record id, **id-selection
-happens inside the source.** The default source applies it for you; a custom
-source calls `selectByIds`, which also enforces the reject-on-missing rule:
+A custom source just forwards `filter` to its list; the engine does the
+narrowing:
 
 ```ts
-import { selectByIds } from '@rambleraptor/homestead-core/resources/bulk-export/select';
-
-export const source = async ({ ctx, filter, ids }) => {
-  const people = selectByIds(
-    await hs.collection('people').listAll(filter ? { filter } : undefined),
-    ids,
-    (p) => p.id,
-  );
+export const source = async ({ ctx, filter }) => {
+  const people = await hs.collection('people').listAll(filter ? { filter } : undefined);
   // ...join and shape rows...
 };
 ```
 
-On the client, the `<BulkExportButton>` takes an `ids` prop; the reusable
-`useRowSelection` hook backs a checkbox list (per-row checkboxes plus a
-select-all that tracks the current filter):
+On the client, build the selection filter with `selectionFilter(ids)` and pass
+it to `<BulkExportButton>`. The reusable `useRowSelection` hook backs a checkbox
+list (per-row checkboxes plus a select-all that tracks the current filter):
 
 ```tsx
+import { BulkExportButton, selectionFilter } from '@rambleraptor/homestead-core/shared/bulk-export';
+
 const selection = useRowSelection(visibleRows.map((r) => r.id));
 // ...checkbox per row wired to selection.isSelected / selection.set...
-<BulkExportButton plural="people" ids={selection.selectedIds} label="Export selected" />
+<BulkExportButton
+  plural="people"
+  filter={selectionFilter(selection.selectedIds)}   // id in ["…", "…"]
+  disabled={selection.count === 0}
+  label="Export selected"
+/>
 ```
-
-Passing `ids={[]}` (nothing ticked) disables the button; omitting `ids`
-exports everything.
 
 ## The API
 
@@ -221,8 +217,7 @@ Query params (all optional):
 
 - `format` — a format id declared on the resource. Defaults to the first.
 - `filter` — an aepbase list-filter passed to the source. Defaults to everything.
-- `ids` — comma-separated record-id allowlist. Defaults to every record; a
-  missing id fails the export with `400`.
+  A record selection rides here as `id in ["a", "b", ...]`.
 - `filename` — overrides the download filename. Defaults to `<plural>.<ext>`.
 
 From the CLI or a script:

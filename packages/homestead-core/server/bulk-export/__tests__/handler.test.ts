@@ -96,37 +96,13 @@ describe('bulk-export handler', () => {
     );
   });
 
-  it('narrows to the ?ids= allowlist through the default source', async () => {
+  it('passes a record-selection filter through to the default source', async () => {
+    // Selection travels as an `id in [...]` filter, not a bespoke param.
     register(defWith());
-    const res = await bulkExport(ctx('http://x/api/aep/things:bulk-export?ids=r2'));
-    expect(await res.text()).toBe('name\r\nRow B\r\n');
-  });
-
-  it('parses a comma-separated ?ids= into an allowlist for a custom source', async () => {
-    const source = vi.fn(async () => [{ name: 'x' }]);
-    register(defWith(source));
-    await bulkExport(ctx('http://x/api/aep/things:bulk-export?ids=a,b,c'));
-
-    expect(source).toHaveBeenCalledWith(
-      expect.objectContaining({ ids: ['a', 'b', 'c'] }),
+    await bulkExport(
+      ctx('http://x/api/aep/things:bulk-export?filter=' + encodeURIComponent('id in ["r2"]')),
     );
-  });
-
-  it('treats an empty ?ids= as no selection (exports all)', async () => {
-    const source = vi.fn(async () => [{ name: 'x' }]);
-    register(defWith(source));
-    await bulkExport(ctx('http://x/api/aep/things:bulk-export?ids='));
-
-    expect(source).toHaveBeenCalledWith(expect.objectContaining({ ids: undefined }));
-  });
-
-  it('rejects the export with 400 when a selected id is missing', async () => {
-    register(defWith());
-    const res = await bulkExport(
-      ctx('http://x/api/aep/things:bulk-export?ids=r1,ghost'),
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).message).toMatch(/ghost/);
+    expect(listAll).toHaveBeenCalledWith({ filter: 'id in ["r2"]' });
   });
 
   it('honors a filename override, sanitizing path separators', async () => {

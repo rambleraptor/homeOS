@@ -67,8 +67,15 @@ describe('compileFilter', () => {
 
   test('rejects unknown fields (no injection through identifiers)', () => {
     expect(() => compileFilter('password == "x"', schema)).toThrow(/invalid filter/);
-    // standard fields are not filterable, matching the Go CEL env
-    expect(() => compileFilter('id == "x"', schema)).toThrow(/invalid filter/);
+    // `path` and the timestamps stay non-filterable...
+    expect(() => compileFilter('path == "x"', schema)).toThrow(/invalid filter/);
+    expect(() => compileFilter('create_time == "x"', schema)).toThrow(/invalid filter/);
+  });
+
+  test('id is filterable (it is the primary-key column)', () => {
+    const f = compileFilter('id == "abc"', schema);
+    expect(f.sql).toBe('id = ?');
+    expect(f.params).toEqual(['abc']);
   });
 
   test('rejects malformed expressions', () => {
@@ -110,8 +117,52 @@ describe('compileFilter', () => {
     expect(() => compileFilter('"x" in title', schema)).toThrow(/invalid filter/);
   });
 
-  test('rejects `in` with a field on the left', () => {
+  test('rejects `in` with a field on the left (array-field form)', () => {
     expect(() => compileFilter('title in tags', schema)).toThrow(/invalid filter/);
+  });
+
+  test('membership in a string list literal (CEL `field in [...]`)', () => {
+    const f = compileFilter('id in ["a", "b", "c"]', schema);
+    expect(f.sql).toBe('id IN (?, ?, ?)');
+    expect(f.params).toEqual(['a', 'b', 'c']);
+  });
+
+  test('membership in a numeric list literal', () => {
+    const f = compileFilter('pages in [100, 200]', schema);
+    expect(f.sql).toBe('pages IN (?, ?)');
+    expect(f.params).toEqual([100, 200]);
+  });
+
+  test('single-element list literal', () => {
+    const f = compileFilter('id in ["only"]', schema);
+    expect(f.sql).toBe('id IN (?)');
+    expect(f.params).toEqual(['only']);
+  });
+
+  test('empty list literal is a constant-false predicate', () => {
+    const f = compileFilter('id in []', schema);
+    expect(f.sql).toBe('0');
+    expect(f.params).toEqual([]);
+  });
+
+  test('list-literal membership composes with && and keeps parameter order', () => {
+    const f = compileFilter('id in ["a", "b"] && pages > 10', schema);
+    expect(f.sql).toBe('id IN (?, ?) AND pages > ?');
+    expect(f.params).toEqual(['a', 'b', 10]);
+  });
+
+  test('list elements must be literals, not fields', () => {
+    expect(() => compileFilter('id in [title]', schema)).toThrow(/invalid filter/);
+  });
+
+  test('rejects a list literal on the left of `in`', () => {
+    expect(() => compileFilter('["a"] in tags', schema)).toThrow(/invalid filter/);
+  });
+
+  test('rejects a malformed list literal', () => {
+    for (const bad of ['id in ["a"', 'id in "a", "b"]', 'id in ["a" "b"]']) {
+      expect(() => compileFilter(bad, schema)).toThrow(/invalid filter/);
+    }
   });
 
   test('has() presence on a scalar field', () => {

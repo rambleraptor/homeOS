@@ -17,11 +17,25 @@ const collections: Record<string, unknown[]> = {
   ],
 };
 
-const listAll = vi.fn(async (plural: string) => collections[plural] ?? []);
+// Simulate the engine: an `id in ["x", ...]` filter narrows the rows to those
+// ids. Everything else returns the whole collection.
+const listAll = vi.fn(
+  async (plural: string, opts?: { filter?: string }): Promise<{ id: string }[]> => {
+    const rows = (collections[plural] ?? []) as { id: string }[];
+    const filter = opts?.filter;
+    if (typeof filter === 'string' && filter.startsWith('id in')) {
+      const ids = [...filter.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+      return rows.filter((r) => ids.includes(r.id));
+    }
+    return rows;
+  },
+);
 
 vi.mock('@rambleraptor/homestead-core/server/client', () => ({
   serverClient: () => ({
-    collection: (plural: string) => ({ listAll: () => listAll(plural) }),
+    collection: (plural: string) => ({
+      listAll: (opts?: { filter?: string }) => listAll(plural, opts),
+    }),
   }),
 }));
 
@@ -33,10 +47,10 @@ const ctx: BulkExportContext = {
 };
 
 describe('people export source', () => {
-  it('narrows to the ids allowlist, still resolving an out-of-selection partner', async () => {
-    // Only Jane is selected; her partner John is not — but his name must still
-    // resolve, because names come from the full people list.
-    const rows = await source({ ctx, ids: ['p1'] });
+  it('narrows to a selection filter, still resolving an out-of-selection partner', async () => {
+    // Only Jane is selected (id in ["p1"]); her partner John is not — but his
+    // name must still resolve, because names come from the unfiltered list.
+    const rows = await source({ ctx, filter: 'id in ["p1"]' });
     expect(rows).toEqual([
       {
         name: 'Jane Doe',
@@ -46,10 +60,6 @@ describe('people export source', () => {
         partner_name: 'John Doe',
       },
     ]);
-  });
-
-  it('rejects the whole export when a selected id is gone', async () => {
-    await expect(source({ ctx, ids: ['p1', 'ghost'] })).rejects.toThrow(/ghost/);
   });
 
   it('flattens each person with their joined address and partner name', async () => {
