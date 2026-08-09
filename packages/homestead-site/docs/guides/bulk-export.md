@@ -112,22 +112,49 @@ Add `bulkExport` to the resource in `resources.ts` (see the top of this page).
 It's server-only — it never reaches aepbase (the schema-sync wire payload is an
 explicit whitelist), same as `bulkImport` and `customMethods`.
 
-### 3. Add the button {#3-add-the-button}
+### 3. Add the export screen {#3-add-the-export-screen}
 
-The button is the same for every app:
+Export gets its own page, like the import page. It's generic — it fetches the
+resource's records, lets the user pick a subset with checkboxes and a search box,
+and exports the selection. Nothing selected exports everything.
 
 ```tsx
-import { BulkExportButton } from '@rambleraptor/homestead-core/shared/bulk-export';
+// people/bulk-export/index.tsx — wired via an `export` route in app.config.ts
+import { BulkExportContainer } from '@rambleraptor/homestead-core/shared/bulk-export';
 import { PEOPLE } from '../resources';
 
-<BulkExportButton plural={PEOPLE} />
+export function PeopleBulkExport() {
+  return (
+    <BulkExportContainer
+      config={{ plural: PEOPLE, appName: 'People', appNamePlural: 'people', backRoute: '/people' }}
+    />
+  );
+}
 ```
 
-It reads the resource's formats from the server at runtime, so it needs no
-changes when you add a file type. With one format it downloads on click; with
-several it opens a small menu. For a resource that declares no `bulkExport`, it
-renders nothing. Pass a `filter` prop (an aepbase list-filter) to export only the
-rows currently in view.
+Register it in `app.config.ts` (before any `:id` route, so `export` isn't
+matched as a record id) and link to it from your app's home:
+
+```ts
+{ path: 'export', component: () => import('./bulk-export').then((m) => m.PeopleBulkExport) }
+```
+
+```tsx
+<Button onClick={() => navigate('/people/export')}>Export</Button>
+```
+
+The screen needs **none of your list or item components** — it renders a plain
+labelled checkbox list itself. By default each row is labelled by the record's
+`name` (then `title`, then `id`); pass `config.label` to override:
+
+```tsx
+config={{ /* … */ label: (r) => `${r.first_name} ${r.last_name}` }}
+```
+
+If you just want a one-click "export everything" button somewhere (no picker),
+`<BulkExportButton plural={PEOPLE} />` still works standalone: it reads the
+formats from the server, downloads on click for a single format, opens a menu for
+several, and renders nothing for a resource without `bulkExport`.
 
 ## Custom sources
 
@@ -183,22 +210,13 @@ export const source = async ({ ctx, filter }) => {
 };
 ```
 
-On the client, build the selection filter with `selectionFilter(ids)` and pass
-it to `<BulkExportButton>`. The reusable `useRowSelection` hook backs a checkbox
-list (per-row checkboxes plus a select-all that tracks the current filter):
-
-```tsx
-import { BulkExportButton, selectionFilter } from '@rambleraptor/homestead-core/shared/bulk-export';
-
-const selection = useRowSelection(visibleRows.map((r) => r.id));
-// ...checkbox per row wired to selection.isSelected / selection.set...
-<BulkExportButton
-  plural="people"
-  filter={selectionFilter(selection.selectedIds)}   // id in ["…", "…"]
-  disabled={selection.count === 0}
-  label="Export selected"
-/>
-```
+On the client you don't build this by hand — the [export screen](#3-add-the-export-screen)
+does it. Its checkboxes drive a `selectionFilter(selectedIds)` (an `id in [...]`
+string) that it hands to the export; nothing selected sends no filter, exporting
+everything. If you're building a bespoke picker, the same two pieces are exported
+for reuse: `selectionFilter(ids)` builds the filter, and the `useRowSelection`
+hook manages the checkbox state (per-row plus a select-all that tracks the
+visible rows).
 
 ## The API
 
@@ -240,8 +258,8 @@ packages/homestead-apps/<feature>/
 ├── resources.ts                    # the `bulkExport` declaration
 ├── methods/
 │   └── bulk-export-csv.ts          # serializer (default) + optional `source` — SERVER ONLY
-└── components/
-    └── <App>Home.tsx               # renders <BulkExportButton plural={…} />
+└── bulk-export/
+    └── index.tsx                   # the export screen (a config object)
 ```
 
 Framework internals, if you need them:
@@ -250,5 +268,6 @@ Framework internals, if you need them:
   serializers, wire shapes)
 - `core/server/bulk-export/csv.ts` — `createCsvSerializer` and the CSV escaping
 - `core/server/bulk-export/handler.ts` — the shared handler
-- `core/shared/bulk-export/` — the button and its hooks
+- `core/shared/bulk-export/` — the export screen (`BulkExportContainer`), the
+  standalone button, `selectionFilter`, and the hooks
 ```

@@ -37,7 +37,11 @@ export const peopleApp: AppConfig = {
         path: 'import',
         component: () => import('./bulk-import').then((m) => m.PeopleBulkImport),
       },
-      // After the static `import` path so it isn't captured as a person id.
+      {
+        path: 'export',
+        component: () => import('./bulk-export').then((m) => m.PeopleBulkExport),
+      },
+      // After the static `import`/`export` paths so they aren't captured as a person id.
       {
         path: ':id',
         component: () =>
