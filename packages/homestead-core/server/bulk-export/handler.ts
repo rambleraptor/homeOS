@@ -20,6 +20,10 @@ import type {
   BulkExportContext,
   BulkExportSource,
 } from '../../resources/bulk-export/types';
+import {
+  BulkExportSelectionError,
+  selectByIds,
+} from '../../resources/bulk-export/select';
 import { getResourceBulkExport } from '../../apps/registry';
 import { serverClient } from '../client';
 
@@ -27,6 +31,7 @@ import { serverClient } from '../client';
  * Stream the requested format for the requested rows. Query params:
  *   - `format`  — a format id declared on the resource (defaults to the first).
  *   - `filter`  — an aepbase list-filter passed to the source (defaults to all).
+ *   - `ids`     — comma-separated record-id allowlist (defaults to all records).
  *   - `filename`— override the download filename (defaults to `<plural>.<ext>`).
  */
 const bulkExport: CustomMethodHandler = async (ctx: CustomMethodContext) => {
@@ -50,11 +55,22 @@ const bulkExport: CustomMethodHandler = async (ctx: CustomMethodContext) => {
 
   const exportCtx: BulkExportContext = { auth: ctx.auth, plural: ctx.plural };
   const filter = params.get('filter') ?? undefined;
+  const ids = parseIds(params.get('ids'));
 
   const source: BulkExportSource = def.source
     ? (await def.source()).source
     : defaultSource;
-  const rows = await source({ ctx: exportCtx, filter });
+
+  let rows: unknown[];
+  try {
+    rows = await source({ ctx: exportCtx, filter, ids });
+  } catch (error) {
+    // A named-but-missing id is the caller's mistake, not a server fault.
+    if (error instanceof BulkExportSelectionError) {
+      return problem(400, error.message);
+    }
+    throw error;
+  }
 
   const { default: serializer } = await format.load();
   const body = await serializer.serialize(rows, exportCtx);
@@ -86,13 +102,28 @@ export default bulkExport;
 
 /**
  * List the resource's own collection, one row per record. The mirror of bulk
- * import's default saver (one create per row). Honors the `filter` query param.
+ * import's default saver (one create per row). Honors both the `filter` and the
+ * `ids` allowlist.
+ *
+ * Applies the allowlist by listing (with any filter) and narrowing in memory,
+ * rather than fetching each id: it's how `filter` + `ids` compose, and it gives
+ * exact missing-id detection without depending on the collection's per-record
+ * error codes. Exports are bounded, so the full list is acceptable here; a
+ * custom source over a huge collection can fetch more selectively.
  */
-const defaultSource: BulkExportSource = async ({ ctx, filter }) => {
-  return serverClient(ctx.auth.token)
-    .collection(ctx.plural)
+const defaultSource: BulkExportSource<{ id: string }> = async ({ ctx, filter, ids }) => {
+  const records = await serverClient(ctx.auth.token)
+    .collection<{ id: string }>(ctx.plural)
     .listAll(filter ? { filter } : undefined);
+  return selectByIds(records, ids, (r) => r.id);
 };
+
+/** Split a `?ids=a,b,c` param into a trimmed, non-empty list, or undefined. */
+function parseIds(raw: string | null): string[] | undefined {
+  if (raw === null) return undefined;
+  const ids = raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
 
 /** Copy a byte view into a fresh, exactly-typed ArrayBuffer for `Blob`. */
 function toArrayBuffer(view: Uint8Array): ArrayBuffer {

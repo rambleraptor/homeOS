@@ -33,6 +33,25 @@ const ctx: BulkExportContext = {
 };
 
 describe('people export source', () => {
+  it('narrows to the ids allowlist, still resolving an out-of-selection partner', async () => {
+    // Only Jane is selected; her partner John is not — but his name must still
+    // resolve, because names come from the full people list.
+    const rows = await source({ ctx, ids: ['p1'] });
+    expect(rows).toEqual([
+      {
+        name: 'Jane Doe',
+        address: '123 Main St',
+        wifi_network: 'HomeWiFi',
+        wifi_password: 'pw',
+        partner_name: 'John Doe',
+      },
+    ]);
+  });
+
+  it('rejects the whole export when a selected id is gone', async () => {
+    await expect(source({ ctx, ids: ['p1', 'ghost'] })).rejects.toThrow(/ghost/);
+  });
+
   it('flattens each person with their joined address and partner name', async () => {
     const rows = await source({ ctx });
     expect(rows).toEqual([

@@ -70,6 +70,20 @@ export type BulkExportSource<T = unknown> = (args: {
    * default source passes it straight through to the collection list.
    */
   filter?: string;
+  /**
+   * Explicit record-id allowlist from the request's `?ids=` query param, or
+   * undefined for "all records". The export analog of bulk import's
+   * `selectedIndices` — it's how the UI exports exactly the rows the user
+   * ticked.
+   *
+   * A record's `id` is not a filterable schema field, so this can't be folded
+   * into {@link filter} — it's a separate channel. And a source's rows may not
+   * carry the id (people's rows drop it), so **a custom source must apply `ids`
+   * itself**, while it still holds the records: use {@link selectByIds}, which
+   * also enforces the reject-on-missing-id contract. Composes with `filter`
+   * (both narrow, AND). The default source applies it for you.
+   */
+  ids?: string[];
 }) => Promise<T[]> | T[];
 
 /**

@@ -9,8 +9,12 @@ import { useState } from 'react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import { useRowSelection } from '@rambleraptor/homestead-core/shared/hooks/useRowSelection';
+import { BulkExportButton } from '@rambleraptor/homestead-core/shared/bulk-export';
 import {
   FilterBar,
   AppFiltersProvider,
@@ -20,6 +24,7 @@ import { usePeople } from '../hooks/usePeople';
 import { useUpdatePerson } from '../hooks/useUpdatePerson';
 import { useDeletePerson } from '../hooks/useDeletePerson';
 import { peopleApp } from '../app.config';
+import { PEOPLE } from '../resources';
 import { PersonForm } from './PersonForm';
 import { PersonCard } from './PersonCard';
 import type { Person, PersonFormData } from '../types';
@@ -48,6 +53,7 @@ export function PeopleList() {
 
 function PeopleListInner({ hasAny }: { hasAny: boolean }) {
   const filteredPeople = useFilteredItems<Person>();
+  const selection = useRowSelection(filteredPeople.map((p) => p.id));
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const updatePerson = useUpdatePerson();
   const deletePerson = useDeletePerson();
@@ -112,16 +118,53 @@ function PeopleListInner({ hasAny }: { hasAny: boolean }) {
           </p>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filteredPeople.map((person) => (
-            <PersonCard
-              key={person.id}
-              person={person}
-              onEdit={setEditingPerson}
-              onDelete={handleDeleteClick}
+        <>
+          <div className="flex items-center gap-3 mb-3 min-h-9">
+            <Checkbox
+              checked={
+                selection.allVisibleSelected
+                  ? true
+                  : selection.someVisibleSelected
+                    ? 'indeterminate'
+                    : false
+              }
+              onCheckedChange={selection.toggleAllVisible}
+              aria-label="Select all people"
+              data-testid="select-all-people"
             />
-          ))}
-        </div>
+            {selection.count > 0 ? (
+              <>
+                <span className="text-sm text-gray-600" data-testid="selection-count">
+                  {selection.count} selected
+                </span>
+                <BulkExportButton
+                  plural={PEOPLE}
+                  ids={selection.selectedIds}
+                  label="Export selected"
+                />
+                <Button variant="secondary" size="sm" onClick={selection.clear}>
+                  Clear
+                </Button>
+              </>
+            ) : (
+              <span className="text-sm text-gray-500">Select all</span>
+            )}
+          </div>
+          <div className="space-y-3">
+            {filteredPeople.map((person) => (
+              <PersonCard
+                key={person.id}
+                person={person}
+                onEdit={setEditingPerson}
+                onDelete={handleDeleteClick}
+                selection={{
+                  selected: selection.isSelected(person.id),
+                  onChange: (on) => selection.set(person.id, on),
+                }}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       <Modal

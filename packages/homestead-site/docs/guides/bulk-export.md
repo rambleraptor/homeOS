@@ -36,6 +36,7 @@ working Export button.
   - [2. Declare the format](#2-declare-the-format)
   - [3. Add the button](#3-add-the-button)
 - [Custom sources](#custom-sources)
+- [Selecting which records](#selecting-which-records)
 - [The API](#the-api)
 - [Round-trip with import](#round-trip-with-import)
 - [Where code goes](#where-code-goes)
@@ -157,6 +158,52 @@ is another person — so exporting "names and addresses" means walking that grap
 backwards. That's exactly the inverse of what the people *importer's* saver
 writes.
 
+## Selecting which records
+
+Two channels narrow an export, and they compose (both apply, AND):
+
+- **`filter`** — an aepbase list-filter: a *predicate* ("everyone named Doe").
+- **`ids`** — an explicit record-id *allowlist* ("exactly these five"). This is
+  how the UI exports the rows a user ticked. A record's `id` isn't a filterable
+  schema field, so it can't be a `filter` — it's a separate channel.
+
+Both default to "everything," so a bare export is unchanged.
+
+A missing id is rejected, not dropped: if `ids` names a record that's gone
+(deleted between listing and export), the whole export fails with `400` rather
+than quietly returning a shorter file — mirroring bulk import rejecting a
+selected index that isn't in the parse.
+
+Because a source's shaped rows may have dropped the record id, **id-selection
+happens inside the source.** The default source applies it for you; a custom
+source calls `selectByIds`, which also enforces the reject-on-missing rule:
+
+```ts
+import { selectByIds } from '@rambleraptor/homestead-core/resources/bulk-export/select';
+
+export const source = async ({ ctx, filter, ids }) => {
+  const people = selectByIds(
+    await hs.collection('people').listAll(filter ? { filter } : undefined),
+    ids,
+    (p) => p.id,
+  );
+  // ...join and shape rows...
+};
+```
+
+On the client, the `<BulkExportButton>` takes an `ids` prop; the reusable
+`useRowSelection` hook backs a checkbox list (per-row checkboxes plus a
+select-all that tracks the current filter):
+
+```tsx
+const selection = useRowSelection(visibleRows.map((r) => r.id));
+// ...checkbox per row wired to selection.isSelected / selection.set...
+<BulkExportButton plural="people" ids={selection.selectedIds} label="Export selected" />
+```
+
+Passing `ids={[]}` (nothing ticked) disables the button; omitting `ids`
+exports everything.
+
 ## The API
 
 ```http
@@ -174,6 +221,8 @@ Query params (all optional):
 
 - `format` — a format id declared on the resource. Defaults to the first.
 - `filter` — an aepbase list-filter passed to the source. Defaults to everything.
+- `ids` — comma-separated record-id allowlist. Defaults to every record; a
+  missing id fails the export with `400`.
 - `filename` — overrides the download filename. Defaults to `<plural>.<ext>`.
 
 From the CLI or a script:
