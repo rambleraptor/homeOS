@@ -16,6 +16,7 @@ import type {
   BulkExportSource,
   BulkExportContext,
 } from '@rambleraptor/homestead-core/resources/bulk-export/types';
+import { selectByIds } from '@rambleraptor/homestead-core/resources/bulk-export/select';
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { ADDRESSES, PEOPLE, PERSON_SHARED_DATA } from '../resources';
 import { personCsvSchema, type PersonCsvData } from './bulk-import-csv';
@@ -51,19 +52,28 @@ interface SharedDataRecord {
 export const source: BulkExportSource<PersonCsvData> = async ({
   ctx,
   filter,
+  ids,
 }: {
   ctx: BulkExportContext;
   filter?: string;
+  ids?: string[];
 }) => {
   const hs = serverClient(ctx.auth.token);
-  const [people, shared, addresses] = await Promise.all([
+  const [allPeople, shared, addresses] = await Promise.all([
     hs.collection<PersonRecord>(PEOPLE).listAll(filter ? { filter } : undefined),
     hs.collection<SharedDataRecord>(PERSON_SHARED_DATA).listAll(),
     hs.collection<AddressRecord>(ADDRESSES).listAll(),
   ]);
 
+  // Narrow to the ticked people before joining. Applied here (not by the
+  // framework) because the shaped rows below have no id to select on, and it
+  // rejects an id that no longer exists rather than silently shrinking the file.
+  const people = selectByIds(allPeople, ids, (p) => p.id);
+
   const addressById = new Map(addresses.map((a) => [a.id, a]));
-  const nameById = new Map(people.map((p) => [p.id, p.name]));
+  // Names resolve against everyone, not just the selection — a ticked person's
+  // partner may be someone who wasn't ticked.
+  const nameById = new Map(allPeople.map((p) => [p.id, p.name]));
   // Every shared-data record each person appears in, from either side.
   const linksByPerson = new Map<string, SharedDataRecord[]>();
   for (const link of shared) {

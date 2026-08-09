@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Cake, CalendarHeart, Edit, Heart, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import {
   getNextEventOccurrence,
@@ -16,6 +17,14 @@ interface PersonCardProps {
   person: Person;
   onEdit: (person: Person) => void;
   onDelete: (person: Person) => void;
+  /**
+   * When set, the card shows a selection checkbox (for bulk actions like
+   * export). Omit for a plain, non-selectable card.
+   */
+  selection?: {
+    selected: boolean;
+    onChange: (selected: boolean) => void;
+  };
 }
 
 function EventIcon({ tag }: { tag?: string }) {
@@ -47,6 +56,7 @@ export function PersonCard({
   person,
   onEdit,
   onDelete,
+  selection,
 }: PersonCardProps) {
   const { user } = useAuth();
   const partner = person.partner;
@@ -70,6 +80,15 @@ export function PersonCard({
     <Card>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
+          {selection && (
+            <Checkbox
+              checked={selection.selected}
+              onCheckedChange={selection.onChange}
+              className="mt-1"
+              aria-label={`Select ${person.name}`}
+              data-testid="person-select-checkbox"
+            />
+          )}
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-gray-900">

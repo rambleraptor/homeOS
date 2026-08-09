@@ -14,8 +14,8 @@ import type { BulkExportSource } from '../../../resources/bulk-export/types';
 // The default source lists the resource's own collection through the server
 // client; stub it so that path is observable without the engine.
 const listAll = vi.fn(async (_opts?: unknown): Promise<unknown[]> => [
-  { name: 'Row A' },
-  { name: 'Row B' },
+  { id: 'r1', name: 'Row A' },
+  { id: 'r2', name: 'Row B' },
 ]);
 const collection = vi.fn((_plural: string) => ({ listAll }));
 vi.mock('../../client', () => ({ serverClient: () => ({ collection }) }));
@@ -94,6 +94,39 @@ describe('bulk-export handler', () => {
     expect(source).toHaveBeenCalledWith(
       expect.objectContaining({ filter: 'active', ctx: expect.objectContaining({ plural: 'things' }) }),
     );
+  });
+
+  it('narrows to the ?ids= allowlist through the default source', async () => {
+    register(defWith());
+    const res = await bulkExport(ctx('http://x/api/aep/things:bulk-export?ids=r2'));
+    expect(await res.text()).toBe('name\r\nRow B\r\n');
+  });
+
+  it('parses a comma-separated ?ids= into an allowlist for a custom source', async () => {
+    const source = vi.fn(async () => [{ name: 'x' }]);
+    register(defWith(source));
+    await bulkExport(ctx('http://x/api/aep/things:bulk-export?ids=a,b,c'));
+
+    expect(source).toHaveBeenCalledWith(
+      expect.objectContaining({ ids: ['a', 'b', 'c'] }),
+    );
+  });
+
+  it('treats an empty ?ids= as no selection (exports all)', async () => {
+    const source = vi.fn(async () => [{ name: 'x' }]);
+    register(defWith(source));
+    await bulkExport(ctx('http://x/api/aep/things:bulk-export?ids='));
+
+    expect(source).toHaveBeenCalledWith(expect.objectContaining({ ids: undefined }));
+  });
+
+  it('rejects the export with 400 when a selected id is missing', async () => {
+    register(defWith());
+    const res = await bulkExport(
+      ctx('http://x/api/aep/things:bulk-export?ids=r1,ghost'),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).message).toMatch(/ghost/);
   });
 
   it('honors a filename override, sanitizing path separators', async () => {

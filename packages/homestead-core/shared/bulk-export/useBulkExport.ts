@@ -50,6 +50,11 @@ export interface BulkExportInput {
   format?: string;
   /** aepbase list-filter passed to the source; omit for everything. */
   filter?: string;
+  /**
+   * Explicit record-id allowlist — export exactly these records. Omit for all.
+   * The server rejects the whole export (400) if any id no longer exists.
+   */
+  ids?: string[];
   /** Override the download filename; defaults to what the server names it. */
   filename?: string;
 }
@@ -71,6 +76,7 @@ export function useBulkExport(plural: string) {
       const params = new URLSearchParams();
       if (input.format) params.set('format', input.format);
       if (input.filter) params.set('filter', input.filter);
+      if (input.ids && input.ids.length > 0) params.set('ids', input.ids.join(','));
       if (input.filename) params.set('filename', input.filename);
       const qs = params.toString();
       const url = `${AEP_BASE}/${plural}:${BULK_EXPORT_VERB}${qs ? `?${qs}` : ''}`;
