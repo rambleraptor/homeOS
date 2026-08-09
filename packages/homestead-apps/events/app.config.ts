@@ -24,6 +24,15 @@ export const eventsApp: AppConfig = {
       load: () => import('./crons/notify'),
     },
   ],
+  // Split the legacy single `date` field into month/day on existing events.
+  // One-shot and idempotent (skips events already carrying month/day).
+  migrations: [
+    {
+      id: 'events-split-date',
+      title: 'Split event date into month/day',
+      load: () => import('./migrations/split-date'),
+    },
+  ],
   userSettings: {
     countdown_event_id: {
       type: 'string',

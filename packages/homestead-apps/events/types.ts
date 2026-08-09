@@ -18,13 +18,22 @@ export type EventRecurrence = 'yearly' | 'yearly-nth-weekday';
 export interface Event {
   id: string;
   name: string;
+  /** Month of the event, 1-12. Honored for both recurrence modes. */
+  month: number;
   /**
-   * ISO date string. For fixed-date yearly events (default), only month/day
-   * are honored. For `yearly-nth-weekday` events, only the month is honored
-   * and the day-of-month is ignored — `recurrence_rule` controls which
-   * weekday and occurrence.
+   * Day of the month, 1-31. Honored for fixed-date yearly events; ignored for
+   * `yearly-nth-weekday` (where `recurrence_rule` controls the weekday and
+   * occurrence and only `month` matters).
    */
-  date: string;
+  day: number;
+  /**
+   * Optional origin year — birth year for a birthday, wedding year for an
+   * anniversary. When present, drives the displayed age / anniversary count;
+   * never affects the recurrence.
+   */
+  year?: number;
+  /** @deprecated Legacy single date-time field; superseded by month/day/year. */
+  date?: string;
   tag?: string;
   /** Array of `people/{person_id}` reference strings. */
   people?: string[];
@@ -41,7 +50,10 @@ export interface Event {
 
 export interface EventFormData {
   name: string;
-  date: string;
+  month: number;
+  day: number;
+  /** Optional origin year; `null` clears a previously-set year on update. */
+  year?: number | null;
   tag?: string;
   /** Bare person ids — `people/` prefix is added on submit. */
   people: string[];

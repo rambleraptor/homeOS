@@ -36,14 +36,16 @@ describe('useUpcomingEvents', () => {
           {
             id: 'e1',
             name: "John's Birthday",
-            date: '1990-06-20',
+            month: 6,
+            day: 20,
             tag: 'birthday',
             people: ['people/p1'],
           },
           {
             id: 'e2',
             name: 'Anniversary',
-            date: '2010-08-15',
+            month: 8,
+            day: 15,
             tag: 'anniversary',
             people: ['people/p1', 'people/p2'],
           },
@@ -78,7 +80,8 @@ describe('useUpcomingEvents', () => {
           {
             id: 'e1',
             name: 'Test',
-            date: '1990-06-20',
+            month: 6,
+            day: 20,
             people: ['p1'],
           },
         ];
@@ -103,7 +106,8 @@ describe('useUpcomingEvents', () => {
           {
             id: 'e1',
             name: 'Far Away',
-            date: '1990-12-25',
+            month: 12,
+            day: 25,
             people: [],
           },
         ];
@@ -128,7 +132,8 @@ describe('useUpcomingEvents', () => {
           {
             id: 'e-fathers',
             name: "Father's Day",
-            date: '2024-06-01',
+            month: 6,
+            day: 1,
             recurrence: 'yearly-nth-weekday',
             recurrence_rule: '3:0',
             people: [],
@@ -152,8 +157,8 @@ describe('useUpcomingEvents', () => {
     vi.mocked(aepbase.list).mockImplementation(async (plural: string) => {
       if (plural === 'events') {
         return [
-          { id: 'b', name: 'B', date: '1990-06-20', people: [] },
-          { id: 'a', name: 'A', date: '1990-06-17', people: [] },
+          { id: 'b', name: 'B', month: 6, day: 20, people: [] },
+          { id: 'a', name: 'A', month: 6, day: 17, people: [] },
         ];
       }
       if (plural === 'people') return [];

@@ -11,11 +11,8 @@ import {
   AepbaseError,
 } from '@rambleraptor/homestead-core/api/aepbase';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { EVENTS } from '../resources';
+import { hasEventDate, nextOccurrence } from '../utils/eventDate';
 import type { Event } from '../types';
 
 export interface UseCountdownEventResult {
@@ -44,14 +41,7 @@ export function useCountdownEvent(eventId: string): UseCountdownEventResult {
   });
 
   const event = query.data ?? null;
-  const nextDate =
-    event && event.date?.trim()
-      ? getNextEventOccurrence(
-          parseDateString(event.date),
-          event.recurrence,
-          event.recurrence_rule,
-        )
-      : null;
+  const nextDate = event && hasEventDate(event) ? nextOccurrence(event) : null;
 
   return {
     event,

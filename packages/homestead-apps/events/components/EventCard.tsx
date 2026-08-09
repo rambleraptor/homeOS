@@ -1,12 +1,14 @@
 import { CalendarHeart, Edit, Trash2, Users } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-  parseNthWeekdayRule,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
+import { parseNthWeekdayRule } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { usePeople } from '../../people/hooks/usePeople';
+import {
+  eventAgeLabel,
+  eventAnchorDate,
+  hasEventDate,
+  nextOccurrence,
+} from '../utils/eventDate';
 import { EventReminderSelect } from './EventReminderSelect';
 import type { Event } from '../types';
 
@@ -30,9 +32,10 @@ const WEEKDAY_NAMES = [
 
 function formatRecurrenceRule(event: Event): string | null {
   if (event.recurrence !== 'yearly-nth-weekday') return null;
+  if (!hasEventDate(event)) return null;
   const parsed = parseNthWeekdayRule(event.recurrence_rule);
   if (!parsed) return null;
-  const month = parseDateString(event.date).toLocaleDateString('en-US', {
+  const month = eventAnchorDate(event).toLocaleDateString('en-US', {
     month: 'long',
   });
   const ord = ORDINAL_BY_N[parsed.n] ?? `${parsed.n}th`;
@@ -68,13 +71,11 @@ function isPeopleCenteredTag(tag?: string): boolean {
 }
 
 function formatNextOccurrence(event: Event): string {
-  if (!event.date.trim()) return '';
-  const next = getNextEventOccurrence(
-    parseDateString(event.date),
-    event.recurrence,
-    event.recurrence_rule,
-  );
-  return next.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  if (!hasEventDate(event)) return '';
+  return nextOccurrence(event).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
@@ -87,6 +88,11 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
     isPeopleCenteredTag(event.tag) && tagged.length > 0;
   const stackPeopleLines = showPeopleAsTitle && event.tag === 'anniversary';
   const headerText = showPeopleAsTitle ? formatPeopleList(tagged) : event.name;
+  const occurrenceYear = hasEventDate(event)
+    ? nextOccurrence(event).getFullYear()
+    : null;
+  const ageLabel =
+    occurrenceYear != null ? eventAgeLabel(event, occurrenceYear) : null;
 
   return (
     <Card>
@@ -123,6 +129,14 @@ export function EventCard({ event, onEdit, onDelete }: EventCardProps) {
             </div>
             <p className="text-sm text-gray-600 mt-1">
               {formatNextOccurrence(event)}
+              {ageLabel && (
+                <span
+                  className="ml-2 text-gray-400"
+                  data-testid={`event-card-age-${event.id}`}
+                >
+                  · {ageLabel}
+                </span>
+              )}
             </p>
             {formatRecurrenceRule(event) && (
               <p className="text-xs text-gray-500 mt-0.5">

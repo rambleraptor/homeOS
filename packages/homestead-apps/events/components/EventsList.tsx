@@ -9,10 +9,7 @@ import {
   AppFiltersProvider,
   useFilteredItems,
 } from '@rambleraptor/homestead-core/shared/filters';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
+import { hasEventDate, nextOccurrence } from '../utils/eventDate';
 import { useEvents } from '../hooks/useEvents';
 import { useUpdateEvent } from '../hooks/useUpdateEvent';
 import { useDeleteEvent } from '../hooks/useDeleteEvent';
@@ -22,12 +19,8 @@ import { EventCard } from './EventCard';
 import type { Event, EventFormData } from '../types';
 
 function eventNextOccurrenceMs(e: Event): number {
-  if (!e.date?.trim()) return Number.POSITIVE_INFINITY;
-  return getNextEventOccurrence(
-    parseDateString(e.date),
-    e.recurrence,
-    e.recurrence_rule,
-  ).getTime();
+  if (!hasEventDate(e)) return Number.POSITIVE_INFINITY;
+  return nextOccurrence(e).getTime();
 }
 
 export function EventsList() {
