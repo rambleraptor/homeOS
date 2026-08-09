@@ -36,6 +36,7 @@ working Export button.
   - [2. Declare the format](#2-declare-the-format)
   - [3. Add the button](#3-add-the-button)
 - [Custom sources](#custom-sources)
+- [Export options](#export-options)
 - [Selecting which records](#selecting-which-records)
 - [The API](#the-api)
 - [Round-trip with import](#round-trip-with-import)
@@ -184,6 +185,46 @@ sibling `address` record linked through `person-shared-data`, and their partner
 is another person — so exporting "names and addresses" means walking that graph
 backwards. That's exactly the inverse of what the people *importer's* saver
 writes.
+
+## Export options
+
+A resource can offer **toggles** that change how the source shapes the export —
+declared as data, rendered generically by the export screen, and interpreted by
+the source. People uses one to collapse a household (people who share an
+`address_id`) into a single row instead of one row each:
+
+```ts
+bulkExport: {
+  formats: [...],
+  source: () => import('./methods/bulk-export-csv'),
+  options: [
+    { id: 'combine_households', type: 'boolean', default: false,
+      label: 'Combine household members into one row' },
+  ],
+}
+```
+
+That's the whole per-resource cost. The screen renders a checkbox per option (the
+only `type` today is `boolean`), the discovery endpoint carries the metadata, and
+the value rides to the source as a query param — `?combine_households=true`, so
+the CLI and any REST caller get it too. The source reads it off `options`, where
+every declared option is always present (its `default` fills in an omitted one):
+
+```ts
+export const source = async ({ ctx, filter, options }) => {
+  const people = await hs.collection('people').listAll(filter ? { filter } : undefined);
+  if (!options?.combine_households) return perPersonRows(people);
+  return groupByAddress(people).map((household) => ({
+    name: household.map((p) => p.name).join(' & '),
+    // ...shared address columns...
+  }));
+};
+```
+
+The screen never learns what a household is — it only renders a labelled boolean.
+Grouping happens **within the exported set**: if the user ticked only one member
+of a couple, only that one appears (an unticked partner isn't pulled in). Option
+ids must not collide with the reserved params `format`/`filter`/`filename`.
 
 ## Selecting which records
 

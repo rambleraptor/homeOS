@@ -30,6 +30,8 @@ export interface BulkExportButtonProps {
    * filter) to export exactly the ticked rows.
    */
   filter?: string;
+  /** Values for the resource's declared export options, keyed by option id. */
+  options?: Record<string, boolean>;
   /** Disable the button (e.g. a selection with nothing ticked). */
   disabled?: boolean;
   /** Override the download filename. */
@@ -41,6 +43,7 @@ export function BulkExportButton({
   plural,
   label = 'Export',
   filter,
+  options,
   disabled = false,
   filename,
   variant = 'secondary',
@@ -72,7 +75,7 @@ export function BulkExportButton({
   const runExport = async (format?: BulkExportFormatInfo) => {
     setOpen(false);
     try {
-      await exporter.mutateAsync({ format: format?.id, filter, filename });
+      await exporter.mutateAsync({ format: format?.id, filter, options, filename });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Export failed');
     }

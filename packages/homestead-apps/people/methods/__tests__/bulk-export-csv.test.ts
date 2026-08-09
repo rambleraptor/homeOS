@@ -47,6 +47,45 @@ const ctx: BulkExportContext = {
 };
 
 describe('people export source', () => {
+  it('combines household members (shared address_id) into one row', async () => {
+    const rows = await source({ ctx, options: { combine_households: true } });
+    expect(rows).toEqual([
+      {
+        // Jane + John share address a1 → a single household row.
+        name: 'Jane Doe & John Doe',
+        address: '123 Main St',
+        wifi_network: 'HomeWiFi',
+        wifi_password: 'pw',
+        partner_name: undefined,
+      },
+      {
+        // Peter has no address → his own row.
+        name: 'Peter Jones',
+        address: undefined,
+        wifi_network: undefined,
+        wifi_password: undefined,
+        partner_name: undefined,
+      },
+    ]);
+  });
+
+  it('combines within the selection — ticking one member shows only that one', async () => {
+    const rows = await source({
+      ctx,
+      filter: 'id in ["p1"]',
+      options: { combine_households: true },
+    });
+    expect(rows).toEqual([
+      {
+        name: 'Jane Doe',
+        address: '123 Main St',
+        wifi_network: 'HomeWiFi',
+        wifi_password: 'pw',
+        partner_name: undefined,
+      },
+    ]);
+  });
+
   it('narrows to a selection filter, still resolving an out-of-selection partner', async () => {
     // Only Jane is selected (id in ["p1"]); her partner John is not — but his
     // name must still resolve, because names come from the unfiltered list.

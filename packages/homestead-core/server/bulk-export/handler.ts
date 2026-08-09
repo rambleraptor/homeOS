@@ -29,6 +29,7 @@ import { serverClient } from '../client';
  *   - `filter`  — an aepbase list-filter passed to the source (defaults to all).
  *                 A record selection rides here too, as `id in ["a", "b", ...]`.
  *   - `filename`— override the download filename (defaults to `<plural>.<ext>`).
+ *   - one param per declared {@link BulkExportOption} (e.g. `combine_households=true`).
  */
 const bulkExport: CustomMethodHandler = async (ctx: CustomMethodContext) => {
   const def = getResourceBulkExport(ctx.plural);
@@ -51,11 +52,19 @@ const bulkExport: CustomMethodHandler = async (ctx: CustomMethodContext) => {
 
   const exportCtx: BulkExportContext = { auth: ctx.auth, plural: ctx.plural };
   const filter = params.get('filter') ?? undefined;
+  // Only declared options are read, each coerced to its boolean and defaulted —
+  // so a source can read every option without a presence check, and stray query
+  // params are ignored.
+  const options: Record<string, boolean> = {};
+  for (const opt of def.options ?? []) {
+    const raw = params.get(opt.id);
+    options[opt.id] = raw === null ? opt.default ?? false : raw === 'true';
+  }
 
   const source: BulkExportSource = def.source
     ? (await def.source()).source
     : defaultSource;
-  const rows = await source({ ctx: exportCtx, filter });
+  const rows = await source({ ctx: exportCtx, filter, options });
 
   const { default: serializer } = await format.load();
   const body = await serializer.serialize(rows, exportCtx);

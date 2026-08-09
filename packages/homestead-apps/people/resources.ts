@@ -48,6 +48,14 @@ export const peopleResources: ResourceDefinition[] = [
       // The inverse of the importer's saver: name + address + partner live
       // across three collections, so exporting a flat row means joining them.
       source: () => import('./methods/bulk-export-csv'),
+      options: [
+        {
+          id: 'combine_households',
+          type: 'boolean',
+          default: false,
+          label: 'Combine household members into one row',
+        },
+      ],
     },
   },
   {

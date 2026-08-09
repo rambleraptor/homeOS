@@ -17,6 +17,7 @@ import {
 import {
   allBulkExportCustomMethods,
   bulkExportFormatInfo,
+  bulkExportOptionInfo,
   BULK_EXPORT_VERB,
 } from '@rambleraptor/homestead-core/server/bulk-export/method';
 import { getAllResourceCustomMethods } from '../app-registry';
@@ -39,6 +40,8 @@ export async function customMethodsResponse(): Promise<Response> {
         verb === BULK_IMPORT_VERB ? await bulkImportFormatInfo(plural) : undefined;
       const bulkExport =
         verb === BULK_EXPORT_VERB ? await bulkExportFormatInfo(plural) : undefined;
+      const exportOptions =
+        verb === BULK_EXPORT_VERB ? bulkExportOptionInfo(plural) : undefined;
       return {
         plural,
         verb,
@@ -46,7 +49,9 @@ export async function customMethodsResponse(): Promise<Response> {
         method: def.method ?? 'POST',
         async: def.async ?? false,
         ...(bulkImport ? { bulkImport: { formats: bulkImport } } : {}),
-        ...(bulkExport ? { bulkExport: { formats: bulkExport } } : {}),
+        ...(bulkExport
+          ? { bulkExport: { formats: bulkExport, options: exportOptions ?? [] } }
+          : {}),
       };
     }),
   );

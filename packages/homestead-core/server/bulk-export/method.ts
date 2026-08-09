@@ -24,7 +24,10 @@ import {
   getAllResourceBulkExports,
   getResourceBulkExport,
 } from '../../apps/registry';
-import type { BulkExportFormatInfo } from '../../resources/bulk-export/types';
+import type {
+  BulkExportFormatInfo,
+  BulkExportOption,
+} from '../../resources/bulk-export/types';
 
 /** The verb every bulk-export-capable resource answers on. */
 export const BULK_EXPORT_VERB = 'bulk-export';
@@ -84,6 +87,17 @@ export async function bulkExportFormatInfo(
       columns: await loadColumns(format),
     })),
   );
+}
+
+/**
+ * The export options declared for `plural` (plain data, no module to load), or
+ * undefined when the resource doesn't opt into bulk export. Surfaced on the
+ * discovery endpoint so the export screen can render the toggles.
+ */
+export function bulkExportOptionInfo(plural: string): BulkExportOption[] | undefined {
+  const def = getResourceBulkExport(plural);
+  if (!def) return undefined;
+  return def.options ?? [];
 }
 
 /** A serializer that won't load shouldn't sink the whole discovery response. */
