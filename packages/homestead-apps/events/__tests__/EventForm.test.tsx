@@ -57,7 +57,7 @@ beforeEach(() => {
 });
 
 describe('EventForm', () => {
-  it('submits a new event with the chosen tag and tagged people', async () => {
+  it('submits a new event with month/day (no year), tag, and people', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
     const onCancel = vi.fn();
@@ -67,7 +67,8 @@ describe('EventForm', () => {
     );
 
     await user.type(screen.getByTestId('event-form-name'), 'Test Event');
-    await user.type(screen.getByTestId('event-form-date'), '1990-06-20');
+    await user.selectOptions(screen.getByTestId('event-form-month'), '6');
+    await user.type(screen.getByTestId('event-form-day'), '20');
     await user.selectOptions(screen.getByTestId('event-form-tag'), 'birthday');
     await user.click(screen.getByTestId('event-form-person-p1'));
 
@@ -76,10 +77,51 @@ describe('EventForm', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith({
       name: 'Test Event',
-      date: '1990-06-20',
+      month: 6,
+      day: 20,
       tag: 'birthday',
       people: ['people/p1'],
     });
+    // Year omitted entirely when left blank on create.
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('year');
+  });
+
+  it('includes the year when provided', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderWithClient(<EventForm onSubmit={onSubmit} onCancel={vi.fn()} />);
+
+    await user.type(screen.getByTestId('event-form-name'), 'Birthday');
+    await user.selectOptions(screen.getByTestId('event-form-month'), '6');
+    await user.type(screen.getByTestId('event-form-day'), '20');
+    await user.type(screen.getByTestId('event-form-year'), '1985');
+    await user.click(screen.getByTestId('event-form-submit'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      month: 6,
+      day: 20,
+      year: 1985,
+    });
+  });
+
+  it('clears the year on edit when the field is emptied', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderWithClient(
+      <EventForm
+        initialData={{ id: 'e1', name: 'X', month: 6, day: 20, year: 1985 }}
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    await user.clear(screen.getByTestId('event-form-year'));
+    await user.click(screen.getByTestId('event-form-submit'));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    // Null (not undefined) so the merge-patch drops the stored year.
+    expect(onSubmit.mock.calls[0][0].year).toBeNull();
   });
 
   it('supports a custom tag entered free-form', async () => {
@@ -90,7 +132,8 @@ describe('EventForm', () => {
     );
 
     await user.type(screen.getByTestId('event-form-name'), 'Graduation');
-    await user.type(screen.getByTestId('event-form-date'), '2020-05-30');
+    await user.selectOptions(screen.getByTestId('event-form-month'), '5');
+    await user.type(screen.getByTestId('event-form-day'), '30');
     await user.selectOptions(
       screen.getByTestId('event-form-tag'),
       '__custom__',
@@ -107,14 +150,16 @@ describe('EventForm', () => {
     });
   });
 
-  it('hydrates from initialData (date + tag + people)', async () => {
+  it('hydrates from initialData (month/day/year + tag + people)', async () => {
     const onSubmit = vi.fn();
     renderWithClient(
       <EventForm
         initialData={{
           id: 'e1',
           name: 'Existing',
-          date: '1990-06-20',
+          month: 6,
+          day: 20,
+          year: 1990,
           tag: 'anniversary',
           people: ['people/p2'],
         }}
@@ -124,7 +169,9 @@ describe('EventForm', () => {
     );
 
     expect(screen.getByTestId('event-form-name')).toHaveValue('Existing');
-    expect(screen.getByTestId('event-form-date')).toHaveValue('1990-06-20');
+    expect(screen.getByTestId('event-form-month')).toHaveValue('6');
+    expect(screen.getByTestId('event-form-day')).toHaveValue(20);
+    expect(screen.getByTestId('event-form-year')).toHaveValue(1990);
     expect(screen.getByTestId('event-form-tag')).toHaveValue('anniversary');
     expect(
       screen.getByTestId('event-form-person-p2'),
@@ -141,7 +188,8 @@ describe('EventForm', () => {
     renderWithClient(<EventForm onSubmit={onSubmit} onCancel={vi.fn()} />);
 
     await user.type(screen.getByTestId('event-form-name'), 'Birthday');
-    await user.type(screen.getByTestId('event-form-date'), '1990-06-20');
+    await user.selectOptions(screen.getByTestId('event-form-month'), '6');
+    await user.type(screen.getByTestId('event-form-day'), '20');
     await user.click(screen.getByTestId('event-form-submit'));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
@@ -150,15 +198,17 @@ describe('EventForm', () => {
     expect(payload.recurrence_rule).toBeUndefined();
   });
 
-  it('submits an Nth-weekday rule with auto-fill from the chosen date', async () => {
+  it('submits an Nth-weekday rule, auto-filling the weekday when a year is given', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
 
     renderWithClient(<EventForm onSubmit={onSubmit} onCancel={vi.fn()} />);
 
     await user.type(screen.getByTestId('event-form-name'), "Mother's Day");
-    // 2026-05-10 is the 2nd Sunday of May 2026 — should auto-fill to 2:0.
-    await user.type(screen.getByTestId('event-form-date'), '2026-05-10');
+    // May 10 2026 is the 2nd Sunday — with the year, auto-fills to 2:0.
+    await user.selectOptions(screen.getByTestId('event-form-month'), '5');
+    await user.type(screen.getByTestId('event-form-day'), '10');
+    await user.type(screen.getByTestId('event-form-year'), '2026');
     await user.selectOptions(
       screen.getByTestId('event-form-recurrence'),
       'yearly-nth-weekday',
@@ -174,7 +224,9 @@ describe('EventForm', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({
       name: "Mother's Day",
-      date: '2026-05-10',
+      month: 5,
+      day: 10,
+      year: 2026,
       recurrence: 'yearly-nth-weekday',
       recurrence_rule: '2:0',
     });
@@ -186,7 +238,8 @@ describe('EventForm', () => {
         initialData={{
           id: 'e2',
           name: 'Family reunion',
-          date: '2024-07-01',
+          month: 7,
+          day: 1,
           recurrence: 'yearly-nth-weekday',
           recurrence_rule: '-1:6',
         }}

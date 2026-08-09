@@ -7,12 +7,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { EVENTS } from '../resources';
 import { PEOPLE } from '../../people/resources';
+import { hasEventDate, nextOccurrence } from '../utils/eventDate';
 import type { Event } from '../types';
 
 interface PersonRecord {
@@ -53,12 +50,8 @@ export function useUpcomingEvents(days: number = DEFAULT_LOOKAHEAD_DAYS) {
 
       const upcoming: UpcomingEvent[] = [];
       for (const event of events) {
-        if (!event.date?.trim()) continue;
-        const next = getNextEventOccurrence(
-          parseDateString(event.date),
-          event.recurrence,
-          event.recurrence_rule,
-        );
+        if (!hasEventDate(event)) continue;
+        const next = nextOccurrence(event);
         if (next < startOfToday || next > futureDate) continue;
         const names = (event.people ?? [])
           .map((ref) => peopleById.get(personIdFromRef(ref))?.name)

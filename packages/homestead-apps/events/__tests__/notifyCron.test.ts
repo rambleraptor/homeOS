@@ -8,10 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
+import { nextOccurrence } from '../utils/eventDate';
 import type { CronContext } from '@rambleraptor/homestead-core/apps/types';
 
 interface Row {
@@ -76,17 +73,18 @@ function ctx(): CronContext {
   };
 }
 
-const occIso = (evDate: string) =>
-  getNextEventOccurrence(parseDateString(evDate)).toISOString();
+const occIso = (month: number, day: number) =>
+  nextOccurrence({ month, day }).toISOString();
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   h.sendMock.mockClear();
   h.state.events = [
-    { id: 'e-today', name: "Mom's Birthday", date: '1990-06-15' }, // due today
-    { id: 'e-week', name: 'Anniversary', date: '1990-06-22' }, // due in 7 days
-    { id: 'e-far', name: 'Graduation', date: '1990-12-25' }, // neither
+    // due today; birthday with a known year → age in the body
+    { id: 'e-today', name: "Mom's Birthday", month: 6, day: 15, year: 1990, tag: 'birthday' },
+    { id: 'e-week', name: 'Anniversary', month: 6, day: 22, tag: 'anniversary' }, // due in 7 days
+    { id: 'e-far', name: 'Graduation', month: 12, day: 25 }, // neither
   ];
   h.state.users = [{ id: 'u1' }, { id: 'u2' }, { id: 'u3' }];
   h.state.remindersByUser = {
@@ -144,10 +142,19 @@ describe('events-notify handler', () => {
       sourceCollection: 'events',
       sourceId: 'e-week',
       notificationType: 'week_before',
-      scheduledFor: occIso('1990-06-22'),
+      scheduledFor: occIso(6, 22),
       tag: 'event-e-week-week_before',
       url: '/events',
     });
+  });
+
+  test('includes the age in a birthday body when the year is known', async () => {
+    await handler(ctx());
+    // e-today is a birthday with year 1990; the 2026 occurrence → turning 36.
+    const call = h.sendMock.mock.calls.find(
+      ([, , opts]) => (opts as Row).sourceId === 'e-today',
+    )!;
+    expect((call[2] as Row).body).toContain('Turning 36');
   });
 
   test('skips an (event, lead, occurrence) already recorded in the inbox', async () => {
@@ -156,7 +163,7 @@ describe('events-notify handler', () => {
         {
           source_id: 'e-today',
           notification_type: 'day_of',
-          scheduled_for: occIso('1990-06-15'),
+          scheduled_for: occIso(6, 15),
         },
       ],
     };
@@ -169,7 +176,7 @@ describe('events-notify handler', () => {
   });
 
   test('no-ops when nothing is due', async () => {
-    h.state.events = [{ id: 'e-far', name: 'Graduation', date: '1990-12-25' }];
+    h.state.events = [{ id: 'e-far', name: 'Graduation', month: 12, day: 25 }];
     const result = await handler(ctx());
     expect(h.sendMock).not.toHaveBeenCalled();
     expect(result).toMatchObject({ events: 1, dueDayOf: 0, dueWeekBefore: 0, sent: 0 });

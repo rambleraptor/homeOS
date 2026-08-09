@@ -23,7 +23,10 @@ export class EventsPage {
 
   async fillEventForm(data: {
     name: string;
+    /** `YYYY-MM-DD`; split into the month/day (and optional year) inputs. */
     date: string;
+    /** Also fill the optional year input from the date's year. */
+    withYear?: boolean;
     tag?: 'birthday' | 'anniversary' | string;
     personNames?: string[];
     recurrence?: {
@@ -32,7 +35,12 @@ export class EventsPage {
     };
   }) {
     await this.page.getByTestId('event-form-name').fill(data.name);
-    await this.page.getByTestId('event-form-date').fill(data.date);
+    const [y, m, d] = data.date.substring(0, 10).split('-');
+    await this.page.getByTestId('event-form-month').selectOption(String(Number(m)));
+    await this.page.getByTestId('event-form-day').fill(String(Number(d)));
+    if (data.withYear) {
+      await this.page.getByTestId('event-form-year').fill(y);
+    }
     if (data.tag !== undefined) {
       const knownTags = ['birthday', 'anniversary'];
       if (data.tag === '' || knownTags.includes(data.tag)) {
@@ -124,7 +132,11 @@ export class EventsPage {
       await this.page.getByTestId('event-form-name').fill(newData.name);
     }
     if (newData.date !== undefined) {
-      await this.page.getByTestId('event-form-date').fill(newData.date);
+      const [, m, d] = newData.date.substring(0, 10).split('-');
+      await this.page
+        .getByTestId('event-form-month')
+        .selectOption(String(Number(m)));
+      await this.page.getByTestId('event-form-day').fill(String(Number(d)));
     }
     if (newData.tag !== undefined) {
       await this.fillEventForm({

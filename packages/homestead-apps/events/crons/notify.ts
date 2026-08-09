@@ -29,11 +29,8 @@ import {
   type NotificationType,
 } from '@rambleraptor/homestead-core/server/notifications';
 import { NOTIFICATIONS } from '@rambleraptor/homestead-core/notifications/constants';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { EVENTS, EVENT_REMINDERS } from '../resources';
+import { eventAgeLabel, hasEventDate, nextOccurrence } from '../utils/eventDate';
 import type { Event, EventReminder, ReminderLead } from '../types';
 
 interface NotificationRow {
@@ -86,12 +83,17 @@ function buildContent(
     month: 'long',
     day: 'numeric',
   });
+  const age = eventAgeLabel(event, occurrence.getFullYear());
+  const ageSuffix = age ? ` ${age}.` : '';
   if (type === 'day_of') {
-    return { title: `Today: ${label}`, body: `${label} is today (${dateStr}).` };
+    return {
+      title: `Today: ${label}`,
+      body: `${label} is today (${dateStr}).${ageSuffix}`,
+    };
   }
   return {
     title: `Next week: ${label}`,
-    body: `${label} is one week away — ${dateStr}.`,
+    body: `${label} is one week away — ${dateStr}.${ageSuffix}`,
   };
 }
 
@@ -107,12 +109,8 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   const dueDayOf = new Map<string, DueEvent>();
   const dueWeekBefore = new Map<string, DueEvent>();
   for (const event of events) {
-    if (!event.date?.trim()) continue;
-    const occurrence = getNextEventOccurrence(
-      parseDateString(event.date),
-      event.recurrence,
-      event.recurrence_rule,
-    );
+    if (!hasEventDate(event)) continue;
+    const occurrence = nextOccurrence(event);
     if (isSameLocalDay(occurrence, now)) {
       dueDayOf.set(event.id, { event, occurrence });
     } else if (isSameLocalDay(occurrence, inAWeek)) {

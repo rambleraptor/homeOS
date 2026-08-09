@@ -8,11 +8,22 @@ export const eventsResources: ResourceDefinition[] = [
     singular: 'event',
     plural: EVENTS,
     description:
-      'A yearly-recurring event. Either a fixed month/day (default) or the Nth weekday of a month (e.g., second Sunday of May).',
+      'A yearly-recurring event. Either a fixed month/day (default) or the Nth weekday of a month (e.g., second Sunday of May). The year is optional — supply it (birth year, wedding year) to show an age / anniversary count.',
     user_settable_create: true,
     fields: {
       name: { type: 'string', required: true },
-      date: { type: 'string', format: 'date-time', required: true },
+      month: { type: 'number', required: true, description: 'month of the event, 1-12' },
+      day: { type: 'number', required: true, description: 'day of the month, 1-31' },
+      year: {
+        type: 'number',
+        description:
+          'optional origin year (birth year / wedding year); when set, drives the age / anniversary count',
+      },
+      // Deprecated: the legacy single date-time field. Superseded by
+      // month/day/year. Kept (optional) only so the `events-split-date`
+      // migration can read it off existing rows; removed in a follow-up once
+      // that migration has run everywhere. New records never write it.
+      date: { type: 'string', format: 'date-time', description: 'deprecated; use month/day/year' },
       tag: {
         type: 'string',
         description: 'free-form; common values: birthday, anniversary',

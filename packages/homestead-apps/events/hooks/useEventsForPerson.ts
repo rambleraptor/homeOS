@@ -6,11 +6,8 @@
  */
 
 import { useMemo } from 'react';
-import {
-  getNextEventOccurrence,
-  parseDateString,
-} from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { useEvents } from './useEvents';
+import { hasEventDate, nextOccurrence } from '../utils/eventDate';
 import type { Event } from '../types';
 
 const PERSON_REF_PREFIX = 'people/';
@@ -29,18 +26,8 @@ export function useEventsForPerson(personId: string | undefined): Event[] {
       (event.people ?? []).some((ref) => personIdFromRef(ref) === personId),
     );
     return matching.sort((a, b) => {
-      if (!a.date?.trim() || !b.date?.trim()) return 0;
-      const aNext = getNextEventOccurrence(
-        parseDateString(a.date),
-        a.recurrence,
-        a.recurrence_rule,
-      );
-      const bNext = getNextEventOccurrence(
-        parseDateString(b.date),
-        b.recurrence,
-        b.recurrence_rule,
-      );
-      return aNext.getTime() - bNext.getTime();
+      if (!hasEventDate(a) || !hasEventDate(b)) return 0;
+      return nextOccurrence(a).getTime() - nextOccurrence(b).getTime();
     });
   }, [events, personId]);
 }

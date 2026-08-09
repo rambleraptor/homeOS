@@ -65,7 +65,8 @@ test.describe('Events CRUD', () => {
     const events = await listEvents(userToken);
     const updated = events.find((e) => e.id === original.id);
     expect(updated?.name).toBe('Updated Event');
-    expect(updated?.date.substring(0, 10)).toBe('1990-07-21');
+    expect(updated?.month).toBe(7);
+    expect(updated?.day).toBe(21);
   });
 
   test('deletes an event', async ({ userToken }) => {
