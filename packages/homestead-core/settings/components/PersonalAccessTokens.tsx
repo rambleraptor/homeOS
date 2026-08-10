@@ -3,13 +3,18 @@ import { Copy, KeyRound, Trash2 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
-import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { Capability } from '@rambleraptor/homestead-core/permissions/resolve';
+import {
+  GrantRowsEditor,
+  cleanGrantDrafts,
+  newGrantDraft,
+  validateGrantDrafts,
+  type GrantDraft,
+} from '@rambleraptor/homestead-core/permissions/components/GrantRowsEditor';
 import {
   usePersonalAccessTokens,
   type AepPersonalAccessToken,
@@ -17,17 +22,6 @@ import {
 } from '../hooks/usePersonalAccessTokens';
 import { useMintPersonalAccessToken } from '../hooks/useMintPersonalAccessToken';
 import { useRevokePersonalAccessToken } from '../hooks/useRevokePersonalAccessToken';
-import {
-  useTokenScopeOptions,
-  capabilitiesUpTo,
-  type ScopeOption,
-} from '../hooks/useTokenScopeOptions';
-
-/** Per-scope selection state: whether it's included and at what capability. */
-interface Selection {
-  checked: boolean;
-  capability: Capability;
-}
 
 function describeScope(scope: TokenScope): string {
   const target =
@@ -35,8 +29,9 @@ function describeScope(scope: TokenScope): string {
       ? 'Everything'
       : scope.target_scope === 'app'
         ? `App: ${scope.target_app}`
-        : `Collection: ${scope.resource_type}`;
-  return `${scope.capability} · ${target}`;
+        : `Collection: ${scope.resource_type}${scope.filter ? ` where ${scope.filter}` : ''}`;
+  const prefix = scope.effect === 'deny' ? 'deny ' : '';
+  return `${prefix}${scope.capability} · ${target}`;
 }
 
 function formatDate(value?: string): string | null {
@@ -48,46 +43,25 @@ function formatDate(value?: string): string | null {
 export function PersonalAccessTokens() {
   const toast = useToast();
   const { data: tokens = [], isLoading } = usePersonalAccessTokens();
-  const { data: scopeOptions = [], isLoading: scopesLoading } = useTokenScopeOptions();
   const mint = useMintPersonalAccessToken();
   const revoke = useRevokePersonalAccessToken();
 
   const [name, setName] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
-  const [selections, setSelections] = useState<Record<string, Selection>>({});
+  const [grants, setGrants] = useState<GrantDraft[]>([]);
   const [mintedSecret, setMintedSecret] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<AepPersonalAccessToken | null>(null);
 
-  const selectedScopes = useMemo<TokenScope[]>(() => {
-    const out: TokenScope[] = [];
-    for (const option of scopeOptions) {
-      const sel = selections[option.key];
-      if (!sel?.checked) continue;
-      out.push({
-        capability: sel.capability,
-        target_scope: option.target_scope,
-        target_app: option.target_app,
-        resource_type: option.resource_type,
-      });
-    }
-    return out;
-  }, [scopeOptions, selections]);
+  const patchGrant = (key: number, over: Partial<GrantDraft>) =>
+    setGrants((gs) => gs.map((g) => (g.key === key ? { ...g, ...over } : g)));
+  const removeGrant = (key: number) => setGrants((gs) => gs.filter((g) => g.key !== key));
 
-  const setSelection = (option: ScopeOption, patch: Partial<Selection>) => {
-    setSelections((prev) => ({
-      ...prev,
-      [option.key]: {
-        checked: prev[option.key]?.checked ?? false,
-        capability: prev[option.key]?.capability ?? option.maxCapability,
-        ...patch,
-      },
-    }));
-  };
+  const scopes = useMemo<TokenScope[]>(() => cleanGrantDrafts(grants) as TokenScope[], [grants]);
 
   const resetForm = () => {
     setName('');
     setExpiresAt('');
-    setSelections({});
+    setGrants([]);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -96,11 +70,16 @@ export function PersonalAccessTokens() {
       toast.error('Give the token a name.');
       return;
     }
+    const grantError = validateGrantDrafts(grants);
+    if (grantError) {
+      toast.error(grantError);
+      return;
+    }
     try {
       const result = await mint.mutateAsync({
         name: name.trim(),
         expires_at: expiresAt ? new Date(expiresAt).toISOString() : undefined,
-        scopes: selectedScopes,
+        scopes,
       });
       setMintedSecret(result.token);
       resetForm();
@@ -148,8 +127,9 @@ export function PersonalAccessTokens() {
           <div>
             <h3 className="font-semibold text-gray-900">Personal Access Tokens</h3>
             <p className="text-sm text-gray-600">
-              Issue a token to call the API. A token can only ever do what you can,
-              and only within the scopes you grant it.
+              Issue a token to call the API. Scope it with grants using the same
+              controls as roles — a token is always limited to what you can do, so a
+              scope beyond your own access simply has no effect.
             </p>
           </div>
         </div>
@@ -220,50 +200,18 @@ export function PersonalAccessTokens() {
             data-testid="token-expiry"
           />
 
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Scopes</p>
-            {scopesLoading ? (
-              <Spinner size="sm" />
-            ) : scopeOptions.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                You have no grantable permissions, so a token would be inert.
-              </p>
-            ) : (
-              <ul className="space-y-2" data-testid="scope-options">
-                {scopeOptions.map((option) => {
-                  const sel = selections[option.key];
-                  const caps = capabilitiesUpTo(option.maxCapability);
-                  return (
-                    <li key={option.key} className="flex items-center gap-3">
-                      <Checkbox
-                        checked={sel?.checked ?? false}
-                        onCheckedChange={(checked) =>
-                          setSelection(option, { checked: checked === true })
-                        }
-                        data-testid={`scope-${option.key}`}
-                      />
-                      <span className="text-sm text-gray-800 flex-1">{option.label}</span>
-                      <select
-                        className="text-sm border border-gray-200 rounded px-2 py-1 disabled:opacity-50"
-                        value={sel?.capability ?? option.maxCapability}
-                        disabled={!sel?.checked}
-                        onChange={(e) =>
-                          setSelection(option, { capability: e.target.value as Capability })
-                        }
-                        data-testid={`capability-${option.key}`}
-                      >
-                        {caps.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          <GrantRowsEditor
+            grants={grants}
+            onPatch={patchGrant}
+            onRemove={removeGrant}
+            onAdd={() => setGrants((gs) => [...gs, newGrantDraft()])}
+            heading="Scopes"
+            addLabel="Add scope"
+            addTestId="token-add-scope"
+            rowsTestId="token-scopes"
+            emptyHint="No scopes — this token will be inert until you add one."
+            datalistId="token-resource-options"
+          />
 
           <Button type="submit" disabled={mint.isPending} data-testid="create-token">
             {mint.isPending ? 'Creating…' : 'Create token'}

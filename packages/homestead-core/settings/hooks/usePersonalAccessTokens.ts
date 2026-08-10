@@ -7,12 +7,16 @@ import {
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 
-/** One scope granted to a token — a capability over a target. */
+/** One scope granted to a token — a capability over a target (a grant). */
 export interface TokenScope {
   capability: 'read' | 'write' | 'manage';
   target_scope: 'all' | 'app' | 'collection';
   target_app?: string;
   resource_type?: string;
+  /** Optional attribute filter, only meaningful at collection scope. */
+  filter?: string;
+  /** Defaults to 'allow'; a 'deny' scope restricts the token further. */
+  effect?: 'allow' | 'deny';
 }
 
 /** A personal access token record (non-secret metadata only). */

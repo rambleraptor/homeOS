@@ -1,7 +1,7 @@
 /**
- * Tests for the Personal Access Tokens settings section: the empty state, the
- * scope picker sourced from the caller's own grants, and the create flow that
- * reveals the one-time secret.
+ * Tests for the Personal Access Tokens settings section: the empty state and
+ * the create flow, which now uses the shared grant editor (the same rows the
+ * role editor uses) and reveals the one-time secret.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -12,9 +12,8 @@ import { PersonalAccessTokens } from '../components/PersonalAccessTokens';
 import { usePersonalAccessTokens } from '../hooks/usePersonalAccessTokens';
 import { useMintPersonalAccessToken } from '../hooks/useMintPersonalAccessToken';
 import { useRevokePersonalAccessToken } from '../hooks/useRevokePersonalAccessToken';
-import { useTokenScopeOptions } from '../hooks/useTokenScopeOptions';
 
-// Radix primitives (Checkbox/Modal) measure with ResizeObserver, absent in jsdom.
+// Radix primitives (Modal) measure with ResizeObserver, absent in jsdom.
 class ResizeObserverStub {
   observe() {}
   unobserve() {}
@@ -25,10 +24,6 @@ globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as 
 vi.mock('../hooks/usePersonalAccessTokens', () => ({ usePersonalAccessTokens: vi.fn() }));
 vi.mock('../hooks/useMintPersonalAccessToken', () => ({ useMintPersonalAccessToken: vi.fn() }));
 vi.mock('../hooks/useRevokePersonalAccessToken', () => ({ useRevokePersonalAccessToken: vi.fn() }));
-vi.mock('../hooks/useTokenScopeOptions', async (importOriginal) => {
-  const actual = (await importOriginal()) as object;
-  return { ...actual, useTokenScopeOptions: vi.fn() };
-});
 
 const renderSection = () =>
   render(
@@ -43,12 +38,6 @@ describe('PersonalAccessTokens', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(usePersonalAccessTokens).mockReturnValue({ data: [], isLoading: false } as never);
-    vi.mocked(useTokenScopeOptions).mockReturnValue({
-      data: [
-        { key: 'all:', label: 'Everything', target_scope: 'all', maxCapability: 'write' },
-      ],
-      isLoading: false,
-    } as never);
     vi.mocked(useMintPersonalAccessToken).mockReturnValue({
       mutateAsync: mintAsync,
       isPending: false,
@@ -59,30 +48,32 @@ describe('PersonalAccessTokens', () => {
     } as never);
   });
 
-  it('shows the empty state and the scopes derived from the caller’s grants', () => {
+  it('shows the empty state and the shared grant editor', () => {
     renderSection();
     expect(screen.getByTestId('no-tokens')).toBeInTheDocument();
-    expect(screen.getByText('Everything')).toBeInTheDocument();
+    // The shared grant editor's "add" control is present.
+    expect(screen.getByTestId('token-add-scope')).toBeInTheDocument();
   });
 
-  it('mints a token with the chosen scope and reveals the secret once', async () => {
+  it('mints a token with a grant built in the editor and reveals the secret once', async () => {
     renderSection();
 
     fireEvent.change(screen.getByTestId('token-name'), { target: { value: 'CI bot' } });
-    // Include the "Everything" scope.
-    fireEvent.click(screen.getByTestId('scope-all:'));
+    // Add a grant row and scope it to "everything".
+    fireEvent.click(screen.getByTestId('token-add-scope'));
+    fireEvent.change(screen.getByLabelText('capability'), { target: { value: 'write' } });
+    fireEvent.change(screen.getByLabelText('scope'), { target: { value: 'all' } });
     fireEvent.click(screen.getByTestId('create-token'));
 
     await waitFor(() =>
       expect(mintAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           name: 'CI bot',
-          scopes: [{ capability: 'write', target_scope: 'all', target_app: undefined, resource_type: undefined }],
+          scopes: [{ capability: 'write', target_scope: 'all' }],
         }),
       ),
     );
 
-    // The one-time secret is surfaced.
     await waitFor(() =>
       expect(screen.getByTestId('minted-secret')).toHaveTextContent('hsd_pat_secretvalue'),
     );

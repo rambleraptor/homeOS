@@ -45,6 +45,8 @@ interface TokenScope {
   target_scope: string;
   target_app?: string;
   resource_type?: string;
+  filter?: string;
+  effect?: string;
 }
 
 /** Validate a requested scope's shape; returns an error message or null. */
@@ -136,10 +138,11 @@ export function makeTokensRoute(engine: Engine, authFn: AuthFn = authenticate): 
             subject_type: 'token',
             subject_id: record.id,
             capability: scope.capability,
-            effect: 'allow',
+            effect: scope.effect === 'deny' ? 'deny' : 'allow',
             target_scope: scope.target_scope,
             target_app: scope.target_app,
             resource_type: scope.resource_type,
+            filter: scope.target_scope === 'collection' ? scope.filter : undefined,
           });
         }
       } finally {
