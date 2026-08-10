@@ -142,6 +142,22 @@ describe('PermissionStore.gatherFor', () => {
     expect(resolve(regular, req('read'), principals, grants).allow).toBe(false);
   });
 
+  test('a role-carried deny blocks its members (deny grant inside a role)', () => {
+    // "Kids" role: allow write on everything, but deny the recipes app.
+    db.run(
+      `INSERT INTO roles (id, name, grants) VALUES
+         ('kids', 'Kids', '[{"target_scope":"all","capability":"write"},{"target_scope":"app","target_app":"recipes","capability":"manage","effect":"deny"}]')`,
+    );
+    db.run("INSERT INTO groups (id, name, role) VALUES ('g', 'G', 'kids')");
+    db.run("INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'g', 'alice')");
+    const { principals, grants } = store.gatherFor('alice');
+    // The allow covers other apps…
+    expect(resolve(regular, req('write', { resourceType: 'todo', appId: 'todos' }), principals, grants).allow).toBe(true);
+    // …but the role's own deny blocks the recipes app (deny always wins).
+    expect(resolve(regular, req('read'), principals, grants).allow).toBe(false);
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(false);
+  });
+
   // ─────────── default-grant fallback suppression (§8.x) ───────────
 
   /** The seeded open-household default: everyone → write → * , is_default = 1. */

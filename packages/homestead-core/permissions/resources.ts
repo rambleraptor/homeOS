@@ -42,7 +42,7 @@ export const PERMISSION_RESOURCE_DEFS: ResourceDefinition[] = [
       description: { type: 'string' },
       grants: {
         type: 'array',
-        description: 'Collection/app/all-scope allow-grants this role confers.',
+        description: 'Collection/app/all-scope grants this role confers (allow or deny).',
         items: {
           type: 'object',
           properties: {
@@ -51,6 +51,7 @@ export const PERMISSION_RESOURCE_DEFS: ResourceDefinition[] = [
             resource_type: { type: 'string' },
             filter: { type: 'string' },
             capability: { type: 'string', enum: [...CAPABILITY_VALUES] },
+            effect: { type: 'string', enum: [...EFFECT_VALUES] }, // default 'allow'
           },
         },
       },

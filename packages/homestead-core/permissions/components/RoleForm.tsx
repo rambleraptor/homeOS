@@ -4,13 +4,14 @@ import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { getAllApps } from '@rambleraptor/homestead-core/apps/registry';
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
-import type { Capability } from '../resolve';
+import type { Capability, Effect } from '../resolve';
 import type { RoleInput, RoleRecord } from '../hooks';
 
 type Scope = 'all' | 'app' | 'collection';
 
 interface GrantDraft {
   key: number;
+  effect: Effect;
   capability: Capability;
   target_scope: Scope;
   target_app: string;
@@ -29,6 +30,7 @@ let nextKey = 1;
 function draft(over: Partial<GrantDraft> = {}): GrantDraft {
   return {
     key: nextKey++,
+    effect: 'allow',
     capability: 'read',
     target_scope: 'collection',
     target_app: '',
@@ -75,6 +77,7 @@ export function RoleForm({ initialRole, onSubmit, onCancel, isSubmitting }: Prop
   const [grants, setGrants] = useState<GrantDraft[]>(
     (initialRole?.grants ?? []).map((g) =>
       draft({
+        effect: (g.effect as Effect) ?? 'allow',
         capability: (g.capability as Capability) ?? 'read',
         target_scope: (g.target_scope as Scope) ?? 'collection',
         target_app: g.target_app ?? '',
@@ -107,16 +110,27 @@ export function RoleForm({ initialRole, onSubmit, onCancel, isSubmitting }: Prop
       }
     }
 
+    // Only stamp effect for a deny; the wire schema defaults to allow, so an
+    // allow grant stays byte-identical to the pre-deny payload.
     const cleaned = grants.map((g) => {
-      if (g.target_scope === 'all') return { target_scope: 'all' as const, capability: g.capability };
+      const eff = g.effect === 'deny' ? { effect: 'deny' as const } : {};
+      if (g.target_scope === 'all') {
+        return { target_scope: 'all' as const, capability: g.capability, ...eff };
+      }
       if (g.target_scope === 'app') {
-        return { target_scope: 'app' as const, target_app: g.target_app, capability: g.capability };
+        return {
+          target_scope: 'app' as const,
+          target_app: g.target_app,
+          capability: g.capability,
+          ...eff,
+        };
       }
       return {
         target_scope: 'collection' as const,
         resource_type: g.resource_type.trim(),
         capability: g.capability,
         ...(g.filter.trim() ? { filter: g.filter.trim() } : {}),
+        ...eff,
       };
     });
 
@@ -174,6 +188,15 @@ export function RoleForm({ initialRole, onSubmit, onCancel, isSubmitting }: Prop
           <ul className="space-y-2" data-testid="role-grants">
             {grants.map((g) => (
               <li key={g.key} className="flex flex-wrap items-center gap-2 rounded-md border border-gray-100 p-2">
+                <select
+                  className={selectClass}
+                  value={g.effect}
+                  onChange={(e) => patchGrant(g.key, { effect: e.target.value as Effect })}
+                  aria-label="effect"
+                >
+                  <option value="allow">allow</option>
+                  <option value="deny">deny</option>
+                </select>
                 <select
                   className={selectClass}
                   value={g.capability}

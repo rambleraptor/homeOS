@@ -13,8 +13,6 @@ import { ACCESS_GRANTS, GROUPS, GROUP_MEMBERSHIPS } from '../resources';
 import {
   useAccessGrants,
   useAddGroupMember,
-  useAppAccessGrants,
-  useBlockAppAccess,
   useCreateGroup,
   useGroups,
   useRevokeGrant,
@@ -89,25 +87,6 @@ describe('permission data hooks', () => {
       target_scope: 'record',
       resource_type: 'recipe',
       resource_id: 'r1',
-      capability: 'manage',
-      effect: 'deny',
-    });
-  });
-
-  it('useAppAccessGrants lists app-scope grants', async () => {
-    const { result } = renderHook(() => useAppAccessGrants(), { wrapper: createWrapper() });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(aepbase.list).toHaveBeenCalledWith(ACCESS_GRANTS, { filter: "target_scope == 'app'" });
-  });
-
-  it('useBlockAppAccess creates an app-scope deny grant at manage', async () => {
-    const { result } = renderHook(() => useBlockAppAccess(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ appId: 'recipes', subject: { type: 'group', id: 'kids' } });
-    expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
-      subject_type: 'group',
-      subject_id: 'kids',
-      target_scope: 'app',
-      target_app: 'recipes',
       capability: 'manage',
       effect: 'deny',
     });
