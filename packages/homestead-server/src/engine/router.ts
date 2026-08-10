@@ -352,6 +352,7 @@ async function readGrantTarget(
       app: pick('target_app', base.app),
       resource_type: pick('resource_type', base.resource_type),
       resource_id: pick('resource_id', base.resource_id),
+      subject_type: pick('subject_type', base.subject_type),
     },
     filter: typeof body.filter === 'string' ? (body.filter as string) : undefined,
   };
@@ -361,7 +362,7 @@ function storedGrantTarget(reg: Registry, plural: string, path: string): GrantTa
   try {
     const row = reg.db
       .query(
-        `SELECT target_scope, target_app, resource_type, resource_id FROM ${sanitizeTableName(plural)} WHERE path = ?`,
+        `SELECT subject_type, target_scope, target_app, resource_type, resource_id FROM ${sanitizeTableName(plural)} WHERE path = ?`,
       )
       .get(path) as Record<string, string | null> | null;
     if (!row) return {};
@@ -370,6 +371,7 @@ function storedGrantTarget(reg: Registry, plural: string, path: string): GrantTa
       app: row.target_app ?? undefined,
       resource_type: row.resource_type ?? undefined,
       resource_id: row.resource_id ?? undefined,
+      subject_type: row.subject_type ?? undefined,
     };
   } catch {
     return {};

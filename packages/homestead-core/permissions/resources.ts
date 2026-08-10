@@ -27,7 +27,10 @@ export const ACCESS_GRANTS = 'access-grants' as const;
 const CAPABILITY_VALUES = ['read', 'write', 'manage'] as const;
 const SCOPE_VALUES = ['all', 'app', 'collection', 'record'] as const;
 const EFFECT_VALUES = ['allow', 'deny'] as const;
-const SUBJECT_VALUES = ['user', 'group', 'everyone'] as const;
+// 'token' addresses a personal access token (subject_id = the PAT record id).
+// Only the token-mint flow may write these; the public grants API rejects them
+// (see enforceGrantWrite) so a PAT can never be granted more than its owner has.
+const SUBJECT_VALUES = ['user', 'group', 'everyone', 'token'] as const;
 
 export const PERMISSION_RESOURCE_DEFS: ResourceDefinition[] = [
   {

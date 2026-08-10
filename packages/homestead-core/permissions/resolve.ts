@@ -15,9 +15,16 @@ export type Verb = Capability; // the required capability a request maps to
 export type Effect = 'allow' | 'deny';
 export type Scope = 'all' | 'app' | 'collection' | 'record';
 
-/** WHO a grant is addressed to. No `role` subject (clean split, design §11 #10). */
+/**
+ * WHO a grant is addressed to. No `role` subject (clean split, design §11 #10).
+ *
+ * `token` addresses a personal access token: grants assigned to a PAT carry
+ * `subject.type = 'token'`, `subject.id = <pat id>`. They match only when the
+ * caller is acting *through* that token (see `Principals.tokenId`), which is how
+ * a PAT's authority is expressed entirely in the ordinary grant vocabulary.
+ */
 export interface Subject {
-  type: 'user' | 'group' | 'everyone';
+  type: 'user' | 'group' | 'everyone' | 'token';
   id?: string; // required unless type === 'everyone'
 }
 
@@ -54,6 +61,13 @@ export interface Decision {
 export interface Principals {
   userId: string;
   groupIds: Set<string>;
+  /**
+   * The personal access token the caller is acting through, if any. Present
+   * only on the *token-side* pass of a PAT request, where it's the sole
+   * principal (userId is a non-matching sentinel) so authority comes purely
+   * from grants addressed to this token — never the owner's own identity.
+   */
+  tokenId?: string;
 }
 
 /** A single-record or create/collection request being authorized. */
@@ -83,6 +97,8 @@ function subjectMatches(subject: Subject, principals: Principals): boolean {
       return subject.id === principals.userId;
     case 'group':
       return subject.id !== undefined && principals.groupIds.has(subject.id);
+    case 'token':
+      return subject.id !== undefined && subject.id === principals.tokenId;
     default:
       return false;
   }

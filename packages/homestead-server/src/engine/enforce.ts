@@ -22,6 +22,7 @@ import {
   type AccessRequest,
   type FilterEval,
   type Grant,
+  type Principals,
   type Verb,
   type Visibility,
 } from './permissions';
@@ -48,6 +49,26 @@ function scopedGrants(grants: Grant[], model: AccessModel): Grant[] {
   if (model === 'household') return grants;
   const droppedAllowScopes = model === 'owner' ? new Set(['all', 'app']) : new Set(['all']);
   return grants.filter((g) => g.effect === 'deny' || !droppedAllowScopes.has(g.target.scope));
+}
+
+/**
+ * A sentinel user id used as the *token-side* principal when a caller acts
+ * through a personal access token. It matches no real user id and no row's
+ * `_owner`, so the token pass draws its authority purely from grants addressed
+ * to the token — the owner's own identity (direct grants, group roles,
+ * owner⇒manage, the owner-rows LIST fast-path) never leaks in. Empty string is
+ * never a valid id (ids are hex timestamps).
+ */
+const TOKEN_SENTINEL_USER = '';
+
+/** The grants a PAT itself carries: only those addressed to this token id. */
+function tokenGrantsFor(grants: Grant[], patId: string): Grant[] {
+  return grants.filter((g) => g.subject.type === 'token' && g.subject.id === patId);
+}
+
+/** Token-side principals: the token is the sole principal (see TOKEN_SENTINEL_USER). */
+function tokenPrincipals(patId: string): Principals {
+  return { userId: TOKEN_SENTINEL_USER, groupIds: new Set(), tokenId: patId };
 }
 
 export interface EnforceContext {
@@ -103,22 +124,42 @@ export function enforceRecordAccess(
     return recordMatchesFilter(db, opts.plural, opts.recordPath, filter, opts.schema, subjectOf(caller));
   };
 
+  const request: AccessRequest = {
+    verb: opts.verb,
+    resourceType: opts.resourceType,
+    appId: ctx.appIdFor(opts.plural),
+    recordId: opts.recordId,
+    recordOwner,
+  };
+
+  // Owner-side decision: the caller's full authority (superuser, group roles,
+  // owner⇒manage). For a PAT this is the *ceiling* — the token can never exceed
+  // what its owner may still do.
   const decision = resolve(
     { isSuperuser: caller.type === TYPE_SUPERUSER },
-    {
-      verb: opts.verb,
-      resourceType: opts.resourceType,
-      appId: ctx.appIdFor(opts.plural),
-      recordId: opts.recordId,
-      recordOwner,
-    },
+    request,
     principals,
     grants,
     filterEval,
   );
+  if (!decision.allow) throw new HttpError(403, 'you do not have access to this resource');
 
-  if (decision.allow) return;
-  throw new HttpError(403, 'you do not have access to this resource');
+  // Token-side decision: when acting through a PAT, authority is *also* bounded
+  // by the grants assigned to that token (resolved with no superuser bypass and
+  // no owner identity). Effective access is the intersection — both must allow.
+  if (caller.pat) {
+    const tGrants = opts.recordPath
+      ? scopedGrants(tokenGrantsFor(gathered.grants, caller.pat.id), opts.accessModel)
+      : tokenGrantsFor(gathered.grants, caller.pat.id);
+    const tokenDecision = resolve(
+      { isSuperuser: false },
+      request,
+      tokenPrincipals(caller.pat.id),
+      tGrants,
+      filterEval,
+    );
+    if (!tokenDecision.allow) throw new HttpError(403, 'this token is not scoped for that action');
+  }
 }
 
 /** True iff the addressed row satisfies `filter` (subject.* bound to the caller). */
@@ -165,17 +206,56 @@ export function listVisibilityClause(
 ): { sql: string; params: (string | number)[] } | null {
   const { caller } = opts;
   if (!caller) return null;
-  if (caller.type === TYPE_SUPERUSER) return null; // break-glass: sees everything
 
+  const target = { resourceType: opts.resourceType, appId: ctx.appIdFor(opts.plural) };
+
+  // Owner-side visibility: the caller's full reach. Superuser is unrestricted
+  // (break-glass) — but only as the *ceiling*; a PAT still narrows it below.
+  let ownerClause: { sql: string; params: (string | number)[] } | null;
+  if (caller.type === TYPE_SUPERUSER) {
+    ownerClause = null; // unrestricted
+  } else {
+    const gathered = ctx.store.gatherFor(caller.id);
+    const visibility = computeVisibility(
+      target,
+      gathered.principals,
+      scopedGrants(gathered.grants, opts.accessModel),
+    );
+    ownerClause = visibilityToSql(visibility, caller.id, opts.schema, subjectOf(caller));
+  }
+
+  if (!caller.pat) return ownerClause;
+
+  // Token-side visibility: only the token's grants, resolved with the sentinel
+  // principal so the owner-rows fast-path can't leak the owner's own records
+  // into a grantless (or narrowly-scoped) token's list. Final list = owner ∩ token.
   const gathered = ctx.store.gatherFor(caller.id);
-  const { principals } = gathered;
-  const grants = scopedGrants(gathered.grants, opts.accessModel);
-  const visibility = computeVisibility(
-    { resourceType: opts.resourceType, appId: ctx.appIdFor(opts.plural) },
-    principals,
-    grants,
+  const tokenVisibility = computeVisibility(
+    target,
+    tokenPrincipals(caller.pat.id),
+    scopedGrants(tokenGrantsFor(gathered.grants, caller.pat.id), opts.accessModel),
   );
-  return visibilityToSql(visibility, caller.id, opts.schema, subjectOf(caller));
+  const tokenClause = visibilityToSql(
+    tokenVisibility,
+    TOKEN_SENTINEL_USER,
+    opts.schema,
+    subjectOf(caller),
+  );
+  return intersectClauses(ownerClause, tokenClause);
+}
+
+/**
+ * AND two LIST WHERE fragments. `null` means "no restriction" (identity), so it
+ * drops out of the conjunction; a `0` (see-nothing) short-circuits to `0`.
+ */
+function intersectClauses(
+  a: { sql: string; params: (string | number)[] } | null,
+  b: { sql: string; params: (string | number)[] } | null,
+): { sql: string; params: (string | number)[] } | null {
+  if (a === null) return b;
+  if (b === null) return a;
+  if (a.sql === '0' || b.sql === '0') return { sql: '0', params: [] };
+  return { sql: `(${a.sql}) AND (${b.sql})`, params: [...a.params, ...b.params] };
 }
 
 /** Compile a grant filter to `(sql, params)`, or null if it can't compile. */
@@ -267,6 +347,8 @@ export interface GrantTargetSpec {
   app?: string;
   resource_type?: string;
   resource_id?: string;
+  /** The grant's subject kind, carried here only so the write rule can gate it. */
+  subject_type?: string;
 }
 
 function ownerOfById(db: Database, plural: string, id: string): string | null {
@@ -329,6 +411,14 @@ export function enforceGrantWrite(
   const deny = (): never => {
     throw new HttpError(403, 'you do not have permission to write this grant');
   };
+
+  // Grants addressed to a personal access token are written only by the mint
+  // flow (which runs as the leased admin and validates subset-of-owner). A
+  // regular caller must never hand-write a token-subject grant through the
+  // public grants API — that would be the escalation the subset check prevents.
+  if (target.subject_type === 'token') {
+    deny();
+  }
 
   if (target.resource_type && PROTECTED_GRANT_TARGET_TYPES.has(target.resource_type)) {
     deny(); // grants-on-grants
