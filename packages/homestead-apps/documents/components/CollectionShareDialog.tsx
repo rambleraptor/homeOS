@@ -32,6 +32,9 @@ const CAPABILITY_LABEL: Record<Capability, string> = {
   manage: 'Full access',
 };
 
+/** The three choices in the Access dropdown: two allow levels plus a block. */
+type AccessChoice = 'read' | 'write' | 'blocked';
+
 export function CollectionShareDialog({
   isOpen,
   onClose,
@@ -43,16 +46,24 @@ export function CollectionShareDialog({
   const unshare = useUnshareCollection();
 
   const [userId, setUserId] = useState('');
-  const [capability, setCapability] = useState<Capability>('write');
+  const [access, setAccess] = useState<AccessChoice>('write');
 
   const currentUserId = bareId(collection.created_by ?? '');
-  // People not already shared with (and not the owner) are candidates to add.
-  const sharedUserIds = useMemo(
-    () => new Set((shares ?? []).filter((s) => s.subject_type === 'user').map((s) => s.subject_id)),
-    [shares],
+  // Candidates depend on the chosen effect: someone already allow-shared can
+  // still be blocked (and vice-versa), so only exclude people who already hold
+  // a grant of the *same* effect the dropdown is about to write.
+  const wantDeny = access === 'blocked';
+  const takenUserIds = useMemo(
+    () =>
+      new Set(
+        (shares ?? [])
+          .filter((s) => s.subject_type === 'user' && (s.effect === 'deny') === wantDeny)
+          .map((s) => s.subject_id),
+      ),
+    [shares, wantDeny],
   );
   const candidates = (users ?? []).filter(
-    (u) => u.id !== currentUserId && !sharedUserIds.has(u.id),
+    (u) => u.id !== currentUserId && !takenUserIds.has(u.id),
   );
 
   const nameFor = (id: string | undefined) => {
@@ -65,7 +76,9 @@ export function CollectionShareDialog({
     await share.mutateAsync({
       collectionId: collection.id,
       subject: { type: 'user', id: userId },
-      capability,
+      ...(wantDeny
+        ? { effect: 'deny' as const }
+        : { capability: access as Capability }),
     });
     setUserId('');
   };
@@ -78,6 +91,8 @@ export function CollectionShareDialog({
       <div className="space-y-5" data-testid="collection-share-dialog">
         <p className="text-sm text-gray-500">
           People you share this collection with can see the folder and the documents in it.
+          Choose <span className="font-medium">Blocked</span> to keep someone out even if
+          another share would otherwise let them in.
         </p>
 
         {/* Add a person */}
@@ -107,13 +122,14 @@ export function CollectionShareDialog({
             </label>
             <select
               id="share-capability"
-              value={capability}
-              onChange={(e) => setCapability(e.target.value as Capability)}
+              value={access}
+              onChange={(e) => setAccess(e.target.value as AccessChoice)}
               className="mt-1 block rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               data-testid="collection-share-capability"
             >
               <option value="read">View</option>
               <option value="write">Can edit</option>
+              <option value="blocked">Blocked</option>
             </select>
           </div>
           <Button
@@ -123,7 +139,7 @@ export function CollectionShareDialog({
             data-testid="collection-share-add"
           >
             {share.isPending && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
-            Share
+            {wantDeny ? 'Block' : 'Share'}
           </Button>
         </div>
 
@@ -146,26 +162,31 @@ export function CollectionShareDialog({
             </p>
           ) : (
             <ul className="mt-2 divide-y divide-gray-100" data-testid="collection-share-list">
-              {(shares ?? []).map((s) => (
-                <li key={s.recordGrantId} className="flex items-center justify-between py-2">
-                  <span className="text-sm text-gray-800">
-                    {s.subject_type === 'user' ? nameFor(s.subject_id) : `Group ${s.subject_id}`}
-                    <span className="ml-2 text-xs text-gray-400">
-                      {CAPABILITY_LABEL[s.capability]}
+              {(shares ?? []).map((s) => {
+                const isDeny = s.effect === 'deny';
+                return (
+                  <li key={s.recordGrantId} className="flex items-center justify-between py-2">
+                    <span className="text-sm text-gray-800">
+                      {s.subject_type === 'user' ? nameFor(s.subject_id) : `Group ${s.subject_id}`}
+                      <span
+                        className={`ml-2 text-xs ${isDeny ? 'font-medium text-red-600' : 'text-gray-400'}`}
+                      >
+                        {isDeny ? 'Blocked' : CAPABILITY_LABEL[s.capability]}
+                      </span>
                     </span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void handleRevoke(s)}
-                    disabled={unshare.isPending}
-                    className="inline-flex items-center gap-1 rounded p-1 text-gray-400 hover:text-red-600 disabled:opacity-50"
-                    aria-label="Revoke access"
-                    data-testid={`collection-share-revoke-${s.subject_id}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
+                    <button
+                      type="button"
+                      onClick={() => void handleRevoke(s)}
+                      disabled={unshare.isPending}
+                      className="inline-flex items-center gap-1 rounded p-1 text-gray-400 hover:text-red-600 disabled:opacity-50"
+                      aria-label={isDeny ? 'Remove block' : 'Revoke access'}
+                      data-testid={`collection-share-revoke-${s.effect}-${s.subject_id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

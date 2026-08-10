@@ -15,11 +15,13 @@ import { ACCESS_GRANTS } from '@rambleraptor/homestead-core/permissions/resource
 import { COLLECTIONS, DOCUMENTS } from '../resources';
 import {
   collectionDocumentFilter,
+  useCollectionShares,
   useCreateCollection,
   useSetDocumentCollections,
   useShareCollection,
   useUnshareCollection,
 } from '../hooks/useCollections';
+import { waitFor } from '@testing-library/react';
 
 function createWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -91,6 +93,62 @@ describe('collection hooks', () => {
     expect(calls.every(([, body]) => (body as { capability: string }).capability === 'write')).toBe(true);
   });
 
+  it('useShareCollection blocks with a deny grant at manage on both targets', async () => {
+    const { result } = renderHook(() => useShareCollection(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({
+      collectionId: 'c1',
+      subject: { type: 'user', id: 'bob' },
+      effect: 'deny',
+    });
+    // Both grants carry effect: 'deny' at manage so the block beats any allow.
+    expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
+      subject_type: 'user',
+      subject_id: 'bob',
+      capability: 'manage',
+      effect: 'deny',
+      target_scope: 'record',
+      resource_type: 'collection',
+      resource_id: 'c1',
+    });
+    expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
+      subject_type: 'user',
+      subject_id: 'bob',
+      capability: 'manage',
+      effect: 'deny',
+      target_scope: 'collection',
+      resource_type: 'document',
+      filter: "'c1' in collections",
+    });
+  });
+
+  it('useShareCollection omits effect on an allow share (stays byte-identical)', async () => {
+    const { result } = renderHook(() => useShareCollection(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({ collectionId: 'c1', subject: { type: 'user', id: 'bob' } });
+    const calls = vi.mocked(aepbase.create).mock.calls;
+    expect(calls.every(([, body]) => !('effect' in (body as object)))).toBe(true);
+  });
+
+  it('useCollectionShares surfaces allow and deny shares, each paired to its doc grant', async () => {
+    const docFilter = collectionDocumentFilter('c1');
+    vi.mocked(aepbase.list).mockResolvedValue([
+      // Alice: allowed (record + doc grants)
+      { id: 'a-rec', subject_type: 'user', subject_id: 'alice', target_scope: 'record', resource_type: 'collection', resource_id: 'c1', capability: 'write' },
+      { id: 'a-doc', subject_type: 'user', subject_id: 'alice', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'write' },
+      // Bob: blocked (record + doc grants, effect deny)
+      { id: 'b-rec', subject_type: 'user', subject_id: 'bob', target_scope: 'record', resource_type: 'collection', resource_id: 'c1', capability: 'manage', effect: 'deny' },
+      { id: 'b-doc', subject_type: 'user', subject_id: 'bob', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'manage', effect: 'deny' },
+    ] as never);
+
+    const { result } = renderHook(() => useCollectionShares('c1'), { wrapper: createWrapper() });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const shares = result.current.data ?? [];
+    const alice = shares.find((s) => s.subject_id === 'alice');
+    const bob = shares.find((s) => s.subject_id === 'bob');
+    expect(alice).toMatchObject({ recordGrantId: 'a-rec', documentGrantId: 'a-doc', effect: 'allow' });
+    expect(bob).toMatchObject({ recordGrantId: 'b-rec', documentGrantId: 'b-doc', effect: 'deny' });
+  });
+
   it('useUnshareCollection removes both paired grants', async () => {
     const { result } = renderHook(() => useUnshareCollection(), { wrapper: createWrapper() });
     await result.current.mutateAsync({
@@ -101,6 +159,7 @@ describe('collection hooks', () => {
         subject_type: 'user',
         subject_id: 'bob',
         capability: 'write',
+        effect: 'allow',
       },
     });
     expect(aepbase.remove).toHaveBeenCalledWith(ACCESS_GRANTS, 'g-record');

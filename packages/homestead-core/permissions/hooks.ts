@@ -10,7 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { aepbase } from '../api/aepbase';
 import { fetchPermissionContextFor } from './client';
 import { ACCESS_GRANTS, GROUP_MEMBERSHIPS, GROUPS, ROLES } from './resources';
-import type { Capability } from './resolve';
+import type { Capability, Effect } from './resolve';
 
 // ─────────────────────────── Record shapes ───────────────────────────
 
@@ -148,6 +148,12 @@ export interface ShareRecordInput {
   recordId: string;
   subject: { type: 'user' | 'group'; id: string };
   capability?: Capability; // default 'read'
+  /**
+   * 'allow' (default) grants access; 'deny' blocks the subject on this record
+   * even against a broader allow (deny always wins — see resolve()). A block is
+   * written at `manage` so it beats an allow at any capability.
+   */
+  effect?: Effect;
 }
 
 /** Share a single record with a user or group (record-scope grant). */
@@ -161,7 +167,10 @@ export function useShareRecord() {
         target_scope: 'record',
         resource_type: input.resourceType,
         resource_id: input.recordId,
-        capability: input.capability ?? 'read',
+        capability: input.capability ?? (input.effect === 'deny' ? 'manage' : 'read'),
+        // Only stamp effect for a deny: the wire schema defaults to allow, so an
+        // allow share stays byte-identical to the pre-deny payload.
+        ...(input.effect === 'deny' ? { effect: 'deny' as const } : {}),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.grantsAll }),
   });
