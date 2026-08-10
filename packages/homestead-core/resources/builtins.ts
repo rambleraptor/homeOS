@@ -95,6 +95,8 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
             target_scope: { type: 'string', enum: ['all', 'app', 'collection'] },
             target_app: { type: 'string' },
             resource_type: { type: 'string' },
+            filter: { type: 'string' },
+            effect: { type: 'string', enum: ['allow', 'deny'] },
           },
         },
       },
