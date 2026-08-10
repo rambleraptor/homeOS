@@ -164,6 +164,25 @@ export class Engine {
     };
   }
 
+  /**
+   * The owning app id for a resource singular (or null), so callers outside the
+   * engine can build an `AccessRequest` that matches app-scope grants. Used by
+   * the token-mint route to check a requested grant against the owner's access.
+   */
+  appIdForResource(singular: string): string | null {
+    const plural = this.registry.get(singular)?.plural;
+    return plural ? this.collectionToApp[plural] ?? null : null;
+  }
+
+  /**
+   * Drop the permission cache so a just-written grant, token, or membership is
+   * honored on the very next request instead of waiting out the TTL. Called by
+   * the token-mint/revoke route after it writes token-subject grants.
+   */
+  reloadPermissions(): void {
+    this.permissionStore.clear();
+  }
+
   setTokenValidator(validator: TokenValidator | null): void {
     this.tokenValidator = validator;
   }

@@ -6,6 +6,7 @@
 
 import { errorResponse, isUniqueConstraintError, jsonResponse } from './errors';
 import { generateId, generateToken, nowRFC3339 } from './ids';
+import { patLookupKey } from './pat';
 import { hashPassword, verifyPassword } from './password';
 import type { Database } from './sqlite';
 import type { User } from './types';
@@ -36,6 +37,10 @@ export function createUserTables(db: Database): void {
   // NULL expires_at means "never expires" — the semantics existing tokens
   // already have — so this migration is transparent to live sessions.
   ensureColumn(db, '_tokens', 'expires_at', 'TEXT');
+  // pat_id links a token row to its personal-access-token record (NULL for
+  // ordinary login/OAuth tokens). It's what marks a bearer token as a PAT so
+  // enforcement can attenuate the caller down to that token's assigned grants.
+  ensureColumn(db, '_tokens', 'pat_id', 'TEXT');
 }
 
 /** Add a column if the table doesn't already have it (idempotent migration). */
@@ -57,7 +62,7 @@ interface UserRow {
   update_time: string;
 }
 
-function rowToUser(row: UserRow): User {
+function rowToUser(row: UserRow, patId?: string | null): User {
   const u: User = {
     id: row.id,
     path: row.path,
@@ -67,6 +72,7 @@ function rowToUser(row: UserRow): User {
     update_time: row.update_time,
   };
   if (row.display_name) u.display_name = row.display_name;
+  if (patId) u.pat = { id: patId };
   return u;
 }
 
@@ -90,13 +96,14 @@ export function getUserByToken(db: Database, token: string): User | null {
   // An access token is valid only while unexpired. NULL expires_at = never
   // expires (leased admin mints, and every token issued before the expiry
   // column existed). RFC3339 UTC timestamps of identical width compare
-  // correctly as strings.
+  // correctly as strings. PAT secrets are stored hashed, so hash the presented
+  // value before the lookup (patLookupKey is a no-op for ordinary tokens).
   const row = db
     .query(
-      `SELECT u.id, u.path, u.email, u.display_name, u.type, u.create_time, u.update_time FROM _users u INNER JOIN _tokens t ON u.id = t.user_id WHERE t.token = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`,
+      `SELECT u.id, u.path, u.email, u.display_name, u.type, u.create_time, u.update_time, t.pat_id AS pat_id FROM _users u INNER JOIN _tokens t ON u.id = t.user_id WHERE t.token = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`,
     )
-    .get(token, nowRFC3339()) as UserRow | null;
-  return row ? rowToUser(row) : null;
+    .get(patLookupKey(token), nowRFC3339()) as (UserRow & { pat_id: string | null }) | null;
+  return row ? rowToUser(row, row.pat_id) : null;
 }
 
 export function countUsers(db: Database): number {
@@ -130,27 +137,32 @@ export function insertToken(
   token: string,
   userId: string,
   expiresAt: string | null = null,
+  patId: string | null = null,
 ): void {
-  db.query('INSERT INTO _tokens (token, user_id, create_time, expires_at) VALUES (?, ?, ?, ?)').run(
-    token,
-    userId,
-    nowRFC3339(),
-    expiresAt,
-  );
+  db.query(
+    'INSERT INTO _tokens (token, user_id, create_time, expires_at, pat_id) VALUES (?, ?, ?, ?, ?)',
+  ).run(token, userId, nowRFC3339(), expiresAt, patId);
 }
 
 /** Raw token row (used by the auth service to distinguish expired from absent). */
 export function getTokenRecord(
   db: Database,
   token: string,
-): { user_id: string; expires_at: string | null } | null {
+): { user_id: string; expires_at: string | null; pat_id: string | null } | null {
   return db
-    .query('SELECT user_id, expires_at FROM _tokens WHERE token = ?')
-    .get(token) as { user_id: string; expires_at: string | null } | null;
+    .query('SELECT user_id, expires_at, pat_id FROM _tokens WHERE token = ?')
+    .get(patLookupKey(token)) as
+    | { user_id: string; expires_at: string | null; pat_id: string | null }
+    | null;
 }
 
 export function deleteToken(db: Database, token: string): void {
-  db.query('DELETE FROM _tokens WHERE token = ?').run(token);
+  db.query('DELETE FROM _tokens WHERE token = ?').run(patLookupKey(token));
+}
+
+/** Delete the token row backing a PAT record (revocation). */
+export function deleteTokenByPatId(db: Database, patId: string): void {
+  db.query('DELETE FROM _tokens WHERE pat_id = ?').run(patId);
 }
 
 export function extractBearerToken(req: Request): string {
@@ -300,7 +312,7 @@ export function handleUserList(db: Database, req: Request, caller: User | null):
   const rows = db
     .query(`SELECT ${USER_COLS} FROM _users${where} ORDER BY id LIMIT ?`)
     .all(...args, pageSize + 1) as UserRow[];
-  let results = rows.map(rowToUser);
+  let results = rows.map((r) => rowToUser(r));
 
   let nextPageToken = '';
   if (results.length > pageSize) {

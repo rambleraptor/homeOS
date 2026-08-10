@@ -83,6 +83,13 @@ export interface User {
   type: string;
   create_time: string;
   update_time: string;
+  /**
+   * Set when the caller is authenticating via a personal access token. Carries
+   * the PAT record id so enforcement can attenuate the caller's authority down
+   * to the grants assigned to that token (see engine/enforce.ts). Absent for
+   * ordinary password/OAuth sessions, which act with the user's full authority.
+   */
+  pat?: { id: string };
 }
 
 export const TYPE_SUPERUSER = 'superuser';

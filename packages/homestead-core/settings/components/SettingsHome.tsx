@@ -1,6 +1,7 @@
 import { DashboardWidgetSettings } from './DashboardWidgetSettings';
 import { NotificationDevices } from './NotificationDevices';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { PersonalAccessTokens } from './PersonalAccessTokens';
 import { AppUserSettingsCard } from '@rambleraptor/homestead-core/user-settings/components/AppUserSettingsCard';
 import { getAllSettingsWidgets } from '@rambleraptor/homestead-core/apps/registry';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
@@ -44,7 +45,10 @@ export function SettingsHome() {
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
           Security
         </h2>
-        <ChangePasswordForm />
+        <div className="space-y-4">
+          <ChangePasswordForm />
+          <PersonalAccessTokens />
+        </div>
       </div>
     </div>
   );

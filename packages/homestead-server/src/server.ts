@@ -155,6 +155,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   const { chatRoute } = await import('./routes/chat');
   const { notificationsRoute } = await import('./routes/notifications');
   const { makePermissionsRoute } = await import('./routes/permissions');
+  const { makeTokensRoute } = await import('./routes/tokens');
   const { makeSecurityRoute } = await import('./routes/security');
   const { makeSetupRoute } = await import('./routes/setup');
   const { bulkImportTemplateRoute } = await import('./routes/bulk-import-template');
@@ -179,6 +180,7 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   publicApp.route('/api/auth', makeAuthRoutes(engine.db, authService));
   publicApp.route('/api/notifications', notificationsRoute);
   publicApp.route('/api/permissions', makePermissionsRoute(engine));
+  publicApp.route('/api/tokens', makeTokensRoute(engine));
   publicApp.route('/api/security', makeSecurityRoute());
   publicApp.route('/api/chat', chatRoute);
   publicApp.route('/api/aep', makeAepGateway(engine, loopbackOrigin));

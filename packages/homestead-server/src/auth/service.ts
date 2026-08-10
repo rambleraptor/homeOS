@@ -115,7 +115,11 @@ export class AuthService {
       deleteAccessTokenBinding(this.db, token);
       return null;
     }
-    return getUserById(this.db, rec.user_id)?.user ?? null;
+    const user = getUserById(this.db, rec.user_id)?.user ?? null;
+    // Carry the PAT link through so enforcement attenuates the caller to the
+    // token's assigned grants. Ordinary sessions have a null pat_id.
+    if (user && rec.pat_id) user.pat = { id: rec.pat_id };
+    return user;
   };
 
   /**
