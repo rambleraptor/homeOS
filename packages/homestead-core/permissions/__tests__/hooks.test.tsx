@@ -73,6 +73,25 @@ describe('permission data hooks', () => {
     });
   });
 
+  it('useShareRecord creates a deny grant (effect + manage) when blocking', async () => {
+    const { result } = renderHook(() => useShareRecord(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({
+      resourceType: 'recipe',
+      recordId: 'r1',
+      subject: { type: 'user', id: 'bob' },
+      effect: 'deny',
+    });
+    expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
+      subject_type: 'user',
+      subject_id: 'bob',
+      target_scope: 'record',
+      resource_type: 'recipe',
+      resource_id: 'r1',
+      capability: 'manage',
+      effect: 'deny',
+    });
+  });
+
   it('useRevokeGrant removes a grant', async () => {
     const { result } = renderHook(() => useRevokeGrant(), { wrapper: createWrapper() });
     await result.current.mutateAsync('g1');

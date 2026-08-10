@@ -19,7 +19,7 @@ import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { queryClient, queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { ACCESS_GRANTS } from '@rambleraptor/homestead-core/permissions/resources';
 import type { AccessGrantRecord } from '@rambleraptor/homestead-core/permissions/hooks';
-import type { Capability } from '@rambleraptor/homestead-core/permissions/resolve';
+import type { Capability, Effect } from '@rambleraptor/homestead-core/permissions/resolve';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { COLLECTIONS } from '../resources';
 import type { Collection } from '../types';
@@ -145,6 +145,8 @@ export interface CollectionShare {
   subject_type: 'user' | 'group' | 'everyone';
   subject_id?: string;
   capability: Capability;
+  /** 'allow' shares access; 'deny' blocks the subject from the folder + its docs. */
+  effect: Effect;
 }
 
 const shareKeys = {
@@ -166,17 +168,19 @@ export function useCollectionShares(collectionId: string | undefined) {
         (g) =>
           g.target_scope === 'record' &&
           g.resource_type === 'collection' &&
-          g.resource_id === collectionId &&
-          g.effect !== 'deny',
+          g.resource_id === collectionId,
       );
       const docGrants = grants.filter(
         (g) =>
           g.target_scope === 'collection' &&
           g.resource_type === 'document' &&
-          g.filter === docFilter &&
-          g.effect !== 'deny',
+          g.filter === docFilter,
       );
-      const subjectKey = (g: AccessGrantRecord) => `${g.subject_type}:${g.subject_id ?? ''}`;
+      // Key by subject *and* effect so an allow and a deny for the same person
+      // pair with their own document grant instead of colliding.
+      const effectOf = (g: AccessGrantRecord): Effect => g.effect ?? 'allow';
+      const subjectKey = (g: AccessGrantRecord) =>
+        `${g.subject_type}:${g.subject_id ?? ''}:${effectOf(g)}`;
       const docBySubject = new Map(docGrants.map((g) => [subjectKey(g), g]));
       return recordGrants.map((rg) => {
         const dg = docBySubject.get(subjectKey(rg));
@@ -186,6 +190,7 @@ export function useCollectionShares(collectionId: string | undefined) {
           subject_type: rg.subject_type,
           subject_id: rg.subject_id,
           capability: rg.capability,
+          effect: effectOf(rg),
         };
       });
     },
@@ -197,6 +202,12 @@ export interface ShareCollectionInput {
   subject: { type: 'user' | 'group'; id: string };
   /** 'read' = view only; 'write' = view + add/remove + edit. Defaults to 'write'. */
   capability?: Capability;
+  /**
+   * 'allow' (default) shares the collection; 'deny' blocks the subject from the
+   * folder and its documents even against a broader allow (deny always wins). A
+   * block is written at `manage` so it beats an allow at any capability.
+   */
+  effect?: Effect;
 }
 
 /**
@@ -208,11 +219,15 @@ export function useShareCollection() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: ShareCollectionInput): Promise<void> => {
-      const capability = input.capability ?? 'write';
+      const isDeny = input.effect === 'deny';
+      const capability = input.capability ?? (isDeny ? 'manage' : 'write');
       const subjectFields = {
         subject_type: input.subject.type,
         subject_id: input.subject.id,
         capability,
+        // Only stamp effect for a deny; the wire schema defaults to allow, so an
+        // allow share stays byte-identical to the pre-deny payload.
+        ...(isDeny ? { effect: 'deny' as const } : {}),
       };
       await aepbase.create<AccessGrantRecord>(ACCESS_GRANTS, {
         ...subjectFields,
