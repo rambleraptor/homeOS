@@ -17,6 +17,7 @@ import {
   gamesApp,
   giftCardsApp,
   groceriesApp,
+  homeApp,
   hsaApp,
   peopleApp,
   recipesApp,
@@ -183,6 +184,7 @@ const embedding: HomesteadConfig['embedding'] = embeddingApiKey
 
 const config: HomesteadConfig = {
   apps: [
+    homeApp,
     todosApp,
     documentsApp,
     giftCardsApp,
