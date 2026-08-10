@@ -148,7 +148,7 @@ export class PermissionStore {
     this.loadedAt = Date.now();
   }
 
-  /** A role's stored `grants` JSON → allow-Grants with a placeholder subject. */
+  /** A role's stored `grants` JSON → Grants with a placeholder subject. */
   private expandRoleGrants(raw: string | null): Grant[] {
     if (!raw) return [];
     let parsed: unknown;
@@ -166,7 +166,8 @@ export class PermissionStore {
       out.push({
         subject: { type: 'everyone' }, // subject is re-bound to the caller in gatherFor
         capability: capability as Capability,
-        effect: 'allow',
+        // A role grant is an allow unless it explicitly denies (deny always wins).
+        effect: g.effect === 'deny' ? 'deny' : 'allow',
         target: {
           scope: scope as Scope,
           app: typeof g.target_app === 'string' ? g.target_app : undefined,

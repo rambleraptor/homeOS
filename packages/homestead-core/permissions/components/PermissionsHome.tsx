@@ -23,7 +23,6 @@ import {
   type RoleInput,
   type RoleRecord,
 } from '../hooks';
-import { AppAccessManager } from './AppAccessManager';
 import { GroupCard } from './GroupCard';
 import { GroupForm } from './GroupForm';
 import { RoleForm } from './RoleForm';
@@ -150,7 +149,9 @@ export function PermissionsHome() {
         </div>
         <p className="text-sm text-gray-600">
           A role is a bundle of access conferred on a group member. Assign one when
-          adding someone to a group.
+          adding someone to a group. Each grant is <span className="font-medium">allow</span> or{' '}
+          <span className="font-medium">deny</span> — a deny on an app (or collection) blocks it
+          even against another grant.
         </p>
         {rolesLoading ? (
           <div className="flex justify-center py-8">
@@ -203,9 +204,6 @@ export function PermissionsHome() {
           </div>
         )}
       </section>
-
-      {/* ── App access (blocks) ── */}
-      <AppAccessManager />
 
       <Modal
         isOpen={groupModal !== null}

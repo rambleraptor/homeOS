@@ -20,6 +20,8 @@ export interface RoleGrantRow {
   resource_type?: string;
   filter?: string;
   capability?: Capability;
+  /** 'allow' (default) confers access; 'deny' blocks it (deny always wins). */
+  effect?: Effect;
 }
 export interface RoleRecord {
   id: string;
@@ -185,49 +187,6 @@ export function useRevokeGrant() {
   });
 }
 
-// ─────────────────────────── App access ───────────────────────────
-
-const APP_GRANT_FILTER = "target_scope == 'app'";
-
-/**
- * Every app-scope grant across the household — the data behind the app-access
- * manager. Blocks (the common case) are `effect: 'deny'` entries; an occasional
- * ad-hoc app-scope allow shows up here too.
- */
-export function useAppAccessGrants() {
-  return useQuery({
-    queryKey: keys.grants(APP_GRANT_FILTER),
-    queryFn: () => aepbase.list<AccessGrantRecord>(ACCESS_GRANTS, { filter: APP_GRANT_FILTER }),
-  });
-}
-
-export interface BlockAppInput {
-  appId: string;
-  subject: { type: 'user' | 'group'; id: string };
-}
-
-/**
- * Block a user or group from an app: an app-scope deny grant written at `manage`
- * so it beats an allow at any capability (deny always wins — see resolve()). The
- * engine matches it by the addressed collection's owning app, so it blocks the
- * app's data; the nav mirror (useAppVisible) hides the app too.
- */
-export function useBlockAppAccess() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: BlockAppInput) =>
-      aepbase.create<AccessGrantRecord>(ACCESS_GRANTS, {
-        subject_type: input.subject.type,
-        subject_id: input.subject.id,
-        target_scope: 'app',
-        target_app: input.appId,
-        capability: 'manage',
-        effect: 'deny',
-      }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.grantsAll }),
-  });
-}
-
 export interface GroupInput {
   name: string;
   description?: string;
@@ -343,10 +302,12 @@ export function summarizeRoleGrants(grants: RoleGrantRow[] | undefined): string 
   return grants
     .map((g) => {
       const cap = g.capability ?? 'read';
-      if (g.target_scope === 'all') return `${cap} on everything`;
-      if (g.target_scope === 'app') return `${cap} on the ${g.target_app} app`;
-      if (g.target_scope === 'collection') return `${cap} on ${g.resource_type}`;
-      return `${cap} (${g.target_scope})`;
+      // A deny reads as "no <cap>" so the summary stays scannable ("no read on …").
+      const verb = g.effect === 'deny' ? `no ${cap}` : cap;
+      if (g.target_scope === 'all') return `${verb} on everything`;
+      if (g.target_scope === 'app') return `${verb} on the ${g.target_app} app`;
+      if (g.target_scope === 'collection') return `${verb} on ${g.resource_type}`;
+      return `${verb} (${g.target_scope})`;
     })
     .join(', ');
 }
