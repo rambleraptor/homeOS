@@ -176,11 +176,54 @@ export function useShareRecord() {
   });
 }
 
-/** Revoke any grant by id (un-share). */
+/** Revoke any grant by id (un-share / un-block). */
 export function useRevokeGrant() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (grantId: string) => aepbase.remove(ACCESS_GRANTS, grantId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.grantsAll }),
+  });
+}
+
+// ─────────────────────────── App access ───────────────────────────
+
+const APP_GRANT_FILTER = "target_scope == 'app'";
+
+/**
+ * Every app-scope grant across the household — the data behind the app-access
+ * manager. Blocks (the common case) are `effect: 'deny'` entries; an occasional
+ * ad-hoc app-scope allow shows up here too.
+ */
+export function useAppAccessGrants() {
+  return useQuery({
+    queryKey: keys.grants(APP_GRANT_FILTER),
+    queryFn: () => aepbase.list<AccessGrantRecord>(ACCESS_GRANTS, { filter: APP_GRANT_FILTER }),
+  });
+}
+
+export interface BlockAppInput {
+  appId: string;
+  subject: { type: 'user' | 'group'; id: string };
+}
+
+/**
+ * Block a user or group from an app: an app-scope deny grant written at `manage`
+ * so it beats an allow at any capability (deny always wins — see resolve()). The
+ * engine matches it by the addressed collection's owning app, so it blocks the
+ * app's data; the nav mirror (useAppVisible) hides the app too.
+ */
+export function useBlockAppAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: BlockAppInput) =>
+      aepbase.create<AccessGrantRecord>(ACCESS_GRANTS, {
+        subject_type: input.subject.type,
+        subject_id: input.subject.id,
+        target_scope: 'app',
+        target_app: input.appId,
+        capability: 'manage',
+        effect: 'deny',
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.grantsAll }),
   });
 }
