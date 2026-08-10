@@ -23,6 +23,7 @@ import {
   type RoleInput,
   type RoleRecord,
 } from '../hooks';
+import { AppAccessManager } from './AppAccessManager';
 import { GroupCard } from './GroupCard';
 import { GroupForm } from './GroupForm';
 import { RoleForm } from './RoleForm';
@@ -202,6 +203,9 @@ export function PermissionsHome() {
           </div>
         )}
       </section>
+
+      {/* ── App access (blocks) ── */}
+      <AppAccessManager />
 
       <Modal
         isOpen={groupModal !== null}

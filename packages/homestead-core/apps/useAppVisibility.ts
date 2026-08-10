@@ -40,7 +40,9 @@ export function useAppVisible(): (app: AppConfig) => boolean {
       if (!user) return false;
       if (isSuperuserOnlyApp(app)) return user.type === 'superuser';
       const primary = primaryResource(app);
-      return !primary || can('read', primary);
+      // Pass the app id so an app-scope grant/deny (e.g. blocking someone from an
+      // app) is honored here, matching the engine and UserAccessSummary.
+      return !primary || can('read', primary, { appId: app.id });
     },
     [user, can],
   );

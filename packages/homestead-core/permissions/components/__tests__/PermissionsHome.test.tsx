@@ -53,6 +53,10 @@ describe('PermissionsHome', () => {
     vi.spyOn(hooks, 'useGroups').mockReturnValue(query(GROUPS));
     vi.spyOn(hooks, 'useRoles').mockReturnValue(query(ROLES));
     vi.spyOn(hooks, 'useAllUsers').mockReturnValue(query(USERS));
+    // AppAccessManager (rendered inside PermissionsHome) reads these.
+    vi.spyOn(hooks, 'useAppAccessGrants').mockReturnValue(query([]));
+    vi.spyOn(hooks, 'useBlockAppAccess').mockReturnValue(mutation());
+    vi.spyOn(hooks, 'useRevokeGrant').mockReturnValue(mutation());
     vi.spyOn(hooks, 'useCreateGroup').mockReturnValue(mutation(createGroup));
     vi.spyOn(hooks, 'useUpdateGroup').mockReturnValue(mutation(updateGroup));
     vi.spyOn(hooks, 'useAddGroupMember').mockReturnValue(mutation(addMember));
@@ -69,8 +73,10 @@ describe('PermissionsHome', () => {
 
   it('lists groups (with their conferred role) and roles (with a grant summary)', () => {
     render(<PermissionsHome />);
-    expect(screen.getByText('Adults')).toBeInTheDocument();
-    expect(screen.getByText('Kids')).toBeInTheDocument();
+    // Scope to the groups list — the App-access picker also renders group names.
+    const groupsList = within(screen.getByTestId('groups-list'));
+    expect(groupsList.getByText('Adults')).toBeInTheDocument();
+    expect(groupsList.getByText('Kids')).toBeInTheDocument();
     // Adults confers the admin role; Kids confers none.
     expect(screen.getByText('role: Admin')).toBeInTheDocument();
     expect(screen.getByText('no role')).toBeInTheDocument();
