@@ -29,6 +29,35 @@ export function primaryResource(app: AppConfig): string | undefined {
 }
 
 /**
+ * Whether `app` should be visible to a viewer, given a `canRead(resourceType,
+ * appId)` capability check and whether the viewer is a superuser. This is the
+ * pure core shared by the nav (`useAppVisible`) and the admin access summary,
+ * so both agree.
+ *
+ * Nesting: a parent app is visible if the viewer can open it directly **or** can
+ * open any descendant. So access to a nested child (e.g. Pictionary) surfaces
+ * its parent (Games) in the nav, and a parent whose children are all out of
+ * reach drops out — a parent app that owns no collections of its own would
+ * otherwise always show, since it has no primary resource to gate on.
+ */
+export function isAppVisible(
+  app: AppConfig,
+  isSuperuser: boolean,
+  canRead: (resourceType: string, appId: string) => boolean,
+): boolean {
+  if (isSuperuserOnlyApp(app)) return isSuperuser;
+  const children = app.children ?? [];
+  const anyChildVisible = children.some((child) => isAppVisible(child, isSuperuser, canRead));
+  const primary = primaryResource(app);
+  // Pass the app id so an app-scope grant/deny (e.g. blocking someone from an
+  // app) is honored here, matching the engine.
+  if (primary) return canRead(primary, app.id) || anyChildVisible;
+  // No own resource: a pure parent shows iff a child does; a plain landing-only
+  // app (no resources and no children) stays visible.
+  return children.length > 0 ? anyChildVisible : true;
+}
+
+/**
  * Returns a predicate `(app) => boolean` for whether the current viewer should
  * see an app in navigation / landing pages. See the module doc for the rules.
  */
@@ -38,11 +67,9 @@ export function useAppVisible(): (app: AppConfig) => boolean {
   return useCallback(
     (app: AppConfig): boolean => {
       if (!user) return false;
-      if (isSuperuserOnlyApp(app)) return user.type === 'superuser';
-      const primary = primaryResource(app);
-      // Pass the app id so an app-scope grant/deny (e.g. blocking someone from an
-      // app) is honored here, matching the engine and UserAccessSummary.
-      return !primary || can('read', primary, { appId: app.id });
+      return isAppVisible(app, user.type === 'superuser', (resourceType, appId) =>
+        can('read', resourceType, { appId }),
+      );
     },
     [user, can],
   );

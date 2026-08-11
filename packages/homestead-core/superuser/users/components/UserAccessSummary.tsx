@@ -1,10 +1,7 @@
 import { useMemo } from 'react';
 import { KeyRound } from 'lucide-react';
 import { getNavigationApps } from '@rambleraptor/homestead-core/apps/registry';
-import {
-  isSuperuserOnlyApp,
-  primaryResource,
-} from '@rambleraptor/homestead-core/apps/useAppVisibility';
+import { isAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 import { canWith } from '@rambleraptor/homestead-core/permissions/client';
 import { useUserPermissionContext } from '@rambleraptor/homestead-core/permissions/hooks';
 import type { ManagedUser } from '../types';
@@ -33,13 +30,14 @@ export function UserAccessSummary({ user }: { user: ManagedUser }) {
   const loaded = isSuperuser || !!ctx;
 
   const openableApps = useMemo(() => {
+    // Same nesting rule as the nav: a parent (e.g. Games) counts as openable
+    // when the user can open any child (e.g. Pictionary).
     return getNavigationApps()
-      .filter((app) => {
-        if (isSuperuserOnlyApp(app)) return isSuperuser;
-        const primary = primaryResource(app);
-        // Pass the app id so an app-scope grant (e.g. "mom → Pictionary") counts.
-        return !primary || canWith(ctx, user.id, isSuperuser, 'read', primary, { appId: app.id });
-      })
+      .filter((app) =>
+        isAppVisible(app, isSuperuser, (resourceType, appId) =>
+          canWith(ctx, user.id, isSuperuser, 'read', resourceType, { appId }),
+        ),
+      )
       .map((app) => app.name);
   }, [ctx, user.id, isSuperuser]);
 
