@@ -70,13 +70,15 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
       }
     }
 
-    // Seed the permissions baseline (roles + open grant) once the definitions
-    // exist. Idempotent: seeds each collection only when empty (§8).
+    // Seed the permissions baseline (roles + role-bearing groups + open grant)
+    // once the definitions exist. Idempotent: seeds each collection only when
+    // empty (§8).
     try {
       const seeded = await seedPermissions(aepbaseUrl, token);
-      if (seeded.rolesSeeded || seeded.openGrantSeeded) {
+      if (seeded.rolesSeeded || seeded.groupsSeeded || seeded.openGrantSeeded) {
         log.child('permissions').info('seeded baseline', {
           roles: seeded.rolesSeeded,
+          groups: seeded.groupsSeeded,
           openGrant: seeded.openGrantSeeded,
         });
       }

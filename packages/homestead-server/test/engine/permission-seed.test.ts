@@ -50,11 +50,19 @@ describe('permission resources + seed at boot', () => {
     expect(res.status).toBe(200);
   });
 
-  test('seeding creates admin/member/guest and the open grant', async () => {
+  test('seeding creates admin/member/guest, the role-bearing groups, and the open grant', async () => {
     await seedPermissions(BASE, t.adminToken, fetchImpl);
 
     expect(await listIds(t, 'roles')).toEqual(['admin', 'guest', 'member']);
+    expect(await listIds(t, 'groups')).toEqual(['admins', 'guests', 'members']);
     expect(await listIds(t, 'access-grants')).toEqual(['open-household']);
+
+    // Each seeded group confers its matching role, so the create-user picker
+    // can offer "Access level: Admin / Member / Guest".
+    const members = await call(t.engine, 'GET', '/groups/members', { token: t.adminToken });
+    const membersGroup = await members.json();
+    expect(membersGroup.name).toBe('Members');
+    expect(membersGroup.role).toBe('member');
 
     const member = await call(t.engine, 'GET', '/roles/member', { token: t.adminToken });
     expect((await member.json()).grants).toEqual([{ target_scope: 'all', capability: 'write' }]);
@@ -94,6 +102,7 @@ describe('permission resources + seed at boot', () => {
     await seedPermissions(BASE, t.adminToken, fetchImpl);
     await seedPermissions(BASE, t.adminToken, fetchImpl);
     expect(await listIds(t, 'roles')).toEqual(['admin', 'guest', 'member']);
+    expect(await listIds(t, 'groups')).toEqual(['admins', 'guests', 'members']);
     expect(await listIds(t, 'access-grants')).toEqual(['open-household']);
   });
 
