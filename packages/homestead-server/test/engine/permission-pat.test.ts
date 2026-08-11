@@ -11,7 +11,7 @@ import { toWireSchema } from '@rambleraptor/homestead-core/resources/translate';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
 import { insertToken } from '../../src/engine/users';
-import { generatePatSecret, hashPatSecret } from '../../src/engine/pat';
+import { generatePatSecret } from '../../src/engine/pat';
 import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const BASE = 'http://localhost:8090';
@@ -53,10 +53,11 @@ describe('personal access token enforcement', () => {
     delete process.env.PERMISSION_CACHE_TTL_MS;
   });
 
-  /** Mint a PAT for `userId`: a hashed _tokens row plus one grant per scope. */
+  /** Mint a PAT for `userId`: a _tokens row (hashed at rest) plus one grant per scope. */
   async function mintPat(userId: string, patId: string, scopes: ScopeInput[]): Promise<string> {
     const secret = generatePatSecret();
-    insertToken(t.engine.db, hashPatSecret(secret), userId, null, patId);
+    // insertToken hashes at rest; pass the raw secret, present it as a bearer.
+    insertToken(t.engine.db, secret, userId, null, patId);
     for (const s of scopes) {
       const res = await call(t.engine, 'POST', '/access-grants', {
         token: t.adminToken,

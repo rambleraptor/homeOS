@@ -27,11 +27,7 @@ import { ACCESS_GRANTS } from '@rambleraptor/homestead-core/permissions/resource
 import type { Engine } from '../engine/engine';
 import { mintAdminToken } from '../bootstrap';
 import { insertToken, deleteTokenByPatId } from '../engine/users';
-import {
-  generatePatSecret,
-  hashPatSecret,
-  patDisplayPrefix,
-} from '../engine/pat';
+import { generatePatSecret, patDisplayPrefix } from '../engine/pat';
 
 /** Auth resolver, injectable so the route can be tested without loopback auth. */
 export type AuthFn = (request: Request) => Promise<AuthResult | null>;
@@ -124,8 +120,9 @@ export function makeTokensRoute(engine: Engine, authFn: AuthFn = authenticate): 
       );
     }
 
-    // The bearer secret, stored hashed, linked to the record via pat_id.
-    insertToken(engine.db, hashPatSecret(secret), auth.user.id, expiresAt, record.id);
+    // The bearer secret, linked to the record via pat_id. insertToken hashes it
+    // at rest, so only the one-time plaintext `secret` returned below is usable.
+    insertToken(engine.db, secret, auth.user.id, expiresAt, record.id);
 
     // One access-grant per scope, addressed to the token. Written as the leased
     // admin because the public grants API forbids token-subject grants.
