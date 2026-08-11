@@ -38,6 +38,12 @@ const fromEnv = (key: string): string | undefined =>
 
 // OAuth is opt-in: enabled only when a provider's client id + secret are set in
 // the launcher's environment. Edit this block to add or change providers.
+//
+// A federated login only links to (or creates) a Homestead account when the
+// provider verifies the email — Homestead reads the standard `email_verified`
+// userinfo claim. Google (below) sends it, so nothing extra is needed. A
+// provider that never sends the claim (e.g. GitHub) can't link until you add
+// `trustEmailVerified: true` to its entry, opting into trusting its addresses.
 const googleClientId = fromEnv('GOOGLE_OAUTH_CLIENT_ID');
 const googleClientSecret = fromEnv('GOOGLE_OAUTH_CLIENT_SECRET');
 

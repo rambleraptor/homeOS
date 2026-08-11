@@ -28,6 +28,16 @@ export interface OAuthProviderConfig {
   tokenUrl: string;
   userInfoUrl: string;
   allowRegistration?: boolean;
+  /**
+   * Trust this provider's emails when its userinfo response omits an
+   * `email_verified` claim. Default false: a provider that neither verifies the
+   * address nor asserts `email_verified` cannot auto-link to or create a
+   * Homestead account (the account-takeover guard in `findOrCreateUser`). Set
+   * true only for a provider you trust to hand back addresses it owns but that
+   * doesn't send the claim (e.g. GitHub). A provider that *does* send
+   * `email_verified` is always honored as-is, regardless of this flag.
+   */
+  trustEmailVerified?: boolean;
 }
 
 /** The `auth.oauth` block of homestead.config.ts. */
@@ -62,6 +72,7 @@ export interface Provider {
   redirectUrl: string;
   successRedirectUrl: string;
   allowRegistration: boolean;
+  trustEmailVerified: boolean;
 }
 
 /** Invalid bcrypt hash: password login always fails for OAuth-only users. */
@@ -117,6 +128,7 @@ export function buildProviders(cfg: OAuthConfig | null | undefined): Provider[] 
       redirectUrl: `${base}/oauth/${p.name}/callback`,
       successRedirectUrl: cfg.successRedirect,
       allowRegistration: p.allowRegistration ?? false,
+      trustEmailVerified: p.trustEmailVerified ?? false,
     };
   });
 }
@@ -167,6 +179,12 @@ interface UserInfo {
   sub: string;
   email: string;
   name: string;
+  /**
+   * Whether the email may be trusted as belonging to the person signing in.
+   * Resolved from the provider's `email_verified` claim when present; when the
+   * claim is absent, falls back to the provider's `trustEmailVerified` config.
+   */
+  emailVerified: boolean;
 }
 
 async function exchangeCode(p: Provider, code: string): Promise<string> {
@@ -211,18 +229,31 @@ async function fetchUserInfo(p: Provider, accessToken: string): Promise<UserInfo
   let sub = typeof raw.sub === 'string' ? raw.sub : '';
   // Some providers (e.g. GitHub) return "id" instead of "sub".
   if (!sub && raw.id !== undefined && raw.id !== null) sub = String(raw.id);
+  // Honor an explicit `email_verified` claim (OIDC boolean; some providers send
+  // the string "true"). When the provider omits it, defer to config: trusted
+  // providers pass, everyone else is treated as unverified.
+  const claim = raw.email_verified;
+  const emailVerified =
+    claim === undefined || claim === null
+      ? p.trustEmailVerified
+      : claim === true || claim === 'true';
   return {
     sub,
     email: typeof raw.email === 'string' ? raw.email : '',
     name: typeof raw.name === 'string' ? raw.name : '',
+    emailVerified,
   };
 }
 
 class RegistrationDisabledError extends Error {}
 
+/** The provider hasn't verified the email, so we won't link or create by it. */
+class UnverifiedEmailLinkError extends Error {}
+
 function findOrCreateUser(db: Database, p: Provider, info: UserInfo): User {
   const ident = getIdentity(db, p.name, info.sub);
   if (ident) {
+    // Already linked: the identity, not the email, is the key here — safe.
     const found = getUserById(db, ident.user_id);
     if (!found) throw new Error(`identity references missing user "${ident.user_id}"`);
     return found.user;
@@ -230,6 +261,12 @@ function findOrCreateUser(db: Database, p: Provider, info: UserInfo): User {
 
   const existing = getUserByEmail(db, info.email);
   if (existing) {
+    // Auto-linking a new provider identity to a pre-existing account purely on
+    // an email match is an account-takeover vector when the email is
+    // unverified: anyone who can set the victim's address on a provider account
+    // would be dropped straight into the victim's account. Only link a verified
+    // email.
+    if (!info.emailVerified) throw new UnverifiedEmailLinkError();
     insertIdentity(db, {
       provider: p.name,
       providerUserId: info.sub,
@@ -240,6 +277,10 @@ function findOrCreateUser(db: Database, p: Provider, info: UserInfo): User {
   }
 
   if (!p.allowRegistration) throw new RegistrationDisabledError();
+  // Don't mint a fresh account from an unverified address either — it may not
+  // belong to the person signing in, and it would later become the link target
+  // for the real owner.
+  if (!info.emailVerified) throw new UnverifiedEmailLinkError();
 
   const id = generateId();
   const now = nowRFC3339();
@@ -379,6 +420,12 @@ export class OAuthRoutes {
         return errorResponse(
           403,
           'registration is not enabled for this provider; the email is not linked to an existing account',
+        );
+      }
+      if (err instanceof UnverifiedEmailLinkError) {
+        return errorResponse(
+          403,
+          "the provider did not verify this account's email address, so it cannot be linked to a Homestead account",
         );
       }
       return errorResponse(500, `user lookup failed: ${err instanceof Error ? err.message : err}`);
