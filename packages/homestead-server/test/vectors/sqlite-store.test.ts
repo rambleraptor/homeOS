@@ -5,7 +5,7 @@
  * db except the migration test, which needs a real file to reopen.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -156,6 +156,25 @@ describe('sqlite vector store', () => {
       'b v1',
     ]);
     s.close();
+  });
+});
+
+describe('sqlite vector store — durability', () => {
+  let dir: string;
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  test('a file-backed store is opened in WAL mode', () => {
+    dir = mkdtempSync(join(tmpdir(), 'homestead-vec-wal-'));
+    const dbPath = join(dir, 'vectors.db');
+    // The store creates its schema (a write) on open; in WAL mode — and only in
+    // WAL mode — that produces the `-wal` sidecar, which persists while the
+    // connection stays open. Its presence is a runtime-agnostic proof of WAL,
+    // avoiding a second connection (bun:sqlite vs node:sqlite differ).
+    createSqliteVectorStore(dbPath);
+    expect(existsSync(`${dbPath}-wal`)).toBe(true);
   });
 });
 

@@ -116,6 +116,12 @@ function migrateSchema(db: Database): void {
  */
 export function createSqliteVectorStore(dbPath: string): SqliteVectorStore {
   const db = new Database(dbPath, { create: true });
+  // Match the engine's durability settings (see openDb): WAL survives an
+  // unclean shutdown far better than the default rollback journal, and a busy
+  // timeout keeps concurrent embed writes from failing outright with SQLITE_BUSY
+  // instead of waiting. No-ops for an in-memory db.
+  db.run('PRAGMA journal_mode=WAL');
+  db.run('PRAGMA busy_timeout=5000');
   migrateSchema(db);
 
   // Field-scoped delete is now *per model*: re-embedding one field under a new
