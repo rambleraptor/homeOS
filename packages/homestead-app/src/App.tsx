@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Providers } from './providers';
+import { ErrorBoundary } from '@rambleraptor/homestead-core/shared/components/ErrorBoundary';
 import { AppShell } from '@rambleraptor/homestead-core/layout/AppShell';
 import { Login } from '@rambleraptor/homestead-core/router/Login';
 import { AuthCallback } from '@rambleraptor/homestead-core/router/AuthCallback';
@@ -23,6 +24,11 @@ function ShellLayout() {
 export function App() {
   return (
     <Providers>
+      {/* Last-resort catch: any render exception in the tree (including a
+          failed lazy-chunk load) shows a recoverable fallback instead of a
+          blank white page. Route content additionally gets a finer-grained,
+          navigation-resetting boundary in AppRoute. */}
+      <ErrorBoundary>
       <Routes>
         <Route
           path="/login"
@@ -71,6 +77,7 @@ export function App() {
           <Route path="*" element={<AppRoute />} />
         </Route>
       </Routes>
+      </ErrorBoundary>
     </Providers>
   );
 }

@@ -17,6 +17,10 @@ import {
 import { wrapWithGate } from '@rambleraptor/homestead-core/apps/router/gates';
 import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 import { NotFound } from '@rambleraptor/homestead-core/router/NotFound';
+import {
+  ErrorBoundary,
+  AppErrorFallback,
+} from '@rambleraptor/homestead-core/shared/components/ErrorBoundary';
 
 function RouteFallback() {
   return (
@@ -36,7 +40,7 @@ export function AppRoute() {
 
   const Component = getLazyComponent(match.route.component);
   let element: ReactNode = (
-    <Suspense key={pathname} fallback={<RouteFallback />}>
+    <Suspense fallback={<RouteFallback />}>
       <Component params={match.params} />
     </Suspense>
   );
@@ -45,5 +49,13 @@ export function AppRoute() {
     element = wrapWithGate(gateName, match.app.id, element);
   }
 
-  return element;
+  // Keyed by pathname so navigating to another route remounts the boundary and
+  // clears a prior error. Catches both render exceptions and a rejected lazy
+  // chunk import (stale asset hashes after a deploy, or a drop mid-navigation),
+  // either of which would otherwise crash the whole SPA to a blank page.
+  return (
+    <ErrorBoundary key={pathname} fallback={<AppErrorFallback />}>
+      {element}
+    </ErrorBoundary>
+  );
 }
