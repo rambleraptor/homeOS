@@ -143,9 +143,10 @@ export class Engine {
   /**
    * The caller's permission context for the client `can()` mirror: their group
    * ids and every applicable grant (role bundles already expanded), plus whether
-   * enforcement is live. Enforcement is unconditional, so `enforced` mirrors the
-   * server's fail-open gate — a baseline (any grant or role) exists — so the
-   * client stays permissive during the same boot window the server fails open in.
+   * enforcement is live. Enforcement is unconditional and fail-closed, so
+   * `enforced` is always true — the client must gate exactly as the server does,
+   * even before the baseline seed lands (a grant-less caller simply resolves to
+   * their own rows). The field is retained for wire/back-compat.
    */
   permissionContext(userId: string): {
     enforced: boolean;
@@ -155,10 +156,10 @@ export class Engine {
   } {
     const { principals, grants } = this.permissionStore.gatherFor(userId);
     return {
-      enforced: this.permissionStore.hasBaseline(),
+      enforced: true,
       groupIds: [...principals.groupIds],
       // Group names feed the client's app-gating mirror (`tagged` visibility,
-      // §9.2). Always populated, independent of the fail-open baseline gate.
+      // §9.2).
       groupNames: this.permissionStore.groupNamesFor(userId),
       grants,
     };

@@ -121,17 +121,19 @@ function resolve(reg: Registry, segments: string[]): ResolvedRoute | null {
 }
 
 /**
- * Warn (once per process) that no baseline (grant/role) exists yet, so the
- * engine is failing open. Surfaces a mis-seeded instance without spamming a line
- * per request.
+ * Warn (once per process) that no baseline (grant/role) exists yet. Enforcement
+ * is fail-closed, so until one is seeded a non-superuser sees only their own
+ * owned rows — the superuser (break-glass) still has full access to seed/recover.
+ * Surfaces a mis-seeded instance without spamming a line per request.
  */
 let warnedNoBaseline = false;
 function warnNoBaseline(): void {
   if (warnedNoBaseline) return;
   warnedNoBaseline = true;
   log.warn(
-    'no baseline (grant/role) exists yet — failing open until one is seeded. ' +
-      'This is expected briefly at first boot.',
+    'no permission baseline (grant/role) exists yet — enforcing fail-closed: ' +
+      'non-superusers are limited to their own rows until one is seeded. ' +
+      'This is expected briefly at first boot, while the superuser seeds it.',
   );
 }
 
@@ -151,15 +153,15 @@ export async function routeDynamic(
 
   const { match, rawId } = resolved;
   const r: RegisteredResource = match.resource;
-  // Enforcement is unconditional, gated only by the fail-open safety valve:
-  // enforce once a baseline exists (any grant or role). During the boot window
-  // before the open-household grant is seeded, or if a household wipes
-  // everything, the engine stays open instead of locking everyone out. Grant
-  // *writes* still fall through to the legacy superuser-only gate below (so the
-  // seeder, a superuser, can create the baseline; randoms can't tamper with it).
-  // A ctx-less caller (internal loopback ops) never enforces.
-  const enforcing = ctx !== undefined && ctx.store.hasBaseline();
-  if (ctx !== undefined && !enforcing) warnNoBaseline();
+  // Enforcement is unconditional (fail-CLOSED): whenever we have a permission
+  // context we consult grants, with no "no baseline yet → open" valve. A caller
+  // with no applicable grant falls back to their own owned rows (LIST) or a 403
+  // (single-record) — a missing/wiped baseline locks the household down rather
+  // than exposing every row to every account. The superuser bypasses via the
+  // resolver (break-glass), so the boot seeder and manual recovery always work.
+  // A ctx-less caller (internal loopback ops / unit tests) still skips it.
+  const enforcing = ctx !== undefined;
+  if (enforcing && !ctx!.store.hasBaseline()) warnNoBaseline();
 
   // User-subtree isolation always applies: a child of `user` stays owner-only,
   // preserving the privacy of notifications/preferences/etc. The grant system
@@ -168,17 +170,26 @@ export async function routeDynamic(
   // to widen access to another user's subtree.
   checkUserScope(match, caller);
 
+  // Grant enforcement governs shared, top-level collections. Children of `user`
+  // are governed by checkUserScope (subtree ownership by path) instead: a record
+  // in a user's subtree may have been created *for* them by someone else (a
+  // system notification, a superuser-set account tag) so its `_owner` isn't the
+  // subtree user — applying grant/owner visibility there would wrongly hide it.
+  // checkUserScope already denies cross-user access, so grants add nothing here.
+  const userScoped = match.parentIds.user_id !== undefined;
+  const enforceGrants = enforcing && !userScoped;
+
   // `access-grant` governs its own writes by the manage-on-target rule (§15.3)
-  // rather than the generic resolve/superuser_write path. Gated on `enforcing`
-  // (not just mode) so that before the baseline exists, grant writes use the
-  // legacy superuser_write gate — which is what lets the superuser seeder create
-  // the open-household grant in the first place.
+  // rather than the generic resolve/superuser_write path. `enforceGrantWrite`
+  // lets the superuser (break-glass) seed the first grant even when no baseline
+  // exists yet, so this path is safe from the very first boot. A ctx-less caller
+  // (internal loopback / unit tests) falls through to the generic handling.
   if (r.plural === ACCESS_GRANTS_PLURAL && enforcing) {
     return routeGrant(reg, req, match, rawId, caller, ctx!);
   }
 
   const enforce = (verb: 'read' | 'write', recordId?: string, recordPath?: string): void => {
-    if (!enforcing) return;
+    if (!enforceGrants) return;
     enforceRecordAccess(ctx, reg.db, {
       caller,
       verb,
@@ -211,7 +222,7 @@ export async function routeDynamic(
       return handleCreate(reg, match, req, caller);
     }
     if (req.method === 'GET') {
-      const visibility = enforcing
+      const visibility = enforceGrants
         ? listVisibilityClause(ctx, {
             caller,
             resourceType: r.singular,

@@ -11,7 +11,15 @@ import {
   createResourceTable,
   ensureOwnerColumn,
 } from '../../src/engine/db';
-import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
+import {
+  BOOK_DEF,
+  call,
+  defineResource,
+  makeEngine,
+  seedOpenHousehold,
+  seedUser,
+  type TestEngine,
+} from './helpers';
 
 const DOC_DEF = {
   singular: 'doc',
@@ -40,6 +48,10 @@ describe('_owner column (permissions Phase 0)', () => {
     t = await makeEngine();
     await defineResource(t, BOOK_DEF);
     await defineResource(t, DOC_DEF);
+    // These tests exercise owner-stamping as a regular user; seed a normal
+    // open-household baseline so the engine's fail-closed default doesn't block
+    // the create under test.
+    await seedOpenHousehold(t);
   });
 
   test('create stamps _owner with the creating user id', async () => {
