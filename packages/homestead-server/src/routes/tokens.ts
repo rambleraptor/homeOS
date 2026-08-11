@@ -64,12 +64,19 @@ function scopeError(s: unknown): string | null {
   return null;
 }
 
-/** Normalize an ISO timestamp to the engine's RFC3339 (seconds, no millis). */
-function normalizeExpiry(value: unknown): string | null {
-  if (typeof value !== 'string' || value === '') return null;
+/**
+ * Normalize an ISO timestamp to the engine's RFC3339 (seconds, no millis).
+ * Returns `{ expiresAt: null }` for an absent/empty value (a token that never
+ * expires), or `{ invalid: true }` for a value that is present but doesn't
+ * parse — so the caller rejects it instead of silently minting a permanent
+ * token from a typo'd timestamp.
+ */
+function normalizeExpiry(value: unknown): { expiresAt: string | null } | { invalid: true } {
+  if (value === undefined || value === null || value === '') return { expiresAt: null };
+  if (typeof value !== 'string') return { invalid: true };
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  if (Number.isNaN(d.getTime())) return { invalid: true };
+  return { expiresAt: d.toISOString().replace(/\.\d{3}Z$/, 'Z') };
 }
 
 export function makeTokensRoute(engine: Engine, authFn: AuthFn = authenticate): Hono {
@@ -95,7 +102,11 @@ export function makeTokensRoute(engine: Engine, authFn: AuthFn = authenticate): 
       if (err) return c.json({ error: err }, 400);
     }
     const scopes = rawScopes as TokenScope[];
-    const expiresAt = normalizeExpiry(body.expires_at);
+    const expiry = normalizeExpiry(body.expires_at);
+    if ('invalid' in expiry) {
+      return c.json({ error: 'expires_at must be an ISO 8601 timestamp' }, 400);
+    }
+    const expiresAt = expiry.expiresAt;
 
     const secret = generatePatSecret();
     const hs = serverClient(auth.token);
