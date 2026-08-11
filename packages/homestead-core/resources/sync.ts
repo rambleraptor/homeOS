@@ -37,6 +37,14 @@ export interface SyncResourcesOptions {
   defs: ResourceDefinition[];
   /** Optional logger; defaults to console. */
   logger?: Pick<Console, 'info' | 'warn' | 'error'>;
+  /**
+   * Populated-column drops the engine should permit, keyed by resource
+   * `singular` → the set of field names authorized to drop. Sourced from
+   * migrations that declare `drops`. A resource absent here (or a field not in
+   * its set) can only drop columns that hold no data. See the drop guard in
+   * `homestead-server/src/engine/registry.ts`.
+   */
+  authorizedDrops?: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 export interface SyncResourcesResult {
@@ -58,7 +66,7 @@ interface AepResourceDefinitionResponse {
 export async function syncResourceDefinitions(
   options: SyncResourcesOptions,
 ): Promise<SyncResourcesResult> {
-  const { aepbaseUrl, token, defs, logger = console } = options;
+  const { aepbaseUrl, token, defs, logger = console, authorizedDrops } = options;
 
   assertNoDuplicateSingulars(defs);
   for (const def of defs) validateResourceDefinition(def);
@@ -87,7 +95,7 @@ export async function syncResourceDefinitions(
         continue;
       }
 
-      await patchDefinition(aepbaseUrl, token, def, schema);
+      await patchDefinition(aepbaseUrl, token, def, schema, authorizedDrops?.get(def.singular));
       result.updated.push(def.singular);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -223,6 +231,7 @@ async function patchDefinition(
   token: string,
   def: ResourceDefinition,
   schema: ResourceSchema,
+  authorizedDrops?: ReadonlySet<string>,
 ): Promise<void> {
   const body = {
     description: def.description,
@@ -231,14 +240,20 @@ async function patchDefinition(
     parents: def.parents,
     schema,
   };
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/merge-patch+json',
+  };
+  // Authorize dropping the named (populated) columns; the engine refuses
+  // otherwise. Omitted when nothing is authorized, so the default stays safe.
+  if (authorizedDrops && authorizedDrops.size > 0) {
+    headers['X-Homestead-Authorized-Drops'] = [...authorizedDrops].join(',');
+  }
   const res = await fetch(
     `${aepbaseUrl}/${DEFINITIONS_PATH}/${def.singular}`,
     {
       method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/merge-patch+json',
-      },
+      headers,
       body: JSON.stringify(body),
     },
   );

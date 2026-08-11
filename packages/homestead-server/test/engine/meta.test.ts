@@ -130,12 +130,30 @@ describe('definition update', () => {
     expect(updated.title).toBe('Keep me');
   });
 
-  test('removing a property drops the column, other data preserved', async () => {
+  test('refuses to drop a populated column without authorization', async () => {
+    const newSchema = structuredClone(BOOK_DEF.schema) as { properties: Record<string, unknown> };
+    delete newSchema.properties.pages; // b1 has pages: 9
+    const res = await call(t.engine, 'PATCH', '/aep-resource-definitions/book', {
+      token: t.adminToken,
+      body: { schema: newSchema },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toContain('still hold data');
+
+    // The column and its data are untouched.
+    const got = await (
+      await call(t.engine, 'GET', '/books/b1', { token: t.adminToken })
+    ).json();
+    expect(got.pages).toBe(9);
+  });
+
+  test('drops a populated column when the drop is authorized', async () => {
     const newSchema = structuredClone(BOOK_DEF.schema) as { properties: Record<string, unknown> };
     delete newSchema.properties.pages;
     const res = await call(t.engine, 'PATCH', '/aep-resource-definitions/book', {
       token: t.adminToken,
       body: { schema: newSchema },
+      headers: { 'X-Homestead-Authorized-Drops': 'pages' },
     });
     expect(res.status).toBe(200);
 
@@ -144,6 +162,30 @@ describe('definition update', () => {
     ).json();
     expect(got.title).toBe('Keep me');
     expect('pages' in got).toBe(false);
+  });
+
+  test('drops an empty column freely, no authorization needed', async () => {
+    // Add a column, leave it empty, then remove it: nothing to lose.
+    const withCol = structuredClone(BOOK_DEF.schema) as { properties: Record<string, unknown> };
+    withCol.properties.blurb = { type: 'string' };
+    expect(
+      (
+        await call(t.engine, 'PATCH', '/aep-resource-definitions/book', {
+          token: t.adminToken,
+          body: { schema: withCol },
+        })
+      ).status,
+    ).toBe(200);
+
+    const res = await call(t.engine, 'PATCH', '/aep-resource-definitions/book', {
+      token: t.adminToken,
+      body: { schema: BOOK_DEF.schema }, // blurb gone again
+    });
+    expect(res.status).toBe(200);
+    const got = await (
+      await call(t.engine, 'GET', '/books/b1', { token: t.adminToken })
+    ).json();
+    expect(got.title).toBe('Keep me');
   });
 
   test('rejects type changes, renames, and parent changes', async () => {

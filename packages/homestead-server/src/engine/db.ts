@@ -355,3 +355,18 @@ export function removeColumns(
   });
   tx();
 }
+
+/**
+ * Whether any row carries a non-NULL value in `column`. Used to gate a
+ * field-drop at schema-update time: an empty column has no data to lose and
+ * can be dropped freely, a populated one must be explicitly authorized.
+ * `column` is a validated snake_case field name; it's double-quoted defensively
+ * all the same.
+ */
+export function columnHasValues(db: Database, plural: string, column: string): boolean {
+  const tableName = sanitizeTableName(plural);
+  const row = db
+    .query(`SELECT 1 FROM ${tableName} WHERE "${column}" IS NOT NULL LIMIT 1`)
+    .get() as unknown;
+  return row != null;
+}

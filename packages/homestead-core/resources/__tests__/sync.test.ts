@@ -150,6 +150,38 @@ describe('syncResourceDefinitions', () => {
     expect(patchInit.headers['Content-Type']).toBe(
       'application/merge-patch+json',
     );
+    // With no authorized drops, the drop-authorization header is absent.
+    expect(patchInit.headers['X-Homestead-Authorized-Drops']).toBeUndefined();
+  });
+
+  it('forwards authorized drops as a header on the PATCH', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ results: [{ id: 'parent' }] }), { status: 200 }),
+    );
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          ...PARENT_WIRE,
+          schema: {
+            type: 'object',
+            properties: { name: { type: 'string' }, extra: { type: 'string' } },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+    await syncResourceDefinitions({
+      aepbaseUrl: BASE,
+      token: TOKEN,
+      defs: [PARENT], // no `extra` → the PATCH drops it
+      logger: SILENT_LOGGER,
+      authorizedDrops: new Map([['parent', new Set(['extra'])]]),
+    });
+
+    const [, patchInit] = fetchMock.mock.calls[2];
+    expect(patchInit.headers['X-Homestead-Authorized-Drops']).toBe('extra');
   });
 
   it('treats `user` as a built-in parent', async () => {

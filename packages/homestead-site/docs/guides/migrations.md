@@ -100,9 +100,41 @@ after the schema sync; its result and any `log()` lines land in the ledger.
    references, file fields, and validation stay intact.
 4. **Return a small summary** (`{ scanned, patched }`) — it's stored as the
    migration's `result` and makes the ledger useful.
-5. **Mark destructive migrations** with `destructive: true`. It's recorded for
-   visibility today; a future `homestead migrate` command will use it to gate
-   destructive runs behind an explicit opt-in.
+5. **Mark destructive migrations** with `destructive: true` (a migration that
+   declares `drops` is recorded as destructive automatically). It's stored in
+   the ledger for visibility; a future `homestead migrate` command will use it
+   to gate destructive runs behind an explicit opt-in.
+
+## Retiring a field (deprecate, then drop)
+
+Removing a field from a `resources.ts` definition drops its column. The engine
+**refuses to drop a column that still holds data** — an accidental deletion, or
+a rename with no data migration, would otherwise destroy data silently at boot.
+The failure is loud and names the columns; nothing is applied.
+
+Because the schema sync runs *before* migrations, you can't move a field's data
+and drop the field in the same release. Retire it in two steps:
+
+1. **Deprecate.** Mark the field `deprecated: true` in `resources.ts`. Its
+   column and data are kept, but consumers stop steering writes to it (the chat
+   tools drop it; the wire description flags it). Ship a data migration in the
+   same release that moves its data wherever it now belongs.
+2. **Drop.** In a later release, remove the field from `resources.ts` and add a
+   migration that authorizes the drop:
+
+   ```ts
+   export const migrations: Migration[] = [
+     {
+       id: 'gift-cards-drop-legacy-code',
+       drops: [{ resource: 'gift-card', field: 'legacy_code' }],
+       load: () => import('./migrations/drop-legacy-code'),
+     },
+   ];
+   ```
+
+   The boot-time schema sync reads every declared `drops` and authorizes exactly
+   those column drops; declaring `drops` implies `destructive`. A column that
+   holds no data drops freely and needs no authorization.
 
 ## When *not* to use one
 

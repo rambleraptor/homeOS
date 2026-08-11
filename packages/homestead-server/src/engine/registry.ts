@@ -10,6 +10,7 @@
 import type { Database } from './sqlite';
 import {
   addColumn,
+  columnHasValues,
   backfillOwnerFromCreatedBy,
   createResourceTable,
   derivedColumnsFromSchema,
@@ -249,8 +250,19 @@ export class Registry {
   /**
    * Apply a schema update: add new columns, drop removed ones (table
    * recreate), reject type changes. Mirrors State.UpdateResourceSchema.
+   *
+   * A field that disappears from the definition drops its column — and its
+   * data. Dropping a **populated** column is refused unless its name is in
+   * `authorizedDrops`, so an accidental field deletion (or a rename with no
+   * data migration) can't silently destroy data at boot. The schema sync fills
+   * `authorizedDrops` from migrations that declare a matching `drops` entry; an
+   * empty column carries no data and drops freely regardless.
    */
-  updateResourceSchema(def: ResourceDefinition, oldDef: ResourceDefinition): void {
+  updateResourceSchema(
+    def: ResourceDefinition,
+    oldDef: ResourceDefinition,
+    authorizedDrops: ReadonlySet<string> = new Set(),
+  ): void {
     const r = this.resources.get(def.singular);
     if (!r) throw new Error(`resource "${def.singular}" not found`);
 
@@ -271,6 +283,23 @@ export class Registry {
     }
     for (const name of Object.keys(oldProps)) {
       if (!(name in newProps)) removed.push(name);
+    }
+
+    // Guard against silent data loss: a dropped column that still holds data
+    // must be explicitly authorized (via a migration's `drops`). Empty columns
+    // — a field added then removed before any write — drop without ceremony.
+    const unauthorized = removed.filter(
+      (name) => !authorizedDrops.has(name) && columnHasValues(this.db, def.plural, name),
+    );
+    if (unauthorized.length > 0) {
+      throw new Error(
+        `refusing to drop column(s) [${unauthorized.join(', ')}] from "${def.singular}": ` +
+          `they still hold data. Restore the field, mark it \`deprecated: true\` to keep ` +
+          `it, or authorize the drop with a destructive migration declaring ` +
+          `drops: [${unauthorized
+            .map((name) => `{ resource: '${def.singular}', field: '${name}' }`)
+            .join(', ')}].`,
+      );
     }
 
     // Tagged-union variant fields live inside an object property, so the
