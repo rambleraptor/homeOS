@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from 'vitest';
-import { call, defineResource, makeEngine, BOOK_DEF, type TestEngine } from './helpers';
+import { call, defineResource, makeEngine, seedUser, BOOK_DEF, type TestEngine } from './helpers';
 
 let t: TestEngine;
 
@@ -199,6 +199,49 @@ describe('definition delete', () => {
 
     const list = await call(t.engine, 'GET', '/books', { token: t.adminToken });
     expect(list.status).toBe(404); // routes are gone
+  });
+});
+
+describe('authorization: only superusers may mutate definitions', () => {
+  test('a regular user is denied create/update/delete but may read', async () => {
+    // Seed the schema as the superuser so there is something to read/mutate.
+    await defineResource(t, BOOK_DEF);
+    const { token: userToken } = await seedUser(t.engine, {
+      email: 'regular@example.com',
+      type: 'regular',
+    });
+
+    const create = await call(t.engine, 'POST', '/aep-resource-definitions', {
+      token: userToken,
+      body: { singular: 'note', plural: 'notes', schema: { type: 'object', properties: {} } },
+    });
+    expect(create.status).toBe(403);
+
+    const patch = await call(t.engine, 'PATCH', '/aep-resource-definitions/book', {
+      token: userToken,
+      body: { description: 'hijacked' },
+    });
+    expect(patch.status).toBe(403);
+
+    const del = await call(t.engine, 'DELETE', '/aep-resource-definitions/book', {
+      token: userToken,
+    });
+    expect(del.status).toBe(403);
+
+    // The write protection held: the definition is untouched.
+    const still = await call(t.engine, 'GET', '/aep-resource-definitions/book', {
+      token: t.adminToken,
+    });
+    expect(still.status).toBe(200);
+    expect((await still.json()).description).toBeUndefined();
+
+    // Reads remain open to any authenticated caller.
+    const read = await call(t.engine, 'GET', '/aep-resource-definitions/book', {
+      token: userToken,
+    });
+    expect(read.status).toBe(200);
+    const list = await call(t.engine, 'GET', '/aep-resource-definitions', { token: userToken });
+    expect(list.status).toBe(200);
   });
 });
 

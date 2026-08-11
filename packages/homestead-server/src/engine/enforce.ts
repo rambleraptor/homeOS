@@ -3,9 +3,11 @@
  * pure resolver: gathers the caller's grants from the PermissionStore, decides,
  * and either throws 403 or — for LIST — produces a SQL visibility clause.
  *
- * Enforcement is unconditional; the router only skips calling in here while no
- * baseline exists yet (the fail-open boot window), where `checkUserScope` still
- * provides user-subtree isolation.
+ * Enforcement is unconditional and fail-closed (no baseline → a grant-less
+ * caller sees only their own rows). The router skips calling in here only for
+ * user-parented resources, where `checkUserScope` (subtree ownership by path)
+ * is the governing gate and grant/owner visibility would wrongly hide a record
+ * created for the user by someone else.
  */
 
 import type { Database } from './sqlite';

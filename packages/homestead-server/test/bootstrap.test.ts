@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { Database } from '../src/engine/sqlite';
 import { verifyPassword } from '../src/engine/password';
 import {
+  AlreadyClaimedError,
   claimSetup,
   createSuperuser,
   ensureSuperuser,
@@ -57,6 +58,36 @@ describe('claimSetup', () => {
     await expect(claimSetup(db, 'evil@example.com', 'p4ssw0rdp4ssw0rd')).rejects.toThrow(
       'already set up',
     );
+  });
+
+  test('concurrent claims are serialized: exactly one wins, credentials are consistent', async () => {
+    const db = freshDb();
+    await ensureSuperuser(db);
+
+    // Two racing setup requests. The atomic compare-and-set on the claim flag
+    // must let exactly one through — no last-write-wins on the admin password.
+    const results = await Promise.allSettled([
+      claimSetup(db, 'first@home.dev', 'first-password'),
+      claimSetup(db, 'second@home.dev', 'second-password'),
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(AlreadyClaimedError);
+
+    expect(needsSetup(db)).toBe(false);
+    // The instance now has exactly one of the two accounts — the winner's — and
+    // its password matches (no cross-contamination from the loser's write).
+    const winner =
+      getUserByEmail(db, 'first@home.dev') ?? getUserByEmail(db, 'second@home.dev');
+    expect(winner).not.toBeNull();
+    const loserEmail = winner!.user.email === 'first@home.dev' ? 'second@home.dev' : 'first@home.dev';
+    expect(getUserByEmail(db, loserEmail)).toBeNull();
+    const winnerPassword =
+      winner!.user.email === 'first@home.dev' ? 'first-password' : 'second-password';
+    expect(await verifyPassword(winnerPassword, winner!.hash)).toBe(true);
   });
 
   test('sets the display name when one is provided', async () => {

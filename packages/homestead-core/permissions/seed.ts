@@ -1,12 +1,16 @@
 /**
  * Boot-time seeding of the permissions baseline (design §8).
  *
- * Two things are seeded, both **only when their collection is empty** so a
+ * Three things are seeded, each **only when its collection is empty** so a
  * household that has since tightened access is never clobbered on the next
  * boot:
  *   1. The built-in role *definitions* (`admin` / `member` / `guest`) — inert
  *      templates, assigned via groups when wanted.
- *   2. The open-household grant (`everyone → write on *`) — the explicit form of
+ *   2. The built-in *groups* (`Admins` / `Members` / `Guests`), each conferring
+ *      the matching role. A user only gets a role by being in a role-bearing
+ *      group, so these are what make role assignment reachable from the
+ *      create-user UI on day one — with no groups there is nothing to assign.
+ *   3. The open-household grant (`everyone → write on *`) — the explicit form of
  *      today's "everyone reads/writes everything" behavior. Narrowing or
  *      deleting this grant is how an admin later locks things down.
  *
@@ -14,7 +18,7 @@
  * same minted admin token.
  */
 
-import { ROLES, ACCESS_GRANTS } from './resources';
+import { ROLES, GROUPS, ACCESS_GRANTS } from './resources';
 
 export interface SeedRole {
   id: string;
@@ -47,6 +51,40 @@ export const SEED_ROLES: SeedRole[] = [
     name: 'Guest',
     description: 'No access until an admin grants some.',
     grants: [],
+  },
+];
+
+export interface SeedGroup {
+  id: string;
+  name: string;
+  description: string;
+  /** The role conferred on every member of this group (role id reference). */
+  role: string;
+}
+
+/**
+ * One group per built-in role, so the create-user UI can offer "Access level:
+ * Admin / Member / Guest" out of the box. Adding a user to one of these groups
+ * confers its role and suppresses the open-household default for them.
+ */
+export const SEED_GROUPS: SeedGroup[] = [
+  {
+    id: 'admins',
+    name: 'Admins',
+    description: 'Full control of everything (via the Admin role).',
+    role: 'admin',
+  },
+  {
+    id: 'members',
+    name: 'Members',
+    description: 'Read and write household data (via the Member role).',
+    role: 'member',
+  },
+  {
+    id: 'guests',
+    name: 'Guests',
+    description: 'No access until an admin grants some (via the Guest role).',
+    role: 'guest',
   },
 ];
 
@@ -111,13 +149,25 @@ export async function seedPermissions(
   aepbaseUrl: string,
   token: string,
   fetchImpl: FetchLike = fetch,
-): Promise<{ rolesSeeded: number; openGrantSeeded: boolean }> {
+): Promise<{ rolesSeeded: number; groupsSeeded: number; openGrantSeeded: boolean }> {
   let rolesSeeded = 0;
   if (await isEmpty(fetchImpl, aepbaseUrl, token, ROLES)) {
     for (const role of SEED_ROLES) {
       const { id, ...fields } = role;
       await create(fetchImpl, aepbaseUrl, token, ROLES, id, fields);
       rolesSeeded += 1;
+    }
+  }
+
+  // The role-bearing groups the create-user UI assigns. Seeded only when the
+  // groups collection is empty, so a household that has curated its own groups
+  // (or deliberately deleted these) is never re-seeded.
+  let groupsSeeded = 0;
+  if (await isEmpty(fetchImpl, aepbaseUrl, token, GROUPS)) {
+    for (const group of SEED_GROUPS) {
+      const { id, ...fields } = group;
+      await create(fetchImpl, aepbaseUrl, token, GROUPS, id, fields);
+      groupsSeeded += 1;
     }
   }
 
@@ -132,7 +182,7 @@ export async function seedPermissions(
     await ensureOpenGrantDefault(fetchImpl, aepbaseUrl, token);
   }
 
-  return { rolesSeeded, openGrantSeeded };
+  return { rolesSeeded, groupsSeeded, openGrantSeeded };
 }
 
 /**

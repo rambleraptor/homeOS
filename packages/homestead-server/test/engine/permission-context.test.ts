@@ -1,8 +1,9 @@
 /**
  * engine.permissionContext(userId) feeds the client `can()` mirror: the caller's
  * group ids, all applicable grants (role bundles expanded), and whether
- * enforcement is live. Enforcement is unconditional, so `enforced` mirrors the
- * fail-open baseline gate (a grant or role exists). Backs GET /api/permissions/me.
+ * enforcement is live. Enforcement is unconditional and fail-closed, so
+ * `enforced` is always true and the client gates exactly as the server does.
+ * Backs GET /api/permissions/me.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -70,11 +71,12 @@ describe('engine.permissionContext', () => {
     ).toBe(true);
   });
 
-  test('enforced is false when no baseline exists yet (fail-open window)', async () => {
-    // A fresh engine with no roles/grants seeded: enforcement fails open, so the
-    // client is told it is not being enforced and stays permissive.
+  test('enforced is true even before a baseline is seeded (fail-closed)', async () => {
+    // A fresh engine with no roles/grants seeded still reports enforced: the
+    // engine is fail-closed, so the client must gate as the server does rather
+    // than stay permissive. A grant-less caller simply resolves to their own rows.
     const fresh = await makeEngine();
     const alice = await seedUser(fresh.engine, { email: 'nobody@example.com' });
-    expect(fresh.engine.permissionContext(alice.user.id).enforced).toBe(false);
+    expect(fresh.engine.permissionContext(alice.user.id).enforced).toBe(true);
   });
 });

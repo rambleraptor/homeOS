@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import type { Database } from '../engine/sqlite';
-import { claimSetup, needsSetup } from '../bootstrap';
+import { AlreadyClaimedError, claimSetup, needsSetup } from '../bootstrap';
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_DISPLAY_NAME_LENGTH = 100;
@@ -46,7 +46,17 @@ export function makeSetupRoute(db: Database): Hono {
         400,
       );
     }
-    await claimSetup(db, email, password, displayName);
+    // The needsSetup check above is a fast path, not the guard: two requests can
+    // both pass it. claimSetup's atomic compare-and-set picks the single winner;
+    // a loser (or any already-claimed instance) surfaces here as a 409.
+    try {
+      await claimSetup(db, email, password, displayName);
+    } catch (err) {
+      if (err instanceof AlreadyClaimedError) {
+        return c.json({ error: 'instance is already set up' }, 409);
+      }
+      throw err;
+    }
     return c.json({ ok: true });
   });
 

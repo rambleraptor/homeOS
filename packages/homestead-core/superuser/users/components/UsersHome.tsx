@@ -11,6 +11,7 @@ import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastPr
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { fetchPermissionContextFor } from '@rambleraptor/homestead-core/permissions/client';
+import { useAddGroupMember } from '@rambleraptor/homestead-core/permissions/hooks';
 import { useUsers } from '../hooks/useUsers';
 import { useCreateUser } from '../hooks/useCreateUser';
 import { useUpdateUser } from '../hooks/useUpdateUser';
@@ -26,6 +27,7 @@ export function UsersHome() {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
+  const addGroupMember = useAddGroupMember();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
@@ -58,7 +60,22 @@ export function UsersHome() {
 
   const handleCreate = async (data: UserFormData) => {
     try {
-      await createUser.mutateAsync(data);
+      const created = await createUser.mutateAsync(data);
+      // Assign the chosen access level by adding the new user to its
+      // role-bearing group. Report a partial failure separately: the account
+      // already exists, so the admin should finish the assignment by hand
+      // rather than think the whole create failed.
+      if (data.groupId) {
+        try {
+          await addGroupMember.mutateAsync({ groupId: data.groupId, userId: created.id });
+        } catch {
+          setIsCreateOpen(false);
+          toast.error(
+            'User created, but setting their access level failed. Assign it on the Permissions page.',
+          );
+          return;
+        }
+      }
       setIsCreateOpen(false);
       toast.success('User created');
     } catch {

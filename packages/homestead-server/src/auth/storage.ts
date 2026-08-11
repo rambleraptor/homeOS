@@ -7,6 +7,7 @@
 
 import type { Database } from '../engine/sqlite';
 import { nowRFC3339 } from '../engine/ids';
+import { hashToken } from '../engine/pat';
 
 export interface RefreshTokenRecord {
   refresh_token: string;
@@ -52,21 +53,29 @@ export function createAuthTables(db: Database): void {
 	)`);
 }
 
+// Presented secrets are stored only as their hash (matching `_tokens.token`),
+// so a database read can't recover a usable token. Both the refresh token and
+// the access token are values a client presents back (the access token via the
+// OAuth resource-server verify path), so both are hashed here. The refresh
+// row's `access_token` column is a *correlation copy* used only to cascade-
+// delete the matching `_tokens`/binding rows — its keys are looked up with the
+// raw access token (which the delete funnels hash themselves), so it stays raw.
+
 export function insertAccessTokenBinding(db: Database, b: AccessTokenBinding): void {
   db.query(
     `INSERT INTO _auth_access_tokens (access_token, user_id, client_id, scope, audience, create_time)
       VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(b.access_token, b.user_id, b.client_id, b.scope, b.audience, nowRFC3339());
+  ).run(hashToken(b.access_token), b.user_id, b.client_id, b.scope, b.audience, nowRFC3339());
 }
 
 export function getAccessTokenBinding(db: Database, accessToken: string): AccessTokenBinding | null {
   return db
     .query('SELECT access_token, user_id, client_id, scope, audience FROM _auth_access_tokens WHERE access_token = ?')
-    .get(accessToken) as AccessTokenBinding | null;
+    .get(hashToken(accessToken)) as AccessTokenBinding | null;
 }
 
 export function deleteAccessTokenBinding(db: Database, accessToken: string): void {
-  db.query('DELETE FROM _auth_access_tokens WHERE access_token = ?').run(accessToken);
+  db.query('DELETE FROM _auth_access_tokens WHERE access_token = ?').run(hashToken(accessToken));
 }
 
 export function insertRefreshToken(
@@ -78,7 +87,9 @@ export function insertRefreshToken(
       (refresh_token, access_token, user_id, client_id, scope, audience, expires_at, create_time)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
-    r.refresh_token,
+    hashToken(r.refresh_token),
+    // Correlation copy only (see note above) — kept raw so `deleteToken` /
+    // `deleteRefreshTokensForAccess` can hash the presented access token once.
     r.access_token,
     r.user_id,
     r.client_id,
@@ -92,14 +103,15 @@ export function insertRefreshToken(
 export function getRefreshToken(db: Database, refreshToken: string): RefreshTokenRecord | null {
   return db
     .query('SELECT * FROM _auth_refresh_tokens WHERE refresh_token = ?')
-    .get(refreshToken) as RefreshTokenRecord | null;
+    .get(hashToken(refreshToken)) as RefreshTokenRecord | null;
 }
 
 export function deleteRefreshToken(db: Database, refreshToken: string): void {
-  db.query('DELETE FROM _auth_refresh_tokens WHERE refresh_token = ?').run(refreshToken);
+  db.query('DELETE FROM _auth_refresh_tokens WHERE refresh_token = ?').run(hashToken(refreshToken));
 }
 
 /** Drop any refresh tokens tied to an access token (used when revoking it). */
 export function deleteRefreshTokensForAccess(db: Database, accessToken: string): void {
+  // Matches the raw correlation copy stored by insertRefreshToken.
   db.query('DELETE FROM _auth_refresh_tokens WHERE access_token = ?').run(accessToken);
 }

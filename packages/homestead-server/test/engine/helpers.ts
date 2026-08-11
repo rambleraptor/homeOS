@@ -80,6 +80,41 @@ export async function call(
   return engine.fetch(new Request(`http://localhost:8090${path}`, { method, headers, body }));
 }
 
+/**
+ * Define the permission collections and seed the open-household baseline (roles,
+ * groups, and the `everyone → write on *` grant), then drop the permission cache
+ * so it's honored immediately. Feature tests that aren't *about* permissions use
+ * this to opt into a normally-configured household, where a regular user has
+ * ordinary CRUD — the production default. Without it the engine is fail-closed,
+ * so a grant-less regular user can't create top-level records.
+ */
+export async function seedOpenHousehold(t: TestEngine): Promise<void> {
+  const { PERMISSION_RESOURCE_DEFS } = await import(
+    '@rambleraptor/homestead-core/permissions/resources'
+  );
+  const { toWireSchema } = await import('@rambleraptor/homestead-core/resources/translate');
+  const { seedPermissions } = await import('@rambleraptor/homestead-core/permissions/seed');
+  for (const def of PERMISSION_RESOURCE_DEFS) {
+    await defineResource(
+      t,
+      {
+        singular: def.singular,
+        plural: def.plural,
+        parents: def.parents ?? [],
+        superuser_write: def.superuser_write ?? false,
+        schema: toWireSchema(def.fields, def.singular),
+      },
+      def.singular,
+    );
+  }
+  await seedPermissions('http://localhost:8090', t.adminToken, (input, init) =>
+    t.engine.fetch(new Request(input, init)),
+  );
+  // The store may have cached an empty grant set during the seeding writes;
+  // clear it so the just-seeded open grant is visible on the next request.
+  t.engine.reloadPermissions();
+}
+
 /** Create a resource definition through the meta API. */
 export async function defineResource(
   t: TestEngine,

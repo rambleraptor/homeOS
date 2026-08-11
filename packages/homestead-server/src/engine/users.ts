@@ -6,7 +6,7 @@
 
 import { errorResponse, isUniqueConstraintError, jsonResponse } from './errors';
 import { generateId, generateToken, nowRFC3339 } from './ids';
-import { patLookupKey } from './pat';
+import { hashToken } from './pat';
 import { hashPassword, verifyPassword } from './password';
 import type { Database } from './sqlite';
 import type { User } from './types';
@@ -41,7 +41,54 @@ export function createUserTables(db: Database): void {
   // ordinary login/OAuth tokens). It's what marks a bearer token as a PAT so
   // enforcement can attenuate the caller down to that token's assigned grants.
   ensureColumn(db, '_tokens', 'pat_id', 'TEXT');
+  purgePlaintextTokensOnce(db);
 }
+
+// A tiny key/value table for engine-level, one-shot schema/data migrations that
+// aren't resource definitions (kept separate from the launcher's _homestead_meta
+// so the engine owns its own lower-level bookkeeping).
+function ensureEngineMeta(db: Database): void {
+  db.run('CREATE TABLE IF NOT EXISTS _engine_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+}
+function engineMetaGet(db: Database, key: string): string | null {
+  ensureEngineMeta(db);
+  const row = db.query('SELECT value FROM _engine_meta WHERE key = ?').get(key) as
+    | { value: string }
+    | null;
+  return row?.value ?? null;
+}
+function engineMetaSet(db: Database, key: string, value: string): void {
+  ensureEngineMeta(db);
+  db.query(
+    'INSERT INTO _engine_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+  ).run(key, value);
+}
+
+/**
+ * One-time: tokens now live in `_tokens` (and the auth side-tables) only as
+ * their hash. A database created before that change holds raw session/OAuth/
+ * admin tokens (and raw refresh tokens) — plaintext secrets. Purge them once so
+ * nothing usable-or-leakable lingers; their owners simply log in again (which
+ * mints hashed tokens). PAT rows (`pat_id` set) were already stored hashed, so
+ * they're preserved and keep working. Guarded by a flag so a later restart never
+ * re-runs it (which would log everyone out on every boot).
+ */
+function purgePlaintextTokensOnce(db: Database): void {
+  if (engineMetaGet(db, MIGRATION_TOKENS_HASHED) === '1') return;
+  db.run('DELETE FROM _tokens WHERE pat_id IS NULL');
+  // The auth service's side-tables only exist on databases that have run it;
+  // ignore their absence on a fresh or auth-less instance.
+  for (const table of ['_auth_refresh_tokens', '_auth_access_tokens']) {
+    try {
+      db.run(`DELETE FROM ${table}`);
+    } catch {
+      // table not created yet → nothing to purge
+    }
+  }
+  engineMetaSet(db, MIGRATION_TOKENS_HASHED, '1');
+}
+
+const MIGRATION_TOKENS_HASHED = 'tokens_hashed_v1';
 
 /** Add a column if the table doesn't already have it (idempotent migration). */
 function ensureColumn(db: Database, table: string, column: string, decl: string): void {
@@ -96,13 +143,13 @@ export function getUserByToken(db: Database, token: string): User | null {
   // An access token is valid only while unexpired. NULL expires_at = never
   // expires (leased admin mints, and every token issued before the expiry
   // column existed). RFC3339 UTC timestamps of identical width compare
-  // correctly as strings. PAT secrets are stored hashed, so hash the presented
-  // value before the lookup (patLookupKey is a no-op for ordinary tokens).
+  // correctly as strings. Tokens are stored only as their hash, so hash the
+  // presented value before the lookup.
   const row = db
     .query(
       `SELECT u.id, u.path, u.email, u.display_name, u.type, u.create_time, u.update_time, t.pat_id AS pat_id FROM _users u INNER JOIN _tokens t ON u.id = t.user_id WHERE t.token = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`,
     )
-    .get(patLookupKey(token), nowRFC3339()) as (UserRow & { pat_id: string | null }) | null;
+    .get(hashToken(token), nowRFC3339()) as (UserRow & { pat_id: string | null }) | null;
   return row ? rowToUser(row, row.pat_id) : null;
 }
 
@@ -127,10 +174,11 @@ export function insertUser(db: Database, u: User, passwordHash: string): void {
 }
 
 /**
- * Insert an access token. `expiresAt` is an RFC3339 UTC timestamp after which
- * the token stops validating; pass null (the default) for a token that never
- * expires — used by the leased admin mints and by every caller predating the
- * auth service.
+ * Insert an access token. Callers pass the **raw** token (the value handed to
+ * the client); it is stored only as its hash, so `_tokens` never holds a usable
+ * secret. `expiresAt` is an RFC3339 UTC timestamp after which the token stops
+ * validating; pass null (the default) for a token that never expires — used by
+ * the leased admin mints and by every caller predating the auth service.
  */
 export function insertToken(
   db: Database,
@@ -141,7 +189,7 @@ export function insertToken(
 ): void {
   db.query(
     'INSERT INTO _tokens (token, user_id, create_time, expires_at, pat_id) VALUES (?, ?, ?, ?, ?)',
-  ).run(token, userId, nowRFC3339(), expiresAt, patId);
+  ).run(hashToken(token), userId, nowRFC3339(), expiresAt, patId);
 }
 
 /** Raw token row (used by the auth service to distinguish expired from absent). */
@@ -151,13 +199,13 @@ export function getTokenRecord(
 ): { user_id: string; expires_at: string | null; pat_id: string | null } | null {
   return db
     .query('SELECT user_id, expires_at, pat_id FROM _tokens WHERE token = ?')
-    .get(patLookupKey(token)) as
+    .get(hashToken(token)) as
     | { user_id: string; expires_at: string | null; pat_id: string | null }
     | null;
 }
 
 export function deleteToken(db: Database, token: string): void {
-  db.query('DELETE FROM _tokens WHERE token = ?').run(patLookupKey(token));
+  db.query('DELETE FROM _tokens WHERE token = ?').run(hashToken(token));
 }
 
 /** Delete the token row backing a PAT record (revocation). */
