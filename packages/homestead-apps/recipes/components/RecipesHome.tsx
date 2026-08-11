@@ -16,6 +16,7 @@ import { RecipesList } from './RecipesList';
 import { RecipeForm } from './RecipeForm';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import {
   FilterBar,
   AppFiltersProvider,
@@ -96,7 +97,7 @@ export function RecipesHome() {
           <div>
             <h3 className="font-semibold text-red-900">Failed to load recipes</h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>

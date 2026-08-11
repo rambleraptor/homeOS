@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, ListChecks, Loader2 } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCategories, groupTodosByCategory } from '../hooks/useCategories';
@@ -193,7 +194,7 @@ export function TodosHome() {
         <div className="bg-red-50/50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-red-600" />
           <p className="text-sm text-red-700">
-            {error instanceof Error ? error.message : 'Failed to load todos'}
+            {getAepErrorMessage(error)}
           </p>
         </div>
       )}

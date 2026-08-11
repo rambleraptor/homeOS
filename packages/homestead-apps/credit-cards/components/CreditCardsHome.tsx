@@ -29,6 +29,7 @@ import { UpcomingPerks } from './UpcomingPerks';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import type { CreditCardFormData, PerkFormData, RedemptionFormData, CreditCard as CreditCardType } from '../types';
 
 type ViewState =
@@ -169,7 +170,7 @@ export function CreditCardsHome() {
           <div>
             <h3 className="font-semibold text-red-900">Failed to load credit cards</h3>
             <p className="text-sm text-red-700">
-              {cardsErrorObj instanceof Error ? cardsErrorObj.message : 'An error occurred'}
+              {getAepErrorMessage(cardsErrorObj)}
             </p>
           </div>
         </div>

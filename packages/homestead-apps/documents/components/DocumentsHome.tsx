@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, Upload, AlertCircle, Shield, FileText, Scissors } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
 import { useUploadBundle } from '../hooks/useSplitDocument';
@@ -333,7 +334,7 @@ export function DocumentsHome() {
       {isError && (
         <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          {error instanceof Error ? error.message : 'Failed to load documents'}
+          {getAepErrorMessage(error)}
         </div>
       )}
 

@@ -22,6 +22,7 @@ import { HolePlay } from './HolePlay';
 import { GameResults } from './GameResults';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import type { Game, GameFormData, Hole, PlayerScore } from '../types';
 
 type View = 'list' | 'setup' | 'play' | 'results';
@@ -195,7 +196,7 @@ export function MinigolfHome() {
           <div>
             <h3 className="font-semibold text-red-900">Failed to load games</h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>

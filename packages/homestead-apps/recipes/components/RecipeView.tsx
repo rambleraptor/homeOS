@@ -26,6 +26,7 @@ import { RecipeForm } from './RecipeForm';
 import { RecipeImage } from './RecipeImage';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { decimalToFraction } from '@rambleraptor/homestead-core/shared/utils/fractionUtils';
 import type { RecipeFormData, RecipeIngredient } from '../types';
@@ -75,7 +76,7 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
             <div>
               <h3 className="font-semibold text-red-900">Failed to load recipe</h3>
               <p className="text-sm text-red-700">
-                {error instanceof Error ? error.message : 'Recipe not found'}
+                {getAepErrorMessage(error)}
               </p>
             </div>
           </div>

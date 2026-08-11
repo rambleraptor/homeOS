@@ -17,6 +17,7 @@ import { GroceryList } from './GroceryList';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 
 export function GroceriesList() {
   const [storeToClear, setStoreToClear] = useState<{ id: string | null; name: string } | null>(null);
@@ -71,7 +72,7 @@ export function GroceriesList() {
           <div>
             <h3 className="font-semibold text-red-900">Failed to load groceries</h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>

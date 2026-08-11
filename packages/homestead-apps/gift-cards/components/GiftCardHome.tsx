@@ -17,6 +17,7 @@ import { GiftCardForm } from './GiftCardForm';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import type { GiftCard, GiftCardFormData } from '../types';
 
@@ -105,7 +106,7 @@ export function GiftCardHome() {
               Failed to load gift cards
             </h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>

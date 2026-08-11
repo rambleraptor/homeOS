@@ -20,6 +20,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { getDocType, getDocTypes } from '../doc-types/registry';
 import { useDocument } from '../hooks/useDocument';
@@ -84,7 +85,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
         {backLink}
         <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          {error instanceof Error ? error.message : 'Document not found'}
+          {getAepErrorMessage(error)}
         </div>
       </div>
     );

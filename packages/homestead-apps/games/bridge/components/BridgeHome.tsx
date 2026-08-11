@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { useHands } from '../hooks/useHands';
 import { useCreateHand } from '../hooks/useCreateHand';
 import { useDeleteHand } from '../hooks/useDeleteHand';
@@ -82,7 +83,7 @@ export function BridgeHome() {
           <div>
             <h3 className="font-semibold text-red-900">Failed to load hands</h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>

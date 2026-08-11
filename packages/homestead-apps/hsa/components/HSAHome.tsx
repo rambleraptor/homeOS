@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/Co
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import type { HSAReceipt, HSAReceiptFormData, ReceiptStatus } from '../types';
 
 export function HSAHome() {
@@ -93,7 +94,7 @@ export function HSAHome() {
               Failed to load HSA receipts
             </h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>

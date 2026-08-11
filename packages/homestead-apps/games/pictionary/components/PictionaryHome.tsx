@@ -10,6 +10,7 @@ import { Plus, Upload, Loader2, AlertCircle, Trophy } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { useGames } from '../hooks/useGames';
 import { useGameTeams } from '../hooks/useGameTeams';
 import { useGameWinners } from '../hooks/useGameWinners';
@@ -110,7 +111,7 @@ export function PictionaryHome() {
               Failed to load Pictionary games
             </h3>
             <p className="text-sm text-red-700">
-              {error instanceof Error ? error.message : 'An error occurred'}
+              {getAepErrorMessage(error)}
             </p>
           </div>
         </div>
