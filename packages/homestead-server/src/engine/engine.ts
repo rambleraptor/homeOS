@@ -26,7 +26,7 @@ import { notFoundText, routeDynamic } from './router';
 import { PermissionStore, permissionCacheTtlMs } from './permission-store';
 import { type Grant } from './permissions';
 import type { EnforceContext } from './enforce';
-import type { User } from './types';
+import { TYPE_SUPERUSER, type User } from './types';
 import type { SyncDispatcher } from '../sync';
 import {
   createUserTables,
@@ -304,7 +304,7 @@ export class Engine {
     }
 
     if (segments[0] === 'aep-resource-definitions') {
-      return this.routeMeta(req, segments);
+      return this.routeMeta(req, segments, caller);
     }
 
     if (segments[0] === 'users' && segments.length <= 2) {
@@ -329,7 +329,24 @@ export class Engine {
     return notFoundText();
   }
 
-  private async routeMeta(req: Request, segments: string[]): Promise<Response> {
+  private async routeMeta(
+    req: Request,
+    segments: string[],
+    caller: User | null,
+  ): Promise<Response> {
+    // Schema mutation (create/update/delete a resource definition) can drop
+    // collections, rewrite field shapes, and toggle a resource's write
+    // protection — it is an administrative operation, restricted to superusers.
+    // Reads stay open to any authenticated caller: the SPA loads definitions to
+    // render its data views. The boot schema-sync and `homestead resources` run
+    // as the seeded superuser, so both keep working.
+    const isMutation =
+      (segments.length === 1 && req.method === 'POST') ||
+      (segments.length === 2 && (req.method === 'PATCH' || req.method === 'DELETE'));
+    if (isMutation && caller?.type !== TYPE_SUPERUSER) {
+      return errorResponse(403, 'only superusers can modify resource definitions');
+    }
+
     if (segments.length === 1) {
       if (req.method === 'POST') return handleMetaCreate(this.registry, req);
       if (req.method === 'GET') return handleMetaList(this.registry, req);
