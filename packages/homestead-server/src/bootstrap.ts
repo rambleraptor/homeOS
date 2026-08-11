@@ -51,11 +51,39 @@ export function needsSetup(db: Database): boolean {
   return getMeta(db, SETUP_CLAIMED_KEY) === '0';
 }
 
+/** Raised by claimSetup when the instance is already claimed (incl. a lost race). */
+export class AlreadyClaimedError extends Error {
+  constructor() {
+    super('instance is already set up');
+    this.name = 'AlreadyClaimedError';
+  }
+}
+
+/**
+ * Atomically flip the claim flag from unclaimed (`'0'`) to claimed (`'1'`).
+ * Returns true for the single caller that won the transition; false if it was
+ * already claimed (or a concurrent caller won first). The `WHERE value = '0'`
+ * makes this a compare-and-set — SQLite serializes the write, so exactly one of
+ * N racing requests sees `changes === 1`.
+ */
+function tryClaimFlag(db: Database): boolean {
+  ensureMetaTable(db);
+  const res = db
+    .query(
+      "UPDATE _homestead_meta SET value = '1' WHERE key = ? AND value = '0'",
+    )
+    .run(SETUP_CLAIMED_KEY);
+  return res.changes === 1;
+}
+
 /**
  * Claim the instance: set the pending superuser's email + password, and an
  * optional display name (falls back to the bootstrap default when omitted).
- * One-shot — throws when the instance is already claimed (the /api/setup route
- * also guards with a 409, this is the backstop).
+ * One-shot and race-safe: the claim flag is flipped by an atomic compare-and-set
+ * *before* the superuser row is written, so two concurrent /api/setup requests
+ * can't both proceed and last-write-wins each other's credentials — the loser
+ * gets {@link AlreadyClaimedError}. The password hash is computed up front (no
+ * lock is held across the await), then the CAS gates the write.
  */
 export async function claimSetup(
   db: Database,
@@ -63,10 +91,13 @@ export async function claimSetup(
   password: string,
   displayName?: string,
 ): Promise<void> {
-  if (!needsSetup(db)) throw new Error('instance is already set up');
   const found = firstSuperuser(db);
   if (!found) throw new Error('no pending superuser — has the server booted?');
+  // Hash first (the slow await), holding no claim — then a single atomic CAS
+  // decides the one winner. Everything after this line runs for that winner only.
   const passwordHash = await hashPassword(password);
+  if (!tryClaimFlag(db)) throw new AlreadyClaimedError();
+
   const now = nowRFC3339();
   const name = displayName?.trim();
   if (name) {
@@ -78,7 +109,6 @@ export async function claimSetup(
       'UPDATE _users SET email = ?, password_hash = ?, update_time = ? WHERE id = ?',
     ).run(email, passwordHash, now, found.id);
   }
-  setMeta(db, SETUP_CLAIMED_KEY, '1');
 }
 
 /** Insert a superuser with a known password (used by e2e and bootstrap). */
