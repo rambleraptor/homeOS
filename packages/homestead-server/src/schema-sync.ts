@@ -29,6 +29,23 @@ import { runMigrations } from './migrations';
 
 const log = createLogger('schema-sync');
 
+/**
+ * Fold every migration's `drops` into a `resource → {fields}` map the resource
+ * sync hands to the engine, so a populated column named by a `drops` entry is
+ * allowed to drop while every other populated column is refused.
+ */
+function collectAuthorizedDrops(): Map<string, Set<string>> {
+  const map = new Map<string, Set<string>>();
+  for (const migration of getAllMigrations()) {
+    for (const drop of migration.drops ?? []) {
+      const fields = map.get(drop.resource) ?? new Set<string>();
+      fields.add(drop.field);
+      map.set(drop.resource, fields);
+    }
+  }
+  return map;
+}
+
 export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void> {
   let admin;
   try {
@@ -47,7 +64,12 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         ...PERMISSION_RESOURCE_DEFS,
         ...getAllResourceDefs(),
       ];
-      const result = await syncResourceDefinitions({ aepbaseUrl, token, defs });
+      const result = await syncResourceDefinitions({
+        aepbaseUrl,
+        token,
+        defs,
+        authorizedDrops: collectAuthorizedDrops(),
+      });
       if (!result.created.length && !result.updated.length) {
         log.child('resources').info('schema already in sync', {
           definitions: result.unchanged.length,

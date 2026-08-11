@@ -36,7 +36,12 @@ function stubIdpFetch(): () => void {
     }
     if (url === 'https://idp.example/userinfo') {
       return new Response(
-        JSON.stringify({ sub: 'sub-1', email: 'fed@example.com', name: 'Fed User' }),
+        JSON.stringify({
+          sub: 'sub-1',
+          email: 'fed@example.com',
+          name: 'Fed User',
+          email_verified: true,
+        }),
         { headers: { 'Content-Type': 'application/json' } },
       );
     }

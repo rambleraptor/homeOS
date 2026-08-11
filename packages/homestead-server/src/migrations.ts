@@ -155,7 +155,9 @@ function markRunning(db: Database, migration: RegisteredMigration): void {
     migration.id,
     migration.appId,
     migration.title ?? migration.id,
-    migration.destructive ? 1 : 0,
+    // Authorizing a column drop is inherently destructive; record it as such
+    // even if the author didn't set the flag explicitly.
+    migration.destructive || (migration.drops?.length ?? 0) > 0 ? 1 : 0,
     nowRFC3339(),
   );
 }

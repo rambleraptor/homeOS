@@ -60,6 +60,8 @@ export interface RequestOptions {
   body?: unknown;
   form?: FormData;
   contentType?: string;
+  /** Extra request headers, merged after the derived auth/content-type ones. */
+  headers?: Record<string, string>;
 }
 
 export async function call(
@@ -77,6 +79,7 @@ export async function call(
     body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
     headers['Content-Type'] = opts.contentType ?? 'application/json';
   }
+  Object.assign(headers, opts.headers ?? {});
   return engine.fetch(new Request(`http://localhost:8090${path}`, { method, headers, body }));
 }
 

@@ -138,6 +138,19 @@ export interface FieldDef {
    */
   required?: boolean;
   /**
+   * Marks a field as on its way out. The column and its data are **kept** — a
+   * deprecated field is still a declared field, so the schema sync never drops
+   * it — but consumers stop steering writes to it: the chat tool builder omits
+   * it from the create/update tools, and the note is folded into the wire
+   * `description`. This is the intermediate state for retiring a field you can't
+   * migrate-and-delete in one shot: deprecate it (keeping the data) in one
+   * release, move the data off it with a migration, then remove it — authorized
+   * by that migration's `drops` — in a later release. Not valid together with
+   * `required` (you can't require a field you're retiring).
+   * @default false
+   */
+  deprecated?: boolean;
+  /**
    * Default value applied by the engine when the field is omitted from a
    * create (or full-replace apply) request. Encoded into the wire schema's
    * standard JSON-schema `default` keyword (which aepbase preserves on

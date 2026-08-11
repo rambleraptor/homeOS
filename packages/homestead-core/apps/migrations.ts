@@ -103,9 +103,26 @@ export interface Migration {
    * to a purely additive backfill). Recorded in the ledger for visibility.
    * Reserved for future gating — a follow-up `homestead migrate` command can
    * require an explicit opt-in before running destructive migrations, rather
-   * than letting them run unattended at boot. Defaults to `false`.
+   * than letting them run unattended at boot. Defaults to `false`. Declaring
+   * {@link drops} implies destructive (the ledger records it as such).
    */
   destructive?: boolean;
+
+  /**
+   * Column drops this migration authorizes the boot-time schema sync to
+   * perform. Removing a field from a resource definition drops its column, and
+   * the engine refuses to drop a **populated** column unless it's listed here —
+   * so an accidental field deletion (or a rename with no data migration) can't
+   * silently destroy data. List a column here alongside the handler that has
+   * already moved its data elsewhere (typically after a release in which the
+   * field was {@link FieldDef.deprecated}). Each entry names the resource by its
+   * kebab-case `singular` and the snake_case field being dropped. Implies
+   * {@link destructive}.
+   *
+   * @example
+   *   drops: [{ resource: 'gift-card', field: 'legacy_code' }]
+   */
+  drops?: Array<{ resource: string; field: string }>;
 
   /**
    * Lazy import of the handler module. The runner awaits this on demand and

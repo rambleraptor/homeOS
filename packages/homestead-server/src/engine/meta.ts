@@ -348,8 +348,19 @@ export async function handleMetaUpdate(
 
   existing.update_time = nowRFC3339();
 
+  // Columns the caller has authorized dropping even when populated. The schema
+  // sync sets this from migrations that declare a matching `drops`; a bare
+  // PATCH omits it, so a populated column is refused by default (see
+  // updateResourceSchema).
+  const authorizedDrops = new Set(
+    (req.headers.get('x-homestead-authorized-drops') ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+
   try {
-    reg.updateResourceSchema(existing, oldDef);
+    reg.updateResourceSchema(existing, oldDef, authorizedDrops);
   } catch (err) {
     return errorResponse(400, err instanceof Error ? err.message : String(err));
   }

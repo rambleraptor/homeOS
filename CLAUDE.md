@@ -442,6 +442,15 @@ through the shared client (`serverClient(token)` from
 idempotent, and never rename a shipped migration `id` (it's the ledger key).
 See [`packages/homestead-site/docs/guides/migrations.md`](packages/homestead-site/docs/guides/migrations.md).
 
+**Retiring a field is guarded.** Removing a field from a definition drops its
+column, and the engine **refuses to drop a column that still holds data** unless
+a migration authorizes it — an accidental deletion or an unmigrated rename can't
+silently destroy data at boot. Retire a field in two releases: first mark it
+`deprecated: true` (keeps the column + data, but the chat tools stop writing it)
+and ship a migration that moves its data; then, later, remove the field and add
+a migration declaring `drops: [{ resource, field }]` to authorize the drop
+(implies `destructive`). An empty column drops without authorization.
+
 ### Rules (aepbase constraints, not TS-specific)
 
 1. **Singular/plural must be kebab-case.** `gift-card`, not `giftCard`.

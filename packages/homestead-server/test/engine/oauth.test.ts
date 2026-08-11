@@ -85,6 +85,7 @@ describe('oauth flow (mocked provider)', () => {
             sub: 'prov-user-1',
             email: 'oauth-user@example.com',
             name: 'OAuth User',
+            email_verified: true,
           });
         }
         return new Response('nope', { status: 404 });
@@ -215,7 +216,11 @@ describe('oauth flow (mocked provider)', () => {
         const url = new URL(req.url);
         if (url.pathname === '/token') return Response.json({ access_token: 't' });
         if (url.pathname === '/userinfo') {
-          return Response.json({ sub: 'prov-user-2', email: 'linked@example.com' });
+          return Response.json({
+            sub: 'prov-user-2',
+            email: 'linked@example.com',
+            email_verified: true,
+          });
         }
         return new Response('nope', { status: 404 });
       },
@@ -244,6 +249,136 @@ describe('oauth flow (mocked provider)', () => {
     });
     const linked = await seedUser(engine2, { email: 'linked@example.com' });
     void existing;
+
+    const start = await engine2.fetch(new Request('http://localhost:8090/oauth/fake/start'));
+    const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
+    const cookie = start.headers.get('set-cookie')!.split(';')[0]!;
+    const cb = await engine2.fetch(
+      new Request(`http://localhost:8090/oauth/fake/callback?code=c&state=${state}`, {
+        headers: { Cookie: cookie },
+      }),
+    );
+    expect(cb.status).toBe(302);
+    const token = new URLSearchParams(cb.headers.get('location')!.split('#')[1]).get('token')!;
+    const me = await (
+      await engine2.fetch(
+        new Request('http://localhost:8090/users/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      )
+    ).json();
+    expect(me.id).toBe(linked.user.id);
+  });
+
+  test('an unverified email is refused, leaving the existing account untouched', async () => {
+    // Account-takeover guard: a provider that returns email_verified:false (or
+    // omits it) must not auto-link a new identity onto a pre-existing account.
+    await fakeProvider.stop();
+    fakeProvider = await listen({
+      port: 0,
+      fetch: async (req) => {
+        const url = new URL(req.url);
+        if (url.pathname === '/token') return Response.json({ access_token: 't' });
+        if (url.pathname === '/userinfo') {
+          return Response.json({
+            sub: 'attacker-sub',
+            email: 'victim@example.com',
+            email_verified: false,
+          });
+        }
+        return new Response('nope', { status: 404 });
+      },
+    });
+    const dir = mkdtempSync(join(tmpdir(), 'hs-oauth-unverified-'));
+    const engine2 = new Engine({
+      dbPath: ':memory:',
+      filesDir: join(dir, 'files'),
+      serverUrl: 'http://localhost:8090',
+      oauth: {
+        redirectBaseUrl: 'http://localhost:8090',
+        successRedirect: 'http://localhost:3000/cb',
+        providers: [
+          {
+            name: 'fake',
+            clientId: 'c',
+            clientSecret: 's',
+            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
+            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
+            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            allowRegistration: true,
+          },
+        ],
+      },
+    });
+    const victim = await seedUser(engine2, {
+      email: 'victim@example.com',
+      password: 'victim-secret',
+    });
+
+    const start = await engine2.fetch(new Request('http://localhost:8090/oauth/fake/start'));
+    const state = new URL(start.headers.get('location')!).searchParams.get('state')!;
+    const cookie = start.headers.get('set-cookie')!.split(';')[0]!;
+    const cb = await engine2.fetch(
+      new Request(`http://localhost:8090/oauth/fake/callback?code=c&state=${state}`, {
+        headers: { Cookie: cookie },
+      }),
+    );
+    // The link is refused — no token minted, no identity created.
+    expect(cb.status).toBe(403);
+    expect((await cb.json()).error.message).toContain('did not verify');
+
+    // The victim's password login still works and resolves the same account,
+    // proving nothing was linked or overwritten.
+    const login = await engine2.fetch(
+      new Request('http://localhost:8090/users/:login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'victim@example.com', password: 'victim-secret' }),
+      }),
+    );
+    expect(login.status).toBe(200);
+    void victim;
+  });
+
+  test('trustEmailVerified lets a claim-less provider link an existing account', async () => {
+    // Some providers (e.g. GitHub) never send email_verified; an operator can
+    // opt into trusting them per-provider.
+    await fakeProvider.stop();
+    fakeProvider = await listen({
+      port: 0,
+      fetch: async (req) => {
+        const url = new URL(req.url);
+        if (url.pathname === '/token') return Response.json({ access_token: 't' });
+        if (url.pathname === '/userinfo') {
+          // No email_verified claim at all.
+          return Response.json({ sub: 'gh-1', email: 'trusted@example.com' });
+        }
+        return new Response('nope', { status: 404 });
+      },
+    });
+    const dir = mkdtempSync(join(tmpdir(), 'hs-oauth-trust-'));
+    const engine2 = new Engine({
+      dbPath: ':memory:',
+      filesDir: join(dir, 'files'),
+      serverUrl: 'http://localhost:8090',
+      oauth: {
+        redirectBaseUrl: 'http://localhost:8090',
+        successRedirect: 'http://localhost:3000/cb',
+        providers: [
+          {
+            name: 'fake',
+            clientId: 'c',
+            clientSecret: 's',
+            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
+            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
+            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            allowRegistration: false,
+            trustEmailVerified: true,
+          },
+        ],
+      },
+    });
+    const linked = await seedUser(engine2, { email: 'trusted@example.com' });
 
     const start = await engine2.fetch(new Request('http://localhost:8090/oauth/fake/start'));
     const state = new URL(start.headers.get('location')!).searchParams.get('state')!;

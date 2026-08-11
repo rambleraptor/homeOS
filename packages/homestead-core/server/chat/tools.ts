@@ -225,6 +225,8 @@ export function buildTools(defs: ResourceDefinition[]): BuiltTools {
     const bodyFields = new Set<string>();
     const jsonStringFields = new Set<string>();
     for (const [key, prop] of Object.entries(def.fields)) {
+      // Deprecated fields are on their way out — don't offer them to the model.
+      if (prop.deprecated) continue;
       const converted = fieldToZod(prop, readable);
       if (!converted) continue;
       fieldSchemas[key] = converted.schema;
