@@ -138,6 +138,21 @@ describe('buildTools', () => {
     expect(create.safeParse({ merchant: 'M', amount: 5 }).success).toBe(true);
   });
 
+  it('omits deprecated fields from the create and update tools', () => {
+    const withDeprecated: ResourceDefinition = {
+      singular: 'widget',
+      plural: 'widgets',
+      fields: {
+        name: { type: 'string', required: true },
+        old_code: { type: 'string', deprecated: true },
+      },
+    };
+    const { tools } = buildTools([withDeprecated]);
+    expect(keysFor(tools, 'create_widget')).not.toContain('old_code');
+    expect(keysFor(tools, 'update_widget')).not.toContain('old_code');
+    expect(keysFor(tools, 'create_widget')).toContain('name');
+  });
+
   it('adds a required parent id param for parented resources', () => {
     const { tools, bindings } = buildTools(ALL);
     const create = schemaFor(tools, 'create_transaction');

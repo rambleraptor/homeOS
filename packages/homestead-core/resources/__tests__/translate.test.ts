@@ -70,6 +70,36 @@ describe('toWireSchema', () => {
     });
   });
 
+  it('folds a deprecation note into the description, keeping the column', () => {
+    const { properties } = toWireSchema({
+      old_code: { type: 'string', deprecated: true },
+      legacy_note: {
+        type: 'string',
+        description: 'freeform note',
+        deprecated: true,
+      },
+    }, 'gift-card');
+    // The property still exists (deprecated fields keep their column + data).
+    expect(properties.old_code).toEqual({
+      type: 'string',
+      description: 'deprecated — do not use; scheduled for removal',
+    });
+    expect(properties.legacy_note).toEqual({
+      type: 'string',
+      description: 'freeform note (deprecated — do not use; scheduled for removal)',
+    });
+  });
+
+  it('rejects a field that is both deprecated and required', () => {
+    expect(() =>
+      validateResourceDefinition({
+        singular: 'widget',
+        plural: 'widgets',
+        fields: { gone: { type: 'string', deprecated: true, required: true } },
+      }),
+    ).toThrow(/both deprecated and required/);
+  });
+
   it('strips display names from the wire schema', () => {
     expect(
       toWireSchema({

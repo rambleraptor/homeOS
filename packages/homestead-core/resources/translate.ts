@@ -102,6 +102,9 @@ function validateField(
   if (field.enum && field.type !== 'string') {
     fail(`field "${path}" declares enum but is not a string`);
   }
+  if (field.deprecated && field.required) {
+    fail(`field "${path}" cannot be both deprecated and required`);
+  }
   validateReference(field, path, fail);
   if (field.items && field.type !== 'array') {
     fail(`field "${path}" declares items but is not an array`);
@@ -581,6 +584,7 @@ function toWireProperty(
  */
 function wireDescription(field: FieldDef): string | undefined {
   const notes: string[] = [];
+  if (field.deprecated) notes.push('deprecated — do not use; scheduled for removal');
   if (field.enum?.length) notes.push(`one of: ${field.enum.join(', ')}`);
   if (field.reference) {
     notes.push(`reference to a ${field.reference.resource} record (by id)`);
