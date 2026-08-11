@@ -24,6 +24,21 @@ function app(id: string, singular: string): AppConfig {
   } as unknown as AppConfig;
 }
 
+/** A parent app that owns no collections of its own, wrapping child apps. */
+function parentApp(id: string, children: AppConfig[]): AppConfig {
+  return { id, name: id, children } as unknown as AppConfig;
+}
+
+/** An app-scope deny on `appId` for user `u1` (subtracts from the open baseline). */
+function denyApp(appId: string) {
+  return {
+    subject: { type: 'user' as const, id: 'u1' },
+    capability: 'manage' as const,
+    effect: 'deny' as const,
+    target: { scope: 'app' as const, app: appId },
+  };
+}
+
 // The open-household default: everyone may read everything. A block subtracts
 // from this baseline, so tests compose it with the deny under test.
 const ALL_ALLOW = {
@@ -67,5 +82,44 @@ describe('useAppVisible + app-scope deny', () => {
     authState.user = { id: 'u1', type: 'user', permissions: ctxWith([]) };
     const { result } = renderHook(() => useAppVisible());
     expect(result.current(RECIPES)).toBe(true);
+  });
+});
+
+describe('useAppVisible + nested apps', () => {
+  const PICTIONARY = app('pictionary', 'pictionary-game');
+  const MINIGOLF = app('minigolf', 'hole');
+  const GAMES = parentApp('games', [PICTIONARY, MINIGOLF]);
+
+  beforeEach(() => {
+    authState.user = null;
+  });
+
+  it('shows a resource-less parent when at least one child is reachable', () => {
+    authState.user = { id: 'u1', type: 'user', permissions: ctxWith([]) };
+    const { result } = renderHook(() => useAppVisible());
+    // Both children readable → parent (Games) visible.
+    expect(result.current(GAMES)).toBe(true);
+  });
+
+  it('keeps the parent visible when only some children are blocked', () => {
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: ctxWith([denyApp('pictionary')]),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(PICTIONARY)).toBe(false); // blocked child
+    expect(result.current(MINIGOLF)).toBe(true); // still reachable
+    expect(result.current(GAMES)).toBe(true); // parent surfaces via minigolf
+  });
+
+  it('hides the parent when every child is blocked', () => {
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: ctxWith([denyApp('pictionary'), denyApp('minigolf')]),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(GAMES)).toBe(false);
   });
 });
