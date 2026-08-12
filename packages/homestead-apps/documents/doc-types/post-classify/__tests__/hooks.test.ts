@@ -18,7 +18,7 @@ vi.mock('@rambleraptor/homestead-core/server/client', () => ({
   },
 }));
 
-const { createFn, listAllFn } = fake;
+const { createFn, listAllFn, updateFn, downloadFn } = fake;
 
 import medicalReceiptHook from '../medical-receipt.server';
 import recipeHook from '../recipe.server';
@@ -42,6 +42,10 @@ beforeEach(() => {
   createFn.mockResolvedValue({ id: 'created1' });
   listAllFn.mockReset();
   listAllFn.mockResolvedValue([]); // no people to match unless a test says so
+  updateFn.mockReset();
+  updateFn.mockResolvedValue({});
+  downloadFn.mockReset();
+  downloadFn.mockResolvedValue(new Blob(['dish-photo-bytes']));
   serverClientTokens.length = 0;
 });
 
@@ -205,5 +209,58 @@ describe('recipe post_classify', () => {
     const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.title).toBe('Untitled recipe');
     expect(body.parsed_ingredients).toEqual([]);
+  });
+
+  it('copies an image document onto the new recipe as its photo', async () => {
+    const result = await recipeHook({
+      document: doc({ mime_type: 'image/jpeg' }),
+      metadata: { doc_type: 'recipe', parsed_ingredients: [] },
+      auth,
+    });
+
+    // The source bytes are pulled from the document's `file` field...
+    expect(downloadFn).toHaveBeenCalledWith('/documents/doc1', 'file');
+    // ...and uploaded to the freshly-created recipe's `image` field.
+    expect(updateFn).toHaveBeenCalledTimes(1);
+    const [path, body] = updateFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/recipes/created1');
+    expect(body.image).toBeInstanceOf(Blob);
+    expect(result).toEqual({ linked_resource: 'recipes/created1' });
+  });
+
+  it('does not copy a PDF source — it cannot render as the recipe photo', async () => {
+    await recipeHook({
+      document: doc({ mime_type: 'application/pdf' }),
+      metadata: { doc_type: 'recipe', parsed_ingredients: [] },
+      auth,
+    });
+
+    expect(downloadFn).not.toHaveBeenCalled();
+    expect(updateFn).not.toHaveBeenCalled();
+  });
+
+  it('does not copy when the document has no file type', async () => {
+    await recipeHook({
+      document: doc(),
+      metadata: { doc_type: 'recipe', parsed_ingredients: [] },
+      auth,
+    });
+
+    expect(downloadFn).not.toHaveBeenCalled();
+    expect(updateFn).not.toHaveBeenCalled();
+  });
+
+  it('still links the recipe when the image copy fails', async () => {
+    downloadFn.mockRejectedValue(new Error('boom'));
+
+    const result = await recipeHook({
+      document: doc({ mime_type: 'image/png' }),
+      metadata: { doc_type: 'recipe', parsed_ingredients: [] },
+      auth,
+    });
+
+    expect(createFn).toHaveBeenCalledTimes(1);
+    expect(updateFn).not.toHaveBeenCalled(); // download threw before the upload
+    expect(result).toEqual({ linked_resource: 'recipes/created1' });
   });
 });
