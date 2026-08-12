@@ -1,17 +1,20 @@
 /**
- * `homestead backup` — archive the data directory (sqlite db + files).
+ * `homestead backup` — write a crash-consistent archive of the data directory
+ * (sqlite databases snapshotted with VACUUM INTO, plus the files tree).
  *
  * Under encryption-at-rest the on-disk bytes are already ciphertext, so the
  * archive is safe to store anywhere — as long as the master key is NOT in it.
- * This command refuses to run if the key file lives inside the data dir, and
- * reminds the operator to keep the key separate.
+ * This command refuses to run if the key file lives inside the data dir. The
+ * snapshot itself runs as a child of the project's homestead-server
+ * (tools/backup.ts) so the binary never bundles engine/SQLite code.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { basename, dirname, resolve, sep } from 'node:path';
+import { resolve, sep } from 'node:path';
 import { loadProject } from './project.ts';
 import { resolveKeyLocation } from './key.ts';
+import { findRuntime, resolveServerModule } from './runtime.ts';
 
 /** True if `child` is the same path as, or nested inside, `parent`. */
 function isInside(parent: string, child: string): boolean {
@@ -20,7 +23,20 @@ function isInside(parent: string, child: string): boolean {
   return c === p || c.startsWith(p + sep);
 }
 
-export function backupCmd(opts: { dataDir?: string; out?: string; stamp?: string }): number {
+function spawnTool(tool: string, args: string[]): Promise<number> {
+  const cmd = findRuntime('.').run(tool, args);
+  const proc = spawn(cmd[0]!, cmd.slice(1), { stdio: 'inherit' });
+  return new Promise<number>((resolveExit) => {
+    proc.once('error', () => resolveExit(1));
+    proc.once('exit', (code, signal) => resolveExit(code ?? (signal ? 1 : 0)));
+  });
+}
+
+export async function backupCmd(opts: {
+  dataDir?: string;
+  out?: string;
+  stamp?: string;
+}): Promise<number> {
   let dataDir: string;
   if (opts.dataDir) {
     dataDir = resolve(opts.dataDir);
@@ -49,21 +65,7 @@ export function backupCmd(opts: { dataDir?: string; out?: string; stamp?: string
     return 1;
   }
 
-  const out = opts.out ?? `homestead-backup-${opts.stamp ?? 'latest'}.tar.gz`;
-  const result = spawnSync(
-    'tar',
-    ['-czf', out, '-C', dirname(dataDir), basename(dataDir)],
-    { stdio: 'inherit' },
-  );
-  if (result.error || result.status !== 0) {
-    console.error(`tar failed: ${result.error ? result.error.message : `exit ${result.status}`}`);
-    return 1;
-  }
-
-  console.log(`wrote ${out}`);
-  console.log('');
-  console.log('  This archive is ciphertext and safe to store anywhere.');
-  console.log('  Your master key is NOT in it — keep that stored separately');
-  console.log('  (`homestead key show` prints it). The archive is useless without it.');
-  return 0;
+  const out = resolve(opts.out ?? `homestead-backup-${opts.stamp ?? 'latest'}.tar.gz`);
+  const tool = resolveServerModule('.', 'tools', 'backup.ts');
+  return spawnTool(tool, ['--data-dir', dataDir, '--out', out]);
 }

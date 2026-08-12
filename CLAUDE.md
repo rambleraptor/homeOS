@@ -366,7 +366,11 @@ project dir:
 
 Other commands: `init`, `doctor`, `install-service` (sudo; installs the
 systemd service), `resources`, `login`, `logout`, `profiles`,
-`admin reset-password`.
+`admin reset-password`, `backup` / `restore` (crash-consistent data-dir
+archive via `VACUUM INTO` + files, and its integrity-checked restore — the
+real work runs as a bun child of the project's homestead-server in
+`src/tools/`, so the binary bundles no engine code; see
+[`docs/guides/backup.md`](packages/homestead-site/docs/guides/backup.md)).
 
 ### Deployment
 

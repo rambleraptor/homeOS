@@ -33,3 +33,4 @@ Running an instance for your household.
 
 - **[Creating Users](./users)** — claim a new instance and add accounts.
 - **[Access & Tags](./access)** — group users and control which apps they can reach.
+- **[Backup & Restore](./backup)** — snapshot your data and recover from a backup.
