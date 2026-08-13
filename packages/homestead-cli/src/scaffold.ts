@@ -93,12 +93,124 @@ export function inferAiFromEnv(dir: string): AiChoice | null {
   return null;
 }
 
+/** A feature app from @rambleraptor/homestead-apps that `init` can wire in. */
+export interface CatalogApp {
+  /** kebab-case id / directory name / AppConfig.id. */
+  slug: string;
+  /** The named export in @rambleraptor/homestead-apps. */
+  exportName: string;
+  /** Human-facing display name. */
+  display: string;
+  /** One-line description shown in the picker. */
+  description: string;
+}
+
+/**
+ * The example feature apps that ship in @rambleraptor/homestead-apps, in the
+ * order they appear in that package's barrel. `init` offers these for
+ * inclusion. Kept in sync by hand with packages/homestead-apps/index.ts — the
+ * compiled launcher can't import that package to enumerate it at runtime.
+ */
+export const APP_CATALOG: readonly CatalogApp[] = [
+  {
+    slug: 'credit-cards',
+    exportName: 'creditCardsApp',
+    display: 'Credit Cards',
+    description: 'Track credit card perks and maximize rewards',
+  },
+  {
+    slug: 'documents',
+    exportName: 'documentsApp',
+    display: 'Documents',
+    description: 'Store documents and parse their details automatically',
+  },
+  {
+    slug: 'events',
+    exportName: 'eventsApp',
+    display: 'Events',
+    description: 'Track yearly-recurring household events',
+  },
+  {
+    slug: 'games',
+    exportName: 'gamesApp',
+    display: 'Games',
+    description: 'Track games you play with the people in your life',
+  },
+  {
+    slug: 'gift-cards',
+    exportName: 'giftCardsApp',
+    display: 'Gift Cards',
+    description: 'Manage and track household gift cards',
+  },
+  {
+    slug: 'groceries',
+    exportName: 'groceriesApp',
+    display: 'Groceries',
+    description: 'Manage your grocery list with smart categorization',
+  },
+  {
+    slug: 'home',
+    exportName: 'homeApp',
+    display: 'Home',
+    description: 'Curb pickups and home documents in one place',
+  },
+  {
+    slug: 'hsa',
+    exportName: 'hsaApp',
+    display: 'HSA Receipts',
+    description: 'Track unreimbursed medical expenses for tax-free HSA withdrawals',
+  },
+  {
+    slug: 'people',
+    exportName: 'peopleApp',
+    display: 'People',
+    description: 'Manage contact information and important dates for people you know',
+  },
+  {
+    slug: 'recipes',
+    exportName: 'recipesApp',
+    display: 'Recipes',
+    description: 'Manage household recipes with structured ingredients',
+  },
+  {
+    slug: 'todos',
+    exportName: 'todosApp',
+    display: 'Todos',
+    description: 'Daily todo list with progress tracking',
+  },
+];
+
+/**
+ * Resolve raw app selectors (each a slug or export name, case-insensitive) to
+ * catalog entries — de-duplicated and returned in catalog order. Throws with
+ * the valid set on an unknown selector.
+ */
+export function resolveApps(selectors: string[]): CatalogApp[] {
+  const chosen = new Set<string>();
+  for (const raw of selectors) {
+    const key = raw.trim().toLowerCase();
+    if (!key) continue;
+    const match = APP_CATALOG.find(
+      (a) => a.slug === key || a.exportName.toLowerCase() === key,
+    );
+    if (!match) {
+      throw new Error(
+        `unknown app "${raw}" — expected one of: ${APP_CATALOG.map((a) => a.slug).join(', ')}`,
+      );
+    }
+    chosen.add(match.slug);
+  }
+  return APP_CATALOG.filter((a) => chosen.has(a.slug));
+}
+
 /** Files whose presence means "existing project" — scaffold refuses to clobber. */
 const CONFLICT_FILES = ['homestead.config.ts', 'package.json'] as const;
 
 export interface ScaffoldOptions {
   /** When set, wire an `ai` block into the generated homestead.config.ts. */
   ai?: AiChoice;
+  /** Example apps from @rambleraptor/homestead-apps to wire into the config. */
+  apps?: readonly CatalogApp[];
 }
 
 /**
@@ -126,7 +238,7 @@ export function scaffold(dir: string, opts: ScaffoldOptions = {}): string {
 
   // Always written (guarded above so they can't clobber).
   const created: Array<[string, string]> = [
-    [join(root, 'homestead.config.ts'), configTs(opts.ai)],
+    [join(root, 'homestead.config.ts'), configTs(opts.ai, opts.apps ?? [])],
     [join(root, 'package.json'), packageJson(root)],
   ];
   // Written only if absent — never overwrite an operator's existing versions.
@@ -194,39 +306,51 @@ function aiBlock(ai: AiChoice): string {
 `;
 }
 
-/** Render homestead.config.ts, optionally with an `ai` block wired in. */
-function configTs(ai?: AiChoice): string {
+/**
+ * Render homestead.config.ts, optionally with an `ai` block and a set of
+ * example apps wired in. With no apps chosen the `apps` array and the
+ * `@rambleraptor/homestead-apps` import are emitted commented-out as a
+ * starting point; with apps chosen they're wired in live.
+ */
+function configTs(ai: AiChoice | undefined, apps: readonly CatalogApp[]): string {
+  const hasApps = apps.length > 0;
+  const importBlock = hasApps
+    ? `import {\n${apps.map((a) => `  ${a.exportName},`).join('\n')}\n} from '@rambleraptor/homestead-apps';`
+    : `// import {
+//   giftCardsApp,
+//   groceriesApp,
+//   recipesApp,
+//   todosApp,
+// } from '@rambleraptor/homestead-apps';`;
+  const appsList = hasApps
+    ? apps.map((a) => `    ${a.exportName},`).join('\n')
+    : `    // todosApp,
+    // giftCardsApp,
+    // groceriesApp,
+    // recipesApp,`;
   return `/**
  * Homestead instance configuration.
  *
- * A fresh instance ships with no apps. Add them two ways:
+ * Apps come from two places:
  *
  *   1. npm-installed example apps — import from
  *      \`@rambleraptor/homestead-apps\` and list them in \`apps\` below.
- *      The example set is already a dependency; uncomment the imports
- *      to use it (only the apps you list are bundled).
+ *      The example set is already a dependency; only the apps you list
+ *      are bundled.
  *
  *   2. Custom apps — anything under ./apps/<dir>/app.homestead.ts is
  *      discovered automatically; no wiring here needed. Scaffold one
  *      with \`homestead init-app <name>\`.
  */
 
-// import {
-//   giftCardsApp,
-//   groceriesApp,
-//   recipesApp,
-//   todosApp,
-// } from '@rambleraptor/homestead-apps';
+${importBlock}
 import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
 
 const config: HomesteadConfig = {
   // The dashboard, notifications, settings, superuser, users, and chat apps
   // are always installed — you don't list them here.
   apps: [
-    // todosApp,
-    // giftCardsApp,
-    // groceriesApp,
-    // recipesApp,
+${appsList}
   ],
 ${ai ? aiBlock(ai) : ''}};
 

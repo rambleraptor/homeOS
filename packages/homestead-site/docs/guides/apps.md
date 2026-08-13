@@ -3,8 +3,10 @@
 Everything here already ships in the repo — real apps built to run a
 household, not demos of a framework. Install the ones you want as-is, change
 whatever doesn't fit, or copy one as the starting point for an app of your own.
-`homestead init` sets you up with a default set; the `apps` array in
-`homestead.config.ts` decides what's installed.
+`homestead init` prompts you to pick which of these to include (or pass
+`--apps=todos,groceries` / `--apps=all` to choose without the prompt); the
+`apps` array in `homestead.config.ts` decides what's installed, and you can
+edit it any time.
 
 ## Tasks
 

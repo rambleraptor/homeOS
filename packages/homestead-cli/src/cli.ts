@@ -8,8 +8,11 @@ import {
   aiChoiceFor,
   inferAiFromEnv,
   parseAiProvider,
+  resolveApps,
   AI_PROVIDER_DEFAULTS,
+  APP_CATALOG,
   type AiChoice,
+  type CatalogApp,
 } from './scaffold.ts';
 import { runDoctor, hasFailures, type Check } from './doctor.ts';
 import { generateKeyCmd, resolveKeyLocation } from './key.ts';
@@ -177,6 +180,8 @@ async function initCmd(args: string[]): Promise<number> {
       'ai-model': { type: 'string' },
       'ai-key-env': { type: 'string' },
       'no-ai': { type: 'boolean', default: false },
+      apps: { type: 'string' },
+      'no-apps': { type: 'boolean', default: false },
       encryption: { type: 'boolean' },
       'no-encryption': { type: 'boolean', default: false },
       'no-install': { type: 'boolean', default: false },
@@ -208,6 +213,15 @@ async function initCmd(args: string[]): Promise<number> {
     return 1;
   }
 
+  // Example apps to wire into homestead.config.ts (may be empty = none).
+  let apps: CatalogApp[];
+  try {
+    apps = await resolveAppsChoice(values, interactive);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    return 1;
+  }
+
   // Encryption at rest (opt-in): whether to generate a master key on proceed.
   const encryption = await resolveEncryptionChoice(values, interactive);
 
@@ -217,6 +231,7 @@ async function initCmd(args: string[]): Promise<number> {
     console.log(
       `  AI         : ${ai ? `${ai.provider} — ${ai.model} (key from ${ai.keyEnv})` : 'none'}`,
     );
+    console.log(`  apps       : ${apps.length ? apps.map((a) => a.slug).join(', ') : 'none'}`);
     console.log(`  encryption : ${encryption ? 'on (master key at ~/.homestead/master.key)' : 'off'}`);
     if (!(await promptYesNo('Proceed?', true))) {
       console.log('aborted.');
@@ -226,7 +241,7 @@ async function initCmd(args: string[]): Promise<number> {
 
   let root: string;
   try {
-    root = scaffold(dir, { ai });
+    root = scaffold(dir, { ai, apps });
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     return 1;
@@ -353,6 +368,75 @@ async function resolveAiChoice(
   const keyEnv =
     keyEnvOverride ?? (await promptText('  API key env var', preset?.keyEnv ?? defaults.keyEnv));
   return aiChoiceFor(chosen, { model, keyEnv });
+}
+
+/**
+ * Decide which example apps `init` wires into homestead.config.ts, in priority
+ * order: `--no-apps` wins, then an explicit `--apps=<list>` flag, then an
+ * interactive picker. Non-interactive runs with no flag select none. Throws (on
+ * an unknown app name) so the caller can print the error and exit 1.
+ */
+async function resolveAppsChoice(
+  values: Record<string, string | boolean | undefined>,
+  interactive: boolean,
+): Promise<CatalogApp[]> {
+  if (values['no-apps'] === true) return [];
+
+  const flag = strFlag(values.apps);
+  if (flag !== undefined) return parseAppsFlag(flag);
+
+  if (!interactive) return [];
+  return promptApps();
+}
+
+/**
+ * Parse an `--apps` value: the sentinels `all` / `none` (or empty), else a
+ * comma-separated list of app slugs / export names. Throws on an unknown name.
+ */
+function parseAppsFlag(raw: string): CatalogApp[] {
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed === '' || trimmed === 'none') return [];
+  if (trimmed === 'all') return [...APP_CATALOG];
+  return resolveApps(raw.split(',').map((s) => s.trim()).filter(Boolean));
+}
+
+/**
+ * Interactive multi-select for the example apps. Lists the catalog with an
+ * index and re-asks until the answer resolves. Accepts a comma-separated mix of
+ * numbers, slugs, and export names, plus the sentinels `all` / `none`.
+ */
+async function promptApps(): Promise<CatalogApp[]> {
+  console.log('\nExample apps available to include (from @rambleraptor/homestead-apps):');
+  APP_CATALOG.forEach((a, i) => {
+    console.log(`  ${String(i + 1).padStart(2)}. ${a.slug.padEnd(14)} ${a.description}`);
+  });
+  return withReadline(async (rl) => {
+    for (;;) {
+      const ans = (
+        await rl.question('\nInclude which apps? numbers/names comma-separated, "all", or "none" [none]: ')
+      ).trim();
+      if (!ans || ans.toLowerCase() === 'none') return [];
+      if (ans.toLowerCase() === 'all') return [...APP_CATALOG];
+      // Map any 1-based index tokens to their slug before resolving; slugs and
+      // export names pass through untouched.
+      const tokens = ans
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((t) => {
+          const n = Number(t);
+          if (Number.isInteger(n) && n >= 1 && n <= APP_CATALOG.length) {
+            return APP_CATALOG[n - 1]!.slug;
+          }
+          return t;
+        });
+      try {
+        return resolveApps(tokens);
+      } catch (err) {
+        console.log(`  ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  });
 }
 
 /** Run `fn` with a short-lived readline interface bound to stdin/stdout. */
@@ -530,6 +614,8 @@ function printUsage(): void {
       '  --ai-model=ID               Model id for the chosen provider.',
       '  --ai-key-env=NAME           Env var the config reads the API key from.',
       '  --no-ai                     Skip AI setup (overrides .env inference).',
+      '  --apps=LIST                 Example apps to include: all | none | comma-separated slugs.',
+      '  --no-apps                   Include no example apps (overrides the picker).',
       '  --encryption                Generate a master key so encryption at rest is on.',
       '  --no-encryption             Skip the encryption-at-rest key (overrides the prompt).',
       '  --no-install                Skip the dependency install step.',
