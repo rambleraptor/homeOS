@@ -48,8 +48,8 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
           .filter(([key]) => key !== 'doc_type')
           .map(([key, value]) => (
             <div key={key}>
-              <dt className="text-xs text-gray-500">{key}</dt>
-              <dd className="text-sm text-gray-900">{formatValue(value)}</dd>
+              <dt className="text-xs text-text-muted">{key}</dt>
+              <dd className="text-sm text-brand-navy">{formatValue(value)}</dd>
             </div>
           ))}
       </dl>
@@ -63,7 +63,7 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
 
   if (!rows.length) {
     return (
-      <p className="text-sm text-gray-500" data-testid="document-metadata-empty">
+      <p className="text-sm text-text-muted" data-testid="document-metadata-empty">
         No fields could be read from this {docType.label}.
       </p>
     );
@@ -73,8 +73,8 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
     <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="document-metadata">
       {rows.map((row) => (
         <div key={row.name} data-testid={`document-field-${row.name}`}>
-          <dt className="text-xs text-gray-500">{row.label}</dt>
-          <dd className="text-sm font-medium text-gray-900">{formatValue(row.value)}</dd>
+          <dt className="text-xs text-text-muted">{row.label}</dt>
+          <dd className="text-sm font-medium text-brand-navy">{formatValue(row.value)}</dd>
         </div>
       ))}
     </dl>

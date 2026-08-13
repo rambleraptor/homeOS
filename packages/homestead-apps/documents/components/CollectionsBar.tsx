@@ -51,8 +51,8 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
   const chipClass = (isActive: boolean) =>
     `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors ${
       isActive
-        ? 'border-gray-900 bg-gray-900 text-white'
-        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+        ? 'border-accent-terracotta bg-accent-terracotta text-white'
+        : 'border-gray-200 bg-surface-white text-brand-slate hover:bg-bg-pearl'
     }`;
 
   const handleDelete = async () => {
@@ -89,7 +89,7 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
                 style={{ backgroundColor: c.color || '#4b5563' }}
               />
               {c.name}
-              <span className={isActive ? 'text-gray-300' : 'text-gray-400'}>
+              <span className={isActive ? 'text-white/70' : 'text-gray-400'}>
                 {counts.byId.get(c.id) ?? 0}
               </span>
             </button>
@@ -104,7 +104,7 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
             data-testid="collection-chip-unfiled"
           >
             Unfiled
-            <span className={selected === UNFILED ? 'text-gray-300' : 'text-gray-400'}>
+            <span className={selected === UNFILED ? 'text-white/70' : 'text-gray-400'}>
               {counts.unfiled}
             </span>
           </button>

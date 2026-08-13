@@ -137,7 +137,7 @@ export function DocumentEditForm({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
           data-testid="document-edit-title"
         />
       </div>
@@ -169,7 +169,7 @@ export function DocumentEditForm({
                   key={c.id}
                   className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
                     checked
-                      ? 'border-gray-900 bg-gray-900 text-white'
+                      ? 'border-accent-terracotta bg-accent-terracotta text-white'
                       : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -205,7 +205,7 @@ export function DocumentEditForm({
                   key={person.id}
                   className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
                     checked
-                      ? 'border-gray-900 bg-gray-900 text-white'
+                      ? 'border-accent-terracotta bg-accent-terracotta text-white'
                       : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
@@ -236,7 +236,7 @@ export function DocumentEditForm({
           id="doc-type"
           value={docTypeId}
           onChange={(e) => handleTypeChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
           data-testid="document-edit-type"
         >
           {docTypes.map((t) => (
@@ -268,7 +268,7 @@ export function DocumentEditForm({
                 onChange={(e) =>
                   setValues((prev) => ({ ...prev, [name]: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
               />
             </div>
           ))}
@@ -279,7 +279,7 @@ export function DocumentEditForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-md bg-accent-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-accent-terracotta-hover disabled:opacity-50"
           data-testid="document-edit-save"
         >
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}

@@ -1,10 +1,7 @@
 /**
- * Document detail: everything known about one document, plus the actions that
- * act on it — edit its details by hand, re-read it with AI, download the
- * original file, or delete it.
- *
- * The list page shows only name + type; this is where the parsed fields, the
- * full extracted text, and the raw file live.
+ * Document detail: the file itself previewed inline alongside everything known
+ * about it, plus the actions that act on it — edit its details by hand, re-read
+ * it with AI, download the original, split it, or delete it.
  */
 
 import { useState } from 'react';
@@ -21,6 +18,9 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
+import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { SectionCard } from '@rambleraptor/homestead-core/shared/components/SectionCard';
+import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { getDocType, getDocTypes } from '../doc-types/registry';
 import { useDocument } from '../hooks/useDocument';
 import { useClassifyDocument } from '../hooks/useUploadDocument';
@@ -31,6 +31,7 @@ import { DocumentMetadata } from './DocumentMetadata';
 import { DocumentEditForm } from './DocumentEditForm';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentEncryptionBadge } from './DocumentEncryptionBadge';
+import { DocumentViewer } from './DocumentViewer';
 import type { Document } from '../types';
 
 interface DocumentDetailProps {
@@ -40,6 +41,7 @@ interface DocumentDetailProps {
 export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: doc, isLoading, isError, error } = useDocument(documentId);
   const update = useUpdateDocument();
@@ -54,7 +56,6 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Delete this document? This cannot be undone.')) return;
     await remove.mutateAsync(documentId);
     navigate('/documents');
   };
@@ -62,7 +63,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const backLink = (
     <Link
       to="/documents"
-      className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+      className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-brand-slate"
       data-testid="document-detail-back"
     >
       <ArrowLeft className="h-4 w-4" />
@@ -73,7 +74,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-12" data-testid="document-detail-loading">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
       </div>
     );
   }
@@ -82,7 +83,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
     return (
       <div className="space-y-4">
         {backLink}
-        <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error instanceof Error ? error.message : 'Document not found'}
         </div>
@@ -92,6 +93,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
 
   const status = doc.parse_status ?? 'pending';
   const docType = doc.metadata?.doc_type ? getDocType(doc.metadata.doc_type) : undefined;
+  const busy = classify.isPending || status === 'pending';
 
   return (
     <div className="space-y-6" data-testid="document-detail">
@@ -107,11 +109,10 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
         actions={
           !isEditing && (
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => download.mutate(doc)}
                 disabled={download.isPending}
-                className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 data-testid="document-download"
               >
                 {download.isPending ? (
@@ -120,28 +121,27 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                   <Download className="h-4 w-4" />
                 )}
                 Download
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => setIsEditing(true)}
-                className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 data-testid="document-edit"
               >
                 <Pencil className="h-4 w-4" />
                 Edit
-              </button>
+              </Button>
             </div>
           )
         }
       />
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <DocumentStatusBadge status={status} />
         {typeof doc.file_encrypted === 'boolean' && (
           <DocumentEncryptionBadge encrypted={doc.file_encrypted} />
         )}
         {typeof doc.confidence === 'number' && status === 'parsed' && (
-          <span className="text-xs text-gray-500" data-testid="document-confidence">
+          <span className="text-xs text-text-muted" data-testid="document-confidence">
             {Math.round(doc.confidence * 100)}% confidence
           </span>
         )}
@@ -158,7 +158,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
       )}
 
       {isEditing ? (
-        <div className="rounded-lg border border-gray-200 bg-white p-5">
+        <div className="rounded-2xl border border-gray-100 bg-surface-white p-5 shadow-sm">
           <DocumentEditForm
             document={doc}
             isSaving={update.isPending}
@@ -167,89 +167,116 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
           />
         </div>
       ) : (
-        <>
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="mb-4 text-sm font-medium text-gray-900">Details</h2>
-            {status === 'pending' ? (
-              <p className="text-sm text-gray-500">Still reading this document…</p>
-            ) : (
-              <DocumentMetadata metadata={doc.metadata} />
-            )}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start">
+          {/* Left: the file itself, kept in view while the details scroll. */}
+          <div className="lg:sticky lg:top-6">
+            <DocumentViewer document={doc} />
           </div>
 
-          {(doc.file_text ?? doc.full_text) && (
-            <div className="rounded-lg border border-gray-200 bg-white p-5">
-              <h2 className="mb-3 text-sm font-medium text-gray-900">Extracted text</h2>
-              <pre
-                className="max-h-96 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-3 text-xs text-gray-700"
-                data-testid="document-full-text"
-              >
-                {doc.file_text ?? doc.full_text}
-              </pre>
-            </div>
-          )}
+          {/* Right: parsed fields, extracted text, and the management tools. */}
+          <div className="space-y-6">
+            <SectionCard title="Details">
+              {status === 'pending' ? (
+                <p className="text-sm text-text-muted">Still reading this document…</p>
+              ) : (
+                <DocumentMetadata metadata={doc.metadata} />
+              )}
+            </SectionCard>
 
-          <div className="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-4">
-            <button
-              type="button"
-              onClick={() => classify.mutate({ id: documentId })}
-              disabled={classify.isPending || status === 'pending'}
-              className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
-              data-testid="document-reclassify"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Read again with AI
-            </button>
-            {/* Force a type: skips the AI's guess and extracts that type's
-                fields directly — for when classification keeps getting it wrong. */}
-            <label htmlFor="document-force-type" className="sr-only">
-              Classify as a specific document type
-            </label>
-            <select
-              id="document-force-type"
-              value=""
-              onChange={(e) => {
-                const docType = e.target.value;
-                if (docType) classify.mutate({ id: documentId, docType });
-              }}
-              disabled={classify.isPending || status === 'pending'}
-              className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
-              data-testid="document-force-type"
-              title="Force this document to a specific type, then extract its fields"
-            >
-              <option value="">Classify as…</option>
-              {getDocTypes().map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            {doc.mime_type === 'application/pdf' && (
-              <button
-                type="button"
-                onClick={() => split.mutate(documentId)}
-                disabled={split.isPending || status === 'pending'}
-                className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
-                data-testid="document-split"
-                title="Split this PDF into one document per form (e.g. a tax return)"
-              >
-                <Scissors className="h-4 w-4" />
-                Split into forms
-              </button>
+            {(doc.file_text ?? doc.full_text) && (
+              <SectionCard title="Extracted text">
+                <pre
+                  className="max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-bg-pearl p-3 text-xs text-brand-slate"
+                  data-testid="document-full-text"
+                >
+                  {doc.file_text ?? doc.full_text}
+                </pre>
+              </SectionCard>
             )}
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={remove.isPending}
-              className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 disabled:opacity-50"
-              data-testid="document-delete"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </button>
+
+            <SectionCard title="Manage">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => classify.mutate({ id: documentId })}
+                  disabled={busy}
+                  data-testid="document-reclassify"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Read again with AI
+                </Button>
+
+                {/* Force a type: skips the AI's guess and extracts that type's
+                    fields directly — for when classification keeps getting it wrong. */}
+                <label htmlFor="document-force-type" className="sr-only">
+                  Classify as a specific document type
+                </label>
+                <select
+                  id="document-force-type"
+                  value=""
+                  onChange={(e) => {
+                    const forced = e.target.value;
+                    if (forced) classify.mutate({ id: documentId, docType: forced });
+                  }}
+                  disabled={busy}
+                  className="rounded-lg border border-gray-200 bg-surface-white px-3 py-1.5 text-sm text-brand-slate focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30 disabled:opacity-50"
+                  data-testid="document-force-type"
+                  title="Force this document to a specific type, then extract its fields"
+                >
+                  <option value="">Classify as…</option>
+                  {getDocTypes().map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+
+                {doc.mime_type === 'application/pdf' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => split.mutate(documentId)}
+                    disabled={split.isPending || status === 'pending'}
+                    data-testid="document-split"
+                    title="Split this PDF into one document per form (e.g. a tax return)"
+                  >
+                    <Scissors className="h-4 w-4" />
+                    Split into forms
+                  </Button>
+                )}
+
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={remove.isPending}
+                  data-testid="document-delete"
+                  className="ml-auto"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              </div>
+            </SectionCard>
           </div>
-        </>
+        </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          void handleDelete();
+        }}
+        title="Delete document"
+        message="Delete this document? This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={remove.isPending}
+      />
     </div>
   );
 }
