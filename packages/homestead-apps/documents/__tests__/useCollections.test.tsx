@@ -1,9 +1,9 @@
 /**
  * The collection hooks shape the right requests: CRUD on the collection
- * resource, membership patches on the document, and — the novel part — sharing,
- * which writes a record-scope grant on the collection plus a collection-scope
- * `in`-filter grant on documents. The engine enforces authorization; these just
- * build the payloads.
+ * resource, membership patches on the document, and the document *cascade seam*
+ * — the collection-scope `in`-filter grant on documents that pairs with a folder
+ * share (the record grant itself is owned by the generic ShareRecordDialog). The
+ * engine enforces authorization; these just build the payloads.
  */
 
 import React from 'react';
@@ -12,16 +12,15 @@ import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { ACCESS_GRANTS } from '@rambleraptor/homestead-core/permissions/resources';
+import type { AccessGrantRecord } from '@rambleraptor/homestead-core/permissions/hooks';
 import { COLLECTIONS, DOCUMENTS } from '../resources';
 import {
   collectionDocumentFilter,
-  useCollectionShares,
   useCreateCollection,
   useSetDocumentCollections,
-  useShareCollection,
-  useUnshareCollection,
+  useShareCollectionDocuments,
+  useUnshareCollectionDocuments,
 } from '../hooks/useCollections';
-import { waitFor } from '@testing-library/react';
 
 function createWrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -58,24 +57,15 @@ describe('collection hooks', () => {
     expect(aepbase.update).toHaveBeenCalledWith(DOCUMENTS, 'd1', { collections: ['c1', 'c2'] });
   });
 
-  it('useShareCollection writes both the folder grant and the document filter grant', async () => {
-    const { result } = renderHook(() => useShareCollection(), { wrapper: createWrapper() });
+  it('useShareCollectionDocuments writes the collection-scope document filter grant', async () => {
+    const { result } = renderHook(() => useShareCollectionDocuments(), { wrapper: createWrapper() });
     await result.current.mutateAsync({
       collectionId: 'c1',
       subject: { type: 'user', id: 'bob' },
       capability: 'write',
+      effect: 'allow',
     });
 
-    // 1) record-scope grant on the collection → folder visibility
-    expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
-      subject_type: 'user',
-      subject_id: 'bob',
-      capability: 'write',
-      target_scope: 'record',
-      resource_type: 'collection',
-      resource_id: 'c1',
-    });
-    // 2) collection-scope filter grant on documents → document access
     expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
       subject_type: 'user',
       subject_id: 'bob',
@@ -84,31 +74,32 @@ describe('collection hooks', () => {
       resource_type: 'document',
       filter: "'c1' in collections",
     });
+    // An allow omits `effect`, staying byte-identical to the pre-deny payload.
+    const [, body] = vi.mocked(aepbase.create).mock.calls[0];
+    expect('effect' in (body as object)).toBe(false);
   });
 
-  it('useShareCollection defaults to write (view + add/remove + edit)', async () => {
-    const { result } = renderHook(() => useShareCollection(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ collectionId: 'c1', subject: { type: 'user', id: 'bob' } });
-    const calls = vi.mocked(aepbase.create).mock.calls;
-    expect(calls.every(([, body]) => (body as { capability: string }).capability === 'write')).toBe(true);
+  it('useShareCollectionDocuments shares to a group', async () => {
+    const { result } = renderHook(() => useShareCollectionDocuments(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({
+      collectionId: 'c1',
+      subject: { type: 'group', id: 'g1' },
+      capability: 'read',
+      effect: 'allow',
+    });
+    expect(aepbase.create).toHaveBeenCalledWith(
+      ACCESS_GRANTS,
+      expect.objectContaining({ subject_type: 'group', subject_id: 'g1', capability: 'read' }),
+    );
   });
 
-  it('useShareCollection blocks with a deny grant at manage on both targets', async () => {
-    const { result } = renderHook(() => useShareCollection(), { wrapper: createWrapper() });
+  it('useShareCollectionDocuments stamps a deny grant when blocking', async () => {
+    const { result } = renderHook(() => useShareCollectionDocuments(), { wrapper: createWrapper() });
     await result.current.mutateAsync({
       collectionId: 'c1',
       subject: { type: 'user', id: 'bob' },
-      effect: 'deny',
-    });
-    // Both grants carry effect: 'deny' at manage so the block beats any allow.
-    expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
-      subject_type: 'user',
-      subject_id: 'bob',
       capability: 'manage',
       effect: 'deny',
-      target_scope: 'record',
-      resource_type: 'collection',
-      resource_id: 'c1',
     });
     expect(aepbase.create).toHaveBeenCalledWith(ACCESS_GRANTS, {
       subject_type: 'user',
@@ -121,48 +112,31 @@ describe('collection hooks', () => {
     });
   });
 
-  it('useShareCollection omits effect on an allow share (stays byte-identical)', async () => {
-    const { result } = renderHook(() => useShareCollection(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ collectionId: 'c1', subject: { type: 'user', id: 'bob' } });
-    const calls = vi.mocked(aepbase.create).mock.calls;
-    expect(calls.every(([, body]) => !('effect' in (body as object)))).toBe(true);
-  });
-
-  it('useCollectionShares surfaces allow and deny shares, each paired to its doc grant', async () => {
+  it('useUnshareCollectionDocuments removes the doc grant paired to a revoked record grant', async () => {
     const docFilter = collectionDocumentFilter('c1');
     vi.mocked(aepbase.list).mockResolvedValue([
-      // Alice: allowed (record + doc grants)
-      { id: 'a-rec', subject_type: 'user', subject_id: 'alice', target_scope: 'record', resource_type: 'collection', resource_id: 'c1', capability: 'write' },
-      { id: 'a-doc', subject_type: 'user', subject_id: 'alice', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'write' },
-      // Bob: blocked (record + doc grants, effect deny)
-      { id: 'b-rec', subject_type: 'user', subject_id: 'bob', target_scope: 'record', resource_type: 'collection', resource_id: 'c1', capability: 'manage', effect: 'deny' },
-      { id: 'b-doc', subject_type: 'user', subject_id: 'bob', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'manage', effect: 'deny' },
-    ] as never);
+      // Bob's paired doc grant (allow) — the one to delete.
+      { id: 'bob-doc', subject_type: 'user', subject_id: 'bob', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'write' },
+      // Bob's *deny* doc grant — same subject, different effect: must NOT match.
+      { id: 'bob-doc-deny', subject_type: 'user', subject_id: 'bob', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'manage', effect: 'deny' },
+      // Alice's doc grant — different subject: must NOT match.
+      { id: 'alice-doc', subject_type: 'user', subject_id: 'alice', target_scope: 'collection', resource_type: 'document', filter: docFilter, capability: 'write' },
+    ] as AccessGrantRecord[] as never);
 
-    const { result } = renderHook(() => useCollectionShares('c1'), { wrapper: createWrapper() });
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    const revokedRecordGrant: AccessGrantRecord = {
+      id: 'bob-rec',
+      subject_type: 'user',
+      subject_id: 'bob',
+      target_scope: 'record',
+      resource_type: 'collection',
+      resource_id: 'c1',
+      capability: 'write',
+    };
 
-    const shares = result.current.data ?? [];
-    const alice = shares.find((s) => s.subject_id === 'alice');
-    const bob = shares.find((s) => s.subject_id === 'bob');
-    expect(alice).toMatchObject({ recordGrantId: 'a-rec', documentGrantId: 'a-doc', effect: 'allow' });
-    expect(bob).toMatchObject({ recordGrantId: 'b-rec', documentGrantId: 'b-doc', effect: 'deny' });
-  });
+    const { result } = renderHook(() => useUnshareCollectionDocuments(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({ collectionId: 'c1', grant: revokedRecordGrant });
 
-  it('useUnshareCollection removes both paired grants', async () => {
-    const { result } = renderHook(() => useUnshareCollection(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({
-      collectionId: 'c1',
-      share: {
-        recordGrantId: 'g-record',
-        documentGrantId: 'g-doc',
-        subject_type: 'user',
-        subject_id: 'bob',
-        capability: 'write',
-        effect: 'allow',
-      },
-    });
-    expect(aepbase.remove).toHaveBeenCalledWith(ACCESS_GRANTS, 'g-record');
-    expect(aepbase.remove).toHaveBeenCalledWith(ACCESS_GRANTS, 'g-doc');
+    expect(aepbase.remove).toHaveBeenCalledWith(ACCESS_GRANTS, 'bob-doc');
+    expect(aepbase.remove).toHaveBeenCalledTimes(1);
   });
 });

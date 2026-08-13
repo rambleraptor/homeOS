@@ -1,22 +1,23 @@
 /**
- * Share a collection with household members. Lists who it's shared with and
- * lets a manager add or revoke access. Sharing writes ordinary access-grants
- * (see useCollections) — this dialog is only shown to callers who can manage
- * documents, since the engine's manage-on-target rule is what authorizes the
- * document grant.
+ * Share a collection with household members or groups.
+ *
+ * A thin wrapper over the generic ShareRecordDialog: the dialog owns the
+ * collection *record* grant (folder visibility) and the shared-with list, while
+ * this supplies the documents-specific cascade — the collection-scope
+ * `in`-filter grant on documents — through the onShare/onRevoke seam, so a
+ * sharee also sees the documents in the folder. The engine's manage-on-target
+ * rule authorizes both writes.
  */
 
-import { useMemo, useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
-import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
-import { useAllUsers, bareId } from '@rambleraptor/homestead-core/permissions/hooks';
-import type { Capability } from '@rambleraptor/homestead-core/permissions/resolve';
 import {
-  useCollectionShares,
-  useShareCollection,
-  useUnshareCollection,
-  type CollectionShare,
+  ShareRecordDialog,
+  type ShareSubject,
+  type ShareDetails,
+} from '@rambleraptor/homestead-core/permissions/components/ShareRecordDialog';
+import type { AccessGrantRecord } from '@rambleraptor/homestead-core/permissions/hooks';
+import {
+  useShareCollectionDocuments,
+  useUnshareCollectionDocuments,
 } from '../hooks/useCollections';
 import type { Collection } from '../types';
 
@@ -26,177 +27,37 @@ interface CollectionShareDialogProps {
   collection: Collection;
 }
 
-const CAPABILITY_LABEL: Record<Capability, string> = {
-  read: 'View',
-  write: 'Can edit',
-  manage: 'Full access',
-};
-
-/** The three choices in the Access dropdown: two allow levels plus a block. */
-type AccessChoice = 'read' | 'write' | 'blocked';
-
 export function CollectionShareDialog({
   isOpen,
   onClose,
   collection,
 }: CollectionShareDialogProps) {
-  const { data: shares, isLoading } = useCollectionShares(collection.id);
-  const { data: users } = useAllUsers();
-  const share = useShareCollection();
-  const unshare = useUnshareCollection();
+  const shareDocs = useShareCollectionDocuments();
+  const unshareDocs = useUnshareCollectionDocuments();
 
-  const [userId, setUserId] = useState('');
-  const [access, setAccess] = useState<AccessChoice>('write');
-
-  const currentUserId = bareId(collection.created_by ?? '');
-  // Candidates depend on the chosen effect: someone already allow-shared can
-  // still be blocked (and vice-versa), so only exclude people who already hold
-  // a grant of the *same* effect the dropdown is about to write.
-  const wantDeny = access === 'blocked';
-  const takenUserIds = useMemo(
-    () =>
-      new Set(
-        (shares ?? [])
-          .filter((s) => s.subject_type === 'user' && (s.effect === 'deny') === wantDeny)
-          .map((s) => s.subject_id),
-      ),
-    [shares, wantDeny],
-  );
-  const candidates = (users ?? []).filter(
-    (u) => u.id !== currentUserId && !takenUserIds.has(u.id),
-  );
-
-  const nameFor = (id: string | undefined) => {
-    const u = (users ?? []).find((x) => x.id === id);
-    return u?.display_name || u?.email || id || 'Someone';
-  };
-
-  const handleAdd = async () => {
-    if (!userId) return;
-    await share.mutateAsync({
+  const handleShare = (subject: ShareSubject, details: ShareDetails) =>
+    shareDocs.mutateAsync({
       collectionId: collection.id,
-      subject: { type: 'user', id: userId },
-      ...(wantDeny
-        ? { effect: 'deny' as const }
-        : { capability: access as Capability }),
+      subject,
+      capability: details.capability,
+      effect: details.effect,
     });
-    setUserId('');
-  };
 
-  const handleRevoke = (s: CollectionShare) =>
-    unshare.mutateAsync({ collectionId: collection.id, share: s });
+  const handleRevoke = (grant: AccessGrantRecord) =>
+    unshareDocs.mutateAsync({ collectionId: collection.id, grant });
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Share “${collection.name}”`}>
-      <div className="space-y-5" data-testid="collection-share-dialog">
-        <p className="text-sm text-gray-500">
-          People you share this collection with can see the folder and the documents in it.
-          Choose <span className="font-medium">Blocked</span> to keep someone out even if
-          another share would otherwise let them in.
-        </p>
-
-        {/* Add a person */}
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex-1 min-w-[10rem]">
-            <label htmlFor="share-user" className="block text-xs font-medium text-gray-700">
-              Add a person
-            </label>
-            <select
-              id="share-user"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              data-testid="collection-share-user"
-            >
-              <option value="">Select someone…</option>
-              {candidates.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.display_name || u.email}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="share-capability" className="block text-xs font-medium text-gray-700">
-              Access
-            </label>
-            <select
-              id="share-capability"
-              value={access}
-              onChange={(e) => setAccess(e.target.value as AccessChoice)}
-              className="mt-1 block rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              data-testid="collection-share-capability"
-            >
-              <option value="read">View</option>
-              <option value="write">Can edit</option>
-              <option value="blocked">Blocked</option>
-            </select>
-          </div>
-          <Button
-            type="button"
-            onClick={handleAdd}
-            disabled={!userId || share.isPending}
-            data-testid="collection-share-add"
-          >
-            {share.isPending && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
-            {wantDeny ? 'Block' : 'Share'}
-          </Button>
-        </div>
-
-        {share.error && (
-          <p className="text-sm text-red-600" data-testid="collection-share-error">
-            {share.error instanceof Error ? share.error.message : 'Could not share the collection.'}
-          </p>
-        )}
-
-        {/* Current shares */}
-        <div>
-          <h4 className="text-xs font-medium uppercase tracking-wide text-gray-500">Shared with</h4>
-          {isLoading ? (
-            <div className="py-4 text-center">
-              <Loader2 className="inline h-4 w-4 animate-spin text-gray-400" />
-            </div>
-          ) : (shares ?? []).length === 0 ? (
-            <p className="py-3 text-sm text-gray-500" data-testid="collection-share-empty">
-              Not shared with anyone yet.
-            </p>
-          ) : (
-            <ul className="mt-2 divide-y divide-gray-100" data-testid="collection-share-list">
-              {(shares ?? []).map((s) => {
-                const isDeny = s.effect === 'deny';
-                return (
-                  <li key={s.recordGrantId} className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-800">
-                      {s.subject_type === 'user' ? nameFor(s.subject_id) : `Group ${s.subject_id}`}
-                      <span
-                        className={`ml-2 text-xs ${isDeny ? 'font-medium text-red-600' : 'text-gray-400'}`}
-                      >
-                        {isDeny ? 'Blocked' : CAPABILITY_LABEL[s.capability]}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => void handleRevoke(s)}
-                      disabled={unshare.isPending}
-                      className="inline-flex items-center gap-1 rounded p-1 text-gray-400 hover:text-red-600 disabled:opacity-50"
-                      aria-label={isDeny ? 'Remove block' : 'Revoke access'}
-                      data-testid={`collection-share-revoke-${s.effect}-${s.subject_id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        <div className="flex justify-end">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Done
-          </Button>
-        </div>
-      </div>
-    </Modal>
+    <ShareRecordDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      // The record grant is stored on the `collection` singular.
+      resourceType="collection"
+      recordId={collection.id}
+      recordName={collection.name}
+      ownerId={collection.created_by}
+      appId="documents"
+      onShare={handleShare}
+      onRevoke={handleRevoke}
+    />
   );
 }
