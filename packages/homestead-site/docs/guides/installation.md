@@ -46,7 +46,7 @@ cd my-home
 homestead start
 ```
 
-`homestead init` creates the project files — `homestead.config.ts` (picks your apps), `package.json`, and an `apps/` folder for your own apps — then installs the dependencies. If `homestead start` ever runs before they're installed, it installs them first.
+`homestead init` creates the project files — `homestead.config.ts` (picks your apps), `package.json`, and an `apps/` folder for your own apps — then installs the dependencies. Along the way it prompts you to pick which [example apps](apps.md) to include (or pass `--apps=todos,groceries`, `--apps=all`, or `--no-apps` to skip the prompt). If `homestead start` ever runs before the dependencies are installed, it installs them first.
 
 `homestead start` boots the stack on port 3000 and prints a banner:
 

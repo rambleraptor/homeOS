@@ -5,9 +5,11 @@ import { join } from 'node:path';
 import {
   aiChoiceFor,
   appNames,
+  APP_CATALOG,
   inferAiFromEnv,
   parseAiProvider,
   parseEnvKeys,
+  resolveApps,
   scaffold,
   scaffoldApp,
 } from './scaffold.ts';
@@ -91,6 +93,63 @@ test('scaffold omits the ai block by default', () => {
     expect(config).not.toContain('provider:');
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('scaffold leaves the apps import commented out when none are chosen', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
+  try {
+    const config = readFileSync(join(scaffold(dir), 'homestead.config.ts'), 'utf8');
+    // The import is present only as a commented-out starting point (no live
+    // `} from ...` line, only the `// } from ...` one).
+    expect(config).not.toContain("\n} from '@rambleraptor/homestead-apps';");
+    expect(config).toContain("// } from '@rambleraptor/homestead-apps';");
+    expect(config).toContain('    // todosApp,');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('scaffold wires chosen apps into the import and apps array', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'hs-scaffold-'));
+  try {
+    const apps = resolveApps(['todos', 'gift-cards']);
+    const config = readFileSync(join(scaffold(dir, { apps }), 'homestead.config.ts'), 'utf8');
+    // Live import (not commented) with both named exports.
+    expect(config).toContain("} from '@rambleraptor/homestead-apps';");
+    expect(config).not.toContain("// } from '@rambleraptor/homestead-apps';");
+    expect(config).toContain('  giftCardsApp,');
+    expect(config).toContain('  todosApp,');
+    // And referenced live in the apps array (no leading comment).
+    expect(config).toContain('    giftCardsApp,');
+    expect(config).toContain('    todosApp,');
+    expect(config).not.toContain('    // todosApp,');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('resolveApps maps slugs and export names, de-dupes, and orders by catalog', () => {
+  // Given out of order and with a duplicate + an export-name selector.
+  const apps = resolveApps(['todos', 'gift-cards', 'todosApp', 'credit-cards']);
+  expect(apps.map((a) => a.slug)).toEqual(['credit-cards', 'gift-cards', 'todos']);
+});
+
+test('resolveApps is case-insensitive and skips blanks', () => {
+  const apps = resolveApps(['  TODOS ', '', 'GiftCardsApp']);
+  expect(apps.map((a) => a.slug)).toEqual(['gift-cards', 'todos']);
+});
+
+test('resolveApps throws on an unknown app', () => {
+  expect(() => resolveApps(['todos', 'nope'])).toThrow(/unknown app "nope"/);
+});
+
+test('APP_CATALOG entries have unique kebab-case slugs and *App export names', () => {
+  const slugs = new Set(APP_CATALOG.map((a) => a.slug));
+  expect(slugs.size).toBe(APP_CATALOG.length);
+  for (const a of APP_CATALOG) {
+    expect(a.slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    expect(a.exportName).toMatch(/App$/);
   }
 });
 
