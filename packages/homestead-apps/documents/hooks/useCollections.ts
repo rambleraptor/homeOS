@@ -3,18 +3,21 @@
  * on the permissions system.
  *
  * Membership lives on the document (`Document.collections`), so this file owns
- * collection CRUD, a membership setter, and the sharing wrappers. Sharing is
- * *not* custom machinery — it writes ordinary `access-grant` records:
+ * collection CRUD, a membership setter, and the *document half* of sharing.
+ *
+ * Sharing a collection writes two ordinary `access-grant` records:
  *   1. a record-scope grant on the `collection` (so the sharee sees the folder)
  *   2. a collection-scope grant on `document` filtered by `'<id>' in collections`
  *      (so the sharee sees the documents in it — this is what the engine's `in`
  *      operator enables).
- * Revoking deletes those grants. The engine's manage-on-target rule authorizes
- * the writes, so a plain member can create/organize collections but only
- * someone who can manage documents (a superuser/admin) can actually share.
+ * The generic `ShareRecordDialog` owns grant #1 and the shared-with list; the
+ * seam helpers here ride its onShare/onRevoke callbacks to add and remove grant
+ * #2. The engine's manage-on-target rule authorizes both, so a plain member can
+ * create/organize collections but only someone who can manage documents (a
+ * superuser/admin) can actually share.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { queryClient, queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { ACCESS_GRANTS } from '@rambleraptor/homestead-core/permissions/resources';
@@ -135,136 +138,71 @@ export function toggleMembership(
   return [...set];
 }
 
-// ─────────────────────────── Sharing ───────────────────────────
+// ─────────────────── Sharing: the document cascade seam ───────────────────
 
-export interface CollectionShare {
-  /** Grant id on the collection record (folder visibility). */
-  recordGrantId: string;
-  /** Grant id on the document filter (document access), if present. */
-  documentGrantId?: string;
-  subject_type: 'user' | 'group' | 'everyone';
-  subject_id?: string;
+// The generic ShareRecordDialog writes the collection *record* grant (folder
+// visibility) and lists who a collection is shared with. These two helpers ride
+// its onShare/onRevoke seam to add and remove the paired collection-scope
+// `in`-filter grant on documents, so a sharee also sees the docs in the folder.
+
+export interface ShareCollectionDocumentsInput {
+  collectionId: string;
+  subject: { type: 'user' | 'group'; id: string };
+  /** Matches the capability the record grant was shared at ('read'/'write'/'manage'). */
   capability: Capability;
-  /** 'allow' shares access; 'deny' blocks the subject from the folder + its docs. */
+  /** 'allow' shares the documents; 'deny' blocks them (written at manage upstream). */
   effect: Effect;
 }
 
-const shareKeys = {
-  forCollection: (id: string) => ['documents', 'collection-shares', id] as const,
-};
-
-/**
- * Who a collection is shared with. Pairs each collection-record grant with its
- * matching document filter grant (by subject) so the UI can revoke both.
- */
-export function useCollectionShares(collectionId: string | undefined) {
-  return useQuery({
-    queryKey: shareKeys.forCollection(collectionId ?? ''),
-    enabled: !!collectionId,
-    queryFn: async (): Promise<CollectionShare[]> => {
-      const grants = await aepbase.list<AccessGrantRecord>(ACCESS_GRANTS);
-      const docFilter = collectionDocumentFilter(collectionId!);
-      const recordGrants = grants.filter(
-        (g) =>
-          g.target_scope === 'record' &&
-          g.resource_type === 'collection' &&
-          g.resource_id === collectionId,
-      );
-      const docGrants = grants.filter(
-        (g) =>
-          g.target_scope === 'collection' &&
-          g.resource_type === 'document' &&
-          g.filter === docFilter,
-      );
-      // Key by subject *and* effect so an allow and a deny for the same person
-      // pair with their own document grant instead of colliding.
-      const effectOf = (g: AccessGrantRecord): Effect => g.effect ?? 'allow';
-      const subjectKey = (g: AccessGrantRecord) =>
-        `${g.subject_type}:${g.subject_id ?? ''}:${effectOf(g)}`;
-      const docBySubject = new Map(docGrants.map((g) => [subjectKey(g), g]));
-      return recordGrants.map((rg) => {
-        const dg = docBySubject.get(subjectKey(rg));
-        return {
-          recordGrantId: rg.id,
-          documentGrantId: dg?.id,
-          subject_type: rg.subject_type,
-          subject_id: rg.subject_id,
-          capability: rg.capability,
-          effect: effectOf(rg),
-        };
-      });
-    },
-  });
-}
-
-export interface ShareCollectionInput {
-  collectionId: string;
-  subject: { type: 'user' | 'group'; id: string };
-  /** 'read' = view only; 'write' = view + add/remove + edit. Defaults to 'write'. */
-  capability?: Capability;
-  /**
-   * 'allow' (default) shares the collection; 'deny' blocks the subject from the
-   * folder and its documents even against a broader allow (deny always wins). A
-   * block is written at `manage` so it beats an allow at any capability.
-   */
-  effect?: Effect;
-}
-
-/**
- * Share a collection: one record grant on the collection (folder), one
- * collection-scope filter grant on documents. Both go through the ordinary
- * access-grant resource; the engine authorizes them (manage-on-target).
- */
-export function useShareCollection() {
-  const qc = useQueryClient();
+/** Seam writer: the collection-scope document grant paired to a folder share. */
+export function useShareCollectionDocuments() {
   return useMutation({
-    mutationFn: async (input: ShareCollectionInput): Promise<void> => {
-      const isDeny = input.effect === 'deny';
-      const capability = input.capability ?? (isDeny ? 'manage' : 'write');
-      const subjectFields = {
+    mutationFn: async (input: ShareCollectionDocumentsInput): Promise<void> => {
+      await aepbase.create<AccessGrantRecord>(ACCESS_GRANTS, {
         subject_type: input.subject.type,
         subject_id: input.subject.id,
-        capability,
+        capability: input.capability,
         // Only stamp effect for a deny; the wire schema defaults to allow, so an
         // allow share stays byte-identical to the pre-deny payload.
-        ...(isDeny ? { effect: 'deny' as const } : {}),
-      };
-      await aepbase.create<AccessGrantRecord>(ACCESS_GRANTS, {
-        ...subjectFields,
-        target_scope: 'record',
-        resource_type: 'collection',
-        resource_id: input.collectionId,
-      });
-      await aepbase.create<AccessGrantRecord>(ACCESS_GRANTS, {
-        ...subjectFields,
+        ...(input.effect === 'deny' ? { effect: 'deny' as const } : {}),
         target_scope: 'collection',
         resource_type: 'document',
         filter: collectionDocumentFilter(input.collectionId),
       });
     },
-    onSuccess: (_data, input) =>
-      qc.invalidateQueries({ queryKey: shareKeys.forCollection(input.collectionId) }),
-    onError: (error) => logger.error('Failed to share collection', error),
+    onError: (error) => logger.error('Failed to share collection documents', error),
   });
 }
 
-/** Revoke a share: delete the paired record + document grants. */
-export function useUnshareCollection() {
-  const qc = useQueryClient();
+export interface UnshareCollectionDocumentsInput {
+  collectionId: string;
+  /** The collection record grant being revoked; its paired doc grant is removed. */
+  grant: AccessGrantRecord;
+}
+
+/** Seam revoker: delete the document grant paired to a revoked folder share. */
+export function useUnshareCollectionDocuments() {
   return useMutation({
     mutationFn: async ({
-      share,
-    }: {
-      collectionId: string;
-      share: CollectionShare;
-    }): Promise<void> => {
-      await aepbase.remove(ACCESS_GRANTS, share.recordGrantId);
-      if (share.documentGrantId) {
-        await aepbase.remove(ACCESS_GRANTS, share.documentGrantId);
-      }
+      collectionId,
+      grant,
+    }: UnshareCollectionDocumentsInput): Promise<void> => {
+      const docFilter = collectionDocumentFilter(collectionId);
+      const effectOf = (g: AccessGrantRecord): Effect => g.effect ?? 'allow';
+      const grants = await aepbase.list<AccessGrantRecord>(ACCESS_GRANTS);
+      // Match the doc grant to this share by subject *and* effect, so an allow
+      // and a deny for the same person don't cross-delete.
+      const paired = grants.find(
+        (g) =>
+          g.target_scope === 'collection' &&
+          g.resource_type === 'document' &&
+          g.filter === docFilter &&
+          g.subject_type === grant.subject_type &&
+          g.subject_id === grant.subject_id &&
+          effectOf(g) === effectOf(grant),
+      );
+      if (paired) await aepbase.remove(ACCESS_GRANTS, paired.id);
     },
-    onSuccess: (_data, input) =>
-      qc.invalidateQueries({ queryKey: shareKeys.forCollection(input.collectionId) }),
-    onError: (error) => logger.error('Failed to unshare collection', error),
+    onError: (error) => logger.error('Failed to unshare collection documents', error),
   });
 }
