@@ -20,7 +20,7 @@ interface DocumentFiltersProps {
 }
 
 const SELECT_CLASS =
-  'rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+  'rounded-lg border border-gray-200 bg-surface-white px-3 py-2 text-sm text-brand-slate focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30';
 
 export function DocumentFilters({
   filters,
@@ -45,7 +45,7 @@ export function DocumentFilters({
           placeholder="Search documents…"
           aria-label="Search documents"
           data-testid="document-search"
-          className="w-full rounded-md border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-lg border border-gray-200 bg-surface-white py-2 pl-9 pr-3 text-sm text-brand-slate placeholder:text-gray-400 focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
         />
       </div>
 

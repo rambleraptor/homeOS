@@ -1,10 +1,11 @@
 /**
- * Documents home: upload a file, watch it get read, browse what came back.
+ * Documents home: drop a file to have it read, then browse and filter what came
+ * back.
  */
 
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Upload, AlertCircle, Shield, FileText, Scissors } from 'lucide-react';
+import { Loader2, AlertCircle, FileText, Scissors, Inbox } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
@@ -13,10 +14,13 @@ import { RedactionEditor } from '../redaction/RedactionEditor';
 import { useDeleteDocument } from '../hooks/useUpdateDocument';
 import { usePeople } from '../../people/hooks/usePeople';
 import { findDuplicateUploads } from '../duplicates';
+import { getDocType } from '../doc-types/registry';
 import { DocumentListItem } from './DocumentListItem';
 import { DocumentFilters } from './DocumentFilters';
+import { DocumentDropzone } from './DocumentDropzone';
 import { DuplicateUploadWarning } from './DuplicateUploadWarning';
 import { CollectionsBar, UNFILED, type CollectionSelection } from './CollectionsBar';
+import type { Document } from '../types';
 import {
   collectDocTypeFacets,
   collectPeople,
@@ -31,6 +35,36 @@ const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
 /** The bundle-split path takes a PDF only — a form boundary needs pages to cut. */
 const ACCEPT_PDF = 'application/pdf';
 
+type SortKey = 'newest' | 'oldest' | 'title' | 'type';
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'title', label: 'Name (A–Z)' },
+  { value: 'type', label: 'Document type' },
+];
+
+function typeLabel(doc: Document): string {
+  const id = doc.metadata?.doc_type;
+  return (id ? getDocType(id)?.label : undefined) ?? 'Unrecognised document';
+}
+
+function sortDocuments(docs: Document[], sort: SortKey): Document[] {
+  const copy = [...docs];
+  switch (sort) {
+    case 'newest':
+      return copy.sort((a, b) => (b.create_time ?? '').localeCompare(a.create_time ?? ''));
+    case 'oldest':
+      return copy.sort((a, b) => (a.create_time ?? '').localeCompare(b.create_time ?? ''));
+    case 'title':
+      return copy.sort((a, b) =>
+        (a.title ?? '').localeCompare(b.title ?? '', undefined, { sensitivity: 'base' }),
+      );
+    case 'type':
+      return copy.sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)));
+  }
+}
+
 export function DocumentsHome() {
   const inputRef = useRef<HTMLInputElement>(null);
   const redactInputRef = useRef<HTMLInputElement>(null);
@@ -39,6 +73,7 @@ export function DocumentsHome() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [splitNotice, setSplitNotice] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortKey>('newest');
   // Top-level folder scope: null = all, 'unfiled' = no collection, else an id.
   const [collection, setCollection] = useState<CollectionSelection>(null);
   // Ids from the most recent upload batch, checked for duplicates once the
@@ -80,6 +115,16 @@ export function DocumentsHome() {
   const visibleDocuments = useMemo(
     () => filterDocuments(collectionScoped, filters, directory ?? []),
     [collectionScoped, filters, directory],
+  );
+  const sortedDocuments = useMemo(
+    () => sortDocuments(visibleDocuments, sort),
+    [visibleDocuments, sort],
+  );
+
+  // A small "42 documents · 3 still reading" summary over the list.
+  const stillReading = useMemo(
+    () => collectionScoped.filter((d) => (d.parse_status ?? 'pending') === 'pending').length,
+    [collectionScoped],
   );
 
   // Duplicates among the last batch. Recomputes as the list polls, so a match
@@ -195,7 +240,7 @@ export function DocumentsHome() {
         actions={
           <Link
             to="/documents/types"
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-surface-white px-4 py-2 text-sm font-medium text-brand-slate transition-colors hover:bg-bg-pearl"
             data-testid="document-types-link"
           >
             <FileText className="h-4 w-4" />
@@ -204,79 +249,40 @@ export function DocumentsHome() {
         }
       />
 
-      <div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPT}
-          multiple
-          className="hidden"
-          onChange={(e) => void handleFiles(e.target.files)}
-          data-testid="document-file-input"
-        />
-        <input
-          ref={redactInputRef}
-          type="file"
-          accept={ACCEPT}
-          className="hidden"
-          onChange={(e) => pickRedactTarget(e.target.files)}
-          data-testid="document-redact-input"
-        />
-        <input
-          ref={bundleInputRef}
-          type="file"
-          accept={ACCEPT_PDF}
-          className="hidden"
-          onChange={(e) => void handleBundle(e.target.files)}
-          data-testid="document-bundle-input"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={upload.isPending}
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            data-testid="document-upload-button"
-          >
-            {upload.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            {upload.isPending ? 'Uploading…' : 'Upload document'}
-          </button>
-          <button
-            type="button"
-            onClick={() => redactInputRef.current?.click()}
-            disabled={upload.isPending}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            data-testid="document-redact-button"
-          >
-            <Shield className="h-4 w-4" />
-            Redact & upload
-          </button>
-          <button
-            type="button"
-            onClick={() => bundleInputRef.current?.click()}
-            disabled={uploadBundle.isPending}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            data-testid="document-bundle-button"
-          >
-            {uploadBundle.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Scissors className="h-4 w-4" />
-            )}
-            Split a tax return
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-gray-500">
-          PDF or image. Multi-page PDFs are fine. Use “Redact &amp; upload” to black out sensitive
-          areas before the file leaves your device — you can split a redacted tax return into forms
-          from there too. Use “Split a tax return” for a single PDF made of several forms — we’ll
-          split it into one document per form and read each on its own.
-        </p>
-      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPT}
+        multiple
+        className="hidden"
+        onChange={(e) => void handleFiles(e.target.files)}
+        data-testid="document-file-input"
+      />
+      <input
+        ref={redactInputRef}
+        type="file"
+        accept={ACCEPT}
+        className="hidden"
+        onChange={(e) => pickRedactTarget(e.target.files)}
+        data-testid="document-redact-input"
+      />
+      <input
+        ref={bundleInputRef}
+        type="file"
+        accept={ACCEPT_PDF}
+        className="hidden"
+        onChange={(e) => void handleBundle(e.target.files)}
+        data-testid="document-bundle-input"
+      />
+
+      <DocumentDropzone
+        onFiles={(files) => void handleFiles(files)}
+        onBrowseUpload={() => inputRef.current?.click()}
+        onBrowseRedact={() => redactInputRef.current?.click()}
+        onBrowseBundle={() => bundleInputRef.current?.click()}
+        uploading={upload.isPending}
+        bundleBusy={uploadBundle.isPending}
+      />
 
       {documents && (
         <CollectionsBar
@@ -288,7 +294,7 @@ export function DocumentsHome() {
 
       {splitNotice && (
         <div
-          className="flex items-center gap-2 rounded-md bg-blue-50 p-3 text-sm text-blue-700"
+          className="flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-700"
           data-testid="document-split-notice"
         >
           <Scissors className="h-4 w-4 shrink-0" />
@@ -309,7 +315,7 @@ export function DocumentsHome() {
 
       {uploadError && (
         <div
-          className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700"
+          className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700"
           data-testid="document-upload-error"
         >
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -326,25 +332,37 @@ export function DocumentsHome() {
 
       {isLoading && (
         <div className="flex justify-center py-12" data-testid="documents-loading">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
         </div>
       )}
 
       {isError && (
-        <div className="flex items-center gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error instanceof Error ? error.message : 'Failed to load documents'}
         </div>
       )}
 
       {documents && documents.length === 0 && (
-        <p className="py-12 text-center text-sm text-gray-500" data-testid="documents-empty">
-          No documents yet. Upload one to get started.
-        </p>
+        <div
+          className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-surface-white py-14 text-center"
+          data-testid="documents-empty"
+        >
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-pearl text-text-muted">
+            <Inbox className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-brand-navy">No documents yet</p>
+            <p className="mt-1 text-sm text-text-muted">
+              Drop a PDF or photo above — tax forms, receipts, insurance cards — and
+              we&rsquo;ll read and file it for you.
+            </p>
+          </div>
+        </div>
       )}
 
       {documents && documents.length > 0 && (
-        <>
+        <div className="space-y-3">
           <DocumentFilters
             filters={filters}
             onChange={setFilters}
@@ -353,15 +371,41 @@ export function DocumentsHome() {
             tags={tagFacets}
           />
 
-          {visibleDocuments.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-text-muted" data-testid="documents-summary">
+              {sortedDocuments.length}{' '}
+              {sortedDocuments.length === 1 ? 'document' : 'documents'}
+              {stillReading > 0 && ` · ${stillReading} still reading`}
+            </p>
+            <div className="flex items-center gap-2">
+              <label htmlFor="document-sort" className="text-xs text-text-muted">
+                Sort
+              </label>
+              <select
+                id="document-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                data-testid="document-sort"
+                className="rounded-lg border border-gray-200 bg-surface-white px-3 py-1.5 text-sm text-brand-slate focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {sortedDocuments.length > 0 ? (
             <div className="space-y-2" data-testid="documents-list">
-              {visibleDocuments.map((doc) => (
+              {sortedDocuments.map((doc) => (
                 <DocumentListItem key={doc.id} document={doc} />
               ))}
             </div>
           ) : (
             <p
-              className="py-12 text-center text-sm text-gray-500"
+              className="py-12 text-center text-sm text-text-muted"
               data-testid="documents-no-matches"
             >
               {hasActiveFilters(filters)
@@ -369,7 +413,7 @@ export function DocumentsHome() {
                 : 'No documents to show.'}
             </p>
           )}
-        </>
+        </div>
       )}
     </div>
   );
