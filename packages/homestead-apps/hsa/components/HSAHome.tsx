@@ -1,22 +1,26 @@
 /**
  * HSA Home Component
  *
- * Main interface for managing unreimbursed medical expenses
+ * Main interface for managing unreimbursed medical expenses.
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle, Receipt } from 'lucide-react';
+import { Loader2, AlertCircle, Plus } from 'lucide-react';
 import { useHSAStats } from '../hooks/useHSAStats';
 import { useCreateHSAReceipt } from '../hooks/useCreateHSAReceipt';
 import { useUpdateHSAReceipt } from '../hooks/useUpdateHSAReceipt';
 import { useDeleteHSAReceipt } from '../hooks/useDeleteHSAReceipt';
 import { HSAKPICard } from './HSAKPICard';
+import { HSAStatTiles } from './HSAStatTiles';
+import { HSACategoryBreakdown } from './HSACategoryBreakdown';
 import { HSAQuickCaptureForm } from './HSAQuickCaptureForm';
 import { HSAReceiptEditForm } from './HSAReceiptEditForm';
 import { HSAAuditVault } from './HSAAuditVault';
+import { HSAEmptyState } from './HSAEmptyState';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { HSAReceipt, HSAReceiptFormData, ReceiptStatus } from '../types';
 
@@ -39,10 +43,6 @@ export function HSAHome() {
     } catch (err) {
       logger.error('Failed to create HSA receipt', err);
     }
-  };
-
-  const handleFormCancel = () => {
-    setShowForm(false);
   };
 
   const handleEditSubmit = async (data: Partial<HSAReceipt>) => {
@@ -85,7 +85,7 @@ export function HSAHome() {
 
   if (isError) {
     return (
-      <div className="bg-red-50/20 border border-red-200 rounded-lg p-6">
+      <div className="rounded-2xl border border-red-200 bg-red-50/40 p-6">
         <div className="flex items-center gap-3">
           <AlertCircle className="w-6 h-6 text-red-600" />
           <div>
@@ -101,15 +101,24 @@ export function HSAHome() {
     );
   }
 
+  const hasReceipts = !!stats && stats.totalReceipts > 0;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="HSA Receipts"
         subtitle="Track unreimbursed medical expenses"
-        actions={<Receipt className="w-8 h-8 text-accent-terracotta" />}
+        actions={
+          <Button
+            data-testid="add-hsa-receipt-button"
+            onClick={() => setShowForm(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Add receipt
+          </Button>
+        }
       />
 
-      {/* KPI Card - Liquidatable Tax-Free Cash */}
       {stats && (
         <HSAKPICard
           totalStored={stats.totalStored}
@@ -117,41 +126,42 @@ export function HSAHome() {
         />
       )}
 
-      {/* Quick Capture Form */}
-      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900">
-            Quick Capture
-          </h2>
-          <button
-            onClick={() => setShowForm(!showForm)}
-            data-testid="add-hsa-receipt-button"
-            className="text-sm font-medium text-accent-terracotta hover:text-accent-terracotta-hover transition-colors"
-          >
-            {showForm ? 'Hide Form' : 'Add Receipt'}
-          </button>
-        </div>
-        {showForm && (
-          <HSAQuickCaptureForm
-            onSubmit={handleFormSubmit}
-            onCancel={handleFormCancel}
-            isSubmitting={createMutation.isPending}
-          />
-        )}
-      </div>
-
-      {/* Audit Vault */}
-      {stats && (
-        <HSAAuditVault
-          stats={stats}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          onMarkAsReimbursed={handleMarkAsReimbursed}
-          onEdit={setEditingReceipt}
-          onDelete={handleDeleteReceipt}
-          isUpdating={updateMutation.isPending}
-        />
+      {stats && !hasReceipts && (
+        <HSAEmptyState onAdd={() => setShowForm(true)} />
       )}
+
+      {stats && hasReceipts && (
+        <>
+          <HSAStatTiles stats={stats} />
+
+          {stats.categoryBreakdown.length > 0 && (
+            <HSACategoryBreakdown breakdown={stats.categoryBreakdown} />
+          )}
+
+          <HSAAuditVault
+            stats={stats}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            onMarkAsReimbursed={handleMarkAsReimbursed}
+            onEdit={setEditingReceipt}
+            onDelete={handleDeleteReceipt}
+            isUpdating={updateMutation.isPending}
+          />
+        </>
+      )}
+
+      {/* Quick capture (modal) */}
+      <Modal
+        isOpen={showForm}
+        onClose={() => setShowForm(false)}
+        title="Add Receipt"
+      >
+        <HSAQuickCaptureForm
+          onSubmit={handleFormSubmit}
+          onCancel={() => setShowForm(false)}
+          isSubmitting={createMutation.isPending}
+        />
+      </Modal>
 
       <Modal
         isOpen={editingReceipt !== null}
@@ -179,6 +189,15 @@ export function HSAHome() {
         variant="danger"
         isLoading={deleteMutation.isPending}
       />
+
+      {/* Mobile quick-add: a thumb-reachable floating action button. */}
+      <button
+        onClick={() => setShowForm(true)}
+        aria-label="Add receipt"
+        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent-terracotta text-white shadow-lg transition-colors hover:bg-accent-terracotta-hover md:hidden"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }
