@@ -536,9 +536,16 @@ first.
 
 ### Not yet modeled
 
-- Per-collection access rules (row-level security beyond user parenting)
 - Realtime subscriptions (polling only)
 - Thumbnail generation for file fields
+
+Row-level security **is** modeled and enforced: per-collection and per-record
+access is governed by the grant-based ACL system (`access-grant` records +
+the shared `resolve()` in `packages/homestead-core/permissions/resolve.ts`,
+enforced by `packages/homestead-server/src/engine/enforce.ts`). Any record can
+be shared with a user or group via a record-scope grant; the generic
+`ShareRecordDialog` / `ShareButton`
+(`packages/homestead-core/permissions/components/`) are the reusable UI for it.
 
 ### App flags
 
