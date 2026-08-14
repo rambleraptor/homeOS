@@ -26,6 +26,21 @@ const emptyIngredient = (): RecipeIngredient => ({
   raw: '',
 });
 
+/**
+ * Coerce a stored ingredient into a complete, string-safe row. Records written
+ * outside this form (the chat/MCP tools, importers, older data) can omit
+ * fields the schema doesn't mark required — `unit`, `raw`, and `qty` in
+ * particular — so we backfill them before they reach state. Without this, the
+ * form's `.trim()` calls on submit throw on the missing fields.
+ */
+const normalizeIngredient = (ing: Partial<RecipeIngredient>): RecipeIngredient => ({
+  item: ing.item ?? '',
+  qty: typeof ing.qty === 'number' && Number.isFinite(ing.qty) ? ing.qty : 0,
+  unit: ing.unit ?? '',
+  notes: ing.notes,
+  raw: ing.raw ?? '',
+});
+
 export function RecipeForm({
   onSubmit,
   onCancel,
@@ -48,7 +63,7 @@ export function RecipeForm({
   );
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>(
     initialData?.parsed_ingredients?.length
-      ? initialData.parsed_ingredients
+      ? initialData.parsed_ingredients.map(normalizeIngredient)
       : [emptyIngredient()],
   );
   // A newly picked photo. null = no new selection (keep any existing photo on
