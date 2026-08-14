@@ -73,6 +73,117 @@ function checkType(name: string, val: unknown, expectedType?: string): string | 
   return null;
 }
 
+/**
+ * Assertion-keyword check: enforce the standard JSON-schema numeric/string/array
+ * constraints (`minimum`, `maxLength`, `pattern`, `minItems`, …) a field's schema
+ * declares. Runs after {@link validateTypes}, so a value reaching here already
+ * matches its declared type. Array-item constraints are checked one level deep
+ * against the array's `items` schema. Returns the first violation, or null.
+ */
+export function validateConstraints(
+  schema: Schema,
+  fields: Record<string, unknown>,
+  skip: Set<string> = new Set(),
+): string | null {
+  for (const [name, val] of Object.entries(fields)) {
+    if (STANDARD_FIELDS.has(name) || skip.has(name)) continue;
+    const prop = schema.properties?.[name];
+    if (!prop) continue; // unknown fields are ignored (not in schema)
+    if (val === null || val === undefined) continue; // null clears; nothing to check
+    const err = checkConstraints(name, val, prop);
+    if (err) return err;
+  }
+  return null;
+}
+
+function checkConstraints(
+  name: string,
+  val: unknown,
+  prop: { [k: string]: unknown; items?: unknown },
+): string | null {
+  if (typeof val === 'number') {
+    if (typeof prop.minimum === 'number' && val < prop.minimum) {
+      return `field "${name}" must be >= ${prop.minimum}`;
+    }
+    if (typeof prop.maximum === 'number' && val > prop.maximum) {
+      return `field "${name}" must be <= ${prop.maximum}`;
+    }
+    if (typeof prop.exclusiveMinimum === 'number' && val <= prop.exclusiveMinimum) {
+      return `field "${name}" must be > ${prop.exclusiveMinimum}`;
+    }
+    if (typeof prop.exclusiveMaximum === 'number' && val >= prop.exclusiveMaximum) {
+      return `field "${name}" must be < ${prop.exclusiveMaximum}`;
+    }
+    if (
+      typeof prop.multipleOf === 'number' &&
+      prop.multipleOf > 0 &&
+      !isMultipleOf(val, prop.multipleOf)
+    ) {
+      return `field "${name}" must be a multiple of ${prop.multipleOf}`;
+    }
+  }
+
+  if (typeof val === 'string') {
+    const len = [...val].length; // count Unicode code points, per JSON Schema
+    if (typeof prop.minLength === 'number' && len < prop.minLength) {
+      return `field "${name}" must be at least ${prop.minLength} characters`;
+    }
+    if (typeof prop.maxLength === 'number' && len > prop.maxLength) {
+      return `field "${name}" must be at most ${prop.maxLength} characters`;
+    }
+    if (typeof prop.pattern === 'string' && !safeMatches(prop.pattern, val)) {
+      return `field "${name}" must match pattern ${prop.pattern}`;
+    }
+  }
+
+  if (Array.isArray(val)) {
+    if (typeof prop.minItems === 'number' && val.length < prop.minItems) {
+      return `field "${name}" must have at least ${prop.minItems} items`;
+    }
+    if (typeof prop.maxItems === 'number' && val.length > prop.maxItems) {
+      return `field "${name}" must have at most ${prop.maxItems} items`;
+    }
+    if (prop.uniqueItems === true && hasDuplicates(val)) {
+      return `field "${name}" items must be unique`;
+    }
+    const items = prop.items as { [k: string]: unknown; items?: unknown } | undefined;
+    if (items) {
+      for (const el of val) {
+        if (el === null || el === undefined) continue;
+        const err = checkConstraints(name, el, items);
+        if (err) return err;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Float-safe multiple check: `val / factor` must be (near) integral. */
+function isMultipleOf(val: number, factor: number): boolean {
+  const ratio = val / factor;
+  return Math.abs(ratio - Math.round(ratio)) < 1e-9;
+}
+
+/** Test a pattern; an uncompilable pattern (rejected at boot) never blocks a write. */
+function safeMatches(pattern: string, val: string): boolean {
+  try {
+    return new RegExp(pattern).test(val);
+  } catch {
+    return true;
+  }
+}
+
+function hasDuplicates(arr: unknown[]): boolean {
+  const seen = new Set<string>();
+  for (const el of arr) {
+    const key = typeof el === 'string' ? `s:${el}` : JSON.stringify(el);
+    if (seen.has(key)) return true;
+    seen.add(key);
+  }
+  return false;
+}
+
 /** Enum check: constrained fields must hold one of the allowed strings. */
 export function validateEnums(
   enums: Record<string, string[]> | undefined,

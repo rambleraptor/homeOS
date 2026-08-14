@@ -19,6 +19,18 @@ export interface SchemaProperty {
   format?: string;
   description?: string;
   readOnly?: boolean;
+  /** Standard JSON-schema assertion keywords, enforced by `validateConstraints`. */
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  multipleOf?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
   items?: SchemaProperty;
   properties?: Record<string, SchemaProperty>;
   required?: string[];
