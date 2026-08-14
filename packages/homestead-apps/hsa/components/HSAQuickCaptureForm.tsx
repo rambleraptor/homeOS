@@ -9,86 +9,20 @@
  * are preserved.
  */
 
-import { useState, type ChangeEvent } from 'react';
-import { Upload, X } from 'lucide-react';
-import { SchemaForm } from '@rambleraptor/homestead-core/shared/forms';
-import type { FieldWidgetProps } from '@rambleraptor/homestead-core/shared/forms';
+import { SchemaForm, fileField } from '@rambleraptor/homestead-core/shared/forms';
 import type { HSAReceiptFormData } from '../types';
 import { hsaResources } from '../resources';
 
 const hsaReceiptDef = hsaResources.find((r) => r.singular === 'hsa-receipt')!;
 
-const RECEIPT_FILE_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'application/pdf',
-];
-const MAX_RECEIPT_BYTES = 10_485_760; // 10MB
-
-/** Image-or-PDF file field: dashed upload target → filename chip + remove, with
- *  inline type/size validation. Bare (owns its own label + error line). */
-function ReceiptFileWidget(p: FieldWidgetProps) {
-  const [localError, setLocalError] = useState<string | null>(null);
-  const file = p.value instanceof File ? p.value : null;
-
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!RECEIPT_FILE_TYPES.includes(f.type)) {
-      setLocalError('Invalid file type. Please upload an image or PDF.');
-      p.onChange(null);
-      return;
-    }
-    if (f.size > MAX_RECEIPT_BYTES) {
-      setLocalError('File size must be less than 10MB');
-      p.onChange(null);
-      return;
-    }
-    setLocalError(null);
-    p.onChange(f);
-  };
-
-  const error = localError ?? p.error;
-
-  return (
-    <div>
-      <label htmlFor={p.id} className="block text-sm font-medium text-gray-700 mb-1">
-        {p.config?.label ?? 'Receipt File'}
-        {p.required && <span className="text-red-500"> *</span>}
-      </label>
-      {!file ? (
-        <label className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-accent-terracotta transition-colors">
-          <Upload className="w-5 h-5 text-gray-400 mr-2" />
-          <span className="text-sm text-gray-600">Upload receipt (Image or PDF, max 10MB)</span>
-          <input
-            type="file"
-            id={p.id}
-            accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
-            onChange={onFile}
-            className="hidden"
-          />
-        </label>
-      ) : (
-        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg">
-          <span className="text-sm text-gray-700 truncate">{file.name}</span>
-          <button
-            type="button"
-            onClick={() => {
-              setLocalError(null);
-              p.onChange(null);
-            }}
-            className="ml-2 text-red-500 hover:text-red-700"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-    </div>
-  );
-}
+/** Image-or-PDF receipt upload (10MB): a filename chip for a PDF, a thumbnail
+ *  for an image, both with inline validation. Module-scoped for stable identity. */
+const receiptFileField = fileField({
+  accept: 'image/jpeg,image/png,image/webp,image/gif,application/pdf',
+  maxSizeBytes: 10_485_760,
+  hint: 'Image or PDF, max 10MB',
+  preview: 'auto',
+});
 
 interface HSAQuickCaptureFormProps {
   onSubmit: (data: HSAReceiptFormData) => Promise<void>;
@@ -125,7 +59,7 @@ export function HSAQuickCaptureForm({
         receipt_file: {
           id: 'receipt_file',
           label: 'Receipt File',
-          widget: ReceiptFileWidget,
+          widget: receiptFileField,
           bare: true,
           required: true,
           colSpan: 2,

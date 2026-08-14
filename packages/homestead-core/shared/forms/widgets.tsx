@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 import { ReferenceField } from '../components/ReferenceField';
 import { TagInput } from '../components/TagInput';
+import { fileField } from './FileField';
 import { fieldLabel, humanize } from './helpers';
 import type { FieldWidget, FieldWidgetProps, WidgetName } from './types';
 
@@ -192,16 +193,14 @@ function CheckboxWidget(p: FieldWidgetProps) {
   );
 }
 
-function FileWidget(p: FieldWidgetProps) {
-  return (
-    <input
-      {...commonProps(p)}
-      type="file"
-      onChange={(e) => p.onChange(e.target.files?.[0] ?? null)}
-      className={INPUT}
-    />
-  );
-}
+/** Default file widget: the shared FileField with permissive, unconfigured
+ *  limits. A form that needs a specific accept/size or an image preview passes
+ *  its own `fileField({...})` via `config.widget`. Self-chromed. */
+const DefaultFileWidget = fileField({
+  accept: '',
+  maxSizeBytes: 25 * 1024 * 1024,
+  preview: 'auto',
+});
 
 /** Naive singular→plural guess for a reference target; override via
  *  `config.collection` for irregular plurals (person → people). */
@@ -273,6 +272,7 @@ function TagsWidget(p: FieldWidgetProps) {
 export const SELF_CHROMED: ReadonlySet<WidgetName> = new Set([
   'reference',
   'reference-multi',
+  'file',
 ]);
 
 /** Widgets that supply their own inline label (the frame hides its label). */
@@ -286,7 +286,7 @@ export const BUILTIN_WIDGETS: Record<WidgetName, FieldWidget> = {
   date: DateWidget,
   select: SelectWidget,
   checkbox: CheckboxWidget,
-  file: FileWidget,
+  file: DefaultFileWidget,
   reference: ReferenceWidget,
   'reference-multi': ReferenceMultiWidget,
   tags: TagsWidget,

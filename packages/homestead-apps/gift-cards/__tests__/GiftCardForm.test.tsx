@@ -113,20 +113,11 @@ describe('GiftCardForm', () => {
 
     renderWithToast(<GiftCardForm onSubmit={onSubmit} onCancel={onCancel} />);
 
-    // Create a mock file
     const file = new File(['image content'], 'front.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText('Front Image'), file);
 
-    // Find the file input
-    const fileInputs = screen.getAllByLabelText(/Upload front image/i);
-    const frontImageInput = fileInputs[0];
-
-    // Upload the file
-    await user.upload(frontImageInput, file);
-
-    // Check that the image preview is shown
     await waitFor(() => {
-      const frontImage = screen.getByAltText('Front of gift card');
-      expect(frontImage).toBeInTheDocument();
+      expect(screen.getByAltText('Front Image')).toBeInTheDocument();
     });
   });
 
@@ -137,20 +128,11 @@ describe('GiftCardForm', () => {
 
     renderWithToast(<GiftCardForm onSubmit={onSubmit} onCancel={onCancel} />);
 
-    // Create a mock file
     const file = new File(['image content'], 'back.png', { type: 'image/png' });
+    await user.upload(screen.getByLabelText('Back Image'), file);
 
-    // Find the file input
-    const fileInputs = screen.getAllByLabelText(/Upload back image/i);
-    const backImageInput = fileInputs[0];
-
-    // Upload the file
-    await user.upload(backImageInput, file);
-
-    // Check that the image preview is shown
     await waitFor(() => {
-      const backImage = screen.getByAltText('Back of gift card');
-      expect(backImage).toBeInTheDocument();
+      expect(screen.getByAltText('Back Image')).toBeInTheDocument();
     });
   });
 
@@ -161,24 +143,16 @@ describe('GiftCardForm', () => {
 
     renderWithToast(<GiftCardForm onSubmit={onSubmit} onCancel={onCancel} />);
 
-    // Upload a front image
     const file = new File(['image content'], 'front.png', { type: 'image/png' });
-    const fileInputs = screen.getAllByLabelText(/Upload front image/i);
-    const frontImageInput = fileInputs[0];
-    await user.upload(frontImageInput, file);
-
-    // Wait for image to appear
+    await user.upload(screen.getByLabelText('Front Image'), file);
     await waitFor(() => {
-      expect(screen.getByAltText('Front of gift card')).toBeInTheDocument();
+      expect(screen.getByAltText('Front Image')).toBeInTheDocument();
     });
 
-    // Click the remove button
-    const removeButtons = screen.getAllByTitle('Remove image');
-    await user.click(removeButtons[0]);
+    await user.click(screen.getByRole('button', { name: 'Remove file' }));
 
-    // Image should be removed
     await waitFor(() => {
-      expect(screen.queryByAltText('Front of gift card')).not.toBeInTheDocument();
+      expect(screen.queryByAltText('Front Image')).not.toBeInTheDocument();
     });
   });
 
@@ -199,8 +173,8 @@ describe('GiftCardForm', () => {
 
     renderWithToast(<GiftCardForm onSubmit={onSubmit} onCancel={onCancel} initialData={initialData} />);
 
-    expect(screen.getByAltText('Front of gift card')).toBeInTheDocument();
-    expect(screen.getByAltText('Back of gift card')).toBeInTheDocument();
+    expect(screen.getByAltText('Front Image')).toBeInTheDocument();
+    expect(screen.getByAltText('Back Image')).toBeInTheDocument();
   });
 
   it('should disable submit button when submitting', () => {

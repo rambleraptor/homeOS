@@ -9,96 +9,33 @@
  * `#amount`, `gift-card-form-submit`, `gift-card-form-cancel`) are preserved.
  */
 
-import { useEffect, useState, type ChangeEvent } from 'react';
-import { Upload, Trash2 } from 'lucide-react';
-import { SchemaForm } from '@rambleraptor/homestead-core/shared/forms';
-import type { FieldWidgetProps } from '@rambleraptor/homestead-core/shared/forms';
-import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import { SchemaForm, fileField } from '@rambleraptor/homestead-core/shared/forms';
 import { validateImageFile } from '@rambleraptor/homestead-core/shared/utils/fileValidation';
+import { MAX_IMAGE_SIZE } from '@rambleraptor/homestead-core/shared/constants/validation';
 import type { GiftCard, GiftCardFormData } from '../types';
 import { useGiftCardImageUrl } from '../hooks/useGiftCardImageUrl';
 import { giftCardsResources } from '../resources';
 
 const giftCardDef = giftCardsResources.find((r) => r.singular === 'gift-card')!;
 
-/** Card-image field: shows the stored image on edit, a picked file's preview,
- *  or a dashed upload target; validates via the shared image validator. Bare. */
-function GiftCardImageWidget(p: FieldWidgetProps) {
-  const toast = useToast();
-  const card = p.config?.data as GiftCard | undefined;
-  const field = p.name as 'front_image' | 'back_image';
-  const isFront = field === 'front_image';
-  const remoteUrl = useGiftCardImageUrl(card ?? null, field);
-
-  const [uploadUrl, setUploadUrl] = useState<string | null>(null);
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    return () => {
-      if (uploadUrl) URL.revokeObjectURL(uploadUrl);
-    };
-  }, [uploadUrl]);
-
-  const preview = uploadUrl ?? (hidden ? null : remoteUrl);
-
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    const validation = validateImageFile(f);
-    if (!validation.valid) {
-      toast.error(validation.error!);
-      return;
-    }
-    p.onChange(f);
-    setUploadUrl(URL.createObjectURL(f));
-    setHidden(false);
-  };
-
-  const remove = () => {
-    p.onChange(null);
-    setUploadUrl(null);
-    setHidden(true);
-  };
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        {p.config?.label ?? (isFront ? 'Front Image' : 'Back Image')}
-      </label>
-      {preview ? (
-        <div className="relative">
-          <img
-            src={preview}
-            alt={isFront ? 'Front of gift card' : 'Back of gift card'}
-            className="w-full h-48 object-cover rounded-lg border border-gray-300"
-          />
-          <button
-            type="button"
-            onClick={remove}
-            className="absolute top-2 right-2 p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors"
-            title="Remove image"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <label className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-accent-terracotta transition-colors">
-          <Upload className="w-8 h-8 text-gray-400 mb-2" />
-          <span className="text-sm text-gray-500">
-            {isFront ? 'Upload front image' : 'Upload back image'}
-          </span>
-          <span className="text-xs text-gray-400 mt-1">(Optional, max 5MB)</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={onFile}
-            className="hidden"
-          />
-        </label>
-      )}
-    </div>
-  );
-}
+/** Card-image field (5MB, images only): thumbnail preview of a picked file or
+ *  the stored image on edit (resolved via `useGiftCardImageUrl`, keyed off the
+ *  edited card passed through `config.data`). Module-scoped for stable identity. */
+const giftCardImageField = fileField({
+  accept: 'image/jpeg,image/png,image/webp,image/gif',
+  maxSizeBytes: MAX_IMAGE_SIZE,
+  hint: 'Optional, max 5MB',
+  preview: 'image',
+  validate: (file) => {
+    const result = validateImageFile(file);
+    return result.valid ? null : (result.error ?? 'Invalid image');
+  },
+  useRemoteUrl: (p) =>
+    useGiftCardImageUrl(
+      (p.config?.data as GiftCard | undefined) ?? null,
+      p.name as 'front_image' | 'back_image',
+    ),
+});
 
 interface GiftCardFormProps {
   onSubmit: (data: GiftCardFormData) => void;
@@ -146,8 +83,8 @@ export function GiftCardForm({
           colSpan: 2,
           placeholder: 'Any additional notes (optional)',
         },
-        front_image: { widget: GiftCardImageWidget, data: initialData, bare: true, label: 'Front Image' },
-        back_image: { widget: GiftCardImageWidget, data: initialData, bare: true, label: 'Back Image' },
+        front_image: { widget: giftCardImageField, data: initialData, bare: true, label: 'Front Image' },
+        back_image: { widget: giftCardImageField, data: initialData, bare: true, label: 'Back Image' },
         archived: { hidden: true },
       }}
     />
