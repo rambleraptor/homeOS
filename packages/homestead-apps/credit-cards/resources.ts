@@ -14,8 +14,8 @@ export const creditCardsResources: ResourceDefinition[] = [
     fields: {
       name: { type: 'string', required: true },
       issuer: { type: 'string', required: true },
-      last_four: { type: 'string' },
-      annual_fee: { type: 'number', required: true },
+      last_four: { type: 'string', pattern: '^[0-9]{4}$' },
+      annual_fee: { type: 'number', required: true, minimum: 0 },
       anniversary_date: {
         type: 'string',
         format: 'date-time',
