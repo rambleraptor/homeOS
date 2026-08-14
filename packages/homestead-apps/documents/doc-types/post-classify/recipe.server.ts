@@ -22,6 +22,18 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+/**
+ * The document's inferred title follows the classify pass's "<Document> — <Subject>"
+ * shape, so a recipe document is titled e.g. "Recipe — Banana Bread". On the recipe
+ * record that leading "Recipe" is redundant — the record already lives in Recipes —
+ * so drop a leading "Recipe" and its dash separator (em dash, en dash, or hyphen),
+ * leaving just the dish name. Titles that don't start that way are returned as-is.
+ */
+function stripRecipePrefix(title: string): string {
+  const stripped = title.replace(/^\s*recipe\s*[—–-]\s*/i, '').trim();
+  return stripped || title.trim();
+}
+
 function asNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
@@ -62,7 +74,9 @@ function asIngredients(value: unknown): Partial<RecipeIngredient>[] {
 const handler: PostClassifyHandler = async ({ document, metadata, auth }) => {
   const recipeBody: Record<string, unknown> = {
     // `title` and `parsed_ingredients` are the recipe resource's required fields.
-    title: document.title?.trim() || 'Untitled recipe',
+    // The document title carries a "Recipe — " prefix from the classify pass;
+    // drop it so the recipe is titled by its dish name alone.
+    title: (document.title && stripRecipePrefix(document.title)) || 'Untitled recipe',
     parsed_ingredients: asIngredients(metadata.parsed_ingredients),
   };
 

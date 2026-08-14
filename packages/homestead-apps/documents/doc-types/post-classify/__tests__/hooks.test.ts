@@ -196,6 +196,36 @@ describe('recipe post_classify', () => {
     expect(result).toEqual({ linked_resource: 'recipes/created1' });
   });
 
+  it('strips the "Recipe — " prefix the classify pass adds to the title', async () => {
+    await recipeHook({
+      document: doc({ title: 'Recipe — Banana Bread' }),
+      metadata: { doc_type: 'recipe' },
+      auth,
+    });
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.title).toBe('Banana Bread');
+  });
+
+  it('strips a hyphen-separated recipe prefix too', async () => {
+    await recipeHook({
+      document: doc({ title: 'Recipe - Chocolate Chip Cookies' }),
+      metadata: { doc_type: 'recipe' },
+      auth,
+    });
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.title).toBe('Chocolate Chip Cookies');
+  });
+
+  it('leaves a title without a recipe prefix unchanged', async () => {
+    await recipeHook({
+      document: doc({ title: 'Banana bread' }),
+      metadata: { doc_type: 'recipe' },
+      auth,
+    });
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.title).toBe('Banana bread');
+  });
+
   it('defaults required fields when the read is empty', async () => {
     await recipeHook({
       document: doc({ title: undefined }),
