@@ -193,8 +193,11 @@ export async function startServer(opts: ServerOptions): Promise<RunningServer> {
   if (authServerCfg?.enabled) {
     const { makeWellKnownRoutes } = await import('./auth/oauth/metadata');
     const { makeOAuthServerRoutes } = await import('./auth/oauth/routes');
+    const { makeConnectionsRoute } = await import('./routes/connections');
     publicApp.route('/.well-known', makeWellKnownRoutes(authServerCfg));
     publicApp.route('/oauth2', makeOAuthServerRoutes(engine.db, authService, authServerCfg));
+    // Connected-apps management (list + disconnect the clients authorized above).
+    publicApp.route('/api/connections', makeConnectionsRoute(engine));
     // First-party MCP server. Authorizes through the AS above, so it's on by
     // default when the AS is enabled (opt out with auth.authServer.mcpEnabled).
     if (authServerCfg.mcpEnabled !== false) {
