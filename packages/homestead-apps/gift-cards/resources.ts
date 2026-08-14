@@ -13,7 +13,7 @@ export const giftCardsResources: ResourceDefinition[] = [
       merchant: { type: 'string', required: true },
       card_number: { type: 'string', required: true },
       pin: { type: 'string' },
-      amount: { type: 'number', required: true },
+      amount: { type: 'number', required: true, minimum: 0 },
       notes: { type: 'string' },
       archived: { type: 'boolean' },
       front_image: {

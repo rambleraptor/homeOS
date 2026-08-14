@@ -69,6 +69,11 @@ export function initialValue(
   const fallback = config?.default ?? field.default;
   const widget = resolvedWidgetName(field, config);
 
+  // A file field's form value is the newly-chosen File (or null) — never the
+  // stored filename/marker string on the entity. Custom file widgets resolve
+  // the existing file separately (e.g. from `config.data`).
+  if (field.type === 'file') return null;
+
   switch (widget) {
     case 'checkbox':
       return typeof provided === 'boolean' ? provided : (fallback ?? false);

@@ -40,7 +40,7 @@ export const creditCardsResources: ResourceDefinition[] = [
     parents: ['credit-card'],
     fields: {
       name: { type: 'string', required: true },
-      value: { type: 'number', required: true },
+      value: { type: 'number', required: true, exclusiveMinimum: 0 },
       frequency: {
         type: 'string',
         enum: ['monthly', 'quarterly', 'semi_annual', 'annual'],

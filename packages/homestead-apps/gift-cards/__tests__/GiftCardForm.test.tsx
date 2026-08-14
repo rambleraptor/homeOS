@@ -79,6 +79,9 @@ describe('GiftCardForm', () => {
 
     await user.click(screen.getByRole('button', { name: /Add Card/i }));
 
+    // SchemaForm omits blank optional fields (including unset file fields)
+    // rather than sending explicit nulls; buildGiftCardFormData guards each
+    // optional the same way, so the resulting FormData is identical.
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith({
         merchant: 'Target',
@@ -86,8 +89,6 @@ describe('GiftCardForm', () => {
         pin: '5678',
         amount: 25.5,
         notes: 'Gift from mom',
-        front_image: null,
-        back_image: null,
       });
     });
   });
