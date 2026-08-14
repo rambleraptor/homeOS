@@ -184,3 +184,16 @@ describe('mapServerError', () => {
     expect(mapServerError('field "ghost" must be a string', ['a'])).toEqual({});
   });
 });
+
+describe('SchemaForm disableSubmitUntilValid', () => {
+  it('disables submit until every field is valid', async () => {
+    renderForm({ disableSubmitUntilValid: true });
+    const submit = screen.getByRole('button', { name: /create/i });
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Widget' } });
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '5' } });
+
+    await waitFor(() => expect(submit).toBeEnabled());
+  });
+});

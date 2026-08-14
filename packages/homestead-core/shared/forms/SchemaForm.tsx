@@ -1,22 +1,17 @@
 /**
  * A form generated from a resource's schema. It renders a default control per
- * field, validates from the schema's constraint keywords, and hands a plain
- * data object to `onSubmit`. Per-field customization is a sparse `fields` diff;
- * unlisted fields render from defaults. See `./types` for the contract.
+ * field and hands a plain data object to `onSubmit`. Per-field customization is
+ * a sparse `fields` diff; unlisted fields render from defaults. State,
+ * validation, and the submit flow come from {@link useSchemaForm} — including
+ * the guarantee that `onSubmit` never fires while client-side validation fails.
+ * See `./types` for the contract.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { FieldDef } from '../../resources/types';
-import {
-  buildPayload,
-  fieldLabel,
-  initialValue,
-  isAutoHidden,
-  orderFields,
-  resolvedWidgetName,
-} from './helpers';
+import { fieldLabel, orderFields, resolvedWidgetName } from './helpers';
 import type { FieldConfig, FieldWidget, SchemaFormProps } from './types';
-import { deriveValidator, mapServerError } from './validation';
+import { useSchemaForm } from './useSchemaForm';
 import { BUILTIN_WIDGETS, FieldFrame, SELF_CHROMED, SELF_LABELED } from './widgets';
 
 interface Entry {
@@ -72,12 +67,14 @@ export function SchemaForm<T = Record<string, unknown>>({
   isSubmitting = false,
   submitLabel,
   cancelLabel = 'Cancel',
+  disableSubmitUntilValid = false,
   testId,
   submitTestId,
   cancelTestId,
   className = 'space-y-4',
 }: SchemaFormProps<T>) {
   const schemaFields = resource.fields;
+  const form = useSchemaForm<T>({ resource, mode, initialData, onSubmit, fields });
 
   // Dev-only: catch `fields` keys that don't match any schema field (typos).
   useEffect(() => {
@@ -93,65 +90,15 @@ export function SchemaForm<T = Record<string, unknown>>({
     }
   }, [fields, schemaFields, resource.singular]);
 
-  const orderedNames = useMemo(() => {
-    const renderable = Object.keys(schemaFields).filter((n) => !isAutoHidden(schemaFields[n]!));
-    return orderFields(renderable, fields, layout?.order);
+  const busy = isSubmitting || form.isSubmitting;
+
+  // The hook decides which fields are live (auto-hidden + `hidden` predicates
+  // removed); the renderer only sorts and groups them.
+  const orderedNames = useMemo(
+    () => orderFields(form.visibleFields, fields, layout?.order),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemaFields, layout?.order]);
-
-  const [values, setValues] = useState<Record<string, unknown>>(() => {
-    const init: Record<string, unknown> = {};
-    for (const name of orderedNames) {
-      init[name] = initialValue(
-        name,
-        schemaFields[name]!,
-        fields[name],
-        initialData as Record<string, unknown> | null | undefined,
-      );
-    }
-    return init;
-  });
-
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const setValue = (name: string, value: unknown) => {
-    setValues((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => (prev[name] ? { ...prev, [name]: '' } : prev));
-  };
-
-  // Fields visible right now (config.hidden can depend on live values).
-  const visible: Entry[] = orderedNames
-    .map((name) => ({ name, field: schemaFields[name]!, config: fields[name] }))
-    .filter(({ config }) => {
-      const h = config?.hidden;
-      return typeof h === 'function' ? !h(values) : !h;
-    });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-
-    const nextErrors: Record<string, string> = {};
-    for (const { name, field, config } of visible) {
-      const msg = deriveValidator(name, field, config)(values[name]);
-      if (msg) nextErrors[name] = msg;
-    }
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
-    }
-    setErrors({});
-
-    try {
-      await onSubmit(buildPayload(visible, values) as T);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save';
-      const fieldErrors = mapServerError(message, visible.map((v) => v.name));
-      if (Object.keys(fieldErrors).length > 0) setErrors(fieldErrors);
-      else setFormError(message);
-    }
-  };
+    [form.visibleFields.join(','), layout?.order],
+  );
 
   const columns = layout?.columns ?? 2;
   const gridClass = columns === 1 ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
@@ -163,7 +110,7 @@ export function SchemaForm<T = Record<string, unknown>>({
         ? config.widget
         : BUILTIN_WIDGETS[widgetName as keyof typeof BUILTIN_WIDGETS];
     const id = config?.id ?? `sf-${resource.singular}-${name}`;
-    const error = errors[name] || undefined;
+    const error = form.errors[name] || undefined;
     const required = config?.required ?? !!field.required;
     const selfChromed = typeof config?.widget !== 'function' && SELF_CHROMED.has(widgetName as never);
     const helpId = config?.help ? `${id}-help` : undefined;
@@ -174,16 +121,16 @@ export function SchemaForm<T = Record<string, unknown>>({
         name={name}
         field={field}
         config={config}
-        value={values[name]}
-        onChange={(v) => setValue(name, v)}
+        value={form.values[name]}
+        onChange={(v) => form.setValue(name, v)}
         id={id}
         testId={config?.testId}
         required={required}
-        disabled={isSubmitting}
+        disabled={busy}
         error={error}
         describedBy={describedBy}
         autoFocus={config?.autoFocus}
-        form={{ values, setValue }}
+        form={{ values: form.values, setValue: form.setValue }}
       />
     );
     const colSpan = (config?.colSpan ?? 1) === 2 ? 'md:col-span-2' : undefined;
@@ -209,13 +156,18 @@ export function SchemaForm<T = Record<string, unknown>>({
     );
   };
 
-  const sections = groupSections(visible, layout?.groups);
+  const visibleEntries: Entry[] = orderedNames.map((name) => ({
+    name,
+    field: schemaFields[name]!,
+    config: fields[name],
+  }));
+  const sections = groupSections(visibleEntries, layout?.groups);
 
   return (
-    <form onSubmit={handleSubmit} data-testid={testId} className={className}>
-      {formError && (
+    <form onSubmit={form.handleSubmit} data-testid={testId} className={className}>
+      {form.formError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-sm text-red-700">{formError}</p>
+          <p className="text-sm text-red-700">{form.formError}</p>
         </div>
       )}
 
@@ -239,7 +191,7 @@ export function SchemaForm<T = Record<string, unknown>>({
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={busy}
             data-testid={cancelTestId}
             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -248,11 +200,11 @@ export function SchemaForm<T = Record<string, unknown>>({
         )}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={busy || (disableSubmitUntilValid && !form.isValid)}
           data-testid={submitTestId}
           className="px-4 py-2 bg-accent-terracotta hover:bg-accent-terracotta-hover text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          {isSubmitting ? (
+          {busy ? (
             <>
               <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
               Saving...

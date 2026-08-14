@@ -4,6 +4,14 @@
  */
 
 export { SchemaForm } from './SchemaForm';
+export { useSchemaForm } from './useSchemaForm';
+export type {
+  UseSchemaFormOptions,
+  UseSchemaFormReturn,
+  ExtraFieldDef,
+  FieldBinding,
+  NativeBinding,
+} from './useSchemaForm';
 export { BUILTIN_WIDGETS, FieldFrame } from './widgets';
 export { fileField } from './FileField';
 export type { FileFieldOptions } from './FileField';
