@@ -1,14 +1,22 @@
 /**
  * Grocery Item Form Component
  *
- * Form for adding grocery items
+ * Add-item form. Markup, styling (blue), and behavior are unchanged; state,
+ * validation, and submission run through the shared `useSchemaForm` engine.
+ * The store select stays a native `<select>` over the stores collection (not a
+ * combobox), and the default store is still pre-selected from the household
+ * `default_store` flag. Submit stays disabled until a name is entered.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Plus, X, Loader2 } from 'lucide-react';
+import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import { useStores } from '../hooks/useStores';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
+import { groceriesResources } from '../resources';
 import type { GroceryItemFormData } from '../types';
+
+const groceryDef = groceriesResources.find((r) => r.singular === 'grocery')!;
 
 interface GroceryItemFormProps {
   onSubmit: (data: GroceryItemFormData) => void;
@@ -22,38 +30,30 @@ export function GroceryItemForm({
   isSubmitting = false,
 }: GroceryItemFormProps) {
   const { data: stores = [] } = useStores();
-  const { value: defaultStore = '' } = useAppFlag<string>(
-    'groceries',
-    'default_store',
-  );
+  const { value: defaultStore = '' } = useAppFlag<string>('groceries', 'default_store');
   const initialStore = useMemo(
     () => (defaultStore && stores.some((s) => s.id === defaultStore) ? defaultStore : ''),
     [defaultStore, stores],
   );
-  const [formData, setFormData] = useState<GroceryItemFormData>({
-    name: '',
-    notes: '',
-    store: initialStore,
+
+  const form = useSchemaForm<GroceryItemFormData>({
+    resource: groceryDef,
+    initialData: { name: '', notes: '', store: initialStore },
+    onSubmit,
+    fields: { name: { id: 'name' }, notes: { id: 'notes' }, store: { id: 'store' } },
+    // Send name/notes/store exactly as the form holds them — an explicit empty
+    // store means "No Store" (don't let the omit-blank default reach for the flag).
+    buildPayload: (v) => ({
+      name: v.name as string,
+      notes: v.notes as string,
+      store: v.store as string,
+    }),
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) return;
-    onSubmit(formData);
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+  const busy = isSubmitting || form.isSubmitting;
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border p-4 space-y-4">
+    <form onSubmit={form.handleSubmit} className="bg-white rounded-lg border p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Add Grocery Item</h3>
         <button
@@ -74,10 +74,10 @@ export function GroceryItemForm({
         <select
           id="store"
           name="store"
-          value={formData.store}
-          onChange={handleChange}
+          value={(form.values.store as string) ?? ''}
+          onChange={(e) => form.setValue('store', e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-          disabled={isSubmitting}
+          disabled={busy}
           data-testid="grocery-form-store-select"
         >
           <option value="">No Store</option>
@@ -97,13 +97,13 @@ export function GroceryItemForm({
           type="text"
           id="name"
           name="name"
-          value={formData.name}
-          onChange={handleChange}
+          value={(form.values.name as string) ?? ''}
+          onChange={(e) => form.setValue('name', e.target.value)}
           placeholder="e.g., Milk, Apples, Chicken Breast"
           className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           required
           autoFocus
-          disabled={isSubmitting}
+          disabled={busy}
         />
       </div>
 
@@ -114,23 +114,23 @@ export function GroceryItemForm({
         <textarea
           id="notes"
           name="notes"
-          value={formData.notes}
-          onChange={handleChange}
+          value={(form.values.notes as string) ?? ''}
+          onChange={(e) => form.setValue('notes', e.target.value)}
           placeholder="e.g., 2 gallons, organic only"
           rows={2}
           className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          disabled={isSubmitting}
+          disabled={busy}
         />
       </div>
 
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={isSubmitting || !formData.name.trim()}
+          disabled={busy || !form.isValid}
           className="flex-1 bg-blue-600 text-white px-3 py-2 sm:px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
           data-testid="grocery-form-submit"
         >
-          {isSubmitting ? (
+          {busy ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
               <span className="hidden xs:inline">Adding...</span>
@@ -147,7 +147,7 @@ export function GroceryItemForm({
         <button
           type="button"
           onClick={onCancel}
-          disabled={isSubmitting}
+          disabled={busy}
           className="px-3 py-2 sm:px-4 border rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base shrink-0"
         >
           Cancel
