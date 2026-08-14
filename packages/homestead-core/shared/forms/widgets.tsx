@@ -109,7 +109,7 @@ function CurrencyWidget(p: FieldWidgetProps) {
         value={raw}
         min={p.field.minimum ?? 0}
         max={p.field.maximum}
-        step={p.field.multipleOf ?? 1}
+        step={p.field.multipleOf ?? 0.01}
         onChange={(e) => p.onChange(e.target.value === '' ? '' : parseFloat(e.target.value))}
         placeholder={p.config?.placeholder}
         className={`${INPUT} pl-7`}
@@ -186,14 +186,16 @@ function guessCollection(singular: string): string {
 }
 
 function ReferenceWidget(p: FieldWidgetProps) {
+  // Selections are stored as `{collection}/{id}` paths — the shape the engine
+  // and existing data use — so the value round-trips through ReferenceField
+  // (which is also path-based) without translation.
   const collection = p.config?.collection ?? guessCollection(p.field.reference?.resource ?? '');
-  const id = typeof p.value === 'string' && p.value ? p.value : '';
-  const paths = id ? [`${collection}/${id}`] : [];
+  const path = typeof p.value === 'string' && p.value ? p.value : '';
   return (
     <ReferenceField
       collection={collection}
-      value={paths}
-      onChange={(next) => p.onChange(next[0]?.split('/').pop() ?? '')}
+      value={path ? [path] : []}
+      onChange={(next) => p.onChange(next[0] ?? '')}
       labelField={p.config?.labelField}
       id={p.id}
       testId={p.testId}
@@ -202,6 +204,7 @@ function ReferenceWidget(p: FieldWidgetProps) {
       description={p.config?.help}
       error={p.error}
       placeholder={p.config?.placeholder}
+      {...(p.config?.emptyMessage ? { emptyMessage: p.config.emptyMessage } : {})}
     />
   );
 }
@@ -209,14 +212,13 @@ function ReferenceWidget(p: FieldWidgetProps) {
 function ReferenceMultiWidget(p: FieldWidgetProps) {
   const singular = p.field.items?.reference?.resource ?? '';
   const collection = p.config?.collection ?? guessCollection(singular);
-  const ids = Array.isArray(p.value) ? (p.value as string[]) : [];
-  const paths = ids.map((v) => `${collection}/${v}`);
+  const paths = Array.isArray(p.value) ? (p.value as string[]) : [];
   return (
     <ReferenceField
       collection={collection}
       multiple
       value={paths}
-      onChange={(next) => p.onChange(next.map((path) => path.split('/').pop() ?? ''))}
+      onChange={(next) => p.onChange(next)}
       labelField={p.config?.labelField}
       id={p.id}
       testId={p.testId}
@@ -225,6 +227,7 @@ function ReferenceMultiWidget(p: FieldWidgetProps) {
       description={p.config?.help}
       error={p.error}
       placeholder={p.config?.placeholder}
+      {...(p.config?.emptyMessage ? { emptyMessage: p.config.emptyMessage } : {})}
     />
   );
 }

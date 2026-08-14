@@ -78,6 +78,10 @@ export interface FieldConfig {
   /** Render the widget without the generated label/error chrome. */
   bare?: boolean;
 
+  /** Force the field required (or not), overriding the schema. Useful when a
+   *  field is optional in the schema but required in one particular form. */
+  required?: boolean;
+
   /** Override the control's DOM id / test id (e.g. to satisfy existing e2e). */
   id?: string;
   testId?: string;
@@ -85,10 +89,15 @@ export interface FieldConfig {
   /** Create-time default when neither `initialData` nor the schema supplies one. */
   default?: unknown;
 
+  /** Arbitrary payload handed to a custom widget via `props.config.data`
+   *  (e.g. the entity being edited, for a widget that resolves a stored file). */
+  data?: unknown;
+
   // reference-widget customization (v1: plural + label field aren't yet
   // resolvable from the singular alone)
   collection?: string;
   labelField?: string;
+  emptyMessage?: string;
 }
 
 export interface SchemaFormProps<T = Record<string, unknown>> {
@@ -103,7 +112,10 @@ export interface SchemaFormProps<T = Record<string, unknown>> {
   /** Form-level layout — genuinely not per-field. */
   layout?: { order?: string[]; columns?: 1 | 2 };
 
-  initialData?: Partial<T> | null;
+  /** Seed values. Typically the entity being edited — its field *value* types
+   *  (e.g. a stored `front_image: string`) may differ from the form-data type,
+   *  so keys are read loosely; file fields ignore the seed and start empty. */
+  initialData?: Partial<Record<keyof T, unknown>> | null;
   onSubmit: (data: T) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
@@ -115,5 +127,7 @@ export interface SchemaFormProps<T = Record<string, unknown>> {
   testId?: string;
   /** `data-testid` on the submit button. */
   submitTestId?: string;
+  /** `data-testid` on the cancel button. */
+  cancelTestId?: string;
   className?: string;
 }

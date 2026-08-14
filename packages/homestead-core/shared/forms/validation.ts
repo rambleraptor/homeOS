@@ -26,10 +26,11 @@ export function deriveValidator(
 ): (value: unknown) => string | null {
   const label = fieldLabel(name, field, config);
   const widget = resolvedWidgetName(field, config);
+  const required = config?.required ?? field.required;
 
   return (value: unknown): string | null => {
     if (isEmpty(value)) {
-      return field.required ? `${label} is required` : null;
+      return required ? `${label} is required` : null;
     }
 
     if ((widget === 'number' || widget === 'currency') && typeof value === 'number') {

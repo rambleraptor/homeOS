@@ -38,6 +38,7 @@ export function SchemaForm<T = Record<string, unknown>>({
   cancelLabel = 'Cancel',
   testId,
   submitTestId,
+  cancelTestId,
   className = 'space-y-4',
 }: SchemaFormProps<T>) {
   const schemaFields = resource.fields;
@@ -134,6 +135,7 @@ export function SchemaForm<T = Record<string, unknown>>({
             typeof config?.widget === 'function' ? config.widget : BUILTIN_WIDGETS[widgetName as keyof typeof BUILTIN_WIDGETS];
           const id = config?.id ?? `sf-${resource.singular}-${name}`;
           const error = errors[name] || undefined;
+          const required = config?.required ?? !!field.required;
           const selfChromed = typeof config?.widget !== 'function' && SELF_CHROMED.has(widgetName as never);
           const control = (
             <Widget
@@ -144,7 +146,7 @@ export function SchemaForm<T = Record<string, unknown>>({
               onChange={(v) => setValue(name, v)}
               id={id}
               testId={config?.testId}
-              required={!!field.required}
+              required={required}
               disabled={isSubmitting}
               error={error}
               autoFocus={config?.autoFocus}
@@ -160,7 +162,7 @@ export function SchemaForm<T = Record<string, unknown>>({
                 <FieldFrame
                   id={id}
                   label={fieldLabel(name, field, config)}
-                  required={!!field.required}
+                  required={required}
                   help={config?.help}
                   error={error}
                   hideLabel={SELF_LABELED.has(widgetName as never)}
@@ -179,6 +181,7 @@ export function SchemaForm<T = Record<string, unknown>>({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
+            data-testid={cancelTestId}
             className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelLabel}

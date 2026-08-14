@@ -12,7 +12,7 @@ export const hsaResources: ResourceDefinition[] = [
     fields: {
       merchant: { type: 'string', required: true },
       service_date: { type: 'string', format: 'date-time', required: true },
-      amount: { type: 'number', required: true },
+      amount: { type: 'number', required: true, exclusiveMinimum: 0 },
       category: {
         type: 'string',
         enum: ['Medical', 'Dental', 'Vision', 'Rx'],
@@ -34,6 +34,11 @@ export const hsaResources: ResourceDefinition[] = [
         type: 'string',
         enum: ['Stored', 'Reimbursed'],
         required: true,
+        // A freshly captured receipt is Stored until reimbursed. Declared as a
+        // schema default so every create path (the quick-capture form, which
+        // no longer renders a status control, plus chat/import) lands on Stored
+        // without each having to set it.
+        default: 'Stored',
       },
       // Optional: a receipt captured manually carries its own file, but one
       // created from a classified document links back via `source_document`
