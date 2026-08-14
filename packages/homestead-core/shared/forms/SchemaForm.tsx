@@ -25,6 +25,42 @@ interface Entry {
   config?: FieldConfig;
 }
 
+interface Section {
+  id: string;
+  title?: string;
+  entries: Entry[];
+}
+
+/**
+ * Bucket the visible fields into ordered sections. With no `layout.groups` and
+ * no field carrying a `group`, everything lands in a single untitled section
+ * (the flat form). Otherwise ungrouped fields lead in an untitled section,
+ * followed by each declared group in order; a `config.group` that names no
+ * declared group falls back to the ungrouped bucket. Empty sections are dropped.
+ */
+function groupSections(
+  visible: Entry[],
+  groups: { id: string; title?: string }[] | undefined,
+): Section[] {
+  const hasGrouping = (groups?.length ?? 0) > 0 || visible.some((e) => e.config?.group);
+  if (!hasGrouping) return [{ id: '__all__', entries: visible }];
+
+  const declared = groups ?? [];
+  const declaredIds = new Set(declared.map((g) => g.id));
+  const DEFAULT = '__default__';
+  const byId = new Map<string, Section>([[DEFAULT, { id: DEFAULT, entries: [] }]]);
+  for (const g of declared) byId.set(g.id, { id: g.id, title: g.title, entries: [] });
+
+  for (const entry of visible) {
+    const gid = entry.config?.group && declaredIds.has(entry.config.group) ? entry.config.group : DEFAULT;
+    byId.get(gid)!.entries.push(entry);
+  }
+
+  return [DEFAULT, ...declared.map((g) => g.id)]
+    .map((id) => byId.get(id)!)
+    .filter((section) => section.entries.length > 0);
+}
+
 export function SchemaForm<T = Record<string, unknown>>({
   resource,
   mode = 'create',
@@ -111,14 +147,69 @@ export function SchemaForm<T = Record<string, unknown>>({
       await onSubmit(buildPayload(visible, values) as T);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save';
-      const mapped = mapServerError(message, visible.map((v) => v.name));
-      if (mapped) setErrors({ [mapped.field]: mapped.message });
+      const fieldErrors = mapServerError(message, visible.map((v) => v.name));
+      if (Object.keys(fieldErrors).length > 0) setErrors(fieldErrors);
       else setFormError(message);
     }
   };
 
   const columns = layout?.columns ?? 2;
   const gridClass = columns === 1 ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 md:grid-cols-2 gap-4';
+
+  const renderField = ({ name, field, config }: Entry) => {
+    const widgetName = resolvedWidgetName(field, config);
+    const Widget: FieldWidget =
+      typeof config?.widget === 'function'
+        ? config.widget
+        : BUILTIN_WIDGETS[widgetName as keyof typeof BUILTIN_WIDGETS];
+    const id = config?.id ?? `sf-${resource.singular}-${name}`;
+    const error = errors[name] || undefined;
+    const required = config?.required ?? !!field.required;
+    const selfChromed = typeof config?.widget !== 'function' && SELF_CHROMED.has(widgetName as never);
+    const helpId = config?.help ? `${id}-help` : undefined;
+    const errorId = error ? `${id}-error` : undefined;
+    const describedBy = [helpId, errorId].filter(Boolean).join(' ') || undefined;
+    const control = (
+      <Widget
+        name={name}
+        field={field}
+        config={config}
+        value={values[name]}
+        onChange={(v) => setValue(name, v)}
+        id={id}
+        testId={config?.testId}
+        required={required}
+        disabled={isSubmitting}
+        error={error}
+        describedBy={describedBy}
+        autoFocus={config?.autoFocus}
+        form={{ values, setValue }}
+      />
+    );
+    const colSpan = (config?.colSpan ?? 1) === 2 ? 'md:col-span-2' : undefined;
+    return (
+      <div key={name} className={colSpan}>
+        {config?.bare || selfChromed ? (
+          control
+        ) : (
+          <FieldFrame
+            id={id}
+            label={fieldLabel(name, field, config)}
+            required={required}
+            help={config?.help}
+            error={error}
+            helpId={helpId}
+            errorId={errorId}
+            hideLabel={SELF_LABELED.has(widgetName as never)}
+          >
+            {control}
+          </FieldFrame>
+        )}
+      </div>
+    );
+  };
+
+  const sections = groupSections(visible, layout?.groups);
 
   return (
     <form onSubmit={handleSubmit} data-testid={testId} className={className}>
@@ -128,52 +219,20 @@ export function SchemaForm<T = Record<string, unknown>>({
         </div>
       )}
 
-      <div className={gridClass}>
-        {visible.map(({ name, field, config }) => {
-          const widgetName = resolvedWidgetName(field, config);
-          const Widget: FieldWidget =
-            typeof config?.widget === 'function' ? config.widget : BUILTIN_WIDGETS[widgetName as keyof typeof BUILTIN_WIDGETS];
-          const id = config?.id ?? `sf-${resource.singular}-${name}`;
-          const error = errors[name] || undefined;
-          const required = config?.required ?? !!field.required;
-          const selfChromed = typeof config?.widget !== 'function' && SELF_CHROMED.has(widgetName as never);
-          const control = (
-            <Widget
-              name={name}
-              field={field}
-              config={config}
-              value={values[name]}
-              onChange={(v) => setValue(name, v)}
-              id={id}
-              testId={config?.testId}
-              required={required}
-              disabled={isSubmitting}
-              error={error}
-              autoFocus={config?.autoFocus}
-              form={{ values, setValue }}
-            />
-          );
-          const colSpan = (config?.colSpan ?? 1) === 2 ? 'md:col-span-2' : undefined;
-          return (
-            <div key={name} className={colSpan}>
-              {config?.bare || selfChromed ? (
-                control
-              ) : (
-                <FieldFrame
-                  id={id}
-                  label={fieldLabel(name, field, config)}
-                  required={required}
-                  help={config?.help}
-                  error={error}
-                  hideLabel={SELF_LABELED.has(widgetName as never)}
-                >
-                  {control}
-                </FieldFrame>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {sections.map((section) =>
+        section.title ? (
+          <fieldset key={section.id} className="min-w-0">
+            <legend className="text-sm font-semibold text-gray-900 mb-2">
+              {section.title}
+            </legend>
+            <div className={gridClass}>{section.entries.map(renderField)}</div>
+          </fieldset>
+        ) : (
+          <div key={section.id} className={gridClass}>
+            {section.entries.map(renderField)}
+          </div>
+        ),
+      )}
 
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
         {onCancel && (

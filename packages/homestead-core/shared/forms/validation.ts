@@ -5,7 +5,7 @@
  */
 
 import type { FieldDef } from '../../resources/types';
-import { fieldLabel, resolvedWidgetName } from './helpers';
+import { fieldLabel, humanize, resolvedWidgetName } from './helpers';
 import type { FieldConfig } from './types';
 
 function isEmpty(value: unknown): boolean {
@@ -91,17 +91,32 @@ export function deriveValidator(
 }
 
 /**
- * Map an engine constraint error (`field "amount" must be > 0`) back onto the
- * offending field so the form can surface it inline. Returns null when the
- * message names no known field.
+ * Map an engine validation error back onto the offending field(s) so the form
+ * can surface it inline. Handles both engine shapes:
+ *   - `missing required fields: a, b` — the required check names several fields;
+ *   - `field "x" must be …` — a type/enum/constraint check names one.
+ * Returns a field→message map (empty when the message names no known field, so
+ * the caller can fall back to a form-level error).
  */
 export function mapServerError(
   message: string,
   knownFields: Iterable<string>,
-): { field: string; message: string } | null {
-  const match = /field "([^"]+)"/.exec(message);
-  if (!match) return null;
-  const field = match[1]!;
+): Record<string, string> {
   const known = knownFields instanceof Set ? knownFields : new Set(knownFields);
-  return known.has(field) ? { field, message } : null;
+  const out: Record<string, string> = {};
+
+  const missing = /missing required fields:\s*(.+)$/i.exec(message);
+  if (missing) {
+    for (const raw of missing[1]!.split(',')) {
+      const name = raw.trim();
+      if (known.has(name)) out[name] = `${humanize(name)} is required`;
+    }
+    if (Object.keys(out).length > 0) return out;
+  }
+
+  const single = /field "([^"]+)"/.exec(message);
+  if (single && known.has(single[1]!)) {
+    out[single[1]!] = message;
+  }
+  return out;
 }

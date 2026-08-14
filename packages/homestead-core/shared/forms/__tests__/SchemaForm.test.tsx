@@ -6,8 +6,9 @@
 
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { SchemaForm } from '../SchemaForm';
+import { mapServerError } from '../validation';
 import type { FieldWidgetProps } from '../types';
 import type { ResourceDefinition } from '../../../resources/types';
 
@@ -113,5 +114,73 @@ describe('SchemaForm submit payload', () => {
     await waitFor(() =>
       expect(screen.getByText('field "amount" must be <= 100')).toBeInTheDocument(),
     );
+  });
+});
+
+describe('SchemaForm accessibility', () => {
+  it('conveys required via aria-required, not the native attribute', () => {
+    renderForm();
+    const nameInput = screen.getByLabelText(/name/i);
+    expect(nameInput).toHaveAttribute('aria-required', 'true');
+    expect(nameInput).not.toHaveAttribute('required');
+  });
+
+  it('links the inline error to its control via aria-describedby', async () => {
+    renderForm();
+    fireEvent.submit(document.querySelector('form')!);
+    await waitFor(() => expect(screen.getByText('Name is required')).toBeInTheDocument());
+
+    const nameInput = screen.getByLabelText(/name/i);
+    expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+    const describedBy = nameInput.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    const errorEl = document.getElementById(describedBy!.split(' ').pop()!);
+    expect(errorEl).toHaveTextContent('Name is required');
+  });
+});
+
+describe('SchemaForm groups', () => {
+  it('renders declared groups as titled sections holding their fields', () => {
+    renderForm({
+      layout: {
+        groups: [
+          { id: 'details', title: 'Details' },
+          { id: 'meta', title: 'Metadata' },
+        ],
+      },
+      fields: { code: { group: 'details' }, notes: { group: 'meta' } },
+    });
+
+    const details = screen.getByRole('group', { name: 'Details' });
+    const meta = screen.getByRole('group', { name: 'Metadata' });
+    expect(within(details).getByLabelText(/code/i)).toBeInTheDocument();
+    expect(within(meta).getByLabelText(/notes/i)).toBeInTheDocument();
+    // An ungrouped field is not inside either titled section.
+    expect(within(details).queryByLabelText(/name/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
+  });
+
+  it('stays flat (no group role) when no groups are declared', () => {
+    renderForm();
+    expect(screen.queryByRole('group')).not.toBeInTheDocument();
+  });
+});
+
+describe('mapServerError', () => {
+  it('maps a single-field constraint error', () => {
+    expect(mapServerError('field "amount" must be > 0', ['amount', 'name'])).toEqual({
+      amount: 'field "amount" must be > 0',
+    });
+  });
+
+  it('maps a multi-field required error onto each known field', () => {
+    expect(
+      mapServerError('missing required fields: merchant, amount', ['merchant', 'amount', 'notes']),
+    ).toEqual({ merchant: 'Merchant is required', amount: 'Amount is required' });
+  });
+
+  it('returns an empty map when no known field is named', () => {
+    expect(mapServerError('database is on fire', ['a'])).toEqual({});
+    expect(mapServerError('field "ghost" must be a string', ['a'])).toEqual({});
   });
 });

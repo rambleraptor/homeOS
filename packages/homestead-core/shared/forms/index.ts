@@ -5,6 +5,8 @@
 
 export { SchemaForm } from './SchemaForm';
 export { BUILTIN_WIDGETS, FieldFrame } from './widgets';
+export { fileField } from './FileField';
+export type { FileFieldOptions } from './FileField';
 export { inferWidget, humanize, fieldLabel } from './helpers';
 export { deriveValidator, mapServerError } from './validation';
 export type {

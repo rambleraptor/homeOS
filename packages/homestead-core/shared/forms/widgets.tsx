@@ -7,6 +7,7 @@
 import type { ReactNode } from 'react';
 import { ReferenceField } from '../components/ReferenceField';
 import { TagInput } from '../components/TagInput';
+import { fileField } from './FileField';
 import { fieldLabel, humanize } from './helpers';
 import type { FieldWidget, FieldWidgetProps, WidgetName } from './types';
 
@@ -20,6 +21,8 @@ export function FieldFrame({
   help,
   error,
   hideLabel,
+  helpId,
+  errorId,
   children,
 }: {
   id: string;
@@ -28,6 +31,10 @@ export function FieldFrame({
   help?: string;
   error?: string;
   hideLabel?: boolean;
+  /** Ids stamped on the help/error text so the control's `aria-describedby`
+   *  can point at them. */
+  helpId?: string;
+  errorId?: string;
   children: ReactNode;
 }) {
   return (
@@ -35,23 +42,41 @@ export function FieldFrame({
       {!hideLabel && (
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
           {label}
-          {required && <span className="text-red-500"> *</span>}
+          {required && (
+            <span className="text-red-500" aria-hidden="true">
+              {' '}
+              *
+            </span>
+          )}
         </label>
       )}
-      {help && <p className="text-sm text-gray-500 mb-1">{help}</p>}
+      {help && (
+        <p id={helpId} className="text-sm text-gray-500 mb-1">
+          {help}
+        </p>
+      )}
       {children}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p id={errorId} className="mt-1 text-sm text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
+// `required` is conveyed via `aria-required` (not the native `required`
+// attribute) so our JS validation — which produces the inline messages
+// screen readers reach through `aria-describedby` — is the single, consistent
+// validation path rather than being pre-empted by native browser bubbles.
 const commonProps = (p: FieldWidgetProps) => ({
   id: p.id,
-  required: p.required,
   disabled: p.disabled,
   autoFocus: p.autoFocus,
   'data-testid': p.testId,
+  'aria-required': p.required || undefined,
   'aria-invalid': p.error ? true : undefined,
+  'aria-describedby': p.describedBy,
 });
 
 function TextWidget(p: FieldWidgetProps) {
@@ -168,16 +193,14 @@ function CheckboxWidget(p: FieldWidgetProps) {
   );
 }
 
-function FileWidget(p: FieldWidgetProps) {
-  return (
-    <input
-      {...commonProps(p)}
-      type="file"
-      onChange={(e) => p.onChange(e.target.files?.[0] ?? null)}
-      className={INPUT}
-    />
-  );
-}
+/** Default file widget: the shared FileField with permissive, unconfigured
+ *  limits. A form that needs a specific accept/size or an image preview passes
+ *  its own `fileField({...})` via `config.widget`. Self-chromed. */
+const DefaultFileWidget = fileField({
+  accept: '',
+  maxSizeBytes: 25 * 1024 * 1024,
+  preview: 'auto',
+});
 
 /** Naive singular→plural guess for a reference target; override via
  *  `config.collection` for irregular plurals (person → people). */
@@ -249,6 +272,7 @@ function TagsWidget(p: FieldWidgetProps) {
 export const SELF_CHROMED: ReadonlySet<WidgetName> = new Set([
   'reference',
   'reference-multi',
+  'file',
 ]);
 
 /** Widgets that supply their own inline label (the frame hides its label). */
@@ -262,7 +286,7 @@ export const BUILTIN_WIDGETS: Record<WidgetName, FieldWidget> = {
   date: DateWidget,
   select: SelectWidget,
   checkbox: CheckboxWidget,
-  file: FileWidget,
+  file: DefaultFileWidget,
   reference: ReferenceWidget,
   'reference-multi': ReferenceMultiWidget,
   tags: TagsWidget,
