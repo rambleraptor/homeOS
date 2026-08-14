@@ -20,6 +20,8 @@ export function FieldFrame({
   help,
   error,
   hideLabel,
+  helpId,
+  errorId,
   children,
 }: {
   id: string;
@@ -28,6 +30,10 @@ export function FieldFrame({
   help?: string;
   error?: string;
   hideLabel?: boolean;
+  /** Ids stamped on the help/error text so the control's `aria-describedby`
+   *  can point at them. */
+  helpId?: string;
+  errorId?: string;
   children: ReactNode;
 }) {
   return (
@@ -35,23 +41,41 @@ export function FieldFrame({
       {!hideLabel && (
         <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
           {label}
-          {required && <span className="text-red-500"> *</span>}
+          {required && (
+            <span className="text-red-500" aria-hidden="true">
+              {' '}
+              *
+            </span>
+          )}
         </label>
       )}
-      {help && <p className="text-sm text-gray-500 mb-1">{help}</p>}
+      {help && (
+        <p id={helpId} className="text-sm text-gray-500 mb-1">
+          {help}
+        </p>
+      )}
       {children}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p id={errorId} className="mt-1 text-sm text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
 
+// `required` is conveyed via `aria-required` (not the native `required`
+// attribute) so our JS validation — which produces the inline messages
+// screen readers reach through `aria-describedby` — is the single, consistent
+// validation path rather than being pre-empted by native browser bubbles.
 const commonProps = (p: FieldWidgetProps) => ({
   id: p.id,
-  required: p.required,
   disabled: p.disabled,
   autoFocus: p.autoFocus,
   'data-testid': p.testId,
+  'aria-required': p.required || undefined,
   'aria-invalid': p.error ? true : undefined,
+  'aria-describedby': p.describedBy,
 });
 
 function TextWidget(p: FieldWidgetProps) {

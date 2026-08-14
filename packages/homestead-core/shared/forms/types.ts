@@ -43,6 +43,9 @@ export interface FieldWidgetProps<V = unknown> {
   disabled?: boolean;
   /** Validation message surfaced by the form, if any. */
   error?: string;
+  /** Space-separated ids of the help/error text describing this control, for
+   *  `aria-describedby`. Built-in widgets wire this automatically. */
+  describedBy?: string;
   autoFocus?: boolean;
   /** Live access to sibling values, for dependent fields. */
   form: {
@@ -109,8 +112,10 @@ export interface SchemaFormProps<T = Record<string, unknown>> {
   /** Sparse per-field overrides. One entry fully describes one field. */
   fields?: Partial<Record<string, FieldConfig>>;
 
-  /** Form-level layout — genuinely not per-field. */
-  layout?: { order?: string[]; columns?: 1 | 2 };
+  /** Form-level layout — genuinely not per-field. Fields are bucketed into
+   *  `groups` (rendered as titled `<fieldset>` sections) by their
+   *  `config.group`; ungrouped fields lead in an untitled section. */
+  layout?: { groups?: { id: string; title?: string }[]; order?: string[]; columns?: 1 | 2 };
 
   /** Seed values. Typically the entity being edited — its field *value* types
    *  (e.g. a stored `front_image: string`) may differ from the form-data type,
