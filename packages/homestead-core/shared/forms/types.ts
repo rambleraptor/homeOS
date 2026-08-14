@@ -128,6 +128,11 @@ export interface SchemaFormProps<T = Record<string, unknown>> {
   submitLabel?: string;
   cancelLabel?: string;
 
+  /** When true, the submit button is disabled while any client-side validation
+   *  fails. Independent of the hard guarantee that `onSubmit` never fires on an
+   *  invalid form — this just reflects that state in the button. */
+  disableSubmitUntilValid?: boolean;
+
   /** `data-testid` on the `<form>` element. */
   testId?: string;
   /** `data-testid` on the submit button. */
