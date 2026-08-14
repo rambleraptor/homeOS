@@ -115,6 +115,7 @@ function validateField(
   if (field.properties && field.type !== 'object') {
     fail(`field "${path}" declares properties but is not an object`);
   }
+  validateConstraintKeywords(field, path, fail);
   validateVariants(field, path, fail);
   validateFileAi(field, path, fail);
   if (field.default !== undefined) {
@@ -191,6 +192,100 @@ function validateVariants(
         );
       }
       if (!prior) seen.set(name, { type: sub.type, variant: variantId });
+    }
+  }
+}
+
+/** Numeric assertion keywords, valid only on `number`/`integer` fields. */
+const NUMERIC_CONSTRAINTS = [
+  'minimum',
+  'maximum',
+  'exclusiveMinimum',
+  'exclusiveMaximum',
+  'multipleOf',
+] as const;
+/** Length/pattern keywords, valid only on `string` fields. */
+const STRING_CONSTRAINTS = ['minLength', 'maxLength', 'pattern'] as const;
+/** Cardinality keywords, valid only on `array` fields. */
+const ARRAY_CONSTRAINTS = ['minItems', 'maxItems', 'uniqueItems'] as const;
+
+/**
+ * Collect the standard JSON-schema assertion keywords a field declares into the
+ * wire property. Only the keywords appropriate to the field's type are emitted;
+ * {@link validateConstraintKeywords} has already rejected mismatches at boot, so
+ * this is a straight copy of present values.
+ */
+function constraintKeywords(field: FieldDef): Partial<JsonSchemaProperty> {
+  const out: Partial<JsonSchemaProperty> = {};
+  const names =
+    field.type === 'number' || field.type === 'integer'
+      ? NUMERIC_CONSTRAINTS
+      : field.type === 'string'
+        ? STRING_CONSTRAINTS
+        : field.type === 'array'
+          ? ARRAY_CONSTRAINTS
+          : [];
+  const src = field as unknown as Record<string, unknown>;
+  for (const name of names) {
+    const value = src[name];
+    if (value !== undefined) (out as Record<string, unknown>)[name] = value;
+  }
+  return out;
+}
+
+/**
+ * Validate a field's assertion keywords: each keyword must sit on the field type
+ * it applies to, bounds must be sane (min ≤ max, non-negative integer lengths /
+ * counts, positive `multipleOf`), and a `pattern` must compile. Keywords on the
+ * wrong type are rejected rather than silently dropped, so a typo fails loudly at
+ * boot instead of producing a form/OpenAPI constraint that never fires.
+ */
+function validateConstraintKeywords(
+  field: FieldDef,
+  path: string,
+  fail: (message: string) => never,
+): void {
+  const f = field as unknown as Record<string, unknown>;
+  const isNumeric = field.type === 'number' || field.type === 'integer';
+
+  const misplaced = (name: string, allowed: boolean, kind: string): void => {
+    if (f[name] !== undefined && !allowed) {
+      fail(`field "${path}" declares "${name}" but is not ${kind}`);
+    }
+  };
+  for (const name of NUMERIC_CONSTRAINTS) misplaced(name, isNumeric, 'a number');
+  for (const name of STRING_CONSTRAINTS) misplaced(name, field.type === 'string', 'a string');
+  for (const name of ARRAY_CONSTRAINTS) misplaced(name, field.type === 'array', 'an array');
+
+  const nonNegInt = (name: string): void => {
+    const v = f[name];
+    if (v === undefined) return;
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) {
+      fail(`field "${path}" ${name} must be a non-negative integer`);
+    }
+  };
+  nonNegInt('minLength');
+  nonNegInt('maxLength');
+  nonNegInt('minItems');
+  nonNegInt('maxItems');
+
+  const orderedBounds = (lo: string, hi: string): void => {
+    if (typeof f[lo] === 'number' && typeof f[hi] === 'number' && (f[lo] as number) > (f[hi] as number)) {
+      fail(`field "${path}" ${lo} must not exceed ${hi}`);
+    }
+  };
+  orderedBounds('minimum', 'maximum');
+  orderedBounds('minLength', 'maxLength');
+  orderedBounds('minItems', 'maxItems');
+
+  if (field.multipleOf !== undefined && !(typeof field.multipleOf === 'number' && field.multipleOf > 0)) {
+    fail(`field "${path}" multipleOf must be a positive number`);
+  }
+  if (field.pattern !== undefined) {
+    try {
+      new RegExp(field.pattern);
+    } catch {
+      fail(`field "${path}" pattern is not a valid regular expression`);
     }
   }
 }
@@ -546,6 +641,7 @@ function toWireProperty(
     type: field.type === 'file' ? 'binary' : field.type,
     ...(description ? { description } : {}),
     ...(field.format ? { format: field.format } : {}),
+    ...constraintKeywords(field),
     ...(field.default !== undefined ? { default: field.default } : {}),
     ...(field.type === 'file' ? { 'x-aepbase-file-field': true } : {}),
     ...(field.reference

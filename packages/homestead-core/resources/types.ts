@@ -119,6 +119,34 @@ export interface FieldDef {
   /** JSON-schema format hint, e.g. `date-time`. String fields only. */
   format?: string;
   /**
+   * Inclusive lower bound for a `number`/`integer` field (JSON-schema
+   * `minimum`). Unlike `enum`, the standard numeric/string/array assertion
+   * keywords survive as first-class OpenAPI values (the generator passes them
+   * through structurally), so they are both self-documenting in `/openapi.json`
+   * and enforced by the engine at write time. Number fields only.
+   */
+  minimum?: number;
+  /** Inclusive upper bound for a `number`/`integer` field. Number fields only. */
+  maximum?: number;
+  /** Exclusive lower bound — the value must be strictly greater. Number fields only. */
+  exclusiveMinimum?: number;
+  /** Exclusive upper bound — the value must be strictly less. Number fields only. */
+  exclusiveMaximum?: number;
+  /** The value must be an exact multiple of this (positive) number. Number fields only. */
+  multipleOf?: number;
+  /** Minimum length (in Unicode code points) of a `string` field. String fields only. */
+  minLength?: number;
+  /** Maximum length (in Unicode code points) of a `string` field. String fields only. */
+  maxLength?: number;
+  /** ECMAScript regular expression the `string` value must match. String fields only. */
+  pattern?: string;
+  /** Minimum number of elements in an `array` field. Array fields only. */
+  minItems?: number;
+  /** Maximum number of elements in an `array` field. Array fields only. */
+  maxItems?: number;
+  /** When true, all elements of an `array` field must be distinct. Array fields only. */
+  uniqueItems?: boolean;
+  /**
    * Allowed values for a string field. aepbase strips JSON-schema
    * `enum` on round-trip, so the translator encodes the values into the
    * wire description (`one of: a, b`) instead; the chat tool builder
@@ -238,6 +266,23 @@ export interface JsonSchemaProperty {
   type: JsonSchemaPrimitive;
   description?: string;
   format?: string;
+  /**
+   * Standard JSON-schema / OpenAPI 3.1 assertion keywords. Unlike `enum` (which
+   * aepbase strips, hence the description-fold), these round-trip as first-class
+   * OpenAPI values, so the translator emits them verbatim and the engine
+   * enforces them at write time. Emitted only for the type each applies to.
+   */
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
+  multipleOf?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  minItems?: number;
+  maxItems?: number;
+  uniqueItems?: boolean;
   items?: JsonSchemaProperty;
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];

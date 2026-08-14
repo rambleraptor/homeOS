@@ -915,3 +915,97 @@ describe('validateResourceDefinition — ai file fields', () => {
     ).toThrow(/overlap must be smaller than chunk_size/);
   });
 });
+
+describe('constraint keywords', () => {
+  const def = (fields: Record<string, FieldDef>): ResourceDefinition => ({
+    singular: 'widget',
+    plural: 'widgets',
+    fields,
+  });
+
+  it('emits numeric/string/array keywords into the wire schema', () => {
+    const { properties } = toWireSchema(
+      {
+        amount: { type: 'number', minimum: 0, maximum: 100 },
+        qty: { type: 'integer', exclusiveMinimum: 0, multipleOf: 5 },
+        code: { type: 'string', minLength: 2, maxLength: 4, pattern: '^[A-Z]+$' },
+        tags: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 3,
+          uniqueItems: true,
+          items: { type: 'string' },
+        },
+      },
+      'widget',
+    );
+    expect(properties.amount).toEqual({ type: 'number', minimum: 0, maximum: 100 });
+    expect(properties.qty).toEqual({ type: 'integer', exclusiveMinimum: 0, multipleOf: 5 });
+    expect(properties.code).toEqual({
+      type: 'string',
+      minLength: 2,
+      maxLength: 4,
+      pattern: '^[A-Z]+$',
+    });
+    expect(properties.tags).toMatchObject({
+      type: 'array',
+      minItems: 1,
+      maxItems: 3,
+      uniqueItems: true,
+    });
+  });
+
+  it('rejects a numeric keyword on a non-number field', () => {
+    expect(() =>
+      validateResourceDefinition(def({ name: { type: 'string', minimum: 0 } })),
+    ).toThrow(/declares "minimum" but is not a number/);
+  });
+
+  it('rejects a string keyword on a non-string field', () => {
+    expect(() =>
+      validateResourceDefinition(def({ count: { type: 'number', minLength: 2 } })),
+    ).toThrow(/declares "minLength" but is not a string/);
+  });
+
+  it('rejects an array keyword on a non-array field', () => {
+    expect(() =>
+      validateResourceDefinition(def({ name: { type: 'string', minItems: 1 } })),
+    ).toThrow(/declares "minItems" but is not an array/);
+  });
+
+  it('rejects minimum greater than maximum', () => {
+    expect(() =>
+      validateResourceDefinition(def({ amount: { type: 'number', minimum: 10, maximum: 1 } })),
+    ).toThrow(/minimum must not exceed maximum/);
+  });
+
+  it('rejects a negative or non-integer length', () => {
+    expect(() =>
+      validateResourceDefinition(def({ code: { type: 'string', maxLength: -1 } })),
+    ).toThrow(/maxLength must be a non-negative integer/);
+  });
+
+  it('rejects a non-positive multipleOf', () => {
+    expect(() =>
+      validateResourceDefinition(def({ qty: { type: 'integer', multipleOf: 0 } })),
+    ).toThrow(/multipleOf must be a positive number/);
+  });
+
+  it('rejects an uncompilable pattern', () => {
+    expect(() =>
+      validateResourceDefinition(def({ code: { type: 'string', pattern: '[' } })),
+    ).toThrow(/pattern is not a valid regular expression/);
+  });
+
+  it('accepts a well-formed set of constraints', () => {
+    expect(() =>
+      validateResourceDefinition(
+        def({
+          amount: { type: 'number', minimum: 0, maximum: 100 },
+          code: { type: 'string', minLength: 2, maxLength: 4, pattern: '^[A-Z]+$' },
+          tags: { type: 'array', minItems: 1, items: { type: 'string' } },
+        }),
+      ),
+    ).not.toThrow();
+  });
+});

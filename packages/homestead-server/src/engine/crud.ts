@@ -53,6 +53,7 @@ import { applyDynamicDefaults } from './defaults';
 import {
   applyDefaults,
   stripReadOnlyFields,
+  validateConstraints,
   validateEnums,
   validateRequiredWithFiles,
   validateTypes,
@@ -351,6 +352,8 @@ function preparePayload(
   if (typeErr) throw new HttpError(400, typeErr);
   const enumErr = validateEnums(r.enums, fields);
   if (enumErr) throw new HttpError(400, enumErr);
+  const constraintErr = validateConstraints(r.schema, fields, r.fileFields);
+  if (constraintErr) throw new HttpError(400, constraintErr);
   return fields;
 }
 
