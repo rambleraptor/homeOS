@@ -39,6 +39,19 @@ const BOOK: ResourceDefinition = {
     title: { type: 'string', required: true },
     pages: { type: 'number' },
   },
+  // An AEP-136 custom method, exposed as a tool of its own alongside CRUD.
+  customMethods: {
+    reshelve: {
+      target: 'item',
+      description: 'Move a book to another shelf.',
+      request: {
+        type: 'object',
+        required: ['shelf'],
+        properties: { shelf: { type: 'string' } },
+      },
+      load: async () => ({ default: async () => new Response('{}') }),
+    },
+  },
 };
 
 async function httpHarness() {
@@ -264,6 +277,23 @@ describe('MCP tool registration (over an in-memory client)', () => {
     expect(names).not.toContain('create_book');
     expect(names).not.toContain('update_book');
     expect(names).not.toContain('delete_book');
+    // A POST custom method has side effects, so it's a write too.
+    expect(names).not.toContain('reshelve_book');
+    await client.close();
+  });
+
+  it('exposes a custom method as its own tool, with its declared schema', async () => {
+    const client = await connectClient([BOOK]);
+    const tool = (await client.listTools()).tools.find((t) => t.name === 'reshelve_book');
+    expect(tool?.description).toContain('Move a book to another shelf.');
+    expect(tool?.inputSchema.required).toEqual(expect.arrayContaining(['id', 'shelf']));
+    // No engine is reachable at AEPBASE_URL here, so the call comes back as a
+    // structured error — the same wiring proof the CRUD tools get below.
+    const res = (await client.callTool({
+      name: 'reshelve_book',
+      arguments: { id: 'b1', shelf: 'fiction' },
+    })) as { isError?: boolean; content: { type: string; text: string }[] };
+    expect(res.isError).toBe(true);
     await client.close();
   });
 

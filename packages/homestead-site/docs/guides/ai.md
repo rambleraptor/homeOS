@@ -162,7 +162,10 @@ configured and the rest of Homestead works as normal.
 Homestead ships a **built-in [MCP](https://modelcontextprotocol.io) server** at
 `/api/mcp` — no separate process. It exposes the same tools as Chat (create,
 read, update, and delete per resource, plus document search when embeddings are
-configured), and every action runs with the signed-in user's own permissions.
+configured) **plus one tool per app-declared AEP-136 custom method** — the
+`POST /<plural>:<verb>` endpoints an app declares in `customMethods`, which
+Chat has no equivalent of. Every action runs with the signed-in user's own
+permissions.
 
 **Enable it.** MCP clients sign in through Homestead's OAuth authorization
 server, so turn that on in `homestead.config.ts` and restart:
@@ -189,15 +192,27 @@ resources.
 
 **Read-only vs. read + write.** The server advertises two scopes:
 
-| Scope              | Tools exposed                                            |
-| ------------------ | -------------------------------------------------------- |
-| `homestead:read`   | the `read_*` tools per resource, plus document search    |
-| `homestead:write`  | everything read grants, plus create / update / delete    |
+| Scope              | Tools exposed                                                          |
+| ------------------ | ---------------------------------------------------------------------- |
+| `homestead:read`   | the `read_*` tools per resource, `GET` custom methods, document search |
+| `homestead:write`  | everything read grants, plus create / update / delete and the rest of the custom methods |
 
 A client that requests `homestead:read` gets a read-only surface — the
 create/update/delete tools aren't even registered, so a read-only
-authorization can't mutate data. Request `homestead:write` (or both) for full
-access. Clients that request no scope get full read + write, as before.
+authorization can't mutate data. Custom methods count as writes unless they're
+declared `method: 'GET'`. Request `homestead:write` (or both) for full access.
+Clients that request no scope get full read + write, as before.
+
+**How a custom method shows up.** Each declared method becomes one tool named
+after its verb and what it addresses — `classify_document` for an `item`-target
+method, `process_image_groceries` for a `collection`-target one — taking the
+addressed record's `id` (and any parent ids) plus the fields of the method's
+declared `request` schema. A method that declares no `request` schema gets a
+single optional `body` param instead, taking a JSON-encoded object. Async
+(AEP-151) methods answer with the operation, and their description tells the
+model to poll `read_operation` for the result. The synthesized
+`:bulk-import` / `:bulk-export` methods are not exposed — they move files, not
+model-composable JSON.
 
 > Prefer an out-of-process option? The community
 > [`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) can still be

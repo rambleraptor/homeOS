@@ -2,7 +2,10 @@
  * Registers Homestead's tools on an MCP server. This is the MCP analog of the
  * tool-wiring loop in `core/server/chat/handler.ts`: it reuses the exact same
  * `buildTools` / `executeToolCall` / `makeSearchTool` machinery the AI chat
- * uses, so the MCP surface and the chat surface stay identical by construction.
+ * uses, so the CRUD surface and the chat surface stay identical by construction.
+ * On top of those it registers one tool per app-declared AEP-136 custom method
+ * (see `./custom-methods`), which the chat has no equivalent of — an MCP client
+ * would otherwise be limited to plain CRUD.
  *
  * Tools bind to a single caller's token, so this runs once per request (the
  * route builds a fresh McpServer each time), mirroring how `handleChat`
@@ -19,6 +22,7 @@ import {
   makeSearchTool,
   SEARCH_TOOL_NAME,
 } from '@rambleraptor/homestead-core/server/chat/search-tool';
+import { buildCustomMethodTools, executeCustomMethod } from './custom-methods';
 
 function ok(result: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(result ?? null) }] };
@@ -38,14 +42,14 @@ export interface RegisterOptions {
 }
 
 /**
- * Register the CRUD tools (one set per resource) plus the semantic
- * `search_documents` tool (only when embeddings are configured) on `server`,
- * all executing against aepbase under `token` — so every action runs with
- * exactly the calling user's permissions.
+ * Register the CRUD tools (one set per resource), one tool per declared AEP-136
+ * custom method, plus the semantic `search_documents` tool (only when
+ * embeddings are configured) on `server` — all executing against aepbase under
+ * `token`, so every action runs with exactly the calling user's permissions.
  *
  * When `opts.write` is false, the create/update/delete tools are omitted and
- * only the read-only surface (the `read_*` tools and document search) is
- * exposed, so a read-only authorization can't mutate data.
+ * only the read-only surface (the `read_*` tools, `GET` custom methods, and
+ * document search) is exposed, so a read-only authorization can't mutate data.
  */
 export function registerHomesteadTools(
   server: McpServer,
@@ -68,6 +72,31 @@ export function registerHomesteadTools(
       async (args: Record<string, unknown>): Promise<CallToolResult> => {
         const out = await executeToolCall({ name, args }, bindings, token);
         return out.ok ? ok(out.result) : err(out.error ?? 'error');
+      },
+    );
+  }
+
+  // Custom methods come after CRUD so the generated names are reserved (a
+  // custom verb that would collide with `read_book` or `search_documents` is
+  // skipped, not registered twice — a duplicate name throws in the SDK). The
+  // CRUD names are reserved whether or not they were registered, so a
+  // read-only surface never repurposes a name that means something else on a
+  // read-write one.
+  const custom = buildCustomMethodTools(
+    defs,
+    new Set([...Object.keys(tools), SEARCH_TOOL_NAME]),
+  );
+  for (const [name, spec] of Object.entries(custom.tools)) {
+    // Custom methods have side effects unless they're declared `GET`, so they
+    // count as writes for a read-only authorization.
+    if (!write && custom.bindings.get(name)?.httpMethod !== 'GET') continue;
+    const shape = (spec.inputSchema as z.ZodObject).shape;
+    server.registerTool(
+      name,
+      { description: spec.description, inputSchema: shape },
+      async (args: Record<string, unknown>): Promise<CallToolResult> => {
+        const out = await executeCustomMethod(name, args, custom.bindings, token);
+        return out.ok ? ok(out.result) : err(out.error);
       },
     );
   }
