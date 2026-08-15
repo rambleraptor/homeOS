@@ -1,16 +1,24 @@
 /**
  * Recipe Form Component
  *
- * Create/edit form for recipes. Manages an editable list of structured
- * ingredients (item / qty / unit / raw) inline so users can add or remove
- * rows without leaving the form.
+ * Create/edit form for recipes. The markup is unchanged — an inline editable
+ * ingredient list, a text-edited steps/tags experience, and a bespoke photo
+ * input — but state, validation, and submission now run through the shared
+ * `useSchemaForm` engine. `steps`/`tags` are edited as free text via extra
+ * fields and split in `buildPayload`; the "title + ≥1 ingredient" rule is
+ * expressed as cross-field validation, so the submit button reflects it and
+ * `onSubmit` never fires while the form is invalid.
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Save, Trash2, X } from 'lucide-react';
+import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import { splitSteps } from '../importers/textImporter';
 import { RecipeImage } from './RecipeImage';
+import { recipesResources } from '../resources';
 import type { Recipe, RecipeFormData, RecipeIngredient } from '../types';
+
+const recipeDef = recipesResources.find((r) => r.singular === 'recipe')!;
 
 interface RecipeFormProps {
   onSubmit: (data: RecipeFormData) => void;
@@ -30,8 +38,7 @@ const emptyIngredient = (): RecipeIngredient => ({
  * Coerce a stored ingredient into a complete, string-safe row. Records written
  * outside this form (the chat/MCP tools, importers, older data) can omit
  * fields the schema doesn't mark required — `unit`, `raw`, and `qty` in
- * particular — so we backfill them before they reach state. Without this, the
- * form's `.trim()` calls on submit throw on the missing fields.
+ * particular — so we backfill them before they reach state.
  */
 const normalizeIngredient = (ing: Partial<RecipeIngredient>): RecipeIngredient => ({
   item: ing.item ?? '',
@@ -47,28 +54,81 @@ export function RecipeForm({
   initialData,
   isSubmitting = false,
 }: RecipeFormProps) {
-  const [title, setTitle] = useState(initialData?.title ?? '');
-  const [sourcePointer, setSourcePointer] = useState(
-    initialData?.source_pointer ?? '',
-  );
-  const [prepTime, setPrepTime] = useState(initialData?.prep_time ?? '');
-  const [cookTime, setCookTime] = useState(initialData?.cook_time ?? '');
-  const [servings, setServings] = useState(initialData?.servings ?? '');
-  const [stepsInput, setStepsInput] = useState(
-    (initialData?.steps ?? []).join('\n\n'),
-  );
-  const [method, setMethod] = useState(initialData?.method ?? '');
-  const [tagsInput, setTagsInput] = useState(
-    (initialData?.tags ?? []).join(', '),
-  );
-  const [ingredients, setIngredients] = useState<RecipeIngredient[]>(
-    initialData?.parsed_ingredients?.length
+  const initial = {
+    title: initialData?.title ?? '',
+    source_pointer: initialData?.source_pointer ?? '',
+    prep_time: initialData?.prep_time ?? '',
+    cook_time: initialData?.cook_time ?? '',
+    servings: initialData?.servings ?? '',
+    method: initialData?.method ?? '',
+    parsed_ingredients: initialData?.parsed_ingredients?.length
       ? initialData.parsed_ingredients.map(normalizeIngredient)
       : [emptyIngredient()],
-  );
-  // A newly picked photo. null = no new selection (keep any existing photo on
-  // edit; no photo on create). Preview it via an object URL.
-  const [image, setImage] = useState<File | null>(null);
+    steps_text: (initialData?.steps ?? []).join('\n\n'),
+    tags_text: (initialData?.tags ?? []).join(', '),
+    image: null as File | null,
+  };
+
+  const form = useSchemaForm<RecipeFormData>({
+    resource: recipeDef,
+    initialData: initial,
+    onSubmit,
+    fields: {
+      title: { id: 'title' },
+      source_pointer: { id: 'source_pointer' },
+      prep_time: { id: 'prep_time' },
+      cook_time: { id: 'cook_time' },
+      servings: { id: 'servings' },
+      method: { id: 'method' },
+      steps_text: { id: 'steps' },
+      tags_text: { id: 'tags' },
+      // Schema array fields are driven by the text extras above, not rendered.
+      steps: { hidden: true },
+      tags: { hidden: true },
+    },
+    extraFields: {
+      steps_text: { type: 'string' },
+      tags_text: { type: 'string' },
+    },
+    // The photo aside, a recipe needs a title and at least one named ingredient.
+    validate: (values) =>
+      (values.parsed_ingredients as RecipeIngredient[]).some((ing) => ing.item.trim().length > 0)
+        ? null
+        : { parsed_ingredients: 'Add at least one ingredient' },
+    buildPayload: (values) => {
+      const parsed_ingredients = (values.parsed_ingredients as RecipeIngredient[])
+        .map((ing) => ({
+          ...ing,
+          item: ing.item.trim(),
+          unit: ing.unit.trim(),
+          notes: ing.notes?.trim() || undefined,
+          raw: ing.raw.trim() || `${ing.qty} ${ing.unit} ${ing.item}`.trim(),
+        }))
+        .filter((ing) => ing.item.length > 0);
+      const tags = String(values.tags_text ?? '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+      const steps = splitSteps(String(values.steps_text ?? ''));
+      return {
+        title: String(values.title).trim(),
+        source_pointer: String(values.source_pointer ?? '').trim() || undefined,
+        parsed_ingredients,
+        steps: steps.length > 0 ? steps : undefined,
+        method: String(values.method ?? '').trim() || undefined,
+        prep_time: String(values.prep_time ?? '').trim() || undefined,
+        cook_time: String(values.cook_time ?? '').trim() || undefined,
+        servings: String(values.servings ?? '').trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        image: (values.image as File | null) ?? undefined,
+      };
+    },
+  });
+
+  const busy = isSubmitting || form.isSubmitting;
+  const ingredients = (form.values.parsed_ingredients as RecipeIngredient[]) ?? [];
+  const setIngredients = (next: RecipeIngredient[]) => form.setValue('parsed_ingredients', next);
+  const image = (form.values.image as File | null) ?? null;
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,8 +146,8 @@ export function RecipeForm({
     field: keyof RecipeIngredient,
     value: string,
   ) => {
-    setIngredients((prev) =>
-      prev.map((ing, i) => {
+    setIngredients(
+      ingredients.map((ing, i) => {
         if (i !== index) return ing;
         if (field === 'qty') {
           const parsed = parseFloat(value);
@@ -98,67 +158,22 @@ export function RecipeForm({
     );
   };
 
-  const addIngredient = () => {
-    setIngredients((prev) => [...prev, emptyIngredient()]);
-  };
+  const addIngredient = () => setIngredients([...ingredients, emptyIngredient()]);
 
   const removeIngredient = (index: number) => {
-    setIngredients((prev) =>
-      prev.length === 1 ? prev : prev.filter((_, i) => i !== index),
-    );
+    if (ingredients.length === 1) return;
+    setIngredients(ingredients.filter((_, i) => i !== index));
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanedIngredients = ingredients
-      .map((ing) => ({
-        ...ing,
-        item: ing.item.trim(),
-        unit: ing.unit.trim(),
-        notes: ing.notes?.trim() || undefined,
-        raw: ing.raw.trim() || `${ing.qty} ${ing.unit} ${ing.item}`.trim(),
-      }))
-      .filter((ing) => ing.item.length > 0);
-
-    const tags = tagsInput
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
-
-    const steps = splitSteps(stepsInput);
-
-    onSubmit({
-      title: title.trim(),
-      source_pointer: sourcePointer.trim() || undefined,
-      parsed_ingredients: cleanedIngredients,
-      steps: steps.length > 0 ? steps : undefined,
-      method: method.trim() || undefined,
-      prep_time: prepTime.trim() || undefined,
-      cook_time: cookTime.trim() || undefined,
-      servings: servings.trim() || undefined,
-      tags: tags.length > 0 ? tags : undefined,
-      image: image ?? undefined,
-    });
-  };
-
-  const canSubmit =
-    title.trim().length > 0 &&
-    ingredients.some((ing) => ing.item.trim().length > 0) &&
-    !isSubmitting;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={form.handleSubmit} className="space-y-6">
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-brand-navy mb-1">
           Title <span className="text-red-600">*</span>
         </label>
         <input
-          id="title"
-          name="title"
+          {...form.register('title')}
           type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
         />
       </div>
@@ -171,11 +186,8 @@ export function RecipeForm({
           Source
         </label>
         <input
-          id="source_pointer"
-          name="source_pointer"
+          {...form.register('source_pointer')}
           type="text"
-          value={sourcePointer}
-          onChange={(e) => setSourcePointer(e.target.value)}
           placeholder="https://... or 'Book: Food Lab pg 124'"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
         />
@@ -205,13 +217,13 @@ export function RecipeForm({
             type="file"
             accept="image/*"
             data-testid="recipe-form-image"
-            onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+            onChange={(e) => form.setValue('image', e.target.files?.[0] ?? null)}
             className="block w-full text-sm text-brand-slate file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-accent-terracotta file:text-white file:font-medium hover:file:bg-accent-terracotta-hover"
           />
           {image && (
             <button
               type="button"
-              onClick={() => setImage(null)}
+              onClick={() => form.setValue('image', null)}
               className="text-sm text-text-muted hover:text-red-600 whitespace-nowrap"
             >
               Clear
@@ -234,11 +246,8 @@ export function RecipeForm({
             Prep Time
           </label>
           <input
-            id="prep_time"
-            name="prep_time"
+            {...form.register('prep_time')}
             type="text"
-            value={prepTime}
-            onChange={(e) => setPrepTime(e.target.value)}
             placeholder="e.g. 10 mins"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
           />
@@ -251,11 +260,8 @@ export function RecipeForm({
             Cook Time
           </label>
           <input
-            id="cook_time"
-            name="cook_time"
+            {...form.register('cook_time')}
             type="text"
-            value={cookTime}
-            onChange={(e) => setCookTime(e.target.value)}
             placeholder="e.g. 25 mins"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
           />
@@ -268,11 +274,8 @@ export function RecipeForm({
             Servings
           </label>
           <input
-            id="servings"
-            name="servings"
+            {...form.register('servings')}
             type="text"
-            value={servings}
-            onChange={(e) => setServings(e.target.value)}
             placeholder="e.g. 8 bundles"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
           />
@@ -360,11 +363,8 @@ export function RecipeForm({
           One step per paragraph — separate with a blank line. Displayed as a numbered list.
         </p>
         <textarea
-          id="steps"
-          name="steps"
+          {...form.register('steps_text')}
           data-testid="recipe-form-steps"
-          value={stepsInput}
-          onChange={(e) => setStepsInput(e.target.value)}
           rows={8}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta font-body text-sm"
         />
@@ -375,10 +375,7 @@ export function RecipeForm({
           Notes (Markdown)
         </label>
         <textarea
-          id="method"
-          name="method"
-          value={method}
-          onChange={(e) => setMethod(e.target.value)}
+          {...form.register('method')}
           rows={6}
           placeholder="Notes, nutrition info, serving suggestions…"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta font-mono text-sm"
@@ -390,11 +387,8 @@ export function RecipeForm({
           Tags (comma-separated)
         </label>
         <input
-          id="tags"
-          name="tags"
+          {...form.register('tags_text')}
           type="text"
-          value={tagsInput}
-          onChange={(e) => setTagsInput(e.target.value)}
           placeholder="vegetarian, dinner, pasta"
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-terracotta"
         />
@@ -404,7 +398,7 @@ export function RecipeForm({
         <button
           type="button"
           onClick={onCancel}
-          disabled={isSubmitting}
+          disabled={busy}
           className="flex items-center gap-2 px-4 py-2 bg-bg-pearl hover:bg-gray-100 text-brand-navy rounded-lg font-medium transition-colors border border-gray-200"
         >
           <X className="w-4 h-4" />
@@ -412,12 +406,12 @@ export function RecipeForm({
         </button>
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={busy || !form.isValid}
           data-testid="recipe-form-submit"
           className="flex items-center gap-2 px-4 py-2 bg-accent-terracotta hover:bg-accent-terracotta-hover text-white rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save className="w-4 h-4" />
-          {isSubmitting ? 'Saving...' : 'Save Recipe'}
+          {busy ? 'Saving...' : 'Save Recipe'}
         </button>
       </div>
     </form>

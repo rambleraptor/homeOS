@@ -74,6 +74,12 @@ export function initialValue(
   // the existing file separately (e.g. from `config.data`).
   if (field.type === 'file') return null;
 
+  // Any array field holds an array — never stringify it. Covers array-of-string
+  // (tags/reference-multi) and array-of-object (nested rows / custom editors).
+  if (field.type === 'array') {
+    return Array.isArray(provided) ? provided : Array.isArray(fallback) ? fallback : [];
+  }
+
   switch (widget) {
     case 'checkbox':
       return typeof provided === 'boolean' ? provided : (fallback ?? false);
