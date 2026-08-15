@@ -191,6 +191,10 @@ resources.
 
 ### The tool surface
 
+Two surfaces are available, chosen by the `settings` app's **MCP tool surface**
+flag (Superuser → Flag Management). It defaults to `typed`; see
+[Fewer tools](#fewer-tools-the-generic-surface) below for when to switch.
+
 By default the server mints **one tool per resource per verb**: `create_book` /
 `read_book` / `update_book` / `delete_book`, plus one tool per custom method
 named after its verb and what it addresses — `classify_document` for an
@@ -224,14 +228,15 @@ surface — they move files, not model-composable JSON.
 A stock instance mints about **167 tools** (40 resources × 4, plus the custom
 methods and document search). That's tens of thousands of tokens of schema in
 the client's context on every request, and past the tool cap some clients
-enforce. Set:
+enforce.
 
-```ts
-auth: { authServer: { mcpTools: 'generic' } }
-```
+Switch surfaces from **Superuser → Flag Management → Settings → MCP tool
+surface**: pick `generic` instead of `typed`. It's an ordinary app flag, so it
+takes effect on the client's next `tools/list` — no config edit, no restart,
+and flipping back is the same two clicks.
 
-and the whole surface collapses to **six tools** that take the resource as a
-parameter, so the count stays flat however many apps you add:
+The generic surface is **six tools** that take the resource as a parameter, so
+the count stays flat however many apps you add:
 
 | Tool                 | What it does                                                                 |
 | -------------------- | ---------------------------------------------------------------------------- |

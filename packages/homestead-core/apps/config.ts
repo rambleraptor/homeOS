@@ -135,18 +135,9 @@ export interface AuthServerConfig {
    * is enabled; set false to run the AS without the MCP endpoint.
    */
   mcpEnabled?: boolean;
-  /**
-   * Which MCP tool surface to expose.
-   *  - `'typed'` (default) — four CRUD tools per resource plus one per AEP-136
-   *    custom method. Richest provider-side validation, at the cost of a tool
-   *    list that grows with every app (~167 tools on a stock instance).
-   *  - `'generic'` — six resource-parameterized tools (`describe_resources`,
-   *    `read_records`, `create_record`, `update_record`, `delete_record`,
-   *    `run_custom_method`), so the tool count stays flat as apps are added and
-   *    clients aren't handed ~167 schemas per request. Set this when a client
-   *    hits its tool cap or you want the context back.
-   */
-  mcpTools?: 'generic' | 'typed';
+  // Which tool surface `/api/mcp` serves is *not* configured here — it's the
+  // `settings` app's `mcp_tools` flag, editable from Flag Management so it can
+  // be flipped without a restart.
   /**
    * Pluggable request authenticators fronting the MCP endpoint, tried in order
    * after the endpoint's own audience-bound OAuth bearer. Each is a plain-data

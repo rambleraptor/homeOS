@@ -95,6 +95,8 @@ const externalAuth: NonNullable<
   cfAccessTeamDomain && cfAccessAud.length > 0
     ? [{ provider: 'cloudflare-access', teamDomain: cfAccessTeamDomain, aud: cfAccessAud }]
     : undefined;
+// Which tool surface /api/mcp serves is not set here — it's the `settings`
+// app's `mcp_tools` flag, edited from Superuser → Flag Management.
 const authServer: NonNullable<HomesteadConfig['auth']>['authServer'] = authServerEnabled
   ? {
       enabled: true,
