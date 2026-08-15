@@ -183,4 +183,40 @@ describe('PersonSelector', () => {
     );
     expect(container.querySelector('svg.animate-spin')).toBeInTheDocument();
   });
+
+  it('floats starred people to the front, keeping order within each group', () => {
+    // Caller order is Alice, Bob, Carol; Carol is starred → Carol leads.
+    render(
+      <PersonSelector
+        people={PEOPLE}
+        isSelected={() => false}
+        onToggle={() => {}}
+        containerTestId="picker"
+        itemTestId={(id) => `picker-${id}`}
+        favoriteIds={new Set(['c'])}
+      />,
+    );
+    const rendered = screen
+      .getByTestId('picker')
+      .querySelectorAll('[data-testid^="picker-"]');
+    expect([...rendered].map((el) => el.getAttribute('data-testid'))).toEqual([
+      'picker-c',
+      'picker-a',
+      'picker-b',
+    ]);
+  });
+
+  it('marks starred people with a star icon', () => {
+    render(
+      <PersonSelector
+        people={PEOPLE}
+        isSelected={() => false}
+        onToggle={() => {}}
+        itemTestId={(id) => `picker-${id}`}
+        favoriteIds={new Set(['a'])}
+      />,
+    );
+    expect(screen.getByTestId('picker-a').querySelector('svg')).toBeInTheDocument();
+    expect(screen.getByTestId('picker-b').querySelector('svg')).toBeNull();
+  });
 });

@@ -17,7 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, Star, X } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 
 interface ReferenceRecord {
@@ -41,10 +41,19 @@ export interface ReferenceFieldProps {
   disabled?: boolean;
   /**
    * Test id prefix. The search input renders as `${testId}-input`, each
-   * option as `${testId}-option-${id}`, and each selected chip's remove
-   * button as `${testId}-remove-${id}`.
+   * option as `${testId}-option-${id}`, each selected chip's remove button as
+   * `${testId}-remove-${id}`, and (when `onToggleFavorite` is set) each option's
+   * star toggle as `${testId}-star-${id}`.
    */
   testId?: string;
+
+  // ---- favorites (optional) ---------------------------------------------
+  /** Bare record ids to float to the top of the option list, marked with a
+   *  star. Omit to keep plain alphabetical ordering. */
+  favoriteIds?: Set<string>;
+  /** When provided, each option shows a star toggle that stars/unstars that
+   *  record (by bare id) without selecting it. */
+  onToggleFavorite?: (id: string) => void;
 
   // ---- form-field chrome ------------------------------------------------
   /** Field label shown above the picker. Omit for a bare picker. */
@@ -72,6 +81,8 @@ export function ReferenceField({
   required = false,
   description,
   error,
+  favoriteIds,
+  onToggleFavorite,
 }: ReferenceFieldProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -99,15 +110,17 @@ export function ReferenceField({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [records, collection, labelField]);
 
-  // Unselected records whose label matches the query.
+  // Unselected records whose label matches the query. Starred records sort
+  // ahead of the rest; both groups stay alphabetical within themselves.
   const options = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const rank = (record: ReferenceRecord) => (favoriteIds?.has(record.id) ? 0 : 1);
     return (records ?? [])
       .filter((record) => !value.includes(`${collection}/${record.id}`))
       .filter((record) => (q ? labelFor(record).toLowerCase().includes(q) : true))
-      .sort((a, b) => labelFor(a).localeCompare(labelFor(b)));
+      .sort((a, b) => rank(a) - rank(b) || labelFor(a).localeCompare(labelFor(b)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records, value, query, collection, labelField]);
+  }, [records, value, query, collection, labelField, favoriteIds]);
 
   // Close on outside click.
   useEffect(() => {
@@ -238,19 +251,43 @@ export function ReferenceField({
             ) : (
               options.map((record, index) => {
                 const path = `${collection}/${record.id}`;
+                const starred = favoriteIds?.has(record.id) ?? false;
                 return (
-                  <li key={record.id} role="option" aria-selected={index === activeIndex}>
+                  <li
+                    key={record.id}
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    className={`flex items-center ${
+                      index === activeIndex ? 'bg-gray-100' : 'hover:bg-gray-50'
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => select(path)}
                       onMouseEnter={() => setActiveIndex(index)}
-                      className={`w-full px-3 py-2 text-left text-sm ${
-                        index === activeIndex ? 'bg-gray-100' : 'hover:bg-gray-50'
-                      }`}
+                      className="flex-1 px-3 py-2 text-left text-sm"
                       data-testid={testId ? `${testId}-option-${record.id}` : undefined}
                     >
                       {labelFor(record)}
                     </button>
+                    {onToggleFavorite && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFavorite(record.id);
+                        }}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        aria-pressed={starred}
+                        aria-label={`${starred ? 'Unstar' : 'Star'} ${labelFor(record)}`}
+                        className="px-2 py-2 text-gray-300 hover:text-amber-500"
+                        data-testid={testId ? `${testId}-star-${record.id}` : undefined}
+                      >
+                        <Star
+                          className={`h-4 w-4 ${starred ? 'fill-amber-400 text-amber-400' : ''}`}
+                        />
+                      </button>
+                    )}
                   </li>
                 );
               })

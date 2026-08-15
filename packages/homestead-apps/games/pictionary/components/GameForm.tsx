@@ -13,6 +13,7 @@ import {
   type PersonOption,
 } from '@rambleraptor/homestead-core/shared/components/PersonSelector';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import { useFavorites } from '@rambleraptor/homestead-core/shared/favorites';
 import { validateImageFile } from '@rambleraptor/homestead-core/shared/utils/fileValidation';
 import { useWinningWordImageUrl } from '../hooks/useWinningWordImageUrl';
 import type {
@@ -76,6 +77,7 @@ export function GameForm({
   isSubmitting,
   submitLabel,
 }: GameFormProps) {
+  const personFavorites = useFavorites('person');
   const [date, setDate] = useState(isoToDateInput(initialGame?.played_at));
   const [location, setLocation] = useState(initialGame?.location ?? '');
   const [winningWord, setWinningWord] = useState(
@@ -388,6 +390,7 @@ export function GameForm({
                 searchPlaceholder="Search players…"
                 containerTestId={`team-${index}-players`}
                 itemTestId={(id) => `team-${index}-player-${id}`}
+                favoriteIds={personFavorites.favoriteIds}
               />
             </div>
           </div>

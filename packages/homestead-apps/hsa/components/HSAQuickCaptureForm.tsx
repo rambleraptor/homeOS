@@ -10,6 +10,7 @@
  */
 
 import { SchemaForm, fileField } from '@rambleraptor/homestead-core/shared/forms';
+import { PersonReferenceField } from '../../people/components/PersonReferenceField';
 import type { HSAReceiptFormData } from '../types';
 import { hsaResources } from '../resources';
 
@@ -52,6 +53,8 @@ export function HSAQuickCaptureForm({
         patient: { id: 'patient', placeholder: 'Self, Spouse, Child, etc.' },
         person: {
           id: 'person',
+          widget: PersonReferenceField,
+          bare: true,
           collection: 'people',
           testId: 'hsa-receipt-person',
           emptyMessage: 'No people found — add them in the People app.',
