@@ -14,6 +14,12 @@ export const recipesResources: ResourceDefinition[] = [
     bulkImport: {
       formats: [
         {
+          id: 'url',
+          label: 'Web Page (URL)',
+          inputType: 'text',
+          load: () => import('./methods/bulk-import-url'),
+        },
+        {
           id: 'text',
           label: 'Plain Text',
           inputType: 'text',

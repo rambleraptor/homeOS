@@ -14,7 +14,9 @@
   "dependencies": {
     "@rambleraptor/homestead-client": "^0.2.0",
     "@rambleraptor/homestead-core": "^0.2.0",
-    "pdf-lib": "^1.17.1"
+    "cheerio": "^1.2.0",
+    "pdf-lib": "^1.17.1",
+    "recipe-scrapers": "^1.10.0"
   },
   "publishConfig": {
     "access": "public"
