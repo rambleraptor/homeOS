@@ -12,13 +12,14 @@
  */
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+
 import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
 import { getDocTypes, getDocType } from '../doc-types/registry';
 import { UNKNOWN_DOC_TYPE, type DocField } from '../doc-types/docType';
 import { useCollections, toggleMembership } from '../hooks/useCollections';
 import { usePeople } from '../../people/hooks/usePeople';
 import type { Document, DocumentMetadata } from '../types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface DocumentEditFormProps {
   document: Document;
@@ -282,7 +283,7 @@ export function DocumentEditForm({
           className="inline-flex items-center gap-2 rounded-md bg-accent-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-accent-terracotta-hover disabled:opacity-50"
           data-testid="document-edit-save"
         >
-          {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSaving && <Spinner size="sm" tone="inherit" label={null} />}
           Save changes
         </button>
         <button

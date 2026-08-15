@@ -7,6 +7,7 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { formatPeriod } from '../utils/periodUtils';
 import type { PerkRedemption, CreditCardPerk } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface RedemptionHistoryProps {
   redemptions: PerkRedemption[];
@@ -44,9 +45,11 @@ export function RedemptionHistory({
       </div>
 
       {sorted.length === 0 ? (
-        <p className="text-center py-6 text-gray-400">
-          No redemptions yet. Use &quot;Add Redemption&quot; to log historical data.
-        </p>
+        <EmptyState
+          variant="plain"
+          title="No redemptions yet"
+          description={'Use "Add Redemption" to log historical data.'}
+        />
       ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

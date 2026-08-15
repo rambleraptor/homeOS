@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { useCan } from '../../permissions/useCan';
-import { Spinner } from '../../shared/components/Spinner';
+import { LoadingBlock } from '../../shared/components/Spinner';
 import type { Verb } from '../../permissions/resolve';
 
 interface Props {
@@ -39,9 +39,7 @@ export function PermissionGate({ verb, resourceType, children, fallbackPath = '/
 
   if (isLoading || !user || !allowed) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-64" />
     );
   }
 

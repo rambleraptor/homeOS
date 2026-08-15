@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import {
@@ -17,6 +16,7 @@ import { eventsApp } from '../app.config';
 import { EventForm } from './EventForm';
 import { EventCard } from './EventCard';
 import type { Event, EventFormData } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 function eventNextOccurrenceMs(e: Event): number {
   if (!hasEventDate(e)) return Number.POSITIVE_INFINITY;
@@ -28,9 +28,7 @@ export function EventsList() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-64" />
     );
   }
 
@@ -86,17 +84,12 @@ function EventsListInner({ hasAny }: { hasAny: boolean }) {
       <h2 className="text-xl font-semibold text-gray-900 mb-4">All Events</h2>
       <FilterBar />
       {!hasAny ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">
-            No events yet. Add your first event to get started!
-          </p>
-        </Card>
+        <EmptyState
+          title="No events yet"
+          description="Add your first event to get started."
+        />
       ) : sorted.length === 0 ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">
-            No events match the current filters
-          </p>
-        </Card>
+        <EmptyState title="No events match the current filters" />
       ) : (
         <div className="space-y-3">
           {sorted.map((event) => (

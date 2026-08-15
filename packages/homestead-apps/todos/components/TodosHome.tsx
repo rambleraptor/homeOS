@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AlertCircle, ListChecks, Loader2 } from 'lucide-react';
+import { AlertCircle, ListChecks } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
@@ -26,6 +26,7 @@ import { TodoRow } from './TodoRow';
 import { CategoryManager } from './CategoryManager';
 import { CollapsibleSection } from './CollapsibleSection';
 import { ProjectSwitcher } from './ProjectSwitcher';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function TodosHome() {
   const location = useLocation();
@@ -184,9 +185,7 @@ export function TodosHome() {
       />
 
       {isLoading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-accent-terracotta animate-spin" />
-        </div>
+        <LoadingBlock size="md" className="py-8" />
       )}
 
       {isError && (

@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Home, AlertCircle } from 'lucide-react';
+import { Spinner } from '../shared/components/Spinner';
 
 function parseFragment(): URLSearchParams {
   const hash = window.location.hash.startsWith('#')
@@ -84,7 +85,7 @@ export function AuthCallback() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 text-text-muted">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-navy" />
+            <Spinner size="md" label={null} className="text-brand-navy" />
             <p className="font-body">Signing you in…</p>
           </div>
         )}

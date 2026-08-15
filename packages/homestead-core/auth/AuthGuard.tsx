@@ -8,6 +8,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
+import { Spinner } from '../shared/components/Spinner';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -46,7 +47,7 @@ export function AuthGuard({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-terracotta mx-auto"></div>
+          <Spinner size="xl" label={null} className="mx-auto" />
           <p className="mt-4 font-body text-text-muted">Loading...</p>
         </div>
       </div>

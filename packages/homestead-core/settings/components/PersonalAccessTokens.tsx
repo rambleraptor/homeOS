@@ -4,7 +4,7 @@ import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -113,9 +113,7 @@ export function PersonalAccessTokens() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-32" />
     );
   }
 

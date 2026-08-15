@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Download, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, Download, Plus } from 'lucide-react';
 import { useRecipes } from '../hooks/useRecipes';
 import { useCreateRecipe } from '../hooks/useCreateRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
@@ -24,6 +24,7 @@ import {
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { recipesApp } from '../app.config';
 import type { Recipe, RecipeFormData } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 type View = 'list' | 'form';
 
@@ -82,9 +83,7 @@ export function RecipesHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

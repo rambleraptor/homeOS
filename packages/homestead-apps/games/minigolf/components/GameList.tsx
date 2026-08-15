@@ -5,6 +5,7 @@
 
 import { Flag, Trophy, Play } from 'lucide-react';
 import type { Game } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface Person {
   id: string;
@@ -36,12 +37,11 @@ function formatDate(iso?: string): string {
 export function GameList({ games, people, onOpen }: GameListProps) {
   if (games.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8 border border-gray-200 text-center">
-        <Flag className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-        <p className="text-gray-600">
-          No games yet. Tap <strong>New Game</strong> to start playing.
-        </p>
-      </div>
+      <EmptyState
+        icon={Flag}
+        title="No games yet"
+        description={<>Tap <strong>New Game</strong> to start playing.</>}
+      />
     );
   }
 

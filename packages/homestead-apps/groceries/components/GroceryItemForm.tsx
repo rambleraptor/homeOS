@@ -9,12 +9,13 @@
  */
 
 import { useMemo } from 'react';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import { useStores } from '../hooks/useStores';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
 import { groceriesResources } from '../resources';
 import type { GroceryItemFormData } from '../types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 const groceryDef = groceriesResources.find((r) => r.singular === 'grocery')!;
 
@@ -132,7 +133,7 @@ export function GroceryItemForm({
         >
           {busy ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Spinner size="sm" tone="inherit" label={null} />
               <span className="hidden xs:inline">Adding...</span>
               <span className="xs:hidden">Add</span>
             </>

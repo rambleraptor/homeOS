@@ -7,7 +7,8 @@
  */
 
 import { useState } from 'react';
-import { Loader2, Upload, Shield, Scissors, HelpCircle } from 'lucide-react';
+import { Upload, Shield, Scissors, HelpCircle } from 'lucide-react';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface DocumentDropzoneProps {
   /** Files dropped onto the surface go straight to the plain upload path. */
@@ -64,7 +65,7 @@ export function DocumentDropzone({
       >
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-terracotta/10 text-accent-terracotta">
           {uploading ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <Spinner size="md" tone="inherit" label={null} />
           ) : (
             <Upload className="h-6 w-6" />
           )}
@@ -88,7 +89,7 @@ export function DocumentDropzone({
           data-testid="document-upload-button"
         >
           {uploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Spinner size="sm" tone="inherit" label={null} />
           ) : (
             <Upload className="h-4 w-4" />
           )}
@@ -112,7 +113,7 @@ export function DocumentDropzone({
           data-testid="document-bundle-button"
         >
           {bundleBusy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Spinner size="sm" tone="inherit" label={null} />
           ) : (
             <Scissors className="h-4 w-4" />
           )}

@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Pencil, Trash2, UserPlus, Users, X } from 'l
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import {
@@ -16,6 +16,7 @@ import {
   type RoleRecord,
   type UserLite,
 } from '../hooks';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface Props {
   group: GroupRecord;
@@ -135,9 +136,7 @@ export function GroupCard({ group, users, roles, onEdit }: Props) {
       {expanded && (
         <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
           {isLoading ? (
-            <div className="flex justify-center py-4">
-              <Spinner size="sm" />
-            </div>
+            <LoadingBlock size="sm" className="py-4" />
           ) : (
             <>
               {members && members.length > 0 ? (
@@ -158,7 +157,7 @@ export function GroupCard({ group, users, roles, onEdit }: Props) {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500">No members yet.</p>
+                <EmptyState variant="plain" title="No members yet" />
               )}
 
               <div className="flex flex-wrap items-end gap-2">

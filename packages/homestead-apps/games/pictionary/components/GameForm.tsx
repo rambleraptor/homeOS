@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload } from 'lucide-react';
 import {
   PersonSelector,
   type PersonOption,
@@ -22,6 +22,7 @@ import type {
   PictionaryTeam,
   PictionaryTeamFormData,
 } from '../types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 type PersonLite = PersonOption;
 
@@ -415,7 +416,7 @@ export function GameForm({
           data-testid="pictionary-submit-button"
           className="flex-1 h-12 rounded-lg bg-accent-terracotta hover:bg-accent-terracotta-hover disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold shadow-sm transition-colors flex items-center justify-center gap-2"
         >
-          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+          {isSubmitting && <Spinner size="sm" tone="inherit" label={null} />}
           {isSubmitting ? 'Saving…' : submitLabel}
         </button>
         <button

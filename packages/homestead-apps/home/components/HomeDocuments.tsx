@@ -14,12 +14,14 @@
 
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import { useDocuments } from '../../documents/hooks/useDocuments';
 import { DocumentListItem } from '../../documents/components/DocumentListItem';
 import { getDocType } from '../../documents/doc-types/registry';
 import type { Document } from '../../documents/types';
 import { HOME_DOC_TYPE_IDS, isHomeDocument } from '../homeDocTypes';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 /** A type heading plus the documents matched to it, in the allow-list order. */
 interface HomeGroup {
@@ -70,9 +72,7 @@ export function HomeDocuments() {
       </div>
 
       {isLoading && (
-        <div className="flex justify-center py-12" data-testid="home-documents-loading">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-        </div>
+        <LoadingBlock size="md" tone="subtle" data-testid="home-documents-loading" />
       )}
 
       {isError && (
@@ -83,14 +83,21 @@ export function HomeDocuments() {
       )}
 
       {documents && total === 0 && (
-        <p className="py-12 text-center text-sm text-gray-500" data-testid="home-documents-empty">
-          No home documents yet. Upload a manual, warranty, insurance policy, or
-          property-tax statement in{' '}
-          <Link to="/documents" className="text-blue-600 hover:underline">
-            Documents
-          </Link>{' '}
-          and it’ll show up here once it’s read.
-        </p>
+        <EmptyState
+          variant="plain"
+          title="No home documents yet"
+          data-testid="home-documents-empty"
+          description={
+            <>
+              Upload a manual, warranty, insurance policy, or property-tax
+              statement in{' '}
+              <Link to="/documents" className="text-accent-terracotta hover:underline">
+                Documents
+              </Link>{' '}
+              and it’ll show up here once it’s read.
+            </>
+          }
+        />
       )}
 
       {groups.map((group) => (

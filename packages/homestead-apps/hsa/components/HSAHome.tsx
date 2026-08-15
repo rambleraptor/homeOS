@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle, Plus } from 'lucide-react';
+import { AlertCircle, Plus } from 'lucide-react';
 import { useHSAStats } from '../hooks/useHSAStats';
 import { useCreateHSAReceipt } from '../hooks/useCreateHSAReceipt';
 import { useUpdateHSAReceipt } from '../hooks/useUpdateHSAReceipt';
@@ -23,6 +23,7 @@ import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageH
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { HSAReceipt, HSAReceiptFormData, ReceiptStatus } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function HSAHome() {
   const [showForm, setShowForm] = useState(false);
@@ -77,9 +78,7 @@ export function HSAHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

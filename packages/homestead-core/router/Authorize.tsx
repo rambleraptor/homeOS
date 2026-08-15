@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { Home, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Spinner } from '../shared/components/Spinner';
 
 interface RequestInfo {
   client_name: string | null;
@@ -104,7 +105,7 @@ export function Authorize() {
             </div>
           ) : !info ? (
             <div className="flex flex-col items-center gap-3 text-text-muted">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-navy" />
+              <Spinner size="md" label={null} className="text-brand-navy" />
               <p className="font-body">Loading…</p>
             </div>
           ) : (

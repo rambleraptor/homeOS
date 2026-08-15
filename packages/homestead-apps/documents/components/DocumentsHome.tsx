@@ -5,7 +5,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, AlertCircle, FileText, Scissors, Inbox } from 'lucide-react';
+import { AlertCircle, FileText, Scissors, Inbox } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
@@ -30,6 +30,8 @@ import {
   hasActiveFilters,
   type DocumentFilters as Filters,
 } from '../filtering';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
 /** The bundle-split path takes a PDF only — a form boundary needs pages to cut. */
@@ -331,9 +333,7 @@ export function DocumentsHome() {
       />
 
       {isLoading && (
-        <div className="flex justify-center py-12" data-testid="documents-loading">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
-        </div>
+        <LoadingBlock size="md" tone="subtle" data-testid="documents-loading" />
       )}
 
       {isError && (
@@ -344,21 +344,17 @@ export function DocumentsHome() {
       )}
 
       {documents && documents.length === 0 && (
-        <div
-          className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-surface-white py-14 text-center"
-          data-testid="documents-empty"
-        >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-pearl text-text-muted">
-            <Inbox className="h-6 w-6" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-brand-navy">No documents yet</p>
-            <p className="mt-1 text-sm text-text-muted">
+        <EmptyState
+          icon={Inbox}
+          title="No documents yet"
+          description={
+            <>
               Drop a PDF or photo above — tax forms, receipts, insurance cards — and
               we&rsquo;ll read and file it for you.
-            </p>
-          </div>
-        </div>
+            </>
+          }
+          data-testid="documents-empty"
+        />
       )}
 
       {documents && documents.length > 0 && (

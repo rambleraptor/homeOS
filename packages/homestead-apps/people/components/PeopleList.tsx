@@ -6,9 +6,8 @@
  */
 
 import { useState } from 'react';
-import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import {
@@ -23,15 +22,14 @@ import { peopleApp } from '../app.config';
 import { PersonForm } from './PersonForm';
 import { PersonCard } from './PersonCard';
 import type { Person, PersonFormData } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 export function PeopleList() {
   const { data: people, isLoading } = usePeople();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-64" />
     );
   }
 
@@ -100,17 +98,12 @@ function PeopleListInner({ hasAny }: { hasAny: boolean }) {
       </h2>
       <FilterBar />
       {!hasAny ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">
-            No people yet. Add your first person to get started!
-          </p>
-        </Card>
+        <EmptyState
+          title="No people yet"
+          description="Add your first person to get started."
+        />
       ) : filteredPeople.length === 0 ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">
-            No people match the current filters
-          </p>
-        </Card>
+        <EmptyState title="No people match the current filters" />
       ) : (
         <div className="space-y-3">
           {filteredPeople.map((person) => (

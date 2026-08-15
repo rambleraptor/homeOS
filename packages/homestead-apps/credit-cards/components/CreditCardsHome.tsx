@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle, CreditCard, Plus } from 'lucide-react';
+import { AlertCircle, CreditCard, Plus } from 'lucide-react';
 import { useCreditCards } from '../hooks/useCreditCards';
 import { useCreditCardPerks } from '../hooks/useCreditCardPerks';
 import { usePerkRedemptions } from '../hooks/usePerkRedemptions';
@@ -30,6 +30,8 @@ import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/Co
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { CreditCardFormData, PerkFormData, RedemptionFormData, CreditCard as CreditCardType } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 type ViewState =
   | { type: 'list' }
@@ -155,9 +157,7 @@ export function CreditCardsHome() {
 
   if (cardsLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 
@@ -294,10 +294,11 @@ export function CreditCardsHome() {
           )}
 
           {activeCards.length === 0 && archivedCards.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <CreditCard className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p>No credit cards yet. Add your first card to start tracking perks.</p>
-            </div>
+            <EmptyState
+              icon={CreditCard}
+              title="No credit cards yet"
+              description="Add your first card to start tracking perks."
+            />
           )}
         </div>
       )}

@@ -12,6 +12,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { aepbase, type OAuthProvider } from '../api/aepbase';
 import { Home, Mail, Lock, AlertCircle, Check, User } from 'lucide-react';
+import { Spinner } from '../shared/components/Spinner';
 
 export function Login() {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -288,7 +289,7 @@ export function Login() {
             >
               {loading || isLoading ? (
                 <span className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <Spinner size="sm" tone="inherit" label={null} />
                   {needsSetup ? 'Creating account...' : 'Signing in...'}
                 </span>
               ) : needsSetup ? (

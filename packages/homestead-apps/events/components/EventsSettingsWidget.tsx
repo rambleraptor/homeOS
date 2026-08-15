@@ -8,11 +8,11 @@
  * record via the user-settings system) rather than household-wide.
  */
 
-import { Loader2 } from 'lucide-react';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { useEvents } from '../hooks/useEvents';
 import { useCountdownConfig } from '../hooks/useCountdownConfig';
 import { COUNTDOWN_UNITS, type CountdownUnit } from '../utils/countdown';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 const UNIT_LABEL: Record<CountdownUnit, string> = {
   months: 'Months',
@@ -46,7 +46,7 @@ export function EventsSettingsWidget() {
         </label>
         {eventsLoading ? (
           <div className="flex items-center gap-2 text-gray-500 text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <Spinner size="sm" tone="inherit" label={null} />
             Loading events…
           </div>
         ) : (

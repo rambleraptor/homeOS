@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ListPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ListPlus, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
@@ -16,6 +16,8 @@ import { useDeleteTemplateCategory } from '../hooks/useDeleteTemplateCategory';
 import { useInstantiateTemplate } from '../hooks/useInstantiateTemplate';
 import { groupByCategory } from '../hooks/useCategories';
 import type { ListTemplate, TemplateItem } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 export function TemplatesHome() {
   const templatesQuery = useListTemplates();
@@ -84,9 +86,7 @@ export function TemplatesHome() {
       </form>
 
       {templatesQuery.isLoading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-accent-terracotta animate-spin" />
-        </div>
+        <LoadingBlock size="md" className="py-8" />
       )}
 
       {templatesQuery.isError && (
@@ -103,11 +103,10 @@ export function TemplatesHome() {
       {!templatesQuery.isLoading && !templatesQuery.isError && (
         <div className="space-y-4" data-testid="templates-list">
           {templates.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 px-4 py-6 text-center">
-              <p className="text-sm text-text-muted font-body italic">
-                No templates yet — name one above to get started.
-              </p>
-            </div>
+            <EmptyState
+              title="No templates yet"
+              description="Name one above to get started."
+            />
           ) : (
             templates.map((template) => (
               <TemplateCard key={template.id} template={template} />

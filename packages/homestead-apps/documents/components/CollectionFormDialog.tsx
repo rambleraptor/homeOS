@@ -5,7 +5,6 @@
  * hooks. A thrown mutation surfaces as the form's error and keeps the dialog open.
  */
 
-import { Loader2 } from 'lucide-react';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
@@ -16,6 +15,7 @@ import {
 } from '../hooks/useCollections';
 import { documentsResources } from '../resources';
 import type { Collection } from '../types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 const collectionDef = documentsResources.find((r) => r.singular === 'collection')!;
 
@@ -145,7 +145,7 @@ export function CollectionFormDialog({
             Cancel
           </Button>
           <Button type="submit" disabled={busy || !form.isValid} data-testid="collection-form-save">
-            {busy && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
+            {busy && <Spinner size="sm" tone="inherit" label={null} className="mr-2 inline" />}
             {editing ? 'Save' : 'Create'}
           </Button>
         </div>

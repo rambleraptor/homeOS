@@ -16,18 +16,11 @@
  */
 
 import { useMemo, useState } from 'react';
-import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  Loader2,
-  Plus,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { ScoreStepper } from './ScoreStepper';
 import { computeTotalPar, computeTotals } from '../utils/scoring';
 import type { Game, Hole, PlayerScore } from '../types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface Person {
   id: string;
@@ -287,7 +280,7 @@ export function HolePlay({
           >
             {isSaving ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Spinner size="sm" tone="inherit" label={null} />
                 Saving…
               </>
             ) : isLast ? (

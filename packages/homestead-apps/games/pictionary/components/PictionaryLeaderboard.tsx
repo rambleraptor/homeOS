@@ -6,11 +6,13 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, AlertCircle, Trophy, Pencil } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Trophy, Pencil } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { usePlayerStats } from '../hooks/usePlayerStats';
 import { useTeamStats } from '../hooks/useTeamStats';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 type Mode = 'players' | 'teams';
 
@@ -166,9 +168,7 @@ export function PictionaryLeaderboard() {
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-        </div>
+        <LoadingBlock size="lg" />
       )}
 
       {isError && (
@@ -183,15 +183,12 @@ export function PictionaryLeaderboard() {
       )}
 
       {!isLoading && !isError && rows.length === 0 && (
-        <div
-          className="bg-white rounded-lg shadow-md p-8 border border-gray-200 text-center"
+        <EmptyState
+          icon={Pencil}
+          title="No Pictionary games yet"
+          description="Record a game to start the leaderboard."
           data-testid="pictionary-leaderboard-empty"
-        >
-          <Pencil className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600">
-            No Pictionary games yet. Record a game to start the leaderboard.
-          </p>
-        </div>
+        />
       )}
 
       {!isLoading && !isError && rows.length > 0 && (

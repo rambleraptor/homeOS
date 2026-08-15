@@ -14,7 +14,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import type { Capability, Effect } from '../resolve';
@@ -28,6 +28,7 @@ import {
   bareId,
   type AccessGrantRecord,
 } from '../hooks';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 /** The subject a share is addressed to. */
 export interface ShareSubject {
@@ -251,7 +252,7 @@ export function ShareRecordDialog({
               disabled={!subject || share.isPending}
               data-testid="share-record-add"
             >
-              {share.isPending && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
+              {share.isPending && <Spinner size="sm" tone="inherit" label={null} className="mr-2 inline" />}
               {wantDeny ? 'Block' : 'Share'}
             </Button>
           </div>
@@ -268,7 +269,7 @@ export function ShareRecordDialog({
           <h4 className="text-xs font-medium uppercase tracking-wide text-gray-500">Shared with</h4>
           {isLoading ? (
             <div className="py-4 text-center">
-              <Loader2 className="inline h-4 w-4 animate-spin text-gray-400" />
+              <Spinner size="sm" tone="subtle" className="inline" />
             </div>
           ) : shares.length === 0 ? (
             <p className="py-3 text-sm text-gray-500" data-testid="share-record-empty">

@@ -20,6 +20,7 @@ import {
   sumRedeemedForPeriod,
 } from '../utils/periodUtils';
 import type { CreditCard, CreditCardPerk, PerkRedemption, PerkFormData, RedemptionFormData } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface CardDetailProps {
   card: CreditCard;
@@ -179,9 +180,11 @@ export function CardDetail({
         </div>
 
         {perks.length === 0 ? (
-          <p className="text-center py-6 text-gray-400">
-            No perks yet. Add perks to track their value.
-          </p>
+          <EmptyState
+            variant="plain"
+            title="No perks yet"
+            description="Add perks to track their value."
+          />
         ) : (
           <div className="space-y-2">
             {perks.map((perk) => {

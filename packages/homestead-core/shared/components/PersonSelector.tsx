@@ -9,7 +9,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Loader2, Search, Star } from 'lucide-react';
+import { Search, Star } from 'lucide-react';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export interface PersonOption {
   id: string;
@@ -72,9 +73,7 @@ export function PersonSelector({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-      </div>
+      <LoadingBlock size="md" tone="subtle" className="py-6" />
     );
   }
 

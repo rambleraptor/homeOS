@@ -6,16 +6,7 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  AlertCircle,
-  ArrowLeft,
-  Download,
-  Loader2,
-  Pencil,
-  RefreshCw,
-  Scissors,
-  Trash2,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, Download, Pencil, RefreshCw, Scissors, Trash2 } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
@@ -33,6 +24,7 @@ import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentEncryptionBadge } from './DocumentEncryptionBadge';
 import { DocumentViewer } from './DocumentViewer';
 import type { Document } from '../types';
+import { Spinner, LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface DocumentDetailProps {
   documentId: string;
@@ -73,9 +65,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12" data-testid="document-detail-loading">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
-      </div>
+      <LoadingBlock size="md" tone="subtle" data-testid="document-detail-loading" />
     );
   }
 
@@ -116,7 +106,7 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 data-testid="document-download"
               >
                 {download.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" tone="inherit" label={null} />
                 ) : (
                   <Download className="h-4 w-4" />
                 )}

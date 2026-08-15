@@ -13,6 +13,7 @@ import { fieldLabel, orderFields, resolvedWidgetName } from './helpers';
 import type { FieldConfig, FieldWidget, SchemaFormProps } from './types';
 import { useSchemaForm } from './useSchemaForm';
 import { BUILTIN_WIDGETS, FieldFrame, SELF_CHROMED, SELF_LABELED } from './widgets';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface Entry {
   name: string;
@@ -206,7 +207,7 @@ export function SchemaForm<T = Record<string, unknown>>({
         >
           {busy ? (
             <>
-              <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+              <Spinner size="sm" tone="inherit" label={null} />
               Saving...
             </>
           ) : (

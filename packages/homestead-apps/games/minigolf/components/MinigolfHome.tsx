@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Plus, Loader2, AlertCircle } from 'lucide-react';
+import { Plus, AlertCircle } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { useGames } from '../hooks/useGames';
 import { useCreateGame } from '../hooks/useCreateGame';
@@ -23,6 +23,7 @@ import { GameResults } from './GameResults';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import type { Game, GameFormData, Hole, PlayerScore } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 type View = 'list' | 'setup' | 'play' | 'results';
 
@@ -181,9 +182,7 @@ export function MinigolfHome() {
 
   if (gamesLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

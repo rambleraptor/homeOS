@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { Check, Clock, Loader2 } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { useCreditCards } from '../hooks/useCreditCards';
@@ -15,6 +15,8 @@ import { useUpcomingPerks } from '../hooks/useUpcomingPerks';
 import { useRedeemPerk } from '../hooks/useRedeemPerk';
 import { formatPeriod, getPeriodDeadline } from '../utils/periodUtils';
 import type { UpcomingPerk } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 export function UpcomingPerksWidget() {
   const [now] = useState(() => Date.now());
@@ -51,13 +53,13 @@ export function UpcomingPerksWidget() {
       data-testid="upcoming-perks-widget"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-        </div>
+        <LoadingBlock size="md" tone="muted" className="py-8" />
       ) : upcomingPerks.length === 0 ? (
-        <p className="font-body text-text-muted py-6 text-center">
-          No perks tracked yet — add one from the Credit Cards page.
-        </p>
+        <EmptyState
+          variant="plain"
+          title="No perks tracked yet"
+          description="Add one from the Credit Cards page."
+        />
       ) : unredeemed.length === 0 ? (
         <div className="flex items-center gap-2 py-4">
           <Check className="w-5 h-5 text-green-600" />

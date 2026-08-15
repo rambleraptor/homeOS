@@ -17,12 +17,11 @@ import {
 import { wrapWithGate } from '@rambleraptor/homestead-core/apps/router/gates';
 import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 import { NotFound } from '@rambleraptor/homestead-core/router/NotFound';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 function RouteFallback() {
   return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-accent-terracotta" />
-    </div>
+    <LoadingBlock size="xl" className="h-64" />
   );
 }
 

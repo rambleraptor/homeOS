@@ -5,9 +5,10 @@
  */
 
 import { useState, useRef } from 'react';
-import { X, Upload, Image as ImageIcon, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCreateGroceryItemsFromImage } from '../hooks/useCreateGroceryItemsFromImage';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface ImageUploadDialogProps {
   isOpen: boolean;
@@ -186,7 +187,7 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
               {/* Processing Status */}
               {isProcessing && (
                 <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <Spinner size="sm" />
                   <div>
                     <p className="font-medium text-blue-900">Processing image...</p>
                     <p className="text-sm text-blue-700">Extracting items from image</p>
@@ -281,7 +282,7 @@ export function ImageUploadDialog({ isOpen, onClose }: ImageUploadDialogProps) {
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Spinner size="sm" tone="inherit" label={null} />
                   Processing...
                 </>
               ) : (
