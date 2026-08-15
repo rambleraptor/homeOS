@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ChevronRight, Store, ChevronDown, ChevronUp } from 'lucide-react';
 import type { MerchantSummary } from '../types';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface MerchantListProps {
   merchants: MerchantSummary[];
@@ -23,12 +24,11 @@ export function MerchantList({ merchants, onMerchantClick }: MerchantListProps) 
 
   if (merchants.length === 0) {
     return (
-      <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-        <Store className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600">
-          No gift cards yet. Add your first card to get started!
-        </p>
-      </div>
+      <EmptyState
+        icon={Store}
+        title="No gift cards yet"
+        description="Add your first card to get started."
+      />
     );
   }
 

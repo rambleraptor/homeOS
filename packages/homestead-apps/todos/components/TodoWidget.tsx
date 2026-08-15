@@ -4,13 +4,14 @@
  */
 
 import { Link } from 'react-router-dom';
-import { ListTodo, Loader2 } from 'lucide-react';
+import { ListTodo } from 'lucide-react';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useTodoBuckets } from '../hooks/useTodos';
 import {
   SYNTHETIC_TODO_GROCERIES_ID,
   useSyntheticTodos,
 } from '../hooks/useSyntheticTodos';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function TodoWidget() {
   const { buckets, isLoading } = useTodoBuckets();
@@ -27,9 +28,7 @@ export function TodoWidget() {
       bodyClassName={hasItems ? 'px-4 py-0' : undefined}
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-        </div>
+        <LoadingBlock size="md" tone="muted" className="py-6" />
       ) : !hasItems ? (
         <p className="font-body text-text-muted py-2">
           Nothing active — you're all caught up.

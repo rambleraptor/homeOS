@@ -8,7 +8,7 @@
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useUpdateGroceryItem } from '../hooks/useUpdateGroceryItem';
 import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
@@ -17,6 +17,7 @@ import { GroceryList } from './GroceryList';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function GroceriesList() {
   const [storeToClear, setStoreToClear] = useState<{ id: string | null; name: string } | null>(null);
@@ -57,9 +58,7 @@ export function GroceriesList() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

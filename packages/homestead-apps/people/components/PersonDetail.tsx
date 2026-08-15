@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, FileText, Loader2, MapPin, Users } from 'lucide-react';
+import { ArrowLeft, FileText, MapPin, Users } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { DocumentListItem } from '../../documents/components/DocumentListItem';
@@ -17,6 +17,8 @@ import { groupDocumentsByCategory } from '../../documents/categorize';
 import { usePersonById } from '../hooks/usePersonById';
 import { useDocumentsForPerson } from '../hooks/useDocumentsForPerson';
 import type { Address } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 function formatAddress(address: Address): string {
   return [
@@ -38,9 +40,7 @@ export function PersonDetail({ personId }: { personId: string }) {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12" data-testid="person-detail-loading">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-      </div>
+      <LoadingBlock size="md" tone="subtle" data-testid="person-detail-loading" />
     );
   }
 
@@ -95,15 +95,12 @@ export function PersonDetail({ personId }: { personId: string }) {
         </h2>
 
         {docsLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-          </div>
+          <LoadingBlock size="sm" tone="subtle" className="py-8" />
         ) : groups.length === 0 ? (
-          <Card>
-            <p className="py-8 text-center text-sm text-gray-600" data-testid="person-documents-empty">
-              No documents are linked to {person.name} yet.
-            </p>
-          </Card>
+          <EmptyState
+            title={`No documents are linked to ${person.name} yet`}
+            data-testid="person-documents-empty"
+          />
         ) : (
           <div className="space-y-6">
             {groups.map((group) => (

@@ -7,6 +7,7 @@
 import { Club } from 'lucide-react';
 import type { Hand } from '../types';
 import { HandCard } from './HandCard';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface HandListProps {
   hands: Hand[];
@@ -17,12 +18,11 @@ interface HandListProps {
 export function HandList({ hands, onDelete, deletingId }: HandListProps) {
   if (hands.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8 border border-gray-200 text-center">
-        <Club className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-        <p className="text-gray-600">
-          No hands yet. Tap <strong>New Hand</strong> to record one.
-        </p>
-      </div>
+      <EmptyState
+        icon={Club}
+        title="No hands yet"
+        description={<>Tap <strong>New Hand</strong> to record one.</>}
+      />
     );
   }
 

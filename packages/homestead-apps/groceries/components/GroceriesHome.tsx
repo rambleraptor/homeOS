@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useState, useRef } from 'react';
-import { Plus, Loader2, CheckCircle2, Image as ImageIcon, ListRestart, Store as StoreIcon, Bell } from 'lucide-react';
+import { Plus, CheckCircle2, Image as ImageIcon, ListRestart, Store as StoreIcon, Bell } from 'lucide-react';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useStores } from '../hooks/useStores';
 import { useCreateGroceryItem } from '../hooks/useCreateGroceryItem';
@@ -20,6 +20,7 @@ import { useSendGroceryNotification } from '../hooks/useSendGroceryNotification'
 import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function GroceriesHome() {
   const [itemName, setItemName] = useState('');
@@ -146,7 +147,7 @@ export function GroceriesHome() {
               className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {notifyMutation.isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Spinner size="sm" tone="inherit" label={null} />
               ) : (
                 <Bell className="w-5 h-5" />
               )}

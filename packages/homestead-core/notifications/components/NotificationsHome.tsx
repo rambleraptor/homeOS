@@ -1,12 +1,13 @@
 import { Bell, Check, Calendar } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useNotifications } from '../hooks/useNotifications';
 import { useMarkNotificationAsRead } from '../hooks/useMarkNotificationAsRead';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Notification } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 function NotificationsPanel() {
   const { data: notifications, isLoading } = useNotifications();
@@ -43,9 +44,7 @@ function NotificationsPanel() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-64" />
     );
   }
 
@@ -91,15 +90,11 @@ function NotificationsPanel() {
       )}
 
       {!notifications || unreadNotifications.length === 0 ? (
-        <Card>
-          <div className="text-center py-12">
-            <Bell className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-600">No notifications yet</p>
-            <p className="text-sm text-gray-500 mt-2">
-              You'll receive notifications for upcoming events here
-            </p>
-          </div>
-        </Card>
+        <EmptyState
+          icon={Bell}
+          title="No notifications yet"
+          description="You'll receive notifications for upcoming events here."
+        />
       ) : null}
     </div>
   );

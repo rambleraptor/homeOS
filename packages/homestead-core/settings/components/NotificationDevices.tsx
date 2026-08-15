@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Bell, BellOff, Laptop, Send, Trash2 } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -21,6 +21,7 @@ import {
 import { useUpdateNotificationSubscription } from '../hooks/useUpdateNotificationSubscription';
 import { useDeleteNotificationSubscription } from '../hooks/useDeleteNotificationSubscription';
 import { useSendTestNotification } from '../hooks/useSendTestNotification';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 export function NotificationDevices() {
   const toast = useToast();
@@ -111,9 +112,7 @@ export function NotificationDevices() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-32">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-32" />
     );
   }
 
@@ -166,9 +165,11 @@ export function NotificationDevices() {
         </div>
 
         {subscriptions.length === 0 ? (
-          <p className="text-sm text-gray-500" data-testid="no-devices">
-            No devices are registered for notifications yet.
-          </p>
+          <EmptyState
+            variant="plain"
+            title="No devices are registered for notifications yet"
+            data-testid="no-devices"
+          />
         ) : (
           <ul className="divide-y divide-gray-100">
             {subscriptions.map((sub) => {

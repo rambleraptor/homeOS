@@ -6,6 +6,7 @@
 
 import { Pencil, Trophy } from 'lucide-react';
 import type { PictionaryGame, PictionaryTeam } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface PersonLite {
   id: string;
@@ -44,12 +45,11 @@ export function GameList({
 }: GameListProps) {
   if (games.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8 border border-gray-200 text-center">
-        <Pencil className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-        <p className="text-gray-600">
-          No Pictionary games yet. Tap <strong>New Game</strong> to record one.
-        </p>
-      </div>
+      <EmptyState
+        icon={Pencil}
+        title="No Pictionary games yet"
+        description={<>Tap <strong>New Game</strong> to record one.</>}
+      />
     );
   }
 

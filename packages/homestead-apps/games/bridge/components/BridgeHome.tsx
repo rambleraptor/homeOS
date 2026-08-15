@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { useHands } from '../hooks/useHands';
@@ -16,6 +16,7 @@ import { HandForm } from './HandForm';
 import { BoardFilter } from './BoardFilter';
 import { distinctBoards, handBoard, type BoardFilterValue } from '../utils';
 import type { HandFormData } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function BridgeHome() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -68,9 +69,7 @@ export function BridgeHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

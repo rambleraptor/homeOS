@@ -6,12 +6,13 @@
  * beneath. Reads the same `garbage-pickups` collection as the Home page.
  */
 
-import { Loader2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useUpcomingPickupDays } from '../hooks/useGarbagePickups';
 import { parseIsoDate, relativeDayLabel, streamLabel } from '../utils/pickups';
 import { StreamChip } from './StreamChip';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 /** Enough to cover a biweekly recycling cycle without turning into a calendar. */
 const LOOKAHEAD_DAYS = 14;
@@ -30,9 +31,7 @@ export function NextPickupWidget() {
       data-testid="next-pickup-widget"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-        </div>
+        <LoadingBlock size="md" tone="muted" className="py-8" />
       ) : next ? (
         <div className="space-y-4">
           <div>

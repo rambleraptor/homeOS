@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Hourglass, Loader2 } from 'lucide-react';
+import { Hourglass } from 'lucide-react';
 import { format } from 'date-fns';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useCountdownConfig } from '../hooks/useCountdownConfig';
@@ -18,6 +18,7 @@ import {
   tickIntervalMs,
   type CountdownUnit,
 } from '../utils/countdown';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 const UNIT_LABEL: Record<CountdownUnit, string> = {
   months: 'months',
@@ -55,9 +56,7 @@ export function CountdownWidget() {
   let body: React.ReactNode;
   if (config.isLoading || isLoadingEvent) {
     body = (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-      </div>
+      <LoadingBlock size="md" tone="muted" className="py-6" />
     );
   } else if (!config.eventId) {
     body = (

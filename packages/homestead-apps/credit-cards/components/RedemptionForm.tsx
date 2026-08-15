@@ -11,6 +11,7 @@
 import { useMemo } from 'react';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import {
   getCurrentPeriod,
   getPeriodsInRange,
@@ -257,7 +258,7 @@ function RedemptionFormBody({
         >
           {busy ? (
             <>
-              <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+              <Spinner size="sm" tone="inherit" label={null} />
               Saving...
             </>
           ) : (

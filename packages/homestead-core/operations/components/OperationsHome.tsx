@@ -5,11 +5,12 @@
 
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { Spinner, LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import type { OperationLogEntry } from '@rambleraptor/homestead-core/resources/operations';
 import { useOperations } from '../hooks/useOperations';
 import type { Operation } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 function formatDate(dateString: string): string {
   if (!dateString) return '';
@@ -114,23 +115,17 @@ function OperationsList() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-64" />
     );
   }
 
   if (!operations || operations.length === 0) {
     return (
-      <Card>
-        <div className="text-center py-12">
-          <CheckCircle2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600">No operations yet</p>
-          <p className="text-sm text-gray-500 mt-2">
-            Long-running tasks will appear here while they run.
-          </p>
-        </div>
-      </Card>
+      <EmptyState
+        icon={CheckCircle2}
+        title="No operations yet"
+        description="Long-running tasks will appear here while they run."
+      />
     );
   }
 

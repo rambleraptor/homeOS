@@ -6,7 +6,7 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Upload, Loader2, AlertCircle, Trophy } from 'lucide-react';
+import { Plus, Upload, AlertCircle, Trophy } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
@@ -23,6 +23,7 @@ import type {
   PictionaryGame,
   PictionaryGameFormData,
 } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 type View = 'list' | 'create' | 'edit' | 'detail';
 
@@ -94,9 +95,7 @@ export function PictionaryHome() {
 
   if (gamesLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

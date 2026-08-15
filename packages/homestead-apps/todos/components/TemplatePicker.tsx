@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ChevronDown, LayoutTemplate, Loader2 } from 'lucide-react';
+import { ChevronDown, LayoutTemplate } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { useListTemplates } from '../hooks/useListTemplates';
 import { useInstantiateTemplate } from '../hooks/useInstantiateTemplate';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface TemplatePickerProps {
   /** Called with the new project's id once a template has been instantiated. */
@@ -46,7 +47,7 @@ export function TemplatePicker({ onInstantiated }: TemplatePickerProps) {
         )}
       >
         {instantiate.isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
+          <Spinner size="sm" tone="inherit" label={null} />
         ) : (
           <LayoutTemplate className="w-4 h-4" />
         )}

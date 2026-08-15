@@ -5,11 +5,13 @@
  */
 
 import { useState } from 'react';
-import { Plus, Trash2, Loader2, Star, Store as StoreIcon, X } from 'lucide-react';
+import { Plus, Trash2, Star, Store as StoreIcon, X } from 'lucide-react';
 import { useStores } from '../hooks/useStores';
 import { useCreateStore } from '../hooks/useCreateStore';
 import { useDeleteStore } from '../hooks/useDeleteStore';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface StoreManagementProps {
   onClose?: () => void;
@@ -103,13 +105,13 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-accent-terracotta" />
-        </div>
+        <LoadingBlock size="md" className="py-8" />
       ) : stores.length === 0 ? (
-        <p className="text-center text-text-muted font-body py-8">
-          No stores yet. Add your first store above!
-        </p>
+        <EmptyState
+          variant="plain"
+          title="No stores yet"
+          description="Add your first store above."
+        />
       ) : (
         <div className="space-y-2">
           {stores.map((store) => {

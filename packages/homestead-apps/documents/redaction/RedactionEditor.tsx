@@ -7,12 +7,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { loadPages } from './render';
 import { buildRedactedFile } from './redact';
 import { clampRect, isDrawable, rectFromPoints, type Point } from './geometry';
 import type { NormRect, PageRaster } from './types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface RedactionEditorProps {
   file: File;
@@ -178,7 +179,7 @@ export function RedactionEditor({ file, onComplete, onSplit, onCancel }: Redacti
           >
             {busy ? (
               <span className="inline-flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Working…
+                <Spinner size="sm" tone="inherit" label={null} /> Working…
               </span>
             ) : (
               `Redact & upload${totalRects > 0 ? ` (${totalRects})` : ''}`
@@ -200,7 +201,7 @@ export function RedactionEditor({ file, onComplete, onSplit, onCancel }: Redacti
 
         {!error && !pages && (
           <div className="flex items-center gap-2 text-white" data-testid="redaction-loading">
-            <Loader2 className="h-6 w-6 animate-spin" /> Opening document…
+            <Spinner size="md" tone="inherit" label={null} /> Opening document…
           </div>
         )}
 

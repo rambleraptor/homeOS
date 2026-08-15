@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Gift, Loader2, AlertCircle, Upload } from 'lucide-react';
+import { Plus, Gift, AlertCircle, Upload } from 'lucide-react';
 import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
 import { useCreateGiftCard } from '../hooks/useCreateGiftCard';
 import { useUpdateGiftCard } from '../hooks/useUpdateGiftCard';
@@ -19,6 +19,7 @@ import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageH
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import type { GiftCard, GiftCardFormData } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 type View = 'list' | 'detail' | 'form';
 
@@ -89,9 +90,7 @@ export function GiftCardHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

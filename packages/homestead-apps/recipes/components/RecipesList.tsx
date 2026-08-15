@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 import { ChefHat, Clock, Pencil, Trash2 } from 'lucide-react';
 import type { Recipe } from '../types';
 import { RecipeImage } from './RecipeImage';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface RecipesListProps {
   recipes: Recipe[];
@@ -19,13 +20,12 @@ interface RecipesListProps {
 export function RecipesList({ recipes, onEdit, onDelete }: RecipesListProps) {
   if (recipes.length === 0) {
     return (
-      <div
+      <EmptyState
+        icon={ChefHat}
+        title="No recipes yet"
+        description="Add your first one to get started."
         data-testid="recipes-empty-state"
-        className="text-center py-12 bg-white rounded-lg border border-gray-200"
-      >
-        <ChefHat className="w-12 h-12 text-text-muted mx-auto mb-3" />
-        <p className="text-text-muted">No recipes yet. Add your first one to get started.</p>
-      </div>
+      />
     );
   }
 

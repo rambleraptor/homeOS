@@ -8,17 +8,7 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  AlertCircle,
-  ArrowLeft,
-  ChefHat,
-  Clock,
-  ExternalLink,
-  Loader2,
-  Pencil,
-  ShoppingCart,
-  Users,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChefHat, Clock, ExternalLink, Pencil, ShoppingCart, Users } from 'lucide-react';
 import { useRecipe } from '../hooks/useRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
 import { useAddIngredientsToGroceryList } from '../hooks/useAddIngredientsToGroceryList';
@@ -29,6 +19,7 @@ import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastPr
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { decimalToFraction } from '@rambleraptor/homestead-core/shared/utils/fractionUtils';
 import type { RecipeFormData, RecipeIngredient } from '../types';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 interface RecipeViewProps {
   recipeId: string;
@@ -53,9 +44,7 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <LoadingBlock size="lg" />
     );
   }
 

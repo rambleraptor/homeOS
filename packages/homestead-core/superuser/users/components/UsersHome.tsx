@@ -4,7 +4,7 @@ import { Plus, Shield, User as UserIcon, Pencil, Trash2, Eye } from 'lucide-reac
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { Spinner, LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
@@ -18,6 +18,7 @@ import { useUpdateUser } from '../hooks/useUpdateUser';
 import { useDeleteUser } from '../hooks/useDeleteUser';
 import { UserForm } from './UserForm';
 import type { ManagedUser, UserFormData } from '../types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 export function UsersHome() {
   const { user: currentUser, startViewAs } = useAuth();
@@ -107,9 +108,7 @@ export function UsersHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
+      <LoadingBlock size="lg" className="h-64" />
     );
   }
 
@@ -127,9 +126,7 @@ export function UsersHome() {
       />
 
       {!users || users.length === 0 ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">No users yet.</p>
-        </Card>
+        <EmptyState title="No users yet" />
       ) : (
         <div className="space-y-3">
           {users.map((u) => {

@@ -21,6 +21,7 @@ import {
   useAppFlagsDefinition,
 } from '../hooks/useAppFlagsDefinition';
 import type { AppFlagDef, AppFlagValue } from '@rambleraptor/homestead-core/apps/types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 export function FlagManagementHome() {
   const { defs, isLoading: defsLoading, isMissing } = useAppFlagsDefinition();
@@ -88,11 +89,7 @@ export function FlagManagementHome() {
           </div>
         </Card>
       ) : appIds.length === 0 ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">
-            No app flags are registered in aepbase yet.
-          </p>
-        </Card>
+        <EmptyState title="No app flags are registered in aepbase yet" />
       ) : (
         <div className="space-y-4" data-testid="flag-management-list">
           {appIds.map((appId) => {

@@ -4,7 +4,7 @@ import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
@@ -26,6 +26,7 @@ import {
 import { GroupCard } from './GroupCard';
 import { GroupForm } from './GroupForm';
 import { RoleForm } from './RoleForm';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 /**
  * Superuser page to manage the permissions data model: **groups** (create,
@@ -113,16 +114,12 @@ export function PermissionsHome() {
         </div>
 
         {groupsLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner size="lg" />
-          </div>
+          <LoadingBlock size="lg" className="py-8" />
         ) : !groups || groups.length === 0 ? (
-          <Card>
-            <p className="text-center text-gray-600 py-8">
-              No groups yet. Create one to gate an app to a set of people, or to share
-              data with them.
-            </p>
-          </Card>
+          <EmptyState
+            title="No groups yet"
+            description="Create one to gate an app to a set of people, or to share data with them."
+          />
         ) : (
           <div className="space-y-3" data-testid="groups-list">
             {groups.map((g) => (
@@ -154,9 +151,7 @@ export function PermissionsHome() {
           even against another grant.
         </p>
         {rolesLoading ? (
-          <div className="flex justify-center py-8">
-            <Spinner size="lg" />
-          </div>
+          <LoadingBlock size="lg" className="py-8" />
         ) : !roles || roles.length === 0 ? (
           <Card>
             <p className="text-center text-gray-600 py-8">No roles defined.</p>

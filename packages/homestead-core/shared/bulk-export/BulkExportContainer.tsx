@@ -29,11 +29,12 @@ import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
-import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { useRowSelection } from '@rambleraptor/homestead-core/shared/hooks/useRowSelection';
 import { BulkExportButton } from './BulkExportButton';
 import { selectionFilter, useBulkExportOptions } from './useBulkExport';
 import { defaultLabel, type BulkExportPageConfig, type BulkExportRecord } from './types';
+import { EmptyState } from '@rambleraptor/homestead-core/shared/components/EmptyState';
 
 interface BulkExportContainerProps {
   config: BulkExportPageConfig;
@@ -122,15 +123,9 @@ export function BulkExportContainer({ config }: BulkExportContainerProps) {
       )}
 
       {recordsQuery.isLoading ? (
-        <div className="flex items-center justify-center h-64">
-          <Spinner size="lg" />
-        </div>
+        <LoadingBlock size="lg" className="h-64" />
       ) : records.length === 0 ? (
-        <Card>
-          <p className="text-center text-gray-600 py-8">
-            No {appNamePlural} to export yet.
-          </p>
-        </Card>
+        <EmptyState title={`No ${appNamePlural} to export yet`} />
       ) : (
         <>
           <Input

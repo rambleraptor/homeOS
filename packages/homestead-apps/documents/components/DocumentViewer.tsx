@@ -5,10 +5,11 @@
  * via the shared blob-URL hook.
  */
 
-import { FileQuestion, Loader2 } from 'lucide-react';
+import { FileQuestion } from 'lucide-react';
 import { useDocumentFileUrl } from '../hooks/useDocumentFileUrl';
 import { fileKind } from '../fileKind';
 import type { Document } from '../types';
+import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 export function DocumentViewer({ document }: { document: Document }) {
   const url = useDocumentFileUrl(document);
@@ -32,7 +33,7 @@ export function DocumentViewer({ document }: { document: Document }) {
   if (!url) {
     return (
       <div className={`${frame} flex h-[70vh] items-center justify-center`}>
-        <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+        <Spinner size="md" tone="subtle" />
       </div>
     );
   }

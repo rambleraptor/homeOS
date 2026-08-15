@@ -5,11 +5,12 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { CalendarHeart, Loader2 } from 'lucide-react';
+import { CalendarHeart } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
+import { LoadingBlock } from '@rambleraptor/homestead-core/shared/components/Spinner';
 
 function badgeVariantForTag(
   tag?: string,
@@ -42,9 +43,7 @@ export function UpcomingEventsWidget() {
       data-testid="upcoming-events-widget"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-        </div>
+        <LoadingBlock size="md" tone="muted" className="py-8" />
       ) : upcoming && upcoming.length > 0 ? (
         <ul className="divide-y divide-gray-50">
           {upcoming.map(({ id, name, names, tag, date }) => {
