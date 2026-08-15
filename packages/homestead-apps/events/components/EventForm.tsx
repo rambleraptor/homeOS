@@ -1,11 +1,25 @@
-import { useState } from 'react';
+/**
+ * Event form. Markup, styling, and behavior are unchanged; state, validation,
+ * and submission now run through the shared `useSchemaForm` engine. The event's
+ * UI shape diverges from its resource schema (month/day/year are typed as
+ * strings for the native controls, the tag select splits into a sentinel +
+ * custom text, people are bare ids, and the "Nth weekday" rule is entered as two
+ * selects), so those controls are managed as extra fields and `buildPayload`
+ * reproduces the exact `EventFormData` transform (numeric coercion, `people/`
+ * prefixing, `recurrence_rule` assembly, year-null-on-edit-clear).
+ */
+
+import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { PersonSelector } from '@rambleraptor/homestead-core/shared/components/PersonSelector';
 import { parseNthWeekdayRule } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { usePeople } from '../../people/hooks/usePeople';
 import { KNOWN_EVENT_TAGS } from '../types';
+import { eventsResources } from '../resources';
 import type { Event, EventFormData, EventRecurrence } from '../types';
+
+const eventDef = eventsResources.find((r) => r.singular === 'event')!;
 
 interface EventFormProps {
   initialData?: Event;
@@ -15,6 +29,18 @@ interface EventFormProps {
 }
 
 const CUSTOM_TAG_SENTINEL = '__custom__';
+
+/**
+ * The hook's value shape: `EventFormData` plus the UI-only controls that don't
+ * map 1:1 to schema fields (the tag sentinel + custom text and the two "Nth
+ * weekday" selects). `buildPayload` collapses these back into `EventFormData`.
+ */
+type EventFormValues = EventFormData & {
+  tagSelection: string;
+  customTag: string;
+  recurrenceWeek: string;
+  recurrenceWeekday: string;
+};
 
 const WEEK_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: '1', label: '1st' },
@@ -94,100 +120,113 @@ export function EventForm({
       ? parseNthWeekdayRule(initialData.recurrence_rule)
       : null;
 
-  const [name, setName] = useState(initialData?.name ?? '');
-  const [month, setMonth] = useState<string>(
-    initialData?.month ? String(initialData.month) : '',
-  );
-  const [day, setDay] = useState<string>(
-    initialData?.day ? String(initialData.day) : '',
-  );
-  const [year, setYear] = useState<string>(
-    initialData?.year != null ? String(initialData.year) : '',
-  );
-  const [tagSelection, setTagSelection] = useState<string>(
-    initialTag.mode === 'custom'
-      ? CUSTOM_TAG_SENTINEL
-      : initialTag.mode === 'known'
-        ? initialTag.value
-        : '',
-  );
-  const [customTag, setCustomTag] = useState<string>(
-    initialTag.mode === 'custom' ? initialTag.value : '',
-  );
-  const [selectedPeople, setSelectedPeople] = useState<string[]>(
-    initialPeopleIds,
-  );
-  const [recurrence, setRecurrence] = useState<EventRecurrence>(
-    initialData?.recurrence === 'yearly-nth-weekday'
-      ? 'yearly-nth-weekday'
-      : 'yearly',
-  );
-  const [recurrenceWeek, setRecurrenceWeek] = useState<string>(
-    initialRule ? String(initialRule.n) : '',
-  );
-  const [recurrenceWeekday, setRecurrenceWeekday] = useState<string>(
-    initialRule ? String(initialRule.weekday) : '',
-  );
+  const form = useSchemaForm<EventFormValues>({
+    resource: eventDef,
+    initialData: {
+      name: initialData?.name ?? '',
+      month: initialData?.month ? String(initialData.month) : '',
+      day: initialData?.day ? String(initialData.day) : '',
+      year: initialData?.year != null ? String(initialData.year) : '',
+      tagSelection:
+        initialTag.mode === 'custom'
+          ? CUSTOM_TAG_SENTINEL
+          : initialTag.mode === 'known'
+            ? initialTag.value
+            : '',
+      customTag: initialTag.mode === 'custom' ? initialTag.value : '',
+      recurrence:
+        initialData?.recurrence === 'yearly-nth-weekday' ? 'yearly-nth-weekday' : 'yearly',
+      recurrenceWeek: initialRule ? String(initialRule.n) : '',
+      recurrenceWeekday: initialRule ? String(initialRule.weekday) : '',
+      people: initialPeopleIds,
+    },
+    fields: {
+      name: { id: 'event-name' },
+      // Managed via the split controls below / computed in buildPayload.
+      tag: { hidden: true },
+      recurrence_rule: { hidden: true },
+    },
+    // The UI-shaped controls that don't map 1:1 to schema fields. Month/day/year
+    // stay strings so the native selects/inputs round-trip cleanly.
+    extraFields: {
+      month: { type: 'string' },
+      day: { type: 'string' },
+      year: { type: 'string' },
+      tagSelection: { type: 'string' },
+      customTag: { type: 'string' },
+      recurrence: { type: 'string' },
+      recurrenceWeek: { type: 'string' },
+      recurrenceWeekday: { type: 'string' },
+      people: { type: 'array' },
+    },
+    buildPayload: (v) => {
+      const trimmedYear = String(v.year ?? '').trim();
+      const tagSel = (v.tagSelection as string) ?? '';
+      const resolvedTag =
+        tagSel === CUSTOM_TAG_SENTINEL
+          ? String(v.customTag ?? '').trim() || undefined
+          : tagSel || undefined;
+      const base: EventFormData = {
+        name: String(v.name ?? '').trim(),
+        month: Number(v.month),
+        day: Number(v.day),
+        tag: resolvedTag,
+        people: (v.people as string[]).map((id) => `people/${id}`),
+      };
+      if (trimmedYear !== '') {
+        base.year = Number(trimmedYear);
+      } else if (initialData) {
+        // Editing and the year was cleared — send null so merge-patch drops it.
+        base.year = null;
+      }
+      const week = (v.recurrenceWeek as string) ?? '';
+      const weekday = (v.recurrenceWeekday as string) ?? '';
+      if (v.recurrence === 'yearly-nth-weekday' && week && weekday) {
+        base.recurrence = 'yearly-nth-weekday';
+        base.recurrence_rule = `${week}:${weekday}`;
+      }
+      return base as unknown as Record<string, unknown>;
+    },
+    onSubmit,
+  });
+
+  const busy = isSubmitting || form.isSubmitting;
+  const recurrence = (form.values.recurrence as EventRecurrence) ?? 'yearly';
+  const tagSelection = (form.values.tagSelection as string) ?? '';
+  const selectedPeople = (form.values.people as string[]) ?? [];
 
   const handleTogglePerson = (personId: string) => {
-    setSelectedPeople((prev) =>
-      prev.includes(personId)
-        ? prev.filter((p) => p !== personId)
-        : [...prev, personId],
-    );
+    const next = selectedPeople.includes(personId)
+      ? selectedPeople.filter((p) => p !== personId)
+      : [...selectedPeople, personId];
+    form.setValue('people', next);
   };
 
   const handleRecurrenceChange = (value: string) => {
-    const next = value === 'yearly-nth-weekday' ? 'yearly-nth-weekday' : 'yearly';
-    setRecurrence(next);
-    if (
-      next === 'yearly-nth-weekday' &&
-      month &&
-      day &&
-      (!recurrenceWeek || !recurrenceWeekday)
-    ) {
+    const next: EventRecurrence =
+      value === 'yearly-nth-weekday' ? 'yearly-nth-weekday' : 'yearly';
+    const patch: Record<string, unknown> = { recurrence: next };
+    const month = (form.values.month as string) ?? '';
+    const day = (form.values.day as string) ?? '';
+    const year = (form.values.year as string) ?? '';
+    const week = (form.values.recurrenceWeek as string) ?? '';
+    const weekday = (form.values.recurrenceWeekday as string) ?? '';
+    if (next === 'yearly-nth-weekday' && month && day && (!week || !weekday)) {
       const derived = deriveNthWeekday(
         Number(month),
         Number(day),
         year ? Number(year) : undefined,
       );
-      if (!recurrenceWeek) setRecurrenceWeek(String(derived.n));
-      if (!recurrenceWeekday && derived.weekday != null) {
-        setRecurrenceWeekday(String(derived.weekday));
+      if (!week) patch.recurrenceWeek = String(derived.n);
+      if (!weekday && derived.weekday != null) {
+        patch.recurrenceWeekday = String(derived.weekday);
       }
     }
-  };
-
-  const resolvedTag =
-    tagSelection === CUSTOM_TAG_SENTINEL
-      ? customTag.trim() || undefined
-      : tagSelection || undefined;
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedYear = year.trim();
-    const base: EventFormData = {
-      name: name.trim(),
-      month: Number(month),
-      day: Number(day),
-      tag: resolvedTag,
-      people: selectedPeople.map((id) => `people/${id}`),
-    };
-    if (trimmedYear !== '') {
-      base.year = Number(trimmedYear);
-    } else if (initialData) {
-      // Editing and the year was cleared — send null so merge-patch drops it.
-      base.year = null;
-    }
-    if (recurrence === 'yearly-nth-weekday' && recurrenceWeek && recurrenceWeekday) {
-      base.recurrence = 'yearly-nth-weekday';
-      base.recurrence_rule = `${recurrenceWeek}:${recurrenceWeekday}`;
-    }
-    onSubmit(base);
+    form.setValues(patch);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={form.handleSubmit} className="space-y-6">
       <div>
         <label
           htmlFor="event-name"
@@ -199,8 +238,8 @@ export function EventForm({
           id="event-name"
           data-testid="event-form-name"
           type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={(form.values.name as string) ?? ''}
+          onChange={(e) => form.setValue('name', e.target.value)}
           required
         />
       </div>
@@ -217,8 +256,8 @@ export function EventForm({
             id="event-form-month"
             aria-label="Month"
             data-testid="event-form-month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            value={(form.values.month as string) ?? ''}
+            onChange={(e) => form.setValue('month', e.target.value)}
             className="w-full rounded-md border border-gray-300 px-3 py-2"
             required
           >
@@ -238,8 +277,8 @@ export function EventForm({
             min={1}
             max={31}
             placeholder="Day"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
+            value={(form.values.day as string) ?? ''}
+            onChange={(e) => form.setValue('day', e.target.value)}
             required
           />
         </div>
@@ -248,8 +287,8 @@ export function EventForm({
           data-testid="event-form-year"
           type="number"
           placeholder="Year (optional)"
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
+          value={(form.values.year as string) ?? ''}
+          onChange={(e) => form.setValue('year', e.target.value)}
           className="mt-3"
         />
         <p className="text-sm text-gray-500 mt-1">
@@ -283,8 +322,8 @@ export function EventForm({
             <select
               aria-label="Week of month"
               data-testid="event-form-recurrence-week"
-              value={recurrenceWeek}
-              onChange={(e) => setRecurrenceWeek(e.target.value)}
+              value={(form.values.recurrenceWeek as string) ?? ''}
+              onChange={(e) => form.setValue('recurrenceWeek', e.target.value)}
               className="w-full rounded-md border border-gray-300 px-3 py-2"
               required
             >
@@ -300,8 +339,8 @@ export function EventForm({
             <select
               aria-label="Weekday"
               data-testid="event-form-recurrence-weekday"
-              value={recurrenceWeekday}
-              onChange={(e) => setRecurrenceWeekday(e.target.value)}
+              value={(form.values.recurrenceWeekday as string) ?? ''}
+              onChange={(e) => form.setValue('recurrenceWeekday', e.target.value)}
               className="w-full rounded-md border border-gray-300 px-3 py-2"
               required
             >
@@ -329,7 +368,7 @@ export function EventForm({
           id="event-tag"
           data-testid="event-form-tag"
           value={tagSelection}
-          onChange={(e) => setTagSelection(e.target.value)}
+          onChange={(e) => form.setValue('tagSelection', e.target.value)}
           className="w-full rounded-md border border-gray-300 px-3 py-2"
         >
           <option value="">No tag</option>
@@ -345,8 +384,8 @@ export function EventForm({
             id="event-tag-custom"
             data-testid="event-form-tag-custom"
             type="text"
-            value={customTag}
-            onChange={(e) => setCustomTag(e.target.value)}
+            value={(form.values.customTag as string) ?? ''}
+            onChange={(e) => form.setValue('customTag', e.target.value)}
             placeholder="e.g. graduation"
             className="mt-2"
           />
@@ -371,10 +410,10 @@ export function EventForm({
       <div className="flex gap-3 pt-4">
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={busy}
           data-testid="event-form-submit"
         >
-          {isSubmitting ? 'Saving...' : initialData ? 'Update' : 'Create'}
+          {busy ? 'Saving...' : initialData ? 'Update' : 'Create'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel

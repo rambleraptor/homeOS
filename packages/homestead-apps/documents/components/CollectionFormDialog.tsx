@@ -1,18 +1,23 @@
 /**
  * Create or rename a collection: name, optional description, and a colour for
- * the folder chip. A thin form over the collection CRUD hooks.
+ * the folder chip. Markup unchanged; state/validation/submission run through the
+ * shared `useSchemaForm` engine, with `onSubmit` driving the collection CRUD
+ * hooks. A thrown mutation surfaces as the form's error and keeps the dialog open.
  */
 
-import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import {
   useCreateCollection,
   useUpdateCollection,
   type CollectionInput,
 } from '../hooks/useCollections';
+import { documentsResources } from '../resources';
 import type { Collection } from '../types';
+
+const collectionDef = documentsResources.find((r) => r.singular === 'collection')!;
 
 /** A small preset palette for folder chips (kept legible on a white row). */
 export const COLLECTION_COLORS = [
@@ -42,25 +47,27 @@ export function CollectionFormDialog({
   onSaved,
 }: CollectionFormDialogProps) {
   const editing = !!collection;
-  const [name, setName] = useState(collection?.name ?? '');
-  const [description, setDescription] = useState(collection?.description ?? '');
-  const [color, setColor] = useState<string>(collection?.color ?? COLLECTION_COLORS[0]);
-
   const create = useCreateCollection();
   const update = useUpdateCollection();
   const isSaving = create.isPending || update.isPending;
-  const error = create.error ?? update.error;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const input: CollectionInput = {
-      name: trimmed,
-      description: description.trim() || undefined,
-      color,
-    };
-    try {
+  const form = useSchemaForm<CollectionInput>({
+    resource: collectionDef,
+    initialData: {
+      name: collection?.name ?? '',
+      description: collection?.description ?? '',
+      color: collection?.color ?? COLLECTION_COLORS[0],
+    },
+    fields: {
+      name: { id: 'collection-name' },
+      description: { id: 'collection-description' },
+    },
+    buildPayload: (v) => ({
+      name: String(v.name).trim(),
+      description: String(v.description ?? '').trim() || undefined,
+      color: v.color as string,
+    }),
+    onSubmit: async (input) => {
       if (editing) {
         await update.mutateAsync({ id: collection.id, patch: input });
         onSaved?.(collection.id);
@@ -69,10 +76,11 @@ export function CollectionFormDialog({
         onSaved?.(created.id);
       }
       onClose();
-    } catch {
-      // Error surfaced below; keep the dialog open.
-    }
-  };
+    },
+  });
+
+  const busy = isSaving || form.isSubmitting;
+  const color = (form.values.color as string) ?? COLLECTION_COLORS[0];
 
   return (
     <Modal
@@ -80,17 +88,15 @@ export function CollectionFormDialog({
       onClose={onClose}
       title={editing ? 'Rename collection' : 'New collection'}
     >
-      <form onSubmit={handleSubmit} className="space-y-4" data-testid="collection-form">
+      <form onSubmit={form.handleSubmit} className="space-y-4" data-testid="collection-form">
         <div>
           <label htmlFor="collection-name" className="block text-xs font-medium text-gray-700">
             Name
           </label>
           <input
-            id="collection-name"
+            {...form.register('name')}
             type="text"
             autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             data-testid="collection-name-input"
           />
@@ -101,10 +107,8 @@ export function CollectionFormDialog({
             Description <span className="text-gray-400">(optional)</span>
           </label>
           <input
-            id="collection-description"
+            {...form.register('description')}
             type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             data-testid="collection-description-input"
           />
@@ -119,7 +123,7 @@ export function CollectionFormDialog({
                 type="button"
                 aria-label={`Colour ${c}`}
                 aria-pressed={color === c}
-                onClick={() => setColor(c)}
+                onClick={() => form.setValue('color', c)}
                 className={`h-7 w-7 rounded-full border-2 ${
                   color === c ? 'border-gray-900' : 'border-transparent'
                 }`}
@@ -130,18 +134,18 @@ export function CollectionFormDialog({
           </div>
         </div>
 
-        {error && (
+        {form.formError && (
           <p className="text-sm text-red-600" data-testid="collection-form-error">
-            {error instanceof Error ? error.message : 'Could not save the collection.'}
+            {form.formError}
           </p>
         )}
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSaving || !name.trim()} data-testid="collection-form-save">
-            {isSaving && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
+          <Button type="submit" disabled={busy || !form.isValid} data-testid="collection-form-save">
+            {busy && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
             {editing ? 'Save' : 'Create'}
           </Button>
         </div>

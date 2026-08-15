@@ -2,24 +2,30 @@
  * Redemption Form Component
  *
  * Modal form for adding/editing perk redemptions with explicit period dates.
- * Used for historical data entry — the quick "Redeem" button on PerkRow
- * handles current-period redemptions separately.
+ * Markup unchanged; state/validation/submission run through `useSchemaForm`.
+ * `perk` is the parent (routing, not a stored field) so it's an extra field;
+ * the single period select writes the two schema date fields. Validation keeps
+ * the original sequential messages, shown in the top error box.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
+import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import {
   getCurrentPeriod,
   getPeriodsInRange,
   formatPeriod,
   toLocalISODate,
 } from '../utils/periodUtils';
+import { creditCardsResources } from '../resources';
 import type {
   CreditCardPerk,
   CreditCard,
   PerkRedemption,
   RedemptionFormData,
 } from '../types';
+
+const redemptionDef = creditCardsResources.find((r) => r.singular === 'redemption')!;
 
 interface RedemptionFormProps {
   isOpen: boolean;
@@ -71,12 +77,38 @@ function RedemptionFormBody({
   initialData,
   isSubmitting,
 }: Omit<RedemptionFormProps, 'isOpen'>) {
-  const [formData, setFormData] = useState<RedemptionFormData>(
-    () => buildInitialFormData(perks, card, initialData),
-  );
-  const [error, setError] = useState<string | null>(null);
+  const form = useSchemaForm<RedemptionFormData>({
+    resource: redemptionDef,
+    initialData: buildInitialFormData(perks, card, initialData),
+    // perk is the parent (URL-encoded); period is required but validated by the
+    // sequential rule below, so suppress the per-field required messages.
+    extraFields: { perk: { type: 'string' } },
+    fields: {
+      period_start: { required: false },
+      period_end: { required: false },
+      amount: { required: false },
+    },
+    validate: (v): Record<string, string> | null => {
+      if (!v.perk) return { perk: 'Please select a perk' };
+      if (!v.period_start || !v.period_end) return { period_start: 'Please select a period' };
+      if ((v.amount as number) <= 0) return { amount: 'Amount must be greater than 0' };
+      return null;
+    },
+    buildPayload: (v) => ({
+      perk: v.perk as string,
+      period_start: v.period_start as string,
+      period_end: v.period_end as string,
+      amount: v.amount as number,
+      notes: v.notes as string,
+    }),
+    onSubmit: async (data) => {
+      await onSubmit(data);
+      onClose();
+    },
+  });
 
-  const selectedPerk = perks.find((p) => p.id === formData.perk);
+  const busy = isSubmitting || form.isSubmitting;
+  const selectedPerk = perks.find((p) => p.id === form.values.perk);
 
   // Generate period options: ~1 year back + 1 period forward from today
   const periodOptions = useMemo(() => {
@@ -96,13 +128,11 @@ function RedemptionFormBody({
   const handlePerkChange = (perkId: string) => {
     const perk = perks.find((p) => p.id === perkId);
     if (!perk) {
-      setFormData({ ...formData, perk: perkId });
+      form.setValue('perk', perkId);
       return;
     }
-
     const period = getCurrentPeriod(perk.frequency, card.reset_mode, card.anniversary_date);
-    setFormData({
-      ...formData,
+    form.setValues({
       perk: perkId,
       period_start: toLocalISODate(period.start),
       period_end: toLocalISODate(period.end),
@@ -113,43 +143,22 @@ function RedemptionFormBody({
   const handlePeriodChange = (value: string) => {
     if (!value) return;
     const [start, end] = value.split('|');
-    setFormData({ ...formData, period_start: start, period_end: end });
+    form.setValues({ period_start: start, period_end: end });
   };
 
-  const periodSelectValue = formData.period_start && formData.period_end
-    ? `${formData.period_start}|${formData.period_end}`
-    : '';
+  const periodSelectValue =
+    form.values.period_start && form.values.period_end
+      ? `${form.values.period_start}|${form.values.period_end}`
+      : '';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!formData.perk) {
-      setError('Please select a perk');
-      return;
-    }
-    if (!formData.period_start || !formData.period_end) {
-      setError('Please select a period');
-      return;
-    }
-    if (formData.amount <= 0) {
-      setError('Amount must be greater than 0');
-      return;
-    }
-
-    try {
-      await onSubmit(formData);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save redemption');
-    }
-  };
+  const topError =
+    form.errors.perk || form.errors.period_start || form.errors.amount || form.formError;
 
   return (
-    <form onSubmit={handleSubmit} data-testid="redemption-form" className="space-y-4">
-      {error && (
+    <form onSubmit={form.handleSubmit} data-testid="redemption-form" className="space-y-4">
+      {topError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-sm text-red-700">{error}</p>
+          <p className="text-sm text-red-700">{topError}</p>
         </div>
       )}
 
@@ -160,9 +169,8 @@ function RedemptionFormBody({
         </label>
         <select
           id="redemption-perk"
-          required
           disabled={!!initialData}
-          value={formData.perk}
+          value={(form.values.perk as string) ?? ''}
           onChange={(e) => handlePerkChange(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta disabled:bg-gray-100 disabled:text-gray-500"
         >
@@ -181,7 +189,6 @@ function RedemptionFormBody({
         </label>
         <select
           id="redemption-period"
-          required
           value={periodSelectValue}
           onChange={(e) => handlePeriodChange(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
@@ -207,11 +214,10 @@ function RedemptionFormBody({
           <input
             type="number"
             id="redemption-amount"
-            required
             min="0.01"
             step="0.01"
-            value={formData.amount || ''}
-            onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+            value={(form.values.amount as number) || ''}
+            onChange={(e) => form.setValue('amount', parseFloat(e.target.value) || 0)}
             className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
             placeholder="0.00"
           />
@@ -225,8 +231,8 @@ function RedemptionFormBody({
         </label>
         <textarea
           id="redemption-notes"
-          value={formData.notes}
-          onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+          value={(form.values.notes as string) ?? ''}
+          onChange={(e) => form.setValue('notes', e.target.value)}
           rows={2}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-terracotta focus:border-accent-terracotta"
           placeholder="Optional notes..."
@@ -238,18 +244,18 @@ function RedemptionFormBody({
         <button
           type="button"
           onClick={onClose}
-          disabled={isSubmitting}
+          disabled={busy}
           className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Cancel
         </button>
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={busy}
           data-testid="redemption-form-submit"
           className="px-4 py-2 bg-accent-terracotta hover:bg-accent-terracotta-hover text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          {isSubmitting ? (
+          {busy ? (
             <>
               <div className="w-4 h-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
               Saving...
