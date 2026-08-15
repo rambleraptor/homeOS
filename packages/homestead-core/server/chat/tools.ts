@@ -73,7 +73,8 @@ export interface BuiltTools {
 const USER_ROOT = 'user';
 const USER_ROOT_PLURAL = 'users';
 
-const snake = (s: string): string => s.replace(/-/g, '_');
+/** Tool names are snake_case, so kebab-case resource names lose their hyphens. */
+export const snake = (s: string): string => s.replace(/-/g, '_');
 
 /** Apply a description to a Zod schema only when one is present. */
 function described<T extends z.ZodTypeAny>(schema: T, description?: string): T {
@@ -167,11 +168,31 @@ function fieldToZod(
   }
 }
 
+/** Index definitions by singular — the lookup the chain helpers take. */
+export function indexBySingular(
+  defs: ResourceDefinition[],
+): Map<string, ResourceDefinition> {
+  return new Map(defs.map((d) => [d.singular, d]));
+}
+
+/**
+ * Plural for a singular, falling back to naive pluralization for a target that
+ * isn't declared (the built-in `user` root is special-cased).
+ */
+export function pluralOf(
+  singular: string,
+  bySingular: Map<string, ResourceDefinition>,
+): string {
+  return singular === USER_ROOT
+    ? USER_ROOT_PLURAL
+    : (bySingular.get(singular)?.plural ?? `${singular}s`);
+}
+
 /**
  * Resolve a definition's ancestor chain (root first) by following
  * `parents[0]` until the built-in `user` root or an undeclared parent.
  */
-function resolveParentChain(
+export function resolveParentChain(
   def: ResourceDefinition,
   bySingular: Map<string, ResourceDefinition>,
 ): string[] {
@@ -196,21 +217,17 @@ function resolveParentChain(
  * definitions: one create/read/update/delete tool each.
  */
 export function buildTools(defs: ResourceDefinition[]): BuiltTools {
-  const bySingular = new Map(defs.map((d) => [d.singular, d]));
+  const bySingular = indexBySingular(defs);
   // Singulars that get their own CRUD tools — used to decide whether a
   // reference field's description can point the model at a `read_<x>` tool.
   const readable = new Set(bySingular.keys());
-  const pluralOf = (singular: string): string =>
-    singular === USER_ROOT
-      ? USER_ROOT_PLURAL
-      : (bySingular.get(singular)?.plural ?? `${singular}s`);
 
   const tools: Record<string, ToolSpec> = {};
   const bindings = new Map<string, ToolBinding>();
 
   for (const def of defs) {
     const parentChain = resolveParentChain(def, bySingular);
-    const parentPlurals = parentChain.map(pluralOf);
+    const parentPlurals = parentChain.map((s) => pluralOf(s, bySingular));
 
     // Required id param per ancestor, e.g. gift_card_id for transactions.
     const parentShape: Record<string, z.ZodTypeAny> = {};

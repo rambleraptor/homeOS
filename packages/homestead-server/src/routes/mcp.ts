@@ -26,6 +26,7 @@ import { buildAuthenticators } from '../auth/providers';
 import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
+import { homesteadInstructions } from '../mcp/generic';
 import { scopeAllowsWrite } from '../mcp/scopes';
 
 /** The resource identifier MCP tokens are audience-bound to. */
@@ -121,16 +122,24 @@ export function makeMcpRoute(
     if (caller instanceof Response) return caller;
 
     const defs = resolveDefs();
+    const mode = cfg.mcpTools ?? 'typed';
 
     // Stateless: no session id, one JSON response per request, fresh server +
     // transport each time (tools bind to this caller's token).
-    const server = new McpServer({ name: 'homestead', version: '0.2.0' });
+    const server = new McpServer(
+      { name: 'homestead', version: '0.2.0' },
+      // On the generic surface the tool names no longer name the resources, so
+      // the catalog rides in the initialize instructions instead — clients hand
+      // it to the model once per session.
+      mode === 'generic' ? { instructions: homesteadInstructions(defs) } : undefined,
+    );
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
     });
     registerHomesteadTools(server, defs, caller.token, {
       write: scopeAllowsWrite(caller.scope),
+      mode,
     });
     await server.connect(transport);
     try {

@@ -160,9 +160,11 @@ configured and the rest of Homestead works as normal.
 ## Connect an MCP client
 
 Homestead ships a **built-in [MCP](https://modelcontextprotocol.io) server** at
-`/api/mcp` — no separate process. It exposes the same tools as Chat (create,
-read, update, and delete per resource, plus document search when embeddings are
-configured), and every action runs with the signed-in user's own permissions.
+`/api/mcp` — no separate process. It exposes every resource in the instance,
+plus the app-declared AEP-136 custom methods (the `POST /<plural>:<verb>`
+endpoints declared in `customMethods`, which Chat has no equivalent of), plus
+document search when embeddings are configured. Every action runs with the
+signed-in user's own permissions.
 
 **Enable it.** MCP clients sign in through Homestead's OAuth authorization
 server, so turn that on in `homestead.config.ts` and restart:
@@ -187,17 +189,77 @@ Homestead's sign-in and consent screen in your browser; approve it and the
 client is connected. The model can then list, read, and write your household
 resources.
 
+### The tool surface
+
+By default the server mints **one tool per resource per verb**: `create_book` /
+`read_book` / `update_book` / `delete_book`, plus one tool per custom method
+named after its verb and what it addresses — `classify_document` for an
+`item`-target method, `process_image_groceries` for a `collection`-target one.
+Each takes the addressed record's `id`, any parent ids, and (for a custom
+method) the fields of its declared `request` schema; a method with no declared
+schema gets a single optional `body` param taking a JSON-encoded object.
+
+Async (AEP-151) custom methods answer with an operation rather than a result;
+the tool description tells the model to poll `read_operation` until `done` is
+true and then read its `response`.
+
 **Read-only vs. read + write.** The server advertises two scopes:
 
-| Scope              | Tools exposed                                            |
-| ------------------ | -------------------------------------------------------- |
-| `homestead:read`   | the `read_*` tools per resource, plus document search    |
-| `homestead:write`  | everything read grants, plus create / update / delete    |
+| Scope              | Tools exposed                                                          |
+| ------------------ | ---------------------------------------------------------------------- |
+| `homestead:read`   | the `read_*` tools per resource, `GET` custom methods, document search |
+| `homestead:write`  | everything read grants, plus create / update / delete and the rest of the custom methods |
 
-A client that requests `homestead:read` gets a read-only surface — the
-create/update/delete tools aren't even registered, so a read-only
-authorization can't mutate data. Request `homestead:write` (or both) for full
-access. Clients that request no scope get full read + write, as before.
+A client that requests `homestead:read` gets a read-only surface — the write
+tools aren't even registered, so a read-only authorization can't mutate data.
+Custom methods count as writes unless they're declared `method: 'GET'`. Request
+`homestead:write` (or both) for full access. Clients that request no scope get
+full read + write, as before.
+
+The synthesized `:bulk-import` / `:bulk-export` methods aren't exposed on either
+surface — they move files, not model-composable JSON.
+
+### Fewer tools: the generic surface
+
+A stock instance mints about **167 tools** (40 resources × 4, plus the custom
+methods and document search). That's tens of thousands of tokens of schema in
+the client's context on every request, and past the tool cap some clients
+enforce. Set:
+
+```ts
+auth: { authServer: { mcpTools: 'generic' } }
+```
+
+and the whole surface collapses to **six tools** that take the resource as a
+parameter, so the count stays flat however many apps you add:
+
+| Tool                 | What it does                                                                 |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `describe_resources` | No argument → the catalog. With `resource` → that resource's fields, allowed values, references, parent ids, and custom methods |
+| `read_records`       | `id` for one record, omit it to list the collection                          |
+| `create_record`      | Create one record from a `fields` object                                     |
+| `update_record`      | Merge-patch one record                                                       |
+| `delete_record`      | Delete one record                                                            |
+| `run_custom_method`  | Invoke an AEP-136 custom method by `resource` + `verb`                       |
+
+**Discovery is designed in, not traded away.** The `resource` parameter is a
+real enum of every plural in the instance, so the catalog rides along in each
+tool's schema and the model can neither miss a resource nor invent one. The
+server's `instructions` (sent at initialize, so clients put it in the system
+prompt) carry a one-line description of every resource and its custom methods.
+`describe_resources` returns the full field schema on demand. And a rejected
+write names the fields the resource actually accepts, so a wrong guess
+self-corrects in one round-trip instead of dead-ending.
+
+Nested resources take their ancestor ids in `parent_ids`, keyed by
+`<parent>_id` — `{"gift_card_id": "abc"}` for a transaction. `describe_resources`
+reports which ones a resource needs.
+
+Scopes work the same way: `homestead:read` gets `describe_resources`,
+`read_records`, and `GET` custom methods; `homestead:write` adds the rest.
+Permissions, reference checks, and custom-method dispatch are identical on both
+surfaces — a generic call is translated into the typed call it stands for
+before it executes.
 
 > Prefer an out-of-process option? The community
 > [`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) can still be
