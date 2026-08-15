@@ -28,6 +28,7 @@ import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
 import { homesteadInstructions } from '../mcp/generic';
 import { scopeAllowsWrite } from '../mcp/scopes';
+import { readAppFlag } from '../app-flags';
 
 /** The resource identifier MCP tokens are audience-bound to. */
 export function mcpAudience(issuerUrl: string): string {
@@ -122,7 +123,9 @@ export function makeMcpRoute(
     if (caller instanceof Response) return caller;
 
     const defs = resolveDefs();
-    const mode = cfg.mcpTools ?? 'typed';
+    // Read per request (not at mount) so flipping the flag in Flag Management
+    // takes effect on the client's next tools/list, with no restart.
+    const mode = readAppFlag(engine, 'settings', 'mcp_tools') === 'generic' ? 'generic' : 'typed';
 
     // Stateless: no session id, one JSON response per request, fresh server +
     // transport each time (tools bind to this caller's token).
