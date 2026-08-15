@@ -258,7 +258,37 @@ describe('MCP tool registration (over an in-memory client)', () => {
     return client;
   }
 
-  it('exposes the four CRUD tools for a resource and no search tool by default', async () => {
+  /** The generic surface is opt-in; `mode` defaults to the typed one. */
+  const generic = (opts: RegisterOptions = {}): RegisterOptions => ({ ...opts, mode: 'generic' });
+
+  it('collapses to six tools when the generic surface is selected', async () => {
+    const client = await connectClient([BOOK], generic());
+    const names = (await client.listTools()).tools.map((tool) => tool.name);
+    expect(names.sort()).toEqual([
+      'create_record',
+      'delete_record',
+      'describe_resources',
+      'read_records',
+      'run_custom_method',
+      'update_record',
+    ]);
+    await client.close();
+  });
+
+  it('describes a resource through the generic surface', async () => {
+    const client = await connectClient([BOOK], generic());
+    const res = (await client.callTool({
+      name: 'describe_resources',
+      arguments: { resource: 'books' },
+    })) as { isError?: boolean; content: { type: string; text: string }[] };
+    expect(res.isError).toBeFalsy();
+    const described = JSON.parse(res.content[0].text) as Record<string, any>;
+    expect(described.fields.title).toEqual({ type: 'string', required: true });
+    expect(described.custom_methods[0].verb).toBe('reshelve');
+    await client.close();
+  });
+
+  it('exposes the four CRUD tools per resource by default, and no search tool', async () => {
     const client = await connectClient([BOOK]);
     const { tools } = await client.listTools();
     const names = tools.map((tool) => tool.name);
@@ -279,6 +309,13 @@ describe('MCP tool registration (over an in-memory client)', () => {
     expect(names).not.toContain('delete_book');
     // A POST custom method has side effects, so it's a write too.
     expect(names).not.toContain('reshelve_book');
+    await client.close();
+  });
+
+  it('read-only narrows the generic surface to describe + read', async () => {
+    const client = await connectClient([BOOK], generic({ write: false }));
+    const names = (await client.listTools()).tools.map((tool) => tool.name);
+    expect(names.sort()).toEqual(['describe_resources', 'read_records']);
     await client.close();
   });
 

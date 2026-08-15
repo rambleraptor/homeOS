@@ -23,6 +23,7 @@ import {
   SEARCH_TOOL_NAME,
 } from '@rambleraptor/homestead-core/server/chat/search-tool';
 import { buildCustomMethodTools, executeCustomMethod } from './custom-methods';
+import { buildGenericTools, type McpToolMode } from './generic';
 
 function ok(result: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(result ?? null) }] };
@@ -39,6 +40,15 @@ export interface RegisterOptions {
    * read tools and document search are registered. Defaults to true.
    */
   write?: boolean;
+  /**
+   * Which surface to register:
+   *  - `typed` (default) — per-resource CRUD tools plus one per custom method.
+   *    Richer provider-side schemas, but ~167 tools on a stock instance.
+   *  - `generic` — six resource-parameterized tools (see `./generic`), so the
+   *    tool count stays flat as apps are added. Opt in with
+   *    `auth.authServer.mcpTools: 'generic'`.
+   */
+  mode?: McpToolMode;
 }
 
 /**
@@ -58,6 +68,12 @@ export function registerHomesteadTools(
   opts: RegisterOptions = {},
 ): void {
   const write = opts.write ?? true;
+  if (opts.mode === 'generic') {
+    registerGenericTools(server, defs, token, write);
+    registerSearchTool(server, defs, token);
+    return;
+  }
+
   const { tools, bindings } = buildTools(defs);
 
   for (const [name, spec] of Object.entries(tools)) {
@@ -101,24 +117,57 @@ export function registerHomesteadTools(
     );
   }
 
-  const search = makeSearchTool({ defs, token, record: () => {} });
-  if (search) {
-    const shape = (search.inputSchema as z.ZodObject).shape;
-    const description =
-      typeof search.description === 'string' ? search.description : 'Search uploaded documents.';
-    const execute = search.execute!;
+  registerSearchTool(server, defs, token);
+}
+
+/**
+ * Register the six resource-parameterized tools. The surface is flat — adding
+ * an app changes what `describe_resources` reports and which values the
+ * `resource` enum accepts, not how many tools a client has to hold.
+ */
+function registerGenericTools(
+  server: McpServer,
+  defs: ResourceDefinition[],
+  token: string,
+  write: boolean,
+): void {
+  const { tools, execute } = buildGenericTools(defs, { write });
+  for (const [name, spec] of Object.entries(tools)) {
+    const shape = (spec.inputSchema as z.ZodObject).shape;
     server.registerTool(
-      SEARCH_TOOL_NAME,
-      { description, inputSchema: shape },
+      name,
+      { description: spec.description, inputSchema: shape },
       async (args: Record<string, unknown>): Promise<CallToolResult> => {
-        // The tool's execute takes (args, options); our impl ignores options,
-        // so a minimal stub cast to the SDK's option type is safe.
-        const options = { toolCallId: 'mcp', messages: [] } as unknown as Parameters<
-          typeof execute
-        >[1];
-        const result = await execute(args as Parameters<typeof execute>[0], options);
-        return ok(result);
+        const out = await execute(name, args, token);
+        return out.ok ? ok(out.result) : err(out.error);
       },
     );
   }
+}
+
+/** The semantic document search, registered only when embeddings are configured. */
+function registerSearchTool(
+  server: McpServer,
+  defs: ResourceDefinition[],
+  token: string,
+): void {
+  const search = makeSearchTool({ defs, token, record: () => {} });
+  if (!search) return;
+  const shape = (search.inputSchema as z.ZodObject).shape;
+  const description =
+    typeof search.description === 'string' ? search.description : 'Search uploaded documents.';
+  const execute = search.execute!;
+  server.registerTool(
+    SEARCH_TOOL_NAME,
+    { description, inputSchema: shape },
+    async (args: Record<string, unknown>): Promise<CallToolResult> => {
+      // The tool's execute takes (args, options); our impl ignores options,
+      // so a minimal stub cast to the SDK's option type is safe.
+      const options = { toolCallId: 'mcp', messages: [] } as unknown as Parameters<
+        typeof execute
+      >[1];
+      const result = await execute(args as Parameters<typeof execute>[0], options);
+      return ok(result);
+    },
+  );
 }
