@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, Star } from 'lucide-react';
 
 export interface PersonOption {
   id: string;
@@ -30,6 +30,10 @@ export interface PersonSelectorProps {
   containerTestId?: string;
   /** Per-row data-testid generator (e.g. `id => \`player-toggle-${id}\``). */
   itemTestId?: (personId: string) => string;
+  /** Bare ids the current user has starred: these sort to the front and show a
+   *  star. Purely presentational — curate stars from a picker or the People
+   *  app. Omit to keep the caller's order with no stars. */
+  favoriteIds?: Set<string>;
 }
 
 const DEFAULT_EMPTY =
@@ -50,14 +54,21 @@ export function PersonSelector({
   searchPlaceholder = 'Search people…',
   containerTestId,
   itemTestId,
+  favoriteIds,
 }: PersonSelectorProps) {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return people;
-    return people.filter((p) => p.name.toLowerCase().includes(q));
-  }, [people, query]);
+    const matched = q
+      ? people.filter((p) => p.name.toLowerCase().includes(q))
+      : people;
+    if (!favoriteIds?.size) return matched;
+    // Stable partition: starred people first, each group keeps caller order.
+    const starred = matched.filter((p) => favoriteIds.has(p.id));
+    const rest = matched.filter((p) => !favoriteIds.has(p.id));
+    return [...starred, ...rest];
+  }, [people, query, favoriteIds]);
 
   if (loading) {
     return (
@@ -113,6 +124,7 @@ export function PersonSelector({
         <div className={wrapperClass} data-testid={containerTestId}>
           {filtered.map((person) => {
             const active = isSelected(person.id);
+            const starred = favoriteIds?.has(person.id) ?? false;
             return (
               <button
                 key={person.id}
@@ -120,12 +132,20 @@ export function PersonSelector({
                 onClick={() => onToggle(person.id)}
                 data-testid={itemTestId ? itemTestId(person.id) : undefined}
                 aria-pressed={active}
-                className={`${buttonBase} ${
+                className={`${buttonBase} inline-flex items-center gap-1.5 ${
                   active
                     ? 'bg-accent-terracotta border-accent-terracotta text-white'
                     : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
               >
+                {starred && (
+                  <Star
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      active ? 'fill-white text-white' : 'fill-amber-400 text-amber-400'
+                    }`}
+                    aria-hidden="true"
+                  />
+                )}
                 {person.name}
               </button>
             );

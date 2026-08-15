@@ -75,6 +75,62 @@ describe('ReferenceField', () => {
     expect(screen.queryByText('Person')).not.toBeInTheDocument();
   });
 
+  it('floats favorites to the top of the option list', async () => {
+    const user = userEvent.setup();
+    // Alice, Bob come back in that order; Bob is starred → Bob leads.
+    renderWithClient(
+      <ReferenceField
+        collection="people"
+        value={[]}
+        onChange={() => {}}
+        testId="picker"
+        favoriteIds={new Set(['b'])}
+      />,
+    );
+    await user.click(screen.getByTestId('picker-input'));
+    await screen.findByTestId('picker-option-a');
+    const options = screen.getByRole('listbox').querySelectorAll('[role="option"]');
+    expect([...options].map((el) => el.textContent)).toEqual(['Bob', 'Alice']);
+  });
+
+  it('renders a star toggle per option and fires onToggleFavorite by bare id', async () => {
+    const user = userEvent.setup();
+    const onToggleFavorite = vi.fn();
+    renderWithClient(
+      <ReferenceField
+        collection="people"
+        value={[]}
+        onChange={() => {}}
+        testId="picker"
+        favoriteIds={new Set(['a'])}
+        onToggleFavorite={onToggleFavorite}
+      />,
+    );
+    await user.click(screen.getByTestId('picker-input'));
+    const star = await screen.findByTestId('picker-star-a');
+    await user.click(star);
+    expect(onToggleFavorite).toHaveBeenCalledWith('a');
+  });
+
+  it('star toggle does not select the option', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderWithClient(
+      <ReferenceField
+        collection="people"
+        value={[]}
+        onChange={onChange}
+        testId="picker"
+        favoriteIds={new Set()}
+        onToggleFavorite={() => {}}
+      />,
+    );
+    await user.click(screen.getByTestId('picker-input'));
+    const star = await screen.findByTestId('picker-star-a');
+    await user.click(star);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('selects an option and emits its {collection}/{id} path', async () => {
     const user = userEvent.setup();
     function Harness() {

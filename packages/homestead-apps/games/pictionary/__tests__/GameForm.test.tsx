@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { GameForm } from '../components/GameForm';
 
@@ -22,7 +23,12 @@ const PEOPLE = [
 ];
 
 function renderForm(ui: React.ReactElement) {
-  return render(<ToastProvider>{ui}</ToastProvider>);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <ToastProvider>{ui}</ToastProvider>
+    </QueryClientProvider>,
+  );
 }
 
 describe('GameForm', () => {

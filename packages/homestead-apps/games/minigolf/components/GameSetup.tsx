@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { usePeople } from '../../../people/hooks/usePeople';
 import { PersonSelector } from '@rambleraptor/homestead-core/shared/components/PersonSelector';
+import { useFavorites } from '@rambleraptor/homestead-core/shared/favorites';
 import { ScoreStepper } from './ScoreStepper';
 import type { GameFormData } from '../types';
 
@@ -21,6 +22,7 @@ const DEFAULT_HOLE_COUNT = 9;
 
 export function GameSetup({ onStart, onCancel, isSubmitting }: GameSetupProps) {
   const { data: people, isLoading: peopleLoading } = usePeople();
+  const personFavorites = useFavorites('person');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [holeCount, setHoleCount] = useState<number>(DEFAULT_HOLE_COUNT);
   const [location, setLocation] = useState<string>('');
@@ -76,6 +78,7 @@ export function GameSetup({ onStart, onCancel, isSubmitting }: GameSetupProps) {
           emptyMessage="Add people in the People app first, then come back to start a game."
           containerTestId="player-picker"
           itemTestId={(id) => `player-toggle-${id}`}
+          favoriteIds={personFavorites.favoriteIds}
         />
       </section>
 

@@ -27,6 +27,7 @@ export const USER_PREFERENCES = 'preferences' as const;
 export const ACTIONS = 'actions' as const;
 export const RUNS = 'runs' as const;
 export const PERSONAL_ACCESS_TOKENS = 'personal-access-tokens' as const;
+export const FAVORITES = 'favorites' as const;
 
 export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
   {
@@ -99,6 +100,33 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
             effect: { type: 'string', enum: ['allow', 'deny'] },
           },
         },
+      },
+    },
+  },
+  {
+    // A record the owner has starred so pickers can surface it first. The link
+    // is polymorphic — `target_resource` names the kind (e.g. `person`) and
+    // `target_id` the record — so one collection serves stars for any resource
+    // without a per-resource favorites table. Parented under `user` + `owner`
+    // access keeps each household member's stars private to them. A stale
+    // favorite (its target deleted) is inert: pickers simply don't resolve it.
+    singular: 'favorite',
+    plural: FAVORITES,
+    description:
+      "A record the owner has starred, to surface it first in pickers. Polymorphic: target_resource names the kind, target_id the record.",
+    user_settable_create: true,
+    access: { model: 'owner' },
+    parents: ['user'],
+    fields: {
+      target_resource: {
+        type: 'string',
+        required: true,
+        description: 'singular name of the starred resource, e.g. person',
+      },
+      target_id: {
+        type: 'string',
+        required: true,
+        description: 'id of the starred record (bare, no collection prefix)',
       },
     },
   },

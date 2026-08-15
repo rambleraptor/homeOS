@@ -2,7 +2,15 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GameSetup } from '../components/GameSetup';
+
+// GameSetup reads the current user's person favorites (react-query) to order
+// the roster, so tests render it under a QueryClientProvider.
+function renderWithClient(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 // Mock the people hook — GameSetup consumes it directly.
 vi.mock('../../../people/hooks/usePeople', () => ({
@@ -31,7 +39,7 @@ describe('GameSetup', () => {
       { id: 'a', name: 'Alice' },
       { id: 'b', name: 'Bob' },
     ]);
-    render(<GameSetup onStart={() => {}} onCancel={() => {}} />);
+    renderWithClient(<GameSetup onStart={() => {}} onCancel={() => {}} />);
     expect(screen.getByTestId('start-game-button')).toBeDisabled();
   });
 
@@ -42,7 +50,7 @@ describe('GameSetup', () => {
       { id: 'a', name: 'Alice' },
       { id: 'b', name: 'Bob' },
     ]);
-    render(<GameSetup onStart={onStart} onCancel={() => {}} />);
+    renderWithClient(<GameSetup onStart={onStart} onCancel={() => {}} />);
 
     await user.click(screen.getByTestId('player-toggle-a'));
     await user.click(screen.getByTestId('player-toggle-b'));
@@ -65,7 +73,7 @@ describe('GameSetup', () => {
       { id: 'a', name: 'Alice' },
       { id: 'b', name: 'Bob' },
     ]);
-    render(<GameSetup onStart={onStart} onCancel={() => {}} />);
+    renderWithClient(<GameSetup onStart={onStart} onCancel={() => {}} />);
 
     await user.click(screen.getByTestId('player-toggle-a'));
     await user.click(screen.getByTestId('player-toggle-a'));
@@ -80,7 +88,7 @@ describe('GameSetup', () => {
     const user = userEvent.setup();
     const onStart = vi.fn();
     stubPeople([{ id: 'a', name: 'Alice' }]);
-    render(<GameSetup onStart={onStart} onCancel={() => {}} />);
+    renderWithClient(<GameSetup onStart={onStart} onCancel={() => {}} />);
 
     await user.click(screen.getByTestId('player-toggle-a'));
     // Bump hole count 9 -> 12

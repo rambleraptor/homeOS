@@ -13,6 +13,7 @@ import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { PersonSelector } from '@rambleraptor/homestead-core/shared/components/PersonSelector';
+import { useFavorites } from '@rambleraptor/homestead-core/shared/favorites';
 import { parseNthWeekdayRule } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { usePeople } from '../../people/hooks/usePeople';
 import { KNOWN_EVENT_TAGS } from '../types';
@@ -112,6 +113,7 @@ export function EventForm({
   isSubmitting,
 }: EventFormProps) {
   const { data: people = [] } = usePeople();
+  const personFavorites = useFavorites('person');
 
   const initialPeopleIds = (initialData?.people ?? []).map(personIdFromRef);
   const initialTag = knownTagOrCustom(initialData?.tag);
@@ -403,6 +405,7 @@ export function EventForm({
           onToggle={handleTogglePerson}
           containerTestId="event-form-people"
           itemTestId={(id) => `event-form-person-${id}`}
+          favoriteIds={personFavorites.favoriteIds}
           emptyMessage="Add people in the People app first to tag them on events."
         />
       </div>

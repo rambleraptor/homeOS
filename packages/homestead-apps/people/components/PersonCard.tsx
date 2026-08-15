@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { Cake, CalendarHeart, Edit, Heart, Trash2, MapPin, Users } from 'lucide-react';
+import { Cake, CalendarHeart, Edit, Heart, Star, Trash2, MapPin, Users } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useAuth } from '@rambleraptor/homestead-core/auth/useAuth';
+import { useFavorites } from '@rambleraptor/homestead-core/shared/favorites';
 import {
   getNextEventOccurrence,
   parseDateString,
@@ -51,6 +52,8 @@ export function PersonCard({
   const { user } = useAuth();
   const partner = person.partner;
   const events = useEventsForPerson(person.id);
+  const favorites = useFavorites('person');
+  const starred = favorites.isFavorite(person.id);
 
   const formatAddress = (address: Person['addresses'][0]): string => {
     const parts = [
@@ -141,6 +144,18 @@ export function PersonCard({
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => favorites.toggle(person.id)}
+            aria-pressed={starred}
+            aria-label={`${starred ? 'Unstar' : 'Star'} ${person.name}`}
+            data-testid={`person-star-${person.id}`}
+          >
+            <Star
+              className={`w-4 h-4 ${starred ? 'fill-amber-400 text-amber-400' : ''}`}
+            />
+          </Button>
           <Button
             variant="secondary"
             size="sm"

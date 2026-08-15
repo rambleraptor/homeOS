@@ -8,6 +8,7 @@
  */
 
 import { SchemaForm } from '@rambleraptor/homestead-core/shared/forms';
+import { PersonReferenceField } from '../../people/components/PersonReferenceField';
 import type { HSAReceipt } from '../types';
 import { hsaResources } from '../resources';
 
@@ -57,6 +58,8 @@ export function HSAReceiptEditForm({
         patient: { id: 'edit-patient', placeholder: 'Self, Spouse, Child, etc.' },
         person: {
           id: 'edit-person',
+          widget: PersonReferenceField,
+          bare: true,
           collection: 'people',
           testId: 'hsa-receipt-edit-person',
           emptyMessage: 'No people found — add them in the People app.',
