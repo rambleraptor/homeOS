@@ -5,7 +5,7 @@
  * via the shared blob-URL hook.
  */
 
-import { FileQuestion, Loader2 } from 'lucide-react';
+import { ExternalLink, FileQuestion, Loader2 } from 'lucide-react';
 import { useDocumentFileUrl } from '../hooks/useDocumentFileUrl';
 import { fileKind } from '../fileKind';
 import type { Document } from '../types';
@@ -51,12 +51,26 @@ export function DocumentViewer({ document }: { document: Document }) {
 
   if (kind === 'pdf') {
     return (
-      <div className={frame} data-testid="document-viewer">
-        <iframe
-          src={url}
-          title={document.title || 'Document preview'}
-          className="h-[70vh] w-full"
-        />
+      <div className="space-y-2">
+        <div className={frame} data-testid="document-viewer">
+          <iframe
+            src={url}
+            title={document.title || 'Document preview'}
+            className="h-[70vh] w-full"
+          />
+        </div>
+        {/* Phone browsers give an embedded PDF very little room (and iOS shows
+            only its first page), so offer the full-screen view alongside it. */}
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-brand-slate"
+          data-testid="document-viewer-open"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open full screen
+        </a>
       </div>
     );
   }

@@ -178,15 +178,22 @@ export function useResourceItem<T>(
  * `filename` is the field's stored value; passing it lets the URL refresh when
  * a new upload replaces the file. Returns null until the bytes resolve (and
  * whenever `id`/`filename` are absent).
+ *
+ * Pass `type` (the record's stored MIME type) whenever the caller knows it:
+ * `:download` serves every file as `application/octet-stream`, and a blob URL
+ * carrying that type is treated as an unknown download rather than something
+ * to render — an `<iframe>` or a new tab turns into a download prompt instead
+ * of an inline preview. `<img>` sniffs the bytes and survives without it;
+ * PDFs do not.
  */
 export function useFileFieldUrl(
   plural: string,
   id: string | null | undefined,
   field: string,
   filename: string | null | undefined,
-  options: { parent?: ParentPath } = {},
+  options: { parent?: ParentPath; type?: string | null } = {},
 ): string | null {
-  const { parent } = options;
+  const { parent, type } = options;
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -201,7 +208,9 @@ export function useFileFieldUrl(
       .download(plural, id, field, { parent })
       .then((blob) => {
         if (cancelled) return;
-        createdUrl = URL.createObjectURL(blob);
+        // `slice` with a content type is the cheap way to re-label the bytes.
+        const typed = type && blob.type !== type ? blob.slice(0, blob.size, type) : blob;
+        createdUrl = URL.createObjectURL(typed);
         setUrl(createdUrl);
       })
       .catch((error) => {
@@ -216,7 +225,7 @@ export function useFileFieldUrl(
     // `parent` is a fresh array each render; callers pass a stable field set,
     // so key the effect on the primitive inputs that actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plural, id, field, filename]);
+  }, [plural, id, field, filename, type]);
 
   return id && filename ? url : null;
 }
