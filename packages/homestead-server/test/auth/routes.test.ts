@@ -141,3 +141,156 @@ describe('POST /api/auth/logout', () => {
     expect(reuse.status).toBe(401);
   });
 });
+
+/** Sign in and return the fresh session. */
+async function signIn(h: Harness): Promise<Session> {
+  const res = await post(h.app, '/api/auth/login', {
+    email: 'member@example.com',
+    password: PASSWORD,
+  });
+  return (await res.json()) as Session;
+}
+
+interface Session {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+const NEW_PASSWORD = 'a different battery staple';
+
+describe('POST /api/auth/change-password', () => {
+  let h: Harness;
+  beforeEach(async () => {
+    h = await harness();
+  });
+
+  test('changes the password when the current one is correct', async () => {
+    const session = await signIn(h);
+    const res = await post(
+      h.app,
+      '/api/auth/change-password',
+      { current_password: PASSWORD, new_password: NEW_PASSWORD },
+      session.access_token,
+    );
+    expect(res.status).toBe(200);
+
+    // The old password no longer signs in; the new one does.
+    const old = await post(h.app, '/api/auth/login', {
+      email: 'member@example.com',
+      password: PASSWORD,
+    });
+    expect(old.status).toBe(401);
+    const fresh = await post(h.app, '/api/auth/login', {
+      email: 'member@example.com',
+      password: NEW_PASSWORD,
+    });
+    expect(fresh.status).toBe(200);
+  });
+
+  test('returns a working session so the caller stays signed in', async () => {
+    const session = await signIn(h);
+    const res = await post(
+      h.app,
+      '/api/auth/change-password',
+      { current_password: PASSWORD, new_password: NEW_PASSWORD },
+      session.access_token,
+    );
+    const rotated = (await res.json()) as Session;
+    expect(rotated.access_token).not.toBe(session.access_token);
+    expect(h.auth.validateAccessToken(rotated.access_token)?.id).toBe(h.user.id);
+  });
+
+  test('revokes every other session, including one an attacker holds', async () => {
+    const victim = await signIn(h);
+    const attacker = await signIn(h);
+
+    const res = await post(
+      h.app,
+      '/api/auth/change-password',
+      { current_password: PASSWORD, new_password: NEW_PASSWORD },
+      victim.access_token,
+    );
+    expect(res.status).toBe(200);
+
+    // Both pre-change access tokens are dead, and neither refresh token works.
+    expect(h.auth.validateAccessToken(attacker.access_token)).toBeNull();
+    expect(h.auth.validateAccessToken(victim.access_token)).toBeNull();
+    const reuse = await post(h.app, '/api/auth/refresh', {
+      refresh_token: attacker.refresh_token,
+    });
+    expect(reuse.status).toBe(401);
+  });
+
+  test('a wrong current password is 401 and changes nothing', async () => {
+    const session = await signIn(h);
+    const res = await post(
+      h.app,
+      '/api/auth/change-password',
+      { current_password: 'not the password', new_password: NEW_PASSWORD },
+      session.access_token,
+    );
+    expect(res.status).toBe(401);
+
+    // The session survives and the original password still works.
+    expect(h.auth.validateAccessToken(session.access_token)?.id).toBe(h.user.id);
+    const still = await post(h.app, '/api/auth/login', {
+      email: 'member@example.com',
+      password: PASSWORD,
+    });
+    expect(still.status).toBe(200);
+  });
+
+  test('a new password that fails the policy is 400', async () => {
+    const session = await signIn(h);
+    const res = await post(
+      h.app,
+      '/api/auth/change-password',
+      { current_password: PASSWORD, new_password: 'sh0rt' },
+      session.access_token,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test('reusing the current password as the new one is 400', async () => {
+    const session = await signIn(h);
+    const res = await post(
+      h.app,
+      '/api/auth/change-password',
+      { current_password: PASSWORD, new_password: PASSWORD },
+      session.access_token,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  test('without a token it is 401', async () => {
+    const res = await post(h.app, '/api/auth/change-password', {
+      current_password: PASSWORD,
+      new_password: NEW_PASSWORD,
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /api/auth/logout-all', () => {
+  test('revokes other sessions and keeps the caller signed in', async () => {
+    const h = await harness();
+    const phone = await signIn(h);
+    const laptop = await signIn(h);
+
+    const res = await post(h.app, '/api/auth/logout-all', undefined, laptop.access_token);
+    expect(res.status).toBe(200);
+    const rotated = (await res.json()) as Session;
+
+    // The other device is signed out; this one carries on with a new token.
+    expect(h.auth.validateAccessToken(phone.access_token)).toBeNull();
+    expect(h.auth.validateAccessToken(laptop.access_token)).toBeNull();
+    expect(h.auth.validateAccessToken(rotated.access_token)?.id).toBe(h.user.id);
+  });
+
+  test('without a token it is 401', async () => {
+    const h = await harness();
+    const res = await post(h.app, '/api/auth/logout-all');
+    expect(res.status).toBe(401);
+  });
+});

@@ -134,19 +134,67 @@ describe('user CRUD permissions', () => {
     expect((await promoted.json()).type).toBe('superuser');
   });
 
-  test('password update re-hashes and old password stops working', async () => {
-    const u = await seedUser(t.engine, { email: 'u@example.com', password: 'old-pass' });
+  test('superuser password reset re-hashes and old password stops working', async () => {
+    const u = await seedUser(t.engine, { email: 'u@example.com', password: 'old-password' });
     await call(t.engine, 'PATCH', `/users/${u.user.id}`, {
-      token: u.token,
-      body: { password: 'new-pass' },
+      token: t.adminToken,
+      body: { password: 'new-password' },
     });
     const oldLogin = await call(t.engine, 'POST', '/users/:login', {
-      body: { email: 'u@example.com', password: 'old-pass' },
+      body: { email: 'u@example.com', password: 'old-password' },
     });
     expect(oldLogin.status).toBe(401);
     const newLogin = await call(t.engine, 'POST', '/users/:login', {
-      body: { email: 'u@example.com', password: 'new-pass' },
+      body: { email: 'u@example.com', password: 'new-password' },
     });
     expect(newLogin.status).toBe(200);
+  });
+
+  // A bearer token proves possession of a session, not knowledge of the
+  // password — so it must not be enough to rewrite the password. Self-service
+  // goes through /api/auth/change-password, which demands the current one.
+  test('a user cannot patch their own password', async () => {
+    const u = await seedUser(t.engine, { email: 'self@example.com', password: 'old-password' });
+    const res = await call(t.engine, 'PATCH', `/users/${u.user.id}`, {
+      token: u.token,
+      body: { password: 'attacker-chosen' },
+    });
+    expect(res.status).toBe(403);
+
+    // The old password still works — the patch changed nothing.
+    const stillOld = await call(t.engine, 'POST', '/users/:login', {
+      body: { email: 'self@example.com', password: 'old-password' },
+    });
+    expect(stillOld.status).toBe(200);
+  });
+
+  test('an administrative password reset revokes the target user sessions', async () => {
+    const u = await seedUser(t.engine, { email: 'kick@example.com', password: 'old-password' });
+    // The seeded session works before the reset.
+    const before = await call(t.engine, 'GET', '/users/me', { token: u.token });
+    expect(before.status).toBe(200);
+
+    await call(t.engine, 'PATCH', `/users/${u.user.id}`, {
+      token: t.adminToken,
+      body: { password: 'new-password' },
+    });
+
+    const after = await call(t.engine, 'GET', '/users/me', { token: u.token });
+    expect(after.status).toBe(401);
+  });
+
+  test('password writes are policy-checked on create and update', async () => {
+    const short = await call(t.engine, 'POST', '/users', {
+      token: t.adminToken,
+      body: { email: 'short@example.com', password: 'sh0rt' },
+    });
+    expect(short.status).toBe(400);
+
+    const u = await seedUser(t.engine, { email: 'policy@example.com', password: 'old-password' });
+    const patched = await call(t.engine, 'PATCH', `/users/${u.user.id}`, {
+      token: t.adminToken,
+      body: { password: 'sh0rt' },
+    });
+    expect(patched.status).toBe(400);
   });
 });

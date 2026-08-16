@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DashboardWidgetSettings } from './DashboardWidgetSettings';
 import { NotificationDevices } from './NotificationDevices';
 import { ChangePasswordForm } from './ChangePasswordForm';
+import { SignOutEverywhere } from './SignOutEverywhere';
 import { PersonalAccessTokens } from './PersonalAccessTokens';
 import { ConnectedApps } from './ConnectedApps';
 import { AppUserSettingsCard } from '@rambleraptor/homestead-core/user-settings/components/AppUserSettingsCard';
@@ -79,7 +80,10 @@ export function SettingsHome() {
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
               Security
             </h2>
-            <ChangePasswordForm />
+            <div className="space-y-4">
+              <ChangePasswordForm />
+              <SignOutEverywhere />
+            </div>
           </div>
         </div>
       )}

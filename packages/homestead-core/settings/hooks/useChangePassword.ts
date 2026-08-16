@@ -1,11 +1,16 @@
 /**
- * Change the current user's password.
+ * Change the current user's password via `POST /api/auth/change-password`.
  *
- * aepbase has no dedicated change-password endpoint, but `PATCH /users/{id}`
- * accepts a `password` field and bcrypt-hashes it server-side. To preserve
- * the "old password required" security property we first re-authenticate
- * via `POST /users/:login` with the current password; only on success do we
- * patch in the new one.
+ * The server verifies the current password, applies the shared password policy,
+ * and revokes every session minted under the old password — handing this caller
+ * a fresh one, which the aepbase client stores. That means a password change
+ * signs out other devices (and anyone who had stolen a token) without signing
+ * out the tab doing the changing.
+ *
+ * This used to re-authenticate client-side and then `PATCH /users/{id}`, which
+ * only *looked* like it required the old password: the engine accepted the
+ * patch from any bearer token. `PATCH /users/{id}` is superuser-only for
+ * passwords now, so this route is the sole self-service path.
  */
 
 import { useMutation } from '@tanstack/react-query';
@@ -23,17 +28,7 @@ export function useChangePassword() {
       if (data.password !== data.passwordConfirm) {
         throw new Error('New password and confirmation do not match');
       }
-      const user = aepbase.getCurrentUser();
-      if (!user) throw new Error('User not authenticated');
-
-      // Verify the current password by re-logging in. Throws on mismatch.
-      await aepbase.login(user.email, data.oldPassword);
-
-      // Update the password. aepbase hashes server-side.
-      const updated = await aepbase.update('users', user.id, {
-        password: data.password,
-      });
-      return updated;
+      await aepbase.changePassword(data.oldPassword, data.password);
     },
   });
 }

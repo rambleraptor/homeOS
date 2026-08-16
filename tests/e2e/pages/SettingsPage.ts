@@ -47,6 +47,39 @@ export class SettingsPage {
   }
 
   /**
+   * Open the Connections tab and wait for its personal-access-token list to
+   * load. That list is fetched with the session's bearer token, so a successful
+   * render is evidence the session still authenticates — checkable without a
+   * navigation, which matters after a credential rotation.
+   */
+  async expectSessionStillAuthenticates() {
+    await this.page.getByTestId('settings-tab-connections').click();
+    await expect(this.page.getByTestId('settings-connections')).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: /personal access tokens/i })).toBeVisible({
+      timeout: 10000,
+    });
+  }
+
+  /**
+   * "Sign out everywhere" — revokes the user's other sessions. The server hands
+   * back a fresh session for this tab, so the page stays signed in.
+   */
+  async signOutEverywhere() {
+    await this.page.getByTestId('sign-out-everywhere').click();
+    // The confirm dialog's own button carries the same label.
+    await this.page
+      .getByRole('button', { name: /^sign out everywhere$/i })
+      .last()
+      .click();
+  }
+
+  async expectSignOutEverywhereSuccess() {
+    await expect(this.page.getByText(/signed out on all other devices/i)).toBeVisible({
+      timeout: 5000,
+    });
+  }
+
+  /**
    * Per-user "map provider" setting, declared by the People app and
    * rendered through the auto-generated form in the App Settings
    * section of the Settings page.
