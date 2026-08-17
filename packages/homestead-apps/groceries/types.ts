@@ -35,6 +35,12 @@ export interface GroceryItemFormData {
   name: string;
   notes?: string;
   store?: string;
+  /**
+   * Normally left unset — a new item starts unchecked. Carried here so undoing
+   * a delete can restore an already-checked item in the state it was in,
+   * rather than resurrecting it as outstanding shopping.
+   */
+  checked?: boolean;
 }
 
 /**

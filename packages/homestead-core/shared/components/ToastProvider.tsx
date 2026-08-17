@@ -17,7 +17,32 @@ interface ToastContextValue {
   error: (error: unknown, duration?: number) => void;
   info: (message: string, duration?: number) => void;
   warning: (message: string, duration?: number) => void;
+  /**
+   * Confirm an action and offer to reverse it.
+   *
+   * The alternative to a confirmation dialog. A dialog taxes every single
+   * delete to guard against the rare unintended one; an undo toast lets the
+   * common case go through untouched and gives the rare one a way back. It
+   * also tells the user something happened at all, which an instant silent
+   * delete never does.
+   *
+   * The action still runs immediately — this is not a deferred delete. That
+   * keeps the write durable the moment it's asked for: nothing is lost if the
+   * tab closes or the app is navigated away from inside the undo window, which
+   * is the failure mode a "cancel the pending delete" design quietly carries.
+   * The tradeoff is that `onUndo` has to *restore* rather than *cancel*, so
+   * reserve this for records that can be recreated without consequence —
+   * nothing referring to them by id, no children to orphan. A cascading
+   * delete should still ask first.
+   *
+   * Runs longer than a normal toast: the point is to still be there when the
+   * user realises their mistake.
+   */
+  undo: (message: string, onUndo: () => void, duration?: number) => void;
 }
+
+/** Long enough to notice a mistake and reach the button, short of a nuisance. */
+const UNDO_DURATION_MS = 8000;
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
@@ -69,7 +94,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [showToast]
   );
 
-  const value = { showToast, success, error, info, warning };
+  const undo = useCallback(
+    (message: string, onUndo: () => void, duration?: number) =>
+      sonnerToast(message, {
+        duration: duration ?? UNDO_DURATION_MS,
+        action: { label: 'Undo', onClick: onUndo },
+      }),
+    []
+  );
+
+  const value = { showToast, success, error, info, warning, undo };
 
   return (
     <ToastContext.Provider value={value}>

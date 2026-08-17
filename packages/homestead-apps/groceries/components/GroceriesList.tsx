@@ -13,9 +13,11 @@ import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Ske
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useUpdateGroceryItem } from '../hooks/useUpdateGroceryItem';
 import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
+import { useCreateGroceryItem } from '../hooks/useCreateGroceryItem';
 import { useMarkStoreCompleted } from '../hooks/useMarkStoreCompleted';
 import { GroceryList } from './GroceryList';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 
@@ -25,8 +27,10 @@ export function GroceriesList() {
   const { stats, isLoading, isError, error } = useGroupedGroceries();
   const updateMutation = useUpdateGroceryItem();
   const deleteMutation = useDeleteGroceryItem();
+  const createMutation = useCreateGroceryItem();
   const markStoreCompletedMutation = useMarkStoreCompleted();
   const { isOffline } = useOnlineStatus();
+  const toast = useToast();
 
   // Fire-and-forget — optimistic onMutate updates the cache synchronously,
   // so awaiting the mutation would just leak a hanging promise when the
@@ -35,8 +39,28 @@ export function GroceriesList() {
     updateMutation.mutate({ id, data: { checked } });
   };
 
+  // Deleting an item used to be instant, silent, and unrecoverable — one
+  // mis-tap next to the checkbox and it was simply gone, with nothing on
+  // screen to say so. The toast both confirms it happened and offers the way
+  // back. Undo recreates the item rather than cancelling the delete, so the
+  // restored row carries a new id; nothing references a grocery item, so that
+  // is invisible here (see `ToastProvider.undo` for when it wouldn't be).
   const handleDeleteItem = (id: string) => {
+    const item = stats.stores
+      .flatMap((group) => group.items)
+      .find((candidate) => candidate.id === id);
+
     deleteMutation.mutate(id);
+
+    if (!item) return;
+    toast.undo(`Deleted ${item.name}`, () => {
+      createMutation.mutate({
+        name: item.name,
+        notes: item.notes,
+        store: item.store,
+        checked: item.checked,
+      });
+    });
   };
 
   const handleMarkStoreCompleted = (storeId: string | null) => {

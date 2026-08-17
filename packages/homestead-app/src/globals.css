@@ -100,6 +100,40 @@
   /* A slight overshoot, for reward moments only. Never on routine UI: the
    * bounce reads as playful once and as sloppy the twentieth time. */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Named animations
+   *
+   * `--animate-*` is a Tailwind v4 theme namespace, so each entry here becomes
+   * an `animate-<name>` utility with its keyframes travelling alongside it.
+   *
+   * Worth knowing before reaching for a shadcn animation class: this project
+   * has no `tailwindcss-animate` plugin, so the `animate-in` / `zoom-in-95` /
+   * `slide-in-from-top` classes that ship inside the vendored shadcn
+   * primitives compile to nothing at all. Anything that needs to move has to
+   * be declared here as real CSS. */
+
+  /* Draws the checkmark stroke on instead of popping it in. Paired with
+   * `pathLength={1}` on the path so the dash maths is resolution-independent. */
+  --animate-check-draw: check-draw 200ms var(--ease-out-soft) forwards;
+  @keyframes check-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* Offline banner arriving from off-screen. */
+  --animate-slide-up: slide-up 250ms var(--ease-out-soft);
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
 }
 
 body {
@@ -109,6 +143,37 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/**
+ * Press feedback
+ *
+ * Every enabled button dips slightly while it's held. Hover states only ever
+ * answered the pointer, never the press — so on touch, where there is no
+ * hover at all, a tap produced no acknowledgement until the resulting work
+ * finished. This closes that gap for the whole app at once.
+ *
+ * It's an element selector because only ~30 of the roughly 190 buttons in the
+ * codebase go through the `Button` primitive; styling the primitive alone
+ * would leave the majority — including the todo row's status actions, which
+ * are the most-pressed controls in the app — feeling different from the rest.
+ *
+ * Deliberately not transitioned. `scale` would need `transition-property`,
+ * which is a single last-wins property: declaring it here would clobber the
+ * `transition-colors` utility that many of these buttons already carry, and
+ * trading a working hover fade for a press fade is a bad deal. An instant dip
+ * is also the honest behaviour — the response should land with the finger,
+ * not chase it. The release reads as crisp rather than abrupt.
+ *
+ * Uses `scale` rather than `transform` so it can't collide with a utility
+ * setting `transform` on the same element.
+ *
+ * No reduced-motion carve-out: there's no travel to perceive, which makes this
+ * a state change like a hover colour rather than an animation.
+ */
+button:not(:disabled):not([aria-disabled='true']):active,
+[role='button']:not([aria-disabled='true']):active {
+  scale: 0.97;
 }
 
 /**
