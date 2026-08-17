@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Check, Moon, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
+import { SwipeRow, type SwipeAction } from '@rambleraptor/homestead-core/shared/gestures';
 import type { Todo, TodoItem, TodoStatus } from '../types';
 
 export type TodoRowVariant = 'active' | 'doLater' | 'completed';
@@ -47,6 +48,36 @@ interface ActionConfig {
   icon: LucideIcon;
   color: string;
   status: TodoStatus;
+  /**
+   * Which drag direction also performs this action, if any. Declared on the
+   * same config the buttons are built from, so a swipe can never do something
+   * the row doesn't already offer as a button — the two cannot drift apart.
+   *
+   * Cancel is deliberately button-only across every variant: it is the rarest
+   * action and the least welcome to trigger by accident.
+   */
+  swipe?: 'left' | 'right';
+}
+
+/** Panel colours for the revealed swipe background, by direction of travel. */
+const SWIPE_PANEL: Record<'left' | 'right', string> = {
+  right: 'bg-green-500 text-white',
+  left: 'bg-brand-navy text-white',
+};
+
+function swipeActionFor(
+  actions: ActionConfig[],
+  direction: 'left' | 'right',
+  onSetStatus: (status: TodoStatus) => void,
+): SwipeAction | undefined {
+  const match = actions.find((a) => a.swipe === direction);
+  if (!match) return undefined;
+  return {
+    label: match.label,
+    icon: match.icon,
+    className: SWIPE_PANEL[direction],
+    onAction: () => onSetStatus(match.status),
+  };
 }
 
 function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
@@ -65,6 +96,7 @@ function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
         icon: Moon,
         color: 'text-brand-navy hover:bg-brand-navy/10',
         status: 'do_later',
+        swipe: 'left',
       },
       {
         testId: 'complete',
@@ -72,6 +104,7 @@ function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
         icon: Check,
         color: 'text-green-500 hover:bg-green-500/10',
         status: 'completed',
+        swipe: 'right',
       },
     ];
   }
@@ -91,6 +124,7 @@ function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
         icon: Undo2,
         color: 'text-brand-navy hover:bg-brand-navy/10',
         status: 'pending',
+        swipe: 'left',
       },
       {
         testId: 'complete',
@@ -98,6 +132,7 @@ function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
         icon: Check,
         color: 'text-green-500 hover:bg-green-500/10',
         status: 'completed',
+        swipe: 'right',
       },
     ];
   }
@@ -109,6 +144,9 @@ function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
       icon: Undo2,
       color: 'text-brand-navy hover:bg-brand-navy/10',
       status: 'pending',
+      // Right is "the positive action" everywhere else; on a finished todo the
+      // only thing left to do is put it back, so right means restore here.
+      swipe: 'right',
     },
   ];
 }
@@ -169,63 +207,78 @@ export function TodoRow({
     </>
   );
 
+  // Read-only rows (synthetic todos derived from another app's state) have no
+  // status actions at all, so there is nothing for a swipe to do.
+  const canSwipe = !readOnly && !disabled;
+
   return (
-    <div
-      data-testid={`todo-row-${todo.id}`}
-      className={cn(
-        'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-pearl',
-      )}
+    <SwipeRow
+      disabled={!canSwipe}
+      swipeRight={
+        canSwipe ? swipeActionFor(actions, 'right', onSetStatus) : undefined
+      }
+      swipeLeft={
+        canSwipe ? swipeActionFor(actions, 'left', onSetStatus) : undefined
+      }
+      className="bg-surface-white"
     >
-      {href ? (
-        <Link
-          to={href}
-          data-testid={`todo-row-${todo.id}-link`}
-          className={titleClassName}
-        >
-          {titleContent}
-        </Link>
-      ) : (
-        <span className={titleClassName}>{titleContent}</span>
-      )}
-      <div className="flex items-center gap-1">
-        {onTogglePin && !readOnly && (
-          <button
-            type="button"
-            onClick={() => onTogglePin(!isPinned)}
-            disabled={disabled}
-            aria-label={`${pinLabel}: ${todo.title}`}
-            data-testid={`todo-row-${todo.id}-pin`}
-            className={cn(
-              'p-1.5 rounded-lg transition-colors',
-              'text-brand-navy hover:bg-brand-navy/10',
-              isPinned && 'bg-brand-navy/15',
-              'disabled:opacity-40 disabled:cursor-not-allowed',
-            )}
-          >
-            <PinIcon className="w-4 h-4" />
-          </button>
+      <div
+        data-testid={`todo-row-${todo.id}`}
+        className={cn(
+          'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-pearl',
         )}
-        {actions.map((action) => {
-          const Icon = action.icon;
-          return (
+      >
+        {href ? (
+          <Link
+            to={href}
+            data-testid={`todo-row-${todo.id}-link`}
+            className={titleClassName}
+          >
+            {titleContent}
+          </Link>
+        ) : (
+          <span className={titleClassName}>{titleContent}</span>
+        )}
+        <div className="flex items-center gap-1">
+          {onTogglePin && !readOnly && (
             <button
-              key={action.testId}
               type="button"
-              onClick={() => onSetStatus(action.status)}
+              onClick={() => onTogglePin(!isPinned)}
               disabled={disabled}
-              aria-label={`${action.label}: ${todo.title}`}
-              data-testid={`todo-row-${todo.id}-${action.testId}`}
+              aria-label={`${pinLabel}: ${todo.title}`}
+              data-testid={`todo-row-${todo.id}-pin`}
               className={cn(
                 'p-1.5 rounded-lg transition-colors',
-                action.color,
+                'text-brand-navy hover:bg-brand-navy/10',
+                isPinned && 'bg-brand-navy/15',
                 'disabled:opacity-40 disabled:cursor-not-allowed',
               )}
             >
-              <Icon className="w-4 h-4" />
+              <PinIcon className="w-4 h-4" />
             </button>
-          );
-        })}
+          )}
+          {actions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <button
+                key={action.testId}
+                type="button"
+                onClick={() => onSetStatus(action.status)}
+                disabled={disabled}
+                aria-label={`${action.label}: ${todo.title}`}
+                data-testid={`todo-row-${todo.id}-${action.testId}`}
+                className={cn(
+                  'p-1.5 rounded-lg transition-colors',
+                  action.color,
+                  'disabled:opacity-40 disabled:cursor-not-allowed',
+                )}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </SwipeRow>
   );
 }
