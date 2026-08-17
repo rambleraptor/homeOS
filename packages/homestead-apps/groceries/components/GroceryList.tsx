@@ -5,6 +5,12 @@
  */
 
 import { Trash2, Store as StoreIcon, CheckCheck, ShoppingCart } from 'lucide-react';
+import { usePendingSyncIds } from '@rambleraptor/homestead-core/api/usePendingSync';
+import {
+  PendingSyncBadge,
+  pendingSyncClass,
+} from '@rambleraptor/homestead-core/shared/components/PendingSyncBadge';
+import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import type { StoreGroupedGroceries, GroceryItem } from '../types';
 
 interface GroceryListProps {
@@ -22,6 +28,11 @@ export function GroceryList({
   onMarkStoreCompleted,
   isUpdating = false,
 }: GroceryListProps) {
+  // Subscribed once for the whole list rather than per row — this is the view
+  // most likely to be open on a phone with no signal, and it can hold a lot of
+  // rows.
+  const pendingSyncIds = usePendingSyncIds();
+
   if (storeGroups.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-md p-12 border border-gray-200 text-center">
@@ -73,6 +84,7 @@ export function GroceryList({
                   item={item}
                   onToggle={onToggleItem}
                   onDelete={onDeleteItem}
+                  isPendingSync={pendingSyncIds.has(item.id)}
                 />
               ))}
             </div>
@@ -88,13 +100,25 @@ interface GroceryItemRowProps {
   onToggle: (id: string, checked: boolean) => void;
   onDelete: (id: string) => void;
   disabled?: boolean;
+  /** Write for this item is queued for reconnect. */
+  isPendingSync?: boolean;
 }
 
-function GroceryItemRow({ item, onToggle, onDelete, disabled = false }: GroceryItemRowProps) {
+function GroceryItemRow({
+  item,
+  onToggle,
+  onDelete,
+  disabled = false,
+  isPendingSync = false,
+}: GroceryItemRowProps) {
   return (
     <div
-      className="px-4 py-3 flex items-center gap-3 hover:bg-bg-pearl group transition-colors"
+      className={cn(
+        'px-4 py-3 flex items-center gap-3 hover:bg-bg-pearl group transition-colors',
+        pendingSyncClass(isPendingSync),
+      )}
       data-testid="grocery-item"
+      data-pending-sync={isPendingSync || undefined}
     >
       <input
         type="checkbox"
@@ -107,13 +131,14 @@ function GroceryItemRow({ item, onToggle, onDelete, disabled = false }: GroceryI
 
       <div className="flex-1 min-w-0">
         <p
-          className={`font-body font-medium ${
+          className={`flex items-center gap-2 font-body font-medium ${
             item.checked
               ? 'line-through text-text-muted'
               : 'text-brand-navy'
           }`}
         >
-          {item.name}
+          <span className="truncate">{item.name}</span>
+          {isPendingSync && <PendingSyncBadge className="no-underline" />}
         </p>
         {item.notes && (
           <p className="text-sm font-body text-text-muted mt-0.5">{item.notes}</p>
