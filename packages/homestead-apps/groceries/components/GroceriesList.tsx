@@ -8,7 +8,8 @@
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useUpdateGroceryItem } from '../hooks/useUpdateGroceryItem';
 import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
@@ -57,9 +58,12 @@ export function GroceriesList() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <SkeletonList
+        rows={6}
+        showLeading
+        label="Loading groceries"
+        data-testid="groceries-loading"
+      />
     );
   }
 

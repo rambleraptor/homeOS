@@ -40,6 +40,18 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+
+    // Emulate the OS "reduce motion" setting, which the global guard in
+    // `globals.css` collapses every transition and animation down to. This is
+    // a real user configuration, not a test-only shortcut — the suite just
+    // happens to want the same thing users on that setting want.
+    //
+    // It also removes a whole class of flake at the source. An element that is
+    // mid-fade or mid-slide is present in the DOM but not yet at its final
+    // position or opacity, so clicks land on the wrong target and screenshots
+    // catch a frame in transit. The house rule against `waitForTimeout` (see
+    // CLAUDE.md) only holds if there's nothing to wait out.
+    reducedMotion: 'reduce',
   },
 
   projects: [

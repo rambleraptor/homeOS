@@ -6,7 +6,8 @@
 
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Gift, Loader2, AlertCircle, Upload } from 'lucide-react';
+import { Plus, Gift, AlertCircle, Upload } from 'lucide-react';
+import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useMerchantSummaries } from '../hooks/useMerchantSummaries';
 import { useCreateGiftCard } from '../hooks/useCreateGiftCard';
 import { useUpdateGiftCard } from '../hooks/useUpdateGiftCard';
@@ -89,9 +90,14 @@ export function GiftCardHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      // Two columns here, matching the `md:grid-cols-2` gift card grid below.
+      <SkeletonPage
+        body="cards"
+        bodyCount={4}
+        label="Loading gift cards"
+        bodyClassName="lg:grid-cols-2"
+        data-testid="gift-cards-loading"
+      />
     );
   }
 

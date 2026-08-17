@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { Plus, Trash2, Loader2, Star, Store as StoreIcon, X } from 'lucide-react';
+import { Plus, Trash2, Star, Store as StoreIcon, X } from 'lucide-react';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useStores } from '../hooks/useStores';
 import { useCreateStore } from '../hooks/useCreateStore';
 import { useDeleteStore } from '../hooks/useDeleteStore';
@@ -103,9 +104,12 @@ export function StoreManagement({ onClose }: StoreManagementProps) {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin text-accent-terracotta" />
-        </div>
+        <SkeletonList
+          rows={3}
+          showLeading
+          label="Loading stores"
+          data-testid="stores-loading"
+        />
       ) : stores.length === 0 ? (
         <p className="text-center text-text-muted font-body py-8">
           No stores yet. Add your first store above!

@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { Check, Clock, Loader2 } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { useCreditCards } from '../hooks/useCreditCards';
@@ -51,9 +52,11 @@ export function UpcomingPerksWidget() {
       data-testid="upcoming-perks-widget"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-        </div>
+        <SkeletonList
+          rows={3}
+          label="Loading upcoming perks"
+          data-testid="upcoming-perks-widget-loading"
+        />
       ) : upcomingPerks.length === 0 ? (
         <p className="font-body text-text-muted py-6 text-center">
           No perks tracked yet — add one from the Credit Cards page.

@@ -5,9 +5,10 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { CalendarHeart, Loader2 } from 'lucide-react';
+import { CalendarHeart } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useUpcomingEvents } from '../hooks/useUpcomingEvents';
 
@@ -42,9 +43,11 @@ export function UpcomingEventsWidget() {
       data-testid="upcoming-events-widget"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-        </div>
+        <SkeletonList
+          rows={3}
+          label="Loading upcoming events"
+          data-testid="upcoming-events-widget-loading"
+        />
       ) : upcoming && upcoming.length > 0 ? (
         <ul className="divide-y divide-gray-50">
           {upcoming.map(({ id, name, names, tag, date }) => {

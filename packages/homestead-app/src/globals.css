@@ -68,6 +68,38 @@
   --font-display: var(--font-outfit), "Outfit", "Merriweather", ui-serif, Georgia, serif;
   --font-body: var(--font-inter), "Inter", "Roboto", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+
+  /* Motion
+   *
+   * Durations and easings are tokens for the same reason colors are: so a
+   * hundred components don't each hand-pick a number and drift apart. Pick by
+   * intent, not by feel:
+   *
+   *   quick   — direct feedback on something the user just touched (press,
+   *             hover, checkbox, focus ring). Must land inside the same
+   *             perceptual beat as the input or it reads as lag.
+   *   settle  — an element moving, resizing, or fading itself into place.
+   *   deliberate — the ceiling. Something large, or a moment meant to be
+   *             noticed (a progress bar filling, a celebration).
+   *
+   * `--ease-*` sits in a Tailwind v4 theme namespace, so these also generate
+   * real `ease-out-soft` / `ease-spring` utilities. The durations have no
+   * namespace in v4; reference them with `duration-(--duration-quick)`.
+   *
+   * Animate `transform` and `opacity` wherever you can — they run on the
+   * compositor. Animating `width`/`height`/`top` forces layout on every frame,
+   * which is affordable for a one-off (the todos progress bar) and not for
+   * anything on a list or a hot path. */
+  --duration-quick: 150ms;
+  --duration-settle: 250ms;
+  --duration-deliberate: 500ms;
+
+  /* Decelerating — the default for anything entering or responding. Motion
+   * arrives fast and eases into rest, which is what real objects do. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  /* A slight overshoot, for reward moments only. Never on routine UI: the
+   * bounce reads as playful once and as sloppy the twentieth time. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 body {
@@ -77,4 +109,34 @@ body {
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/**
+ * Reduced motion
+ *
+ * Some people get migraines or nausea from UI movement, and say so through an
+ * OS-level setting. This collapses every transition and animation to
+ * effectively instant so they land on their final state without travelling
+ * there. It's a blanket rule on purpose: it holds for animations nobody has
+ * written yet, including ones in apps added later, which is the only way a
+ * guarantee like this survives.
+ *
+ * `animation-iteration-count: 1` matters as much as the duration — without it
+ * a looping animation keeps looping, just imperceptibly fast.
+ *
+ * `.animate-spin` is exempt. A spinner's rotation isn't decoration, it's the
+ * signal that the app is still working; frozen mid-turn it reads as a hung
+ * page, which is a worse outcome than the motion. Loading states that can be
+ * expressed as shape rather than movement should use `<Skeleton>` instead —
+ * it pulses opacity, has no travel, and settles into a calm static block here.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

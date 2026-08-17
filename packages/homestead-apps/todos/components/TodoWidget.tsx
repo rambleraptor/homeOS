@@ -4,7 +4,8 @@
  */
 
 import { Link } from 'react-router-dom';
-import { ListTodo, Loader2 } from 'lucide-react';
+import { ListTodo } from 'lucide-react';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useTodoBuckets } from '../hooks/useTodos';
 import {
@@ -27,9 +28,11 @@ export function TodoWidget() {
       bodyClassName={hasItems ? 'px-4 py-0' : undefined}
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-        </div>
+        <SkeletonList
+          rows={3}
+          label="Loading todos"
+          data-testid="todos-widget-loading"
+        />
       ) : !hasItems ? (
         <p className="font-body text-text-muted py-2">
           Nothing active — you're all caught up.

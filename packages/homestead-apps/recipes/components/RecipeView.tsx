@@ -14,11 +14,11 @@ import {
   ChefHat,
   Clock,
   ExternalLink,
-  Loader2,
   Pencil,
   ShoppingCart,
   Users,
 } from 'lucide-react';
+import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useRecipe } from '../hooks/useRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
 import { useAddIngredientsToGroceryList } from '../hooks/useAddIngredientsToGroceryList';
@@ -53,9 +53,12 @@ export function RecipeView({ recipeId }: RecipeViewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <SkeletonPage
+        body="list"
+        bodyCount={6}
+        label="Loading recipe"
+        data-testid="recipe-loading"
+      />
     );
   }
 

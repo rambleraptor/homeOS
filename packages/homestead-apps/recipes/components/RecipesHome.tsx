@@ -7,7 +7,8 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Download, Loader2, Plus } from 'lucide-react';
+import { AlertCircle, Download, Plus } from 'lucide-react';
+import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useRecipes } from '../hooks/useRecipes';
 import { useCreateRecipe } from '../hooks/useCreateRecipe';
 import { useUpdateRecipe } from '../hooks/useUpdateRecipe';
@@ -82,9 +83,11 @@ export function RecipesHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <SkeletonPage
+        body="cards"
+        label="Loading recipes"
+        data-testid="recipes-loading"
+      />
     );
   }
 
