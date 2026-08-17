@@ -8,8 +8,8 @@
 import { Hono } from 'hono';
 import type { Database } from '../engine/sqlite';
 import { AlreadyClaimedError, claimSetup, needsSetup } from '../bootstrap';
+import { validatePassword } from '../engine/password';
 
-const MIN_PASSWORD_LENGTH = 8;
 const MAX_DISPLAY_NAME_LENGTH = 100;
 
 export function makeSetupRoute(db: Database): Hono {
@@ -32,11 +32,9 @@ export function makeSetupRoute(db: Database): Hono {
     if (!email || !email.includes('@')) {
       return c.json({ error: 'a valid email is required' }, 400);
     }
-    if (!password || password.length < MIN_PASSWORD_LENGTH) {
-      return c.json(
-        { error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` },
-        400,
-      );
+    const check = validatePassword(password);
+    if (!check.ok) {
+      return c.json({ error: check.error }, 400);
     }
     if (displayName && displayName.length > MAX_DISPLAY_NAME_LENGTH) {
       return c.json(
@@ -50,7 +48,7 @@ export function makeSetupRoute(db: Database): Hono {
     // both pass it. claimSetup's atomic compare-and-set picks the single winner;
     // a loser (or any already-claimed instance) surfaces here as a 409.
     try {
-      await claimSetup(db, email, password, displayName);
+      await claimSetup(db, email, check.password, displayName);
     } catch (err) {
       if (err instanceof AlreadyClaimedError) {
         return c.json({ error: 'instance is already set up' }, 409);

@@ -7,14 +7,14 @@
 import { errorResponse, isUniqueConstraintError, jsonResponse } from './errors';
 import { generateId, generateToken, nowRFC3339 } from './ids';
 import { hashToken } from './pat';
-import { hashPassword, verifyPassword } from './password';
+import { hashPassword, validatePassword, verifyPassword } from './password';
 import type { Database } from './sqlite';
 import type { User } from './types';
 import { TYPE_REGULAR, TYPE_SUPERUSER } from './types';
 import type { SyncDispatcher } from '../sync';
 
 // Re-exported for callers that hash alongside user writes (bootstrap, tests).
-export { hashPassword, verifyPassword };
+export { hashPassword, validatePassword, verifyPassword };
 
 export function createUserTables(db: Database): void {
   db.run(`CREATE TABLE IF NOT EXISTS _users (
@@ -213,6 +213,35 @@ export function deleteTokenByPatId(db: Database, patId: string): void {
   db.query('DELETE FROM _tokens WHERE pat_id = ?').run(patId);
 }
 
+/**
+ * Revoke every *session* a user holds — password/federated/OAuth access tokens,
+ * their refresh tokens, and the audience bindings. Used when the password
+ * changes (tokens minted under the old one must stop working) and by
+ * "sign out everywhere".
+ *
+ * Personal access tokens (`pat_id` set) are deliberately left alone: they are
+ * separate credentials the user minted explicitly, they carry their own expiry
+ * and scopes, and they're revoked from their own settings page. Killing them
+ * here would break a user's automation as a side effect of a routine password
+ * change, and would strand the readable `personal-access-token` records whose
+ * secrets live in these rows. PATs never get auth side-table rows (they're
+ * inserted directly rather than through `issueSession`), so the deletes below
+ * can't reach them.
+ *
+ * The auth side-tables only exist once the auth service has run; their absence
+ * on a bare engine db is not an error (same tolerance as the token purge above).
+ */
+export function revokeUserSessions(db: Database, userId: string): void {
+  db.query('DELETE FROM _tokens WHERE user_id = ? AND pat_id IS NULL').run(userId);
+  for (const table of ['_auth_refresh_tokens', '_auth_access_tokens']) {
+    try {
+      db.query(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
+    } catch {
+      // table not created yet → nothing to revoke
+    }
+  }
+}
+
 export function extractBearerToken(req: Request): string {
   const auth = req.headers.get('authorization');
   if (!auth) return '';
@@ -276,13 +305,14 @@ export async function handleUserCreate(
     return errorResponse(400, 'invalid JSON body');
   }
   if (!body.email) return errorResponse(400, 'email is required');
-  if (!body.password) return errorResponse(400, 'password is required');
+  const check = validatePassword(body.password);
+  if (!check.ok) return errorResponse(400, check.error);
   const type = body.type || TYPE_REGULAR;
   if (type !== TYPE_SUPERUSER && type !== TYPE_REGULAR) {
     return errorResponse(400, `type must be "${TYPE_SUPERUSER}" or "${TYPE_REGULAR}"`);
   }
 
-  const hash = await hashPassword(body.password);
+  const hash = await hashPassword(check.password);
   const url = new URL(req.url);
   const id = url.searchParams.get('id') || generateId();
   const now = nowRFC3339();
@@ -404,8 +434,22 @@ export async function handleUserUpdate(
     }
     fields.type = body.type;
   }
-  if (typeof body.password === 'string' && body.password !== '') {
-    fields.password_hash = await hashPassword(body.password);
+  // Setting a password here is an *administrative* reset: it proves nothing
+  // about who is holding the bearer token, so a stolen session must not be able
+  // to use it to take the account over. Self-service goes through
+  // `POST /api/auth/change-password`, which requires the current password.
+  let passwordChanged = false;
+  if (body.password !== undefined) {
+    if (caller.type !== TYPE_SUPERUSER) {
+      return errorResponse(
+        403,
+        'changing your own password requires the current password; use /api/auth/change-password',
+      );
+    }
+    const check = validatePassword(body.password);
+    if (!check.ok) return errorResponse(400, check.error);
+    fields.password_hash = await hashPassword(check.password);
+    passwordChanged = true;
   }
 
   if (Object.keys(fields).length === 0) {
@@ -431,6 +475,12 @@ export async function handleUserUpdate(
     }
     return errorResponse(500, `failed to update user: ${err instanceof Error ? err.message : err}`);
   }
+
+  // An administrative password reset invalidates the old password, so sessions
+  // minted under it must stop working too — otherwise resetting a compromised
+  // account's password leaves the intruder's tokens live. Note this also signs
+  // out a superuser who resets their own password here, which is the point.
+  if (passwordChanged) revokeUserSessions(db, id);
 
   const found = getUserById(db, id);
   if (!found) return errorResponse(404, `user "${id}" not found`);

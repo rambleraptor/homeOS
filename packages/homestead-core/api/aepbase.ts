@@ -649,6 +649,74 @@ export function logout(): void {
   }
 }
 
+/**
+ * POST to an authenticated `/api/auth/*` endpoint that returns a fresh session,
+ * and swap the new tokens in. The current user is carried across unchanged —
+ * these endpoints rotate credentials, not identity.
+ */
+async function postForNewSession(
+  path: string,
+  body?: Record<string, unknown>,
+): Promise<void> {
+  const url = `${AUTH_BASE}${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authStore.token}`,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : undefined;
+  } catch {
+    parsed = undefined;
+  }
+  if (!res.ok) {
+    const envelope = parsed as { error?: string | { message?: string } } | undefined;
+    const message =
+      (typeof envelope?.error === 'string' ? envelope.error : envelope?.error?.message) ??
+      `HTTP ${res.status}`;
+    throw new AepbaseError(res.status, message, url);
+  }
+  const data = parsed as { access_token: string; refresh_token: string; expires_in: number };
+  authStore.saveSession(
+    {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresIn: data.expires_in,
+    },
+    authStore.model,
+  );
+}
+
+/**
+ * Change the signed-in user's password (`POST /api/auth/change-password`). The
+ * server verifies `currentPassword` before accepting the new one, then revokes
+ * every other session and issues this caller a fresh one — which we store, so
+ * the current tab stays signed in while other devices are signed out.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  await postForNewSession('/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
+}
+
+/**
+ * Sign out every other device (`POST /api/auth/logout-all`). The current
+ * session is replaced with a fresh one rather than dropped, so the tab the user
+ * clicked from stays signed in. Personal access tokens are unaffected.
+ */
+export async function logoutEverywhere(): Promise<void> {
+  await postForNewSession('/logout-all');
+}
+
 // ----------------------------------------------------------------------------
 // OAuth / OIDC login
 // ----------------------------------------------------------------------------
@@ -746,6 +814,8 @@ export const aepbase = {
   customMethod,
   login,
   logout,
+  changePassword,
+  logoutEverywhere,
   refreshCurrentUser,
   getCurrentUser,
   listOAuthProviders,

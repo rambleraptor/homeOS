@@ -91,6 +91,11 @@ export function UserForm({ initialData, onSubmit, onCancel, isSubmitting }: User
       setError('Password must be at least 8 characters');
       return;
     }
+    // Matches the server policy: bcrypt only hashes the first 72 bytes.
+    if (password && new TextEncoder().encode(password).length > 72) {
+      setError('Password must be at most 72 bytes');
+      return;
+    }
 
     void onSubmit({
       email: email.trim(),

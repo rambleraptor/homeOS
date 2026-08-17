@@ -45,6 +45,13 @@ export function ChangePasswordForm() {
       return;
     }
 
+    // Mirrors the server's policy so the user gets the message inline. bcrypt
+    // hashes at most 72 bytes, so anything longer would be silently truncated.
+    if (new TextEncoder().encode(formData.password).length > 72) {
+      setError('New password must be at most 72 bytes');
+      return;
+    }
+
     if (formData.password !== formData.passwordConfirm) {
       setError('New passwords do not match');
       return;
@@ -167,8 +174,12 @@ export function ChangePasswordForm() {
               <p>Password requirements:</p>
               <ul className="list-disc list-inside space-y-1">
                 <li>At least 8 characters long</li>
+                <li>At most 72 bytes (the limit bcrypt actually hashes)</li>
                 <li>Different from your current password</li>
               </ul>
+              <p className="pt-1">
+                Changing your password signs you out on every other device.
+              </p>
             </div>
 
             <div>

@@ -91,7 +91,7 @@ describe('user write dispatch', () => {
 
     const res = await call(engine, 'POST', '/users?id=u1', token, {
       email: 'new@example.com',
-      password: 'secret',
+      password: 'secret-enough',
       display_name: 'New User',
     });
     expect(res.status).toBe(200);
@@ -109,7 +109,7 @@ describe('user write dispatch', () => {
 
   test('update dispatches {event:update} with record and previous, no password_hash', async () => {
     const { engine, calls, token } = await makeEngine();
-    await call(engine, 'POST', '/users?id=u1', token, { email: 'a@example.com', password: 'pw' });
+    await call(engine, 'POST', '/users?id=u1', token, { email: 'a@example.com', password: 'pw-long-enough' });
     calls.length = 0;
 
     const res = await call(engine, 'PATCH', '/users/u1', token, { display_name: 'Renamed' });
@@ -129,7 +129,7 @@ describe('user write dispatch', () => {
 
   test('delete dispatches {event:delete} with record null and previous set', async () => {
     const { engine, calls, token } = await makeEngine();
-    await call(engine, 'POST', '/users?id=u1', token, { email: 'a@example.com', password: 'pw' });
+    await call(engine, 'POST', '/users?id=u1', token, { email: 'a@example.com', password: 'pw-long-enough' });
     calls.length = 0;
 
     const res = await call(engine, 'DELETE', '/users/u1', token);
@@ -198,7 +198,7 @@ describe('dynamic-resource write dispatch', () => {
     const token = generateToken();
     insertToken(engine.db, token, id);
 
-    const res = await call(engine, 'POST', '/users?id=u9', token, { email: 'x@example.com', password: 'pw' });
+    const res = await call(engine, 'POST', '/users?id=u9', token, { email: 'x@example.com', password: 'pw-long-enough' });
     expect(res.status).toBe(200);
     engine.db.close();
   });

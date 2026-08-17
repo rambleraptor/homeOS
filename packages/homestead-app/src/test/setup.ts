@@ -64,6 +64,8 @@ vi.mock('@rambleraptor/homestead-core/api/aepbase', () => {
       download: vi.fn(),
       login: vi.fn(),
       logout: vi.fn(),
+      changePassword: vi.fn(),
+      logoutEverywhere: vi.fn(),
       refreshCurrentUser: vi.fn(),
       listOAuthProviders: vi.fn(async () => []),
       startOAuth: vi.fn(),
