@@ -143,7 +143,7 @@ test.describe('Recipes bulk import — API', () => {
     expect(broken?.errors[0]).toContain('broken.paprikarecipe');
   });
 
-  test('advertises both formats for discovery', async ({ request }) => {
+  test('advertises every format for discovery', async ({ request }) => {
     const res = await request.get('/api/custom-methods');
     const { methods } = (await res.json()) as {
       methods: Array<{
@@ -157,7 +157,9 @@ test.describe('Recipes bulk import — API', () => {
 
     const formats = methods.find((m) => m.plural === 'recipes' && m.verb === 'bulk-import')
       ?.bulkImport?.formats;
-    expect(formats?.map((f) => f.id)).toEqual(['text', 'paprika']);
+    // Order matters: the import page selects the first format by default.
+    expect(formats?.map((f) => f.id)).toEqual(['url', 'text', 'paprika']);
+    expect(formats?.find((f) => f.id === 'url')?.inputType).toBe('text');
     expect(formats?.find((f) => f.id === 'text')?.inputType).toBe('text');
     expect(formats?.find((f) => f.id === 'paprika')?.multiple).toBe(true);
   });
@@ -177,10 +179,20 @@ test.describe('Recipes bulk import — page', () => {
     await authenticatedPage.getByTestId('import-recipe-button').click();
     await authenticatedPage.waitForURL(/\/recipes\/import$/);
 
+    // URL is the first format, so it's the one selected by default. Pick the
+    // text importer explicitly — both accept text input, so without this the
+    // pasted recipe would be handed to the URL importer.
+    await authenticatedPage.getByTestId('import-format-text').click();
     await authenticatedPage.getByTestId('import-text-input').fill(RECIPE_TEXT);
     await authenticatedPage.getByTestId('bulk-import-preview-button').click();
 
-    await expect(authenticatedPage.getByText('Bacon Wrapped Asparagus')).toBeVisible();
+    // Assert against the preview row, not the page: the pasted text is still
+    // sitting in the textarea, so a bare getByText matches even on no preview.
+    await expect(
+      authenticatedPage
+        .getByTestId('recipe-import-preview-row')
+        .filter({ hasText: 'Bacon Wrapped Asparagus' }),
+    ).toBeVisible();
     await authenticatedPage.getByTestId('import-button').click();
     await authenticatedPage.waitForURL(/\/recipes$/);
 

@@ -143,18 +143,20 @@ export interface ResourceItemOptions<T> extends ExtraQueryOptions<T> {
 /**
  * Fetch a single record by id. The query is disabled while `id` is null, so
  * detail pages can call it unconditionally. Keyed by
- * `queryKeys.app(appId).detail(id)`, which the mutation factory's `.all()`
- * invalidation covers.
+ * `queryKeys.app(appId).resource(singular).detail(id)` — the exact slot the
+ * mutation factory keeps in step with the list, so an edit shows up here
+ * immediately (and offline, where the settle-time invalidation is skipped).
  */
 export function useResourceItem<T>(
   appId: string,
+  singular: string,
   plural: string,
   id: string | null,
   options: ResourceItemOptions<T> = {},
 ): UseQueryResult<T, Error> {
   const { parent, ...queryOptions } = options;
   return useQuery<T, Error>({
-    queryKey: queryKeys.app(appId).detail(id ?? ''),
+    queryKey: queryKeys.app(appId).resource(singular).detail(id ?? ''),
     queryFn: async (): Promise<T> => {
       if (!id) throw new Error('Resource id is required');
       return aepbase.get<T>(plural, id, { parent });
