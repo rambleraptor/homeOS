@@ -27,7 +27,8 @@ While offline:
 - **Reads return cached data.** A `useQuery` (or a hook like `useGiftCards`)
   serves whatever it last loaded instead of failing.
 - **Writes apply immediately.** A create, update, or delete updates the screen
-  right away, then waits in a queue.
+  right away, then waits in a queue. Both the collection list and the edited
+  record's own detail view reflect the change, so the two never disagree.
 - **The queue drains on reconnect.** Queued writes replay in order, oldest
   first, and the affected lists refetch so the screen matches the server.
 - **A failed write rolls back.** If the server rejects a queued write when it
@@ -167,10 +168,14 @@ two levels deep) gets full offline CRUD automatically: the factory builds the
 `/credit-cards/{id}/perks/{id}/redemptions` URL from the `parents` chain,
 resolving each ancestor id from the create variables or the cached record, and
 strips the parent foreign-key fields from the request body. Point your read
-hook at the resource's convention list key
-(`queryKeys.app(appId).resource(singular).list()`) so it reads from the same
-place the factory writes, and use the plain `useResource*` wrappers for
-writes — no per-resource wiring.
+hook at the resource's convention keys —
+`queryKeys.app(appId).resource(singular).list()` for a collection and
+`.detail(id)` for one record — so it reads from the same place the factory
+writes, and use the plain `useResource*` wrappers for writes. The generic
+`useResourceList` and `useResourceItem` hooks already use those keys. A detail
+hook on some other key still refreshes online (the settle-time invalidation
+covers the whole app), but it will show stale data offline, where there is no
+invalidation to reconcile it.
 
 ---
 

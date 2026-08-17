@@ -7,8 +7,8 @@
  * not at app-specific code.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MutationObserver, QueryClient } from '@tanstack/react-query';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { MutationObserver, QueryClient, onlineManager } from '@tanstack/react-query';
 import { aepbase } from '../aepbase';
 import {
   clearResourceMetaRegistry,
@@ -27,6 +27,8 @@ interface Thingy {
 
 const KEYS = resourceMutationKeys('test-mod', 'thingy');
 const LIST_KEY = queryKeys.app('test-mod').resource('thingy').list();
+const DETAIL_KEY = (id: string) =>
+  queryKeys.app('test-mod').resource('thingy').detail(id);
 
 function makeClient(): QueryClient {
   const client = new QueryClient({
@@ -62,6 +64,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   clearTempIdMaps();
   clearResourceMetaRegistry();
+});
+
+afterEach(() => {
+  onlineManager.setOnline(true);
 });
 
 describe('create', () => {
@@ -135,6 +141,123 @@ describe('delete tempId reconciliation', () => {
 
     resolveCreate();
     await createPromise.catch(() => undefined);
+  });
+});
+
+/**
+ * A detail view reads `queryKeys.app(appId).resource(singular).detail(id)`.
+ * The settle-time invalidation only fires online, so the factory has to keep
+ * that slot in step with the list itself — otherwise an edit shows in the list
+ * and not on the record's own page.
+ */
+describe('detail cache slot', () => {
+  it('primes the new record’s detail slot on create', async () => {
+    const client = makeClient();
+    client.setQueryData<Thingy[]>(LIST_KEY, []);
+    vi.mocked(aepbase.create).mockResolvedValueOnce({ id: 'srv-1', name: 'Foo' });
+
+    await run(client, KEYS.create, { name: 'Foo', tempId: newTempId() });
+
+    expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))).toMatchObject({
+      id: 'srv-1',
+      name: 'Foo',
+    });
+  });
+
+  it('applies an update optimistically to the detail slot, then folds in the server copy', async () => {
+    const client = makeClient();
+    client.setQueryData<Thingy[]>(LIST_KEY, [{ id: 'srv-1', name: 'Foo' }]);
+    client.setQueryData<Thingy>(DETAIL_KEY('srv-1'), { id: 'srv-1', name: 'Foo' });
+
+    let resolveUpdate!: () => void;
+    vi.mocked(aepbase.update).mockImplementationOnce(
+      () =>
+        new Promise<Thingy>((res) => {
+          resolveUpdate = () => res({ id: 'srv-1', name: 'Renamed', done: true });
+        }),
+    );
+
+    const updatePromise = run(client, KEYS.update, {
+      id: 'srv-1',
+      data: { name: 'Renamed' },
+    });
+
+    // Optimistic: visible on the detail slot before the server answers.
+    await vi.waitFor(() => {
+      expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))?.name).toBe('Renamed');
+    });
+
+    resolveUpdate();
+    await updatePromise;
+
+    // Server-computed fields land without waiting for a refetch.
+    expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))).toMatchObject({
+      name: 'Renamed',
+      done: true,
+    });
+  });
+
+  it('keeps the detail slot in step with the list while offline', async () => {
+    const client = makeClient();
+    client.setQueryData<Thingy[]>(LIST_KEY, [{ id: 'srv-1', name: 'Foo' }]);
+    client.setQueryData<Thingy>(DETAIL_KEY('srv-1'), { id: 'srv-1', name: 'Foo' });
+    vi.mocked(aepbase.update).mockResolvedValueOnce({ id: 'srv-1', name: 'Renamed' });
+
+    onlineManager.setOnline(false);
+    const observer = new MutationObserver<Thingy | undefined, Error, unknown>(client, {
+      mutationKey: KEYS.update as unknown[],
+    });
+    const pending = observer.mutate({ id: 'srv-1', data: { name: 'Renamed' } });
+
+    await vi.waitFor(() => {
+      expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))?.name).toBe('Renamed');
+    });
+    // The write is queued, not sent — and the detail view already agrees with
+    // the list, with no invalidation available to reconcile them.
+    expect(aepbase.update).not.toHaveBeenCalled();
+    expect(client.getQueryData<Thingy[]>(LIST_KEY)?.[0].name).toBe('Renamed');
+
+    // The QueryClient auto-resumes paused mutations only once mounted, which
+    // these unmounted-client tests never do — drain the queue by hand.
+    onlineManager.setOnline(true);
+    await client.resumePausedMutations();
+    await pending;
+    observer.reset();
+    expect(aepbase.update).toHaveBeenCalledWith('thingies', 'srv-1', {
+      name: 'Renamed',
+    });
+  });
+
+  it('rolls the detail slot back when the server rejects an update', async () => {
+    const client = makeClient();
+    const original: Thingy = { id: 'srv-1', name: 'Foo' };
+    client.setQueryData<Thingy[]>(LIST_KEY, [original]);
+    client.setQueryData<Thingy>(DETAIL_KEY('srv-1'), original);
+    vi.mocked(aepbase.update).mockRejectedValueOnce(new Error('boom'));
+
+    await expect(
+      run(client, KEYS.update, { id: 'srv-1', data: { name: 'Renamed' } }),
+    ).rejects.toThrow();
+
+    expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))).toEqual(original);
+  });
+
+  it('drops the detail slot on delete and restores it when the server rejects', async () => {
+    const client = makeClient();
+    const original: Thingy = { id: 'srv-1', name: 'Foo' };
+    client.setQueryData<Thingy[]>(LIST_KEY, [original]);
+    client.setQueryData<Thingy>(DETAIL_KEY('srv-1'), original);
+    vi.mocked(aepbase.remove).mockResolvedValueOnce(undefined);
+
+    await run(client, KEYS.delete, 'srv-1');
+    expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))).toBeUndefined();
+
+    client.setQueryData<Thingy[]>(LIST_KEY, [original]);
+    client.setQueryData<Thingy>(DETAIL_KEY('srv-1'), original);
+    vi.mocked(aepbase.remove).mockRejectedValueOnce(new Error('nope'));
+
+    await expect(run(client, KEYS.delete, 'srv-1')).rejects.toThrow();
+    expect(client.getQueryData<Thingy>(DETAIL_KEY('srv-1'))).toEqual(original);
   });
 });
 

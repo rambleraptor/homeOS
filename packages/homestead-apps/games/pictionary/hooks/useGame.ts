@@ -7,5 +7,10 @@ import { PICTIONARY_GAMES } from '../resources';
 import type { PictionaryGame } from '../types';
 
 export function useGame(gameId: string | null) {
-  return useResourceItem<PictionaryGame>('pictionary', PICTIONARY_GAMES, gameId);
+  return useResourceItem<PictionaryGame>(
+    'pictionary',
+    'pictionary-game',
+    PICTIONARY_GAMES,
+    gameId,
+  );
 }
