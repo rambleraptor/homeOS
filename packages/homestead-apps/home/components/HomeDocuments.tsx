@@ -14,7 +14,8 @@
 
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useDocuments } from '../../documents/hooks/useDocuments';
 import { DocumentListItem } from '../../documents/components/DocumentListItem';
 import { getDocType } from '../../documents/doc-types/registry';
@@ -70,9 +71,12 @@ export function HomeDocuments() {
       </div>
 
       {isLoading && (
-        <div className="flex justify-center py-12" data-testid="home-documents-loading">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-        </div>
+        <SkeletonList
+          rows={4}
+          showLeading
+          label="Loading documents"
+          data-testid="home-documents-loading"
+        />
       )}
 
       {isError && (

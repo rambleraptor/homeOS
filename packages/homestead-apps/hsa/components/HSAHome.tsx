@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle, Plus } from 'lucide-react';
+import { AlertCircle, Plus } from 'lucide-react';
+import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useHSAStats } from '../hooks/useHSAStats';
 import { useCreateHSAReceipt } from '../hooks/useCreateHSAReceipt';
 import { useUpdateHSAReceipt } from '../hooks/useUpdateHSAReceipt';
@@ -77,9 +78,11 @@ export function HSAHome() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <SkeletonPage
+        body="cards"
+        label="Loading HSA receipts"
+        data-testid="hsa-loading"
+      />
     );
   }
 

@@ -6,8 +6,12 @@
  * beneath. Reads the same `garbage-pickups` collection as the Home page.
  */
 
-import { Loader2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
+import {
+  Skeleton,
+  SkeletonRegion,
+} from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useUpcomingPickupDays } from '../hooks/useGarbagePickups';
 import { parseIsoDate, relativeDayLabel, streamLabel } from '../utils/pickups';
@@ -30,9 +34,27 @@ export function NextPickupWidget() {
       data-testid="next-pickup-widget"
     >
       {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-text-muted" />
-        </div>
+        // Mirrors the headline day, its full date, and the stream chips —
+        // the widget leads with one large line, so a generic row stack would
+        // resolve into something noticeably different.
+        <SkeletonRegion
+          label="Loading next pickup"
+          className="space-y-4"
+          data-testid="next-pickup-widget-loading"
+        >
+          <div>
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="mt-1 h-4 w-44" />
+            <div className="mt-2 flex gap-1.5">
+              <Skeleton className="h-6 w-20 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
+          </div>
+          <div className="space-y-2 border-t border-gray-100 pt-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+          </div>
+        </SkeletonRegion>
       ) : next ? (
         <div className="space-y-4">
           <div>

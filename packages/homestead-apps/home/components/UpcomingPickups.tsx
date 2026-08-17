@@ -7,8 +7,9 @@
  * here — the empty state explains where records come from instead.
  */
 
-import { AlertCircle, Loader2, Trash2 } from 'lucide-react';
+import { AlertCircle, Trash2 } from 'lucide-react';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useUpcomingPickupDays } from '../hooks/useGarbagePickups';
 import { parseIsoDate, relativeDayLabel } from '../utils/pickups';
 import { StreamChip } from './StreamChip';
@@ -25,9 +26,11 @@ export function UpcomingPickups() {
       </h2>
 
       {isLoading && (
-        <div className="flex justify-center py-8" data-testid="home-pickups-loading">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-        </div>
+        <SkeletonList
+          rows={3}
+          label="Loading pickups"
+          data-testid="home-pickups-loading"
+        />
       )}
 
       {isError && (

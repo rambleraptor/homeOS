@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { AlertCircle, ListChecks, Loader2 } from 'lucide-react';
+import { AlertCircle, ListChecks } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCategories, groupTodosByCategory } from '../hooks/useCategories';
@@ -184,9 +185,12 @@ export function TodosHome() {
       />
 
       {isLoading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-accent-terracotta animate-spin" />
-        </div>
+        <SkeletonList
+          rows={5}
+          showLeading
+          label="Loading todos"
+          data-testid="todos-loading"
+        />
       )}
 
       {isError && (

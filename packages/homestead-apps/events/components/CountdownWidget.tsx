@@ -8,8 +8,12 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Hourglass, Loader2 } from 'lucide-react';
+import { Hourglass } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  Skeleton,
+  SkeletonRegion,
+} from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { useCountdownConfig } from '../hooks/useCountdownConfig';
 import { useCountdownEvent } from '../hooks/useCountdownEvent';
@@ -54,10 +58,25 @@ export function CountdownWidget() {
 
   let body: React.ReactNode;
   if (config.isLoading || isLoadingEvent) {
+    // Three cells is a guess — the real count depends on how many units the
+    // household enabled, which is part of what's still loading. It's the
+    // middle of the plausible range, so the cells settle rather than jump.
     body = (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="w-6 h-6 text-text-muted animate-spin" />
-      </div>
+      <SkeletonRegion
+        label="Loading countdown"
+        className="py-2 space-y-3"
+        data-testid="countdown-widget-loading"
+      >
+        <div className="flex items-baseline justify-between gap-3">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-24 shrink-0" />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {Array.from({ length: 3 }, (_, i) => (
+            <Skeleton key={i} className="h-14 w-14 rounded-lg" />
+          ))}
+        </div>
+      </SkeletonRegion>
     );
   } else if (!config.eventId) {
     body = (

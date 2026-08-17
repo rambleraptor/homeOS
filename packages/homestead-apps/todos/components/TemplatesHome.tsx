@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, ListPlus, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ListPlus, Plus, Trash2, X } from 'lucide-react';
+import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
@@ -84,9 +85,11 @@ export function TemplatesHome() {
       </form>
 
       {templatesQuery.isLoading && (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 text-accent-terracotta animate-spin" />
-        </div>
+        <SkeletonList
+          rows={4}
+          label="Loading templates"
+          data-testid="templates-loading"
+        />
       )}
 
       {templatesQuery.isError && (

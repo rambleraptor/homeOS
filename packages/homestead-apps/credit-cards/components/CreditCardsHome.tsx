@@ -5,7 +5,8 @@
  */
 
 import { useState } from 'react';
-import { Loader2, AlertCircle, CreditCard, Plus } from 'lucide-react';
+import { AlertCircle, CreditCard, Plus } from 'lucide-react';
+import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useCreditCards } from '../hooks/useCreditCards';
 import { useCreditCardPerks } from '../hooks/useCreditCardPerks';
 import { usePerkRedemptions } from '../hooks/usePerkRedemptions';
@@ -155,9 +156,11 @@ export function CreditCardsHome() {
 
   if (cardsLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 text-accent-terracotta animate-spin" />
-      </div>
+      <SkeletonPage
+        body="cards"
+        label="Loading credit cards"
+        data-testid="credit-cards-loading"
+      />
     );
   }
 
