@@ -7,6 +7,9 @@ import { Link } from 'react-router-dom';
 import { ListTodo } from 'lucide-react';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
+import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
+import { TODO_KIND_STYLE } from '../kindStyles';
+import type { TodoKind } from '../types';
 import { useTodoBuckets } from '../hooks/useTodos';
 import {
   SYNTHETIC_TODO_GROCERIES_ID,
@@ -42,14 +45,31 @@ export function TodoWidget() {
           {active.map((todo) => {
             const href =
               todo.id === SYNTHETIC_TODO_GROCERIES_ID ? '/groceries' : null;
-            const isFamily = 'kind' in todo && todo.kind === 'family';
-            const label = isFamily ? `👪 ${todo.title}` : todo.title;
+            // Synthetic rows (derived from another app's state) have no kind
+            // and so get no rail — there is no personal/family choice behind
+            // them to communicate.
+            const kind: TodoKind | undefined =
+              'kind' in todo && (todo.kind === 'family' || todo.kind === 'personal')
+                ? todo.kind
+                : undefined;
+            const label = todo.title;
             return (
               <li
                 key={todo.id}
                 data-testid={`todos-widget-item-${todo.id}`}
                 className="flex items-center gap-3 py-3"
               >
+                {kind && (
+                  <span
+                    title={TODO_KIND_STYLE[kind].label}
+                    className={cn(
+                      'h-5 w-1.5 shrink-0 rounded-full',
+                      TODO_KIND_STYLE[kind].rail,
+                    )}
+                  >
+                    <span className="sr-only">{TODO_KIND_STYLE[kind].label}</span>
+                  </span>
+                )}
                 {href ? (
                   <Link
                     to={href}

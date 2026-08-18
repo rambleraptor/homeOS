@@ -114,7 +114,7 @@ export function TodosHome() {
     return (inMain: boolean) => handleTogglePin(todo.id, inMain);
   };
 
-  // Shared per-row wiring for real (non-synthetic) todos. The family marker and
+  // Shared per-row wiring for real (non-synthetic) todos. The kind marker and
   // "you" hint only apply on the main mixed view, where personal and family
   // todos are interleaved; inside a project view every row is already family.
   const rowProps = (todo: TodoItem) => ({
@@ -122,7 +122,10 @@ export function TodosHome() {
     disabled: isUpdating,
     onTogglePin: togglePinHandlerFor(todo),
     pinnedFromLabel: originLabelFor(todo),
-    familyMarker: isMain && todo.kind === 'family',
+    // Only on the main view, where the two kinds are interleaved. Inside a
+    // project every row is family, so a rail on every line would carry no
+    // information.
+    kindMarker: isMain ? todo.kind : undefined,
     createdByYou:
       isMain &&
       todo.kind === 'family' &&
