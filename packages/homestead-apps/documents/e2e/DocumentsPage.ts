@@ -89,9 +89,18 @@ export class DocumentsPage {
     return this.card(title).getByTestId('document-type-icon');
   }
 
-  /** Open a document's detail page by clicking its row. */
+  /**
+   * Open a document's detail page by clicking its row. Targets the row's link
+   * region specifically — the row also carries action buttons, and a click on
+   * the card as a whole shouldn't have to depend on where its centre lands.
+   */
   async open(title: string): Promise<void> {
-    await this.card(title).click();
+    await this.card(title).getByTestId('document-open').click();
+  }
+
+  /** The row's delete button (the visible counterpart of the swipe action). */
+  deleteButton(title: string): Locator {
+    return this.card(title).getByTestId('document-card-delete');
   }
 
   async expectEmpty(): Promise<void> {
