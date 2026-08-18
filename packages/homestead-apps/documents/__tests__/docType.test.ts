@@ -509,8 +509,16 @@ describe('the built-in doc types', () => {
     // The tax document types are one category — the taxonomy that groups them.
     // A tax form added without the category (or a typo'd one) falls out of the
     // group silently, so pin it here.
+    const NON_FORM_TAX_IDS = [
+      'schedule-k-1',
+      'property-tax-statement',
+      'charitable-donation-receipt',
+      'estimated-tax-payment',
+      'closing-disclosure',
+      'childcare-provider-statement',
+    ];
     const taxForms = BUILTIN_DOC_TYPES.filter(
-      (t) => t.id.startsWith('form-') || t.id === 'schedule-k-1' || t.id === 'property-tax-statement',
+      (t) => t.id.startsWith('form-') || NON_FORM_TAX_IDS.includes(t.id),
     );
     for (const t of taxForms) {
       expect(t.category, t.id).toBe('tax');
