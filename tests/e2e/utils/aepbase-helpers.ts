@@ -155,7 +155,17 @@ interface CreateUserInput {
   password: string;
   display_name?: string;
   type?: 'regular' | 'superuser';
+  /**
+   * Skip joining the Members group. A household is closed by default, so a user
+   * created without a role can read and write nothing — which is occasionally
+   * exactly what a test wants to assert, and otherwise a trap. Defaults to
+   * false: a new regular user gets the same access the create-user UI gives one.
+   */
+  noRole?: boolean;
 }
+
+/** Seeded role-bearing group conferring `member` (see `permissions/seed.ts`). */
+const MEMBER_GROUP_ID = 'members';
 
 export interface UserRecord {
   id: string;
@@ -168,12 +178,17 @@ export async function createUser(
   adminToken: string,
   data: CreateUserInput,
 ): Promise<UserRecord> {
-  return e2eClient(adminToken).collection<UserRecord>('users').create({
+  const user = await e2eClient(adminToken).collection<UserRecord>('users').create({
     email: data.email,
     password: data.password,
     display_name: data.display_name || '',
     type: data.type || 'regular',
   });
+  // Superusers break glass past enforcement, so a role would be inert for them.
+  if (!data.noRole && (data.type ?? 'regular') === 'regular') {
+    await addGroupMember(adminToken, MEMBER_GROUP_ID, user.id);
+  }
+  return user;
 }
 
 /**

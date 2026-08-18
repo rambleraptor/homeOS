@@ -12,7 +12,7 @@ import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissio
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
 import { insertToken } from '../../src/engine/users';
 import { generatePatSecret } from '../../src/engine/pat';
-import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
+import { BOOK_DEF, installOpenGrant, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const BASE = 'http://localhost:8090';
 
@@ -47,6 +47,8 @@ describe('personal access token enforcement', () => {
     await seedPermissions(BASE, t.adminToken, (input: string, init?: RequestInit) =>
       t.engine.fetch(new Request(input, init)),
     );
+    // Seeding writes no grants; these tests narrow from an open baseline.
+    await installOpenGrant(t);
   });
 
   afterEach(() => {

@@ -84,12 +84,39 @@ export async function call(
 }
 
 /**
- * Define the permission collections and seed the open-household baseline (roles,
- * groups, and the `everyone → write on *` grant), then drop the permission cache
- * so it's honored immediately. Feature tests that aren't *about* permissions use
- * this to opt into a normally-configured household, where a regular user has
- * ordinary CRUD — the production default. Without it the engine is fail-closed,
- * so a grant-less regular user can't create top-level records.
+ * Install the legacy open-household grant: `everyone → write on *`, marked
+ * `is_default` so the store still treats it as the suppressible fallback.
+ *
+ * Boot no longer seeds this — a household starts closed (see
+ * `permissions/seed.ts`) — but it remains the shape an un-migrated instance
+ * carries, and it's the baseline most enforcement tests want to narrow *from*.
+ * Installing it explicitly keeps that dependency visible in each test instead of
+ * riding on whatever the seeder happens to write.
+ */
+export async function installOpenGrant(t: TestEngine): Promise<void> {
+  const res = await call(t.engine, 'POST', '/access-grants?id=open-household', {
+    token: t.adminToken,
+    body: {
+      subject_type: 'everyone',
+      target_scope: 'all',
+      capability: 'write',
+      effect: 'allow',
+      is_default: true,
+    },
+  });
+  if (res.status !== 201) {
+    throw new Error(`installOpenGrant: POST /access-grants → ${res.status}`);
+  }
+  t.engine.reloadPermissions();
+}
+
+/**
+ * Define the permission collections and seed the baseline (roles + groups),
+ * then install the open-household grant and drop the permission cache so it's
+ * honored immediately. Feature tests that aren't *about* permissions use this to
+ * opt into a household where a regular user has ordinary CRUD. Without it the
+ * engine is fail-closed, so a grant-less regular user can't create top-level
+ * records — which is now also the production default for a fresh instance.
  */
 export async function seedOpenHousehold(t: TestEngine): Promise<void> {
   const { PERMISSION_RESOURCE_DEFS } = await import(
@@ -113,9 +140,10 @@ export async function seedOpenHousehold(t: TestEngine): Promise<void> {
   await seedPermissions('http://localhost:8090', t.adminToken, (input, init) =>
     t.engine.fetch(new Request(input, init)),
   );
-  // The store may have cached an empty grant set during the seeding writes;
-  // clear it so the just-seeded open grant is visible on the next request.
-  t.engine.reloadPermissions();
+  // Seeding writes no grants, so the open baseline these tests assume has to be
+  // installed on top. `installOpenGrant` drops the permission cache, so the
+  // grant is visible on the next request.
+  await installOpenGrant(t);
 }
 
 /** Create a resource definition through the meta API. */

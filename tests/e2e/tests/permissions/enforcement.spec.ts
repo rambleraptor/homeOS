@@ -8,9 +8,11 @@
  * principals: two regular users (alice, bob) and the bootstrap superuser
  * (admin). It proves three things end-to-end:
  *
- *   1. The seeded open-household grant (`everyone → write → *`) preserves
- *      today's behavior: a regular user still gets full CRUD over a shared
- *      collection. Flipping enforcement on is a no-op for normal use.
+ *   1. The Member role (`all`-scope write, conferred by the seeded Members
+ *      group that `createUser` joins) gives a regular user full CRUD over a
+ *      shared collection — the access an ordinary household member has. A
+ *      household is closed by default, so this access comes from the role, not
+ *      from any household-wide grant.
  *   2. Deny wins: a collection-scope deny blocks the named user's reads while
  *      everyone else keeps access, and lifting it restores them.
  *   3. Break-glass: the superuser account is never locked out, even by a deny
@@ -99,7 +101,7 @@ test.describe('permission enforcement', () => {
     return todo;
   }
 
-  test('the open-household grant preserves full CRUD for a regular user', async () => {
+  test('the Member role gives a regular user full CRUD', async () => {
     const alice = await makeUser('alice');
 
     // Create
@@ -130,7 +132,7 @@ test.describe('permission enforcement', () => {
 
     const todo = await makeTodo(alice.token, 'shared task');
 
-    // Baseline: under the open grant, Bob can read Alice's todo.
+    // Baseline: with the Member role, Bob can read Alice's todo.
     expect(await getStatus(bob.token, `/${TODOS}/${todo.id}`)).toBe(200);
 
     // Admin denies Bob read on the whole `todo` collection.

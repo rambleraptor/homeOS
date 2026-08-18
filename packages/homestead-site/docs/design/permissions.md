@@ -654,6 +654,16 @@ code.
 
 ## 8. Migration & backward compatibility
 
+> **Superseded for the open grant (step 1).** This section describes the
+> original rollout, whose goal was that upgrading changed nothing. That goal is
+> met and the transition is over, so the open-household grant is no longer
+> seeded: a household now starts **closed**, and access comes from the role a
+> group confers. The `permissions-close-open-default` migration
+> (`permissions/migrations/close-open-default.ts`) retires the grant on
+> already-upgraded instances, moving anyone relying on it into the `Members`
+> group first so nobody loses access. The rest of this section still describes
+> what shipped.
+
 The upgrade must be invisible to a running household. No direct role assignment
 is involved (§11 #8) — backward compatibility rests on a single open grant, not
 on per-user roles.

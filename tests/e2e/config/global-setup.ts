@@ -11,30 +11,32 @@
  * a permissions-enforced server. Two things follow from that:
  *   - We disable the grant cache (`PERMISSION_CACHE_TTL_MS=0`) so a grant a test
  *     creates or deletes is honored on the very next request — no TTL polling.
- *   - We wait for the seeded open-household grant before the first test. The
- *     baseline (roles + open grant) is seeded *after* the resource sync; roles
- *     land first, so until the open grant exists a regular user would hit a
- *     spurious default-deny. Waiting for it keeps the default suite's open
- *     behavior deterministic.
+ *   - We wait for the seeded Members group before the first test. A household is
+ *     closed by default, so a test user's access comes from the role its group
+ *     confers, and `createUser` joins that group on creation. The baseline is
+ *     seeded *after* the resource sync, so until the group exists that join
+ *     would 404 and every user would land role-less. Waiting for it keeps the
+ *     suite deterministic.
  */
 
 import { chromium } from '@playwright/test';
 import { startAepbase, getAepbaseUrl, getAppUrl } from './aepbase.setup';
 
-const OPEN_GRANT_ID = 'open-household';
+/** Seeded role-bearing group every fixture user joins (`permissions/seed.ts`). */
+const MEMBER_GROUP_ID = 'members';
 const SEED_TIMEOUT_MS = 60000;
 const POLL_INTERVAL_MS = 250;
 
-async function waitForOpenGrant(token: string): Promise<void> {
+async function waitForMemberGroup(token: string): Promise<void> {
   const deadline = Date.now() + SEED_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const res = await fetch(`${getAepbaseUrl()}/access-grants/${OPEN_GRANT_ID}`, {
+    const res = await fetch(`${getAepbaseUrl()}/groups/${MEMBER_GROUP_ID}`, {
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => null);
     if (res?.ok) return;
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
   }
-  throw new Error('Timed out waiting for the open-household grant to be seeded');
+  throw new Error('Timed out waiting for the Members group to be seeded');
 }
 
 async function globalSetup() {
@@ -45,8 +47,8 @@ async function globalSetup() {
   const creds = await startAepbase();
   console.log(`✅ engine API at ${getAepbaseUrl()}`);
   console.log(`   Admin: ${creds.email}`);
-  await waitForOpenGrant(creds.token);
-  console.log(`✅ app at ${getAppUrl()} (schema applied, open-household grant seeded)\n`);
+  await waitForMemberGroup(creds.token);
+  console.log(`✅ app at ${getAppUrl()} (schema applied, permissions baseline seeded)\n`);
 
   // Warm-up: drive a throwaway page through login → dashboard once so Vite
   // transforms the SPA's module graph before the first real test. Without

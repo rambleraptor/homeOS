@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { PERMISSION_RESOURCE_DEFS } from '../resources';
-import { OPEN_GRANT, SEED_ROLES } from '../seed';
+import { OPEN_GRANT_ID, SEED_ROLES } from '../seed';
 import { BUILTIN_RESOURCE_DEFS } from '../../resources/builtins';
 import {
   toWireSchema,
@@ -57,13 +57,10 @@ describe('permission seed data', () => {
     expect(byId.guest.grants).toEqual([]); // empty until granted (§11 #4)
   });
 
-  it('the open-household grant is everyone → write on * , marked as the default', () => {
-    expect(OPEN_GRANT).toEqual({
-      subject_type: 'everyone',
-      target_scope: 'all',
-      capability: 'write',
-      effect: 'allow',
-      is_default: true,
-    });
+  it('seeds no grants — a household starts closed', () => {
+    // The open-household grant (`everyone → write on *`) is gone: access comes
+    // from the role a group confers, never from a seeded blanket allow. Only the
+    // retired grant's id survives, for the migration that deletes it.
+    expect(OPEN_GRANT_ID).toBe('open-household');
   });
 });

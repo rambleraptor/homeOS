@@ -1,24 +1,33 @@
 /**
  * Boot-time seeding of the permissions baseline (design §8).
  *
- * Three things are seeded, each **only when its collection is empty** so a
- * household that has since tightened access is never clobbered on the next
- * boot:
+ * Two things are seeded, each **only when its collection is empty** so a
+ * household that has since curated its own access is never clobbered on the
+ * next boot:
  *   1. The built-in role *definitions* (`admin` / `member` / `guest`) — inert
  *      templates, assigned via groups when wanted.
  *   2. The built-in *groups* (`Admins` / `Members` / `Guests`), each conferring
  *      the matching role. A user only gets a role by being in a role-bearing
  *      group, so these are what make role assignment reachable from the
  *      create-user UI on day one — with no groups there is nothing to assign.
- *   3. The open-household grant (`everyone → write on *`) — the explicit form of
- *      today's "everyone reads/writes everything" behavior. Narrowing or
- *      deleting this grant is how an admin later locks things down.
+ *
+ * **No grant is seeded.** A household starts closed: the resolver denies by
+ * default (`resolve()` ends in `no-grant`), so a person's access comes entirely
+ * from the role their group confers, plus anything shared with them directly.
+ * Access is something you hand out, never something you have to remember to
+ * take away.
+ *
+ * Instances seeded before this carry an `everyone → write on *` grant
+ * (`OPEN_GRANT_ID`) that made every account read/write everything. The
+ * `permissions-close-open-default` migration retires it, moving anyone who was
+ * riding it onto the Member role first — see
+ * `permissions/migrations/close-open-default.ts`.
  *
  * Runs from schema-sync after the resource definitions are applied, using the
  * same minted admin token.
  */
 
-import { ROLES, GROUPS, ACCESS_GRANTS } from './resources';
+import { ROLES, GROUPS } from './resources';
 
 export interface SeedRole {
   id: string;
@@ -88,21 +97,14 @@ export const SEED_GROUPS: SeedGroup[] = [
   },
 ];
 
-export const OPEN_GRANT_ID = 'open-household';
-
 /**
- * The open-household default: everyone can write everything. `is_default: true`
- * marks it a *fallback* — the store drops it for any user who has a conferred
- * role (§8.x), so putting someone in a role-bearing group defines their access
- * outright, without deleting this grant.
+ * Id of the retired open-household grant (`everyone → write on *`).
+ *
+ * No longer seeded — a household starts closed. The id survives because
+ * instances seeded before the change still carry the row, and the
+ * `permissions-close-open-default` migration needs to find and delete it.
  */
-export const OPEN_GRANT = {
-  subject_type: 'everyone',
-  target_scope: 'all',
-  capability: 'write',
-  effect: 'allow',
-  is_default: true,
-} as const;
+export const OPEN_GRANT_ID = 'open-household';
 
 /** The fetch signature the seeder needs — injectable so tests can route to an in-process engine. */
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -141,15 +143,19 @@ async function create(
 }
 
 /**
- * Seed the baseline roles and open grant. Idempotent: seeds each collection
- * only when it is currently empty. `fetchImpl` defaults to global fetch (boot);
+ * Seed the baseline roles and groups. Idempotent: seeds each collection only
+ * when it is currently empty. `fetchImpl` defaults to global fetch (boot);
  * tests inject one that routes to an in-process engine.
+ *
+ * Deliberately seeds **no grants** — see the module header. A freshly seeded
+ * household grants nothing to anybody; the superuser who claimed the instance
+ * breaks glass past enforcement and hands out access from there.
  */
 export async function seedPermissions(
   aepbaseUrl: string,
   token: string,
   fetchImpl: FetchLike = fetch,
-): Promise<{ rolesSeeded: number; groupsSeeded: number; openGrantSeeded: boolean }> {
+): Promise<{ rolesSeeded: number; groupsSeeded: number }> {
   let rolesSeeded = 0;
   if (await isEmpty(fetchImpl, aepbaseUrl, token, ROLES)) {
     for (const role of SEED_ROLES) {
@@ -171,41 +177,5 @@ export async function seedPermissions(
     }
   }
 
-  let openGrantSeeded = false;
-  if (await isEmpty(fetchImpl, aepbaseUrl, token, ACCESS_GRANTS)) {
-    await create(fetchImpl, aepbaseUrl, token, ACCESS_GRANTS, OPEN_GRANT_ID, OPEN_GRANT);
-    openGrantSeeded = true;
-  } else {
-    // Backfill: a household seeded before `is_default` existed has an
-    // open-household grant without the marker, so it wouldn't be suppressed for
-    // role-holders (roles would silently do nothing). Mark it. Idempotent.
-    await ensureOpenGrantDefault(fetchImpl, aepbaseUrl, token);
-  }
-
-  return { rolesSeeded, groupsSeeded, openGrantSeeded };
-}
-
-/**
- * Ensure the open-household grant carries `is_default: true`. No-ops when the
- * grant is absent (a household that deliberately locked down) or already marked.
- */
-async function ensureOpenGrantDefault(
-  fetchImpl: FetchLike,
-  aepbaseUrl: string,
-  token: string,
-): Promise<void> {
-  const res = await fetchImpl(`${aepbaseUrl}/${ACCESS_GRANTS}/${OPEN_GRANT_ID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) return; // no open grant → nothing to backfill
-  const body = (await res.json()) as { is_default?: boolean };
-  if (body.is_default === true) return;
-  const patch = await fetchImpl(`${aepbaseUrl}/${ACCESS_GRANTS}/${OPEN_GRANT_ID}`, {
-    method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ is_default: true }),
-  });
-  if (!patch.ok) {
-    throw new Error(`PATCH /${ACCESS_GRANTS}/${OPEN_GRANT_ID} → ${patch.status}: ${await patch.text()}`);
-  }
+  return { rolesSeeded, groupsSeeded };
 }

@@ -18,6 +18,13 @@ import { test as base, Page } from '@playwright/test';
 import { getAepbaseUrl, readAdminCreds } from '../config/aepbase.setup';
 import { testUsers } from './test-data';
 
+/**
+ * The seeded role-bearing group every fixture user joins. Boot seeds
+ * `admins`/`members`/`guests` with stable ids (see `permissions/seed.ts`), and
+ * `members` confers the role that matches what a real household member gets.
+ */
+const MEMBER_GROUP_ID = 'members';
+
 type TestUser = {
   id: string;
   email: string;
@@ -71,6 +78,27 @@ export const test = base.extend<AepbaseFixtures>({
       throw new Error(`testUser: create failed: ${createRes.status} ${await createRes.text()}`);
     }
     const created = (await createRes.json()) as { id: string };
+
+    // A household is closed by default — a user with no role can't read or write
+    // anything, which would fail practically every spec. Joining the seeded
+    // Members group confers the `member` role (`all`-scope write), the same
+    // access the create-user UI hands a new person by default.
+    const joinRes = await fetch(
+      `${getAepbaseUrl()}/groups/${MEMBER_GROUP_ID}/group-memberships`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user: created.id }),
+      },
+    );
+    if (!joinRes.ok) {
+      throw new Error(
+        `testUser: could not join the Members group: ${joinRes.status} ${await joinRes.text()}`,
+      );
+    }
 
     await use({
       id: created.id,

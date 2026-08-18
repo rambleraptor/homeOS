@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { toWireSchema } from '@rambleraptor/homestead-core/resources/translate';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
-import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
+import { BOOK_DEF, installOpenGrant, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const BASE = 'http://localhost:8090';
 
@@ -35,6 +35,8 @@ describe('access-grant manage-on-target write rule', () => {
     }
     await defineResource(t, BOOK_DEF);
     await seedPermissions(BASE, t.adminToken, fetchImpl);
+    // Seeding writes no grants; these tests narrow from an open baseline.
+    await installOpenGrant(t);
   });
 
   afterEach(() => {

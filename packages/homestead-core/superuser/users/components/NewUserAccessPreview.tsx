@@ -24,8 +24,15 @@ function summarizeEveryoneGrant(g: {
  * reported honestly:
  *   - **Apps** — app-access gating always applies, regardless of enforcement.
  *   - **Data** — when permissions aren't enforced, everyone can do everything;
- *     when they are, a new user's default data access comes from the
- *     `everyone`-scoped grants (the open-household grant, by default).
+ *     when they are, a new user's data access comes entirely from whatever
+ *     `everyone`-scoped grants the household has chosen to create.
+ *
+ * A household starts **closed** — nothing is seeded, so on a fresh instance
+ * there are no `everyone` grants and the honest answer is "nothing yet". That is
+ * the point of showing this at all: the admin is meant to see the emptiness and
+ * pick an access level. If they have since shared something with everyone, this
+ * reports that instead, so the preview always describes the household in front
+ * of them rather than a default that may not apply.
  *
  * Superusers get a full-access note (they break-glass past data restrictions),
  * with the caveat that app visibility still gates which apps they can open.
@@ -66,7 +73,7 @@ export function NewUserAccessPreview({ type }: { type: UserType }) {
     if (parts.length > 0) {
       return `Shared with everyone by default: ${parts.join(', ')}.`;
     }
-    return 'No data access yet — share specific apps, groups, or records to grant it.';
+    return 'No data access yet — pick an access level below, or share specific groups or records with them later.';
   }, [isSuperuser, enforced, grants]);
 
   return (
@@ -88,7 +95,8 @@ export function NewUserAccessPreview({ type }: { type: UserType }) {
       </p>
       {!isSuperuser && (
         <p className="text-xs text-gray-500">
-          Add them to a group on the Permissions page to grant more.
+          Access comes from the role their group confers — add them to a group on
+          the Permissions page to grant it.
         </p>
       )}
     </div>

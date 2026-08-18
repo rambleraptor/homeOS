@@ -45,7 +45,7 @@ describe('NewUserAccessPreview', () => {
     expect(screen.getByText(/Can open 1 app: Recipes\./)).toBeInTheDocument();
   });
 
-  it('a regular user in a locked-down household starts with no data access', () => {
+  it('a regular user in a fresh (closed) household starts with no data access', () => {
     setup({ enforced: true, grants: [] });
     render(<NewUserAccessPreview type="regular" />);
     expect(screen.getByText(/No data access yet/i)).toBeInTheDocument();
