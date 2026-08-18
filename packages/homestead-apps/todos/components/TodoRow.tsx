@@ -3,7 +3,8 @@ import { Check, Moon, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { SwipeRow, type SwipeAction } from '@rambleraptor/homestead-core/shared/gestures';
-import type { Todo, TodoItem, TodoStatus } from '../types';
+import { TODO_KIND_STYLE } from '../kindStyles';
+import type { Todo, TodoItem, TodoKind, TodoStatus } from '../types';
 
 export type TodoRowVariant = 'active' | 'doLater' | 'completed';
 
@@ -13,11 +14,12 @@ interface TodoRowProps {
   onSetStatus: (status: TodoStatus) => void;
   disabled?: boolean;
   /**
-   * When true, render the 👪 family marker before the title. Set on the main
-   * mixed view for family todos so they stand out from personal ones; left off
-   * inside project views (where every row is already family).
+   * Render a coloured rail marking the todo's kind. Set on the main mixed
+   * view, where personal and family todos are interleaved and the distinction
+   * carries information; left undefined inside project views, where every row
+   * is family and a marker would be noise on every line.
    */
-  familyMarker?: boolean;
+  kindMarker?: TodoKind;
   /** When true, show a subtle "you" hint — a family todo the viewer created. */
   createdByYou?: boolean;
   /**
@@ -160,7 +162,7 @@ export function TodoRow({
   onTogglePin,
   pinnedFromLabel,
   href,
-  familyMarker,
+  kindMarker,
   createdByYou,
 }: TodoRowProps) {
   const actions = readOnly ? [] : actionsForVariant(variant);
@@ -177,16 +179,6 @@ export function TodoRow({
   );
   const titleContent = (
     <>
-      {familyMarker && (
-        <span
-          data-testid={`todo-row-${todo.id}-family`}
-          aria-label="Family todo"
-          title="Family todo — shared with everyone"
-          className="mr-1.5 select-none"
-        >
-          👪
-        </span>
-      )}
       {todo.title}
       {createdByYou && (
         <span
@@ -228,6 +220,22 @@ export function TodoRow({
           'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-pearl',
         )}
       >
+        {kindMarker && (
+          // A sibling of the title rather than part of it: inside, a cancelled
+          // row's line-through would strike the rail as well, and the marker
+          // would shift left and right as titles change length instead of
+          // forming a straight edge down the list.
+          <span
+            data-testid={`todo-row-${todo.id}-${kindMarker}`}
+            title={TODO_KIND_STYLE[kindMarker].label}
+            className={cn(
+              'h-5 w-1.5 shrink-0 rounded-full',
+              TODO_KIND_STYLE[kindMarker].rail,
+            )}
+          >
+            <span className="sr-only">{TODO_KIND_STYLE[kindMarker].label}</span>
+          </span>
+        )}
         {href ? (
           <Link
             to={href}

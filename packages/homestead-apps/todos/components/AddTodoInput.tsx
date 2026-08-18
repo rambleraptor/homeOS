@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, User, Users } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
+import { TODO_KIND_STYLE } from '../kindStyles';
 import type { TodoKind } from '../types';
 
 interface AddTodoInputProps {
@@ -19,6 +20,11 @@ interface AddTodoInputProps {
  * personal (the default, submitted on Enter) and family — so a new todo lands
  * in the right collection. In a project view only the family button is shown.
  * Clears the field after a successful submit.
+ *
+ * Each button wears the colour its todos will wear in the list, taken from the
+ * shared `TODO_KIND_STYLE` map so a button and the rows it produces cannot
+ * end up different colours. Pressing the terracotta button puts a
+ * terracotta-railed row in the list; that is the whole cue.
  */
 export function AddTodoInput({
   onSubmit,
@@ -79,8 +85,8 @@ export function AddTodoInput({
             data-testid="todos-add-submit-personal"
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-full',
-              'bg-accent-terracotta text-white shadow-sm',
-              'hover:bg-accent-terracotta-hover transition-colors',
+              'text-white shadow-sm transition-colors',
+              TODO_KIND_STYLE.personal.button,
               'disabled:opacity-40 disabled:cursor-not-allowed',
             )}
           >
@@ -95,8 +101,8 @@ export function AddTodoInput({
             data-testid="todos-add-submit-family"
             className={cn(
               'flex h-9 w-9 items-center justify-center rounded-full',
-              'bg-brand-navy text-white shadow-sm',
-              'hover:bg-brand-navy/90 transition-colors',
+              'text-white shadow-sm transition-colors',
+              TODO_KIND_STYLE.family.button,
               'disabled:opacity-40 disabled:cursor-not-allowed',
             )}
           >
@@ -111,8 +117,12 @@ export function AddTodoInput({
           data-testid="todos-add-submit"
           className={cn(
             'flex h-9 w-9 items-center justify-center rounded-full',
-            'bg-accent-terracotta text-white shadow-sm',
-            'hover:bg-accent-terracotta-hover transition-colors',
+            'text-white shadow-sm transition-colors',
+            // Follows `defaultKind`, which is 'family' here. It was previously
+            // terracotta — the personal colour — while creating family todos,
+            // which was harmless when nothing else used the colours and
+            // actively misleading now that the rows do.
+            TODO_KIND_STYLE[defaultKind].button,
             'disabled:opacity-40 disabled:cursor-not-allowed',
           )}
         >

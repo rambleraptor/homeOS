@@ -34,16 +34,16 @@ test.describe('Todos CRUD', () => {
     await todosPage.expectGreenSegmentZero();
   });
 
-  test('adds a personal todo by default (no family marker)', async () => {
+  test('adds a personal todo by default (shows the personal rail)', async () => {
     await todosPage.addPersonalTodo('Solo task');
     await todosPage.expectInActive('Solo task');
-    await todosPage.expectNoFamilyMarker('Solo task');
+    await todosPage.expectKindMarker('Solo task', 'personal');
   });
 
-  test('adds a family todo via the family button (shows 👪 marker)', async () => {
+  test('adds a family todo via the family button (shows the family rail)', async () => {
     await todosPage.addFamilyTodo('Shared task');
     await todosPage.expectInActive('Shared task');
-    await todosPage.expectFamilyMarker('Shared task');
+    await todosPage.expectKindMarker('Shared task', 'family');
   });
 
   test('marks a todo complete and shows it under Completed', async ({ adminToken }) => {

@@ -49,14 +49,15 @@ export class TodosPage {
     return testId;
   }
 
-  async expectFamilyMarker(title: string) {
+  /**
+   * A row's kind is shown as a coloured rail before the title — terracotta for
+   * personal, navy for family — matching the button that created it.
+   */
+  async expectKindMarker(title: string, kind: 'personal' | 'family') {
     const testId = await this.rowTestId(title);
-    await expect(this.page.getByTestId(`${testId}-family`)).toBeVisible();
-  }
-
-  async expectNoFamilyMarker(title: string) {
-    const testId = await this.rowTestId(title);
-    await expect(this.page.getByTestId(`${testId}-family`)).toHaveCount(0);
+    await expect(this.page.getByTestId(`${testId}-${kind}`)).toBeVisible();
+    const other = kind === 'family' ? 'personal' : 'family';
+    await expect(this.page.getByTestId(`${testId}-${other}`)).toHaveCount(0);
   }
 
   // --- Categories (project view) ---
