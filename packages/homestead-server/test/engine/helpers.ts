@@ -84,14 +84,14 @@ export async function call(
 }
 
 /**
- * Install the legacy open-household grant: `everyone → write on *`, marked
- * `is_default` so the store still treats it as the suppressible fallback.
+ * Install a blanket `everyone → write on *` grant.
  *
- * Boot no longer seeds this — a household starts closed (see
- * `permissions/seed.ts`) — but it remains the shape an un-migrated instance
- * carries, and it's the baseline most enforcement tests want to narrow *from*.
- * Installing it explicitly keeps that dependency visible in each test instead of
- * riding on whatever the seeder happens to write.
+ * Nothing seeds this any more — a household starts closed, and the built-in
+ * roles name the collections they cover one by one (see `permissions/seed.ts`).
+ * The `all` scope is still part of the grant *vocabulary* though, so an admin
+ * can still write one by hand, and it remains the shape an un-migrated instance
+ * carries. Enforcement tests use it as a broad baseline to narrow from;
+ * installing it explicitly keeps that dependency visible in each test.
  */
 export async function installOpenGrant(t: TestEngine): Promise<void> {
   const res = await call(t.engine, 'POST', '/access-grants?id=open-household', {
@@ -101,7 +101,6 @@ export async function installOpenGrant(t: TestEngine): Promise<void> {
       target_scope: 'all',
       capability: 'write',
       effect: 'allow',
-      is_default: true,
     },
   });
   if (res.status !== 201) {

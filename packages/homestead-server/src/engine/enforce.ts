@@ -36,23 +36,6 @@ function subjectOf(caller: User): FilterSubject {
   return { id: caller.id, email: caller.email, display_name: caller.display_name };
 }
 
-export type AccessModel = 'household' | 'owner' | 'acl';
-
-/**
- * Apply a resource's access model (§7) to the grant set used for *row* access:
- *   - household → all grant scopes apply (the blanket open grant included).
- *   - acl       → the all-scope (open) grant is ignored; app/collection/record apply.
- *   - owner     → all- and app-scope grants ignored; only collection/record apply
- *                 (owner⇒manage still comes from the resolver itself).
- * Denies are always kept — deny wins at every scope. CREATE never calls this
- * (people can always add records they'll own).
- */
-function scopedGrants(grants: Grant[], model: AccessModel): Grant[] {
-  if (model === 'household') return grants;
-  const droppedAllowScopes = model === 'owner' ? new Set(['all', 'app']) : new Set(['all']);
-  return grants.filter((g) => g.effect === 'deny' || !droppedAllowScopes.has(g.target.scope));
-}
-
 /**
  * A sentinel user id used as the *token-side* principal when a caller acts
  * through a personal access token. It matches no real user id and no row's
@@ -104,7 +87,6 @@ export function enforceRecordAccess(
     resourceType: string;
     plural: string;
     schema: Schema;
-    accessModel: AccessModel;
     recordId?: string;
     recordPath?: string;
   },
@@ -116,13 +98,21 @@ export function enforceRecordAccess(
   const { principals } = gathered;
   // The access model restricts *row* access (recordPath set); CREATE keeps the
   // full grant set so people can add records they'll own.
-  const grants = opts.recordPath ? scopedGrants(gathered.grants, opts.accessModel) : gathered.grants;
+  const { grants } = gathered;
   const recordOwner = opts.recordPath ? ownerOf(db, opts.plural, opts.recordPath) : undefined;
 
   // A collection-scope grant filter (§3.6) matches iff the addressed record
   // satisfies it — evaluated as a SQL guard so it can't drift from LIST.
+  //
+  // On CREATE there is no row to match yet, and the filter describes *which
+  // rows you may see and change*, not *whether you may add one*. So a filtered
+  // grant authorizes creating in its collection: that's what lets a household
+  // member add a document to a collection whose rows stay private to their
+  // owner. (A filter naming other rows, e.g. `status == "draft"`, therefore
+  // also permits creating a row outside it — the creator owns that row via
+  // `_owner`, and the filter still governs everything they do to it after.)
   const filterEval: FilterEval = (filter) => {
-    if (!opts.recordPath) return false; // create/collection: no row to match
+    if (!opts.recordPath) return true; // create: no row yet — see above
     return recordMatchesFilter(db, opts.plural, opts.recordPath, filter, opts.schema, subjectOf(caller));
   };
 
@@ -150,9 +140,7 @@ export function enforceRecordAccess(
   // by the grants assigned to that token (resolved with no superuser bypass and
   // no owner identity). Effective access is the intersection — both must allow.
   if (caller.pat) {
-    const tGrants = opts.recordPath
-      ? scopedGrants(tokenGrantsFor(gathered.grants, caller.pat.id), opts.accessModel)
-      : tokenGrantsFor(gathered.grants, caller.pat.id);
+    const tGrants = tokenGrantsFor(gathered.grants, caller.pat.id);
     const tokenDecision = resolve(
       { isSuperuser: false },
       request,
@@ -203,7 +191,6 @@ export function listVisibilityClause(
     resourceType: string;
     plural: string;
     schema: Schema;
-    accessModel: AccessModel;
   },
 ): { sql: string; params: (string | number)[] } | null {
   const { caller } = opts;
@@ -221,7 +208,7 @@ export function listVisibilityClause(
     const visibility = computeVisibility(
       target,
       gathered.principals,
-      scopedGrants(gathered.grants, opts.accessModel),
+      gathered.grants,
     );
     ownerClause = visibilityToSql(visibility, caller.id, opts.schema, subjectOf(caller));
   }
@@ -235,7 +222,7 @@ export function listVisibilityClause(
   const tokenVisibility = computeVisibility(
     target,
     tokenPrincipals(caller.pat.id),
-    scopedGrants(tokenGrantsFor(gathered.grants, caller.pat.id), opts.accessModel),
+    tokenGrantsFor(gathered.grants, caller.pat.id),
   );
   const tokenClause = visibilityToSql(
     tokenVisibility,

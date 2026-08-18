@@ -15,6 +15,7 @@ import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
+import { householdCollections } from '@rambleraptor/homestead-core/permissions/household';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import { syncUserSettingsSchema } from '@rambleraptor/homestead-core/user-settings/sync';
 import { sweepStaleOperations } from '@rambleraptor/homestead-core/server/operations';
@@ -57,13 +58,16 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
 
   const token = admin.token;
   try {
+    // Hoisted: the permissions seeder derives the household roles' covered
+    // collections from the same declared set the schema sync applies.
+    const defs = [
+      ...BUILTIN_RESOURCE_DEFS,
+      ...PERMISSION_RESOURCE_DEFS,
+      ...getAllResourceDefs(),
+    ];
+
     let resourcesSynced = false;
     try {
-      const defs = [
-        ...BUILTIN_RESOURCE_DEFS,
-        ...PERMISSION_RESOURCE_DEFS,
-        ...getAllResourceDefs(),
-      ];
       const result = await syncResourceDefinitions({
         aepbaseUrl,
         token,
@@ -94,13 +98,22 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
 
     // Seed the permissions baseline (roles + role-bearing groups) once the
     // definitions exist. Idempotent: seeds each collection only when empty
-    // (§8). No grant is seeded — a household starts closed.
+    // (§8). No grant is seeded — a household starts closed. The built-in roles
+    // name the collections they cover, so they're reconciled against what this
+    // household currently declares: installing an app extends them, removing
+    // one retracts them.
     try {
-      const seeded = await seedPermissions(aepbaseUrl, token);
-      if (seeded.rolesSeeded || seeded.groupsSeeded) {
+      const seeded = await seedPermissions(
+        aepbaseUrl,
+        token,
+        undefined,
+        householdCollections(defs),
+      );
+      if (seeded.rolesSeeded || seeded.groupsSeeded || seeded.rolesReconciled.length) {
         log.child('permissions').info('seeded baseline', {
           roles: seeded.rolesSeeded,
           groups: seeded.groupsSeeded,
+          reconciled: seeded.rolesReconciled,
         });
       }
     } catch (error) {

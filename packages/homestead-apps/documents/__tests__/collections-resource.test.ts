@@ -11,6 +11,7 @@ import {
   toWireSchema,
 } from '@rambleraptor/homestead-core/resources/translate';
 import { documentsResources, COLLECTIONS } from '../resources';
+import { PRIVATE_COLLECTIONS } from '@rambleraptor/homestead-core/permissions/household';
 import { peopleResources } from '../../people/resources';
 
 const byId = (singular: string) =>
@@ -32,15 +33,18 @@ describe('collections resource', () => {
     ).not.toThrow();
   });
 
-  test('collection is a private (acl) resource', () => {
+  test('collection is one of the private-by-default collections', () => {
     const collection = byId('collection');
     expect(collection.plural).toBe(COLLECTIONS);
-    expect(collection.access?.model).toBe('acl');
+    // Privacy isn't declared on the resource any more — there is no access
+    // model. A household role covers `collection` only for a member's own rows,
+    // which is what leaves a folder invisible until it's shared.
+    expect(PRIVATE_COLLECTIONS).toContain('collection');
   });
 
-  test('document is acl and its collections field references collection', () => {
+  test('document is private by default and its collections field references collection', () => {
     const document = byId('document');
-    expect(document.access?.model).toBe('acl');
+    expect(PRIVATE_COLLECTIONS).toContain('document');
     const collections = document.fields.collections;
     expect(collections?.type).toBe('array');
     expect(collections?.items?.reference?.resource).toBe('collection');

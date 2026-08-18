@@ -627,6 +627,18 @@ Both are just the §4 resolver run in the other direction; no new storage. A thi
 
 ## 7. Per-resource access model (opt-in strictness)
 
+> **Superseded — this was built, then removed.** The `access` block existed to
+> let a resource opt out of the blanket open grant, because a grant can target
+> things but cannot exempt them, and a deny is absolute (it would also block the
+> record grants sharing depends on). With no blanket left — the built-in roles
+> now name the collections they cover, one by one — there is nothing to opt out
+> of, so `ResourceAccess`, the `x-homestead-access` wire marker, and the
+> `scopedGrants` pre-filter are gone. A collection is private when the household
+> roles cover it only for a member's own rows; see `PRIVATE_COLLECTIONS` in
+> `homestead-core/permissions/household.ts`. The section is kept as the record of
+> why the block existed.
+
+
 Not every collection wants record ACLs. Extend `ResourceDefinition`
 (`resources/types.ts`) with an optional declaration:
 
@@ -704,6 +716,16 @@ on per-user roles.
    This is what makes "enforcement on by default" safe.
 
 ### 8.x The default grant is a fallback, not a blanket allow
+
+> **Superseded — the default grant is gone.** This described how the seeded
+> `everyone → write *` grant was suppressed for anyone holding a role, so a role
+> could bite without deleting it. Nothing is seeded now: a household starts
+> closed, access comes from the role a group confers, and grants are purely
+> additive again (nothing is a suppressible fallback, and `is_default` has been
+> dropped from `access-grant`). The stated rule inverts accordingly — *a person
+> can do nothing until you give them a role* — and the cliff this section worked
+> around no longer exists, because there is nothing to fall off.
+
 
 The open-household grant (`everyone → write *`, `is_default: true`) is the
 zero-config "everything is shared" default. Naively it's an *absolute* allow:

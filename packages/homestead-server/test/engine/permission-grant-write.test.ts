@@ -34,7 +34,7 @@ describe('access-grant manage-on-target write rule', () => {
       );
     }
     await defineResource(t, BOOK_DEF);
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
     // Seeding writes no grants; these tests narrow from an open baseline.
     await installOpenGrant(t);
   });
@@ -100,7 +100,8 @@ describe('access-grant manage-on-target write rule', () => {
       body: { user: alice.user.id },
     });
 
-    // Alice now has manage on everything → may create a collection grant.
+    // The admin role confers manage on every household collection (here just
+    // `book`), so Alice may create a grant targeting one.
     expect(
       (await call(t.engine, 'POST', '/access-grants?id=c1', {
         token: alice.token,

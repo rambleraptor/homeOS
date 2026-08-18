@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { PERMISSION_RESOURCE_DEFS } from '../resources';
-import { OPEN_GRANT_ID, SEED_ROLES } from '../seed';
+import { OPEN_GRANT_ID, buildSeedRoles } from '../seed';
+import { householdCollections, OWN_ROWS_FILTER } from '../household';
 import { BUILTIN_RESOURCE_DEFS } from '../../resources/builtins';
 import {
   toWireSchema,
@@ -50,11 +51,51 @@ describe('permission resource definitions', () => {
 });
 
 describe('permission seed data', () => {
-  it('seeds admin/member/guest with the expected capability bundles', () => {
-    const byId = Object.fromEntries(SEED_ROLES.map((r) => [r.id, r]));
-    expect(byId.admin.grants).toEqual([{ target_scope: 'all', capability: 'manage' }]);
-    expect(byId.member.grants).toEqual([{ target_scope: 'all', capability: 'write' }]);
-    expect(byId.guest.grants).toEqual([]); // empty until granted (§11 #4)
+  it('builds admin/member/guest with the expected capability bundles', () => {
+    // The three built-in access levels are unchanged; what changed is how they
+    // are written — one collection-scope grant per covered collection instead of
+    // a single `all`-scope blanket. A Member still reads and writes every
+    // household collection.
+    const roles = buildSeedRoles([
+      { resource_type: 'todo' },
+      { resource_type: 'document', filter: OWN_ROWS_FILTER },
+    ]);
+    const byId = Object.fromEntries(roles.map((r) => [r.id, r]));
+
+    expect(byId.admin.grants).toEqual([
+      { target_scope: 'collection', resource_type: 'todo', capability: 'manage' },
+      { target_scope: 'collection', resource_type: 'document', capability: 'manage', filter: OWN_ROWS_FILTER },
+    ]);
+    expect(byId.member.grants).toEqual([
+      { target_scope: 'collection', resource_type: 'todo', capability: 'write' },
+      { target_scope: 'collection', resource_type: 'document', capability: 'write', filter: OWN_ROWS_FILTER },
+    ]);
+    expect(byId.guest.grants).toEqual([]); // empty until something is shared
+
+    // No grant anywhere is `all`-scope — that shape is what we removed.
+    for (const role of roles) {
+      expect(role.grants.every((g) => g.target_scope === 'collection')).toBe(true);
+    }
+  });
+
+  it('household roles cover every declared collection except the self-governing ones', () => {
+    const covered = householdCollections([
+      { singular: 'todo', plural: 'todos', fields: {} },
+      { singular: 'document', plural: 'documents', fields: {} },
+      // user-parented: governed by checkUserScope, so a grant would be inert
+      { singular: 'notification', plural: 'notifications', parents: ['user'], fields: {} },
+      // self-governing: the manage-on-target rule owns these
+      { singular: 'access-grant', plural: 'access-grants', fields: {} },
+    ]);
+    const names = covered.map((c) => c.resource_type);
+
+    expect(names).toContain('todo');
+    expect(names).toContain('document');
+    expect(names).not.toContain('notification');
+    expect(names).not.toContain('access-grant');
+    // The documents app is covered only for a member's own rows.
+    expect(covered.find((c) => c.resource_type === 'document')?.filter).toBe(OWN_ROWS_FILTER);
+    expect(covered.find((c) => c.resource_type === 'todo')?.filter).toBeUndefined();
   });
 
   it('seeds no grants — a household starts closed', () => {

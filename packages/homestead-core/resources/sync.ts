@@ -270,12 +270,6 @@ function wireDefinition(
   def: ResourceDefinition,
   schema: ResourceSchema,
 ): Record<string, unknown> {
-  // The per-resource access model rides on the schema root as an x- extension,
-  // so it round-trips through the definition store's schema_json with no extra
-  // column. `household` is the default and is left off the wire.
-  const model = def.access?.model;
-  const wireSchema =
-    model && model !== 'household' ? { ...schema, 'x-homestead-access': model } : schema;
   return {
     singular: def.singular,
     plural: def.plural,
@@ -283,7 +277,7 @@ function wireDefinition(
     user_settable_create: def.user_settable_create,
     superuser_write: def.superuser_write,
     parents: def.parents,
-    schema: wireSchema,
+    schema,
   };
 }
 

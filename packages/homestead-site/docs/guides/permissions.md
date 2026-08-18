@@ -200,10 +200,11 @@ A few rules of thumb make the whole system predictable:
   this isn't the tool for that.
 - **Changes are near-instant.** New rules take effect within a few seconds
   (there's a short cache), no restart needed.
-- **Owner-only apps.** A developer can mark a whole resource *owner-private* in
-  its definition (`access: { model: 'owner' }`), so its records default to the
-  creator only even under the open household rule — good for personal notes or
-  one person's receipts. See [Defining Resources](./resources).
+- **Private collections.** A few collections are covered by the household roles
+  only for *your own* records — the Documents app, whose point is per-folder
+  sharing. Nothing is marked on the resource itself: the roles simply don't hand
+  out everyone else's rows. You can still add records there, and you always see
+  what you created.
 - **Filters.** A rule can target records by a condition instead of a fixed id —
   for example "recipes you created" (`created_by == subject.id`). Same
   expression language as list filters.

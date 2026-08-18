@@ -51,7 +51,7 @@ describe('permission resources + seed at boot', () => {
   });
 
   test('seeding creates admin/member/guest and the role-bearing groups, and no grants', async () => {
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
 
     expect(await listIds(t, 'roles')).toEqual(['admin', 'guest', 'member']);
     expect(await listIds(t, 'groups')).toEqual(['admins', 'guests', 'members']);
@@ -66,26 +66,35 @@ describe('permission resources + seed at boot', () => {
     expect(membersGroup.name).toBe('Members');
     expect(membersGroup.role).toBe('member');
 
+    // The household roles name the collections they cover one by one — no grant
+    // anywhere is `all`-scope. Seeded here with the `book` collection as the
+    // household's declared set (see the seedPermissions call above).
     const member = await call(t.engine, 'GET', '/roles/member', { token: t.adminToken });
-    expect((await member.json()).grants).toEqual([{ target_scope: 'all', capability: 'write' }]);
+    expect((await member.json()).grants).toEqual([
+      { target_scope: 'collection', resource_type: 'book', capability: 'write' },
+    ]);
+    const admin = await call(t.engine, 'GET', '/roles/admin', { token: t.adminToken });
+    expect((await admin.json()).grants).toEqual([
+      { target_scope: 'collection', resource_type: 'book', capability: 'manage' },
+    ]);
   });
 
   test('seeding is idempotent (seed-when-empty)', async () => {
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
     expect(await listIds(t, 'roles')).toEqual(['admin', 'guest', 'member']);
     expect(await listIds(t, 'groups')).toEqual(['admins', 'guests', 'members']);
     expect(await listIds(t, 'access-grants')).toEqual([]);
   });
 
   test('a household that has curated its own grants is left alone', async () => {
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
     await call(t.engine, 'POST', '/access-grants?id=custom', {
       token: t.adminToken,
       body: { subject_type: 'everyone', target_scope: 'app', target_app: 'recipes', capability: 'read' },
     });
 
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
     // Seeding never writes a grant, so a hand-made one is all that remains.
     expect(await listIds(t, 'access-grants')).toEqual(['custom']);
   });

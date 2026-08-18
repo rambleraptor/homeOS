@@ -43,7 +43,6 @@ export interface RegisteredResource {
   /** Only superusers may create/update/delete records of this resource. */
   superuserWrite: boolean;
   /** Per-resource permission model (design §7); defaults to `household`. */
-  accessModel: 'household' | 'owner' | 'acl';
   /** Built-in resources (user) have no _aep_resource_definitions row. */
   builtin: boolean;
   /**
@@ -53,16 +52,6 @@ export interface RegisteredResource {
    * singletonRouteElems).
    */
   patternElems: string[];
-}
-
-const ACCESS_MODELS = new Set(['household', 'owner', 'acl']);
-
-/** Read the per-resource permission model from the wire schema's marker (§7). */
-function readAccessModel(schema: unknown): 'household' | 'owner' | 'acl' {
-  const raw = (schema as Record<string, unknown> | null | undefined)?.['x-homestead-access'];
-  return typeof raw === 'string' && ACCESS_MODELS.has(raw)
-    ? (raw as 'household' | 'owner' | 'acl')
-    : 'household';
 }
 
 function paramName(singular: string): string {
@@ -126,7 +115,6 @@ export class Registry {
       examples: {},
       userSettableId: false,
       superuserWrite: false,
-      accessModel: 'household',
       builtin: true,
       patternElems: [USER_PLURAL, `{${paramName(USER_SINGULAR)}}`],
     });
@@ -222,7 +210,6 @@ export class Registry {
       examples: def.examples ?? {},
       userSettableId: def.user_settable_create ?? false,
       superuserWrite: def.superuser_write ?? false,
-      accessModel: readAccessModel(def.schema),
       builtin: false,
       patternElems: this.buildPatternElems({
         singular: def.singular,
