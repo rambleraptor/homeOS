@@ -7,7 +7,6 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { DocumentListItem } from '../components/DocumentListItem';
 import { categoryTone } from '../categories';
@@ -72,49 +71,44 @@ describe('DocumentListItem', () => {
     expect(card).not.toHaveAttribute('data-revealing');
   });
 
+  it("draws the document type's icon exactly once", () => {
+    // It was drawn twice — on the tile and again at the row's trailing edge —
+    // which read as two facts rather than one said twice.
+    renderRow({ parse_status: 'parsed', metadata: { doc_type: 'form-w2' } });
+    expect(screen.getAllByTestId('document-type-icon')).toHaveLength(1);
+  });
+
+  it('drops the status badge once the type icon stands in for it', () => {
+    renderRow({ parse_status: 'parsed', metadata: { doc_type: 'form-w2' } });
+    expect(screen.queryByTestId('document-status')).not.toBeInTheDocument();
+  });
+
+  it('keeps the status badge while there is no type icon', () => {
+    renderRow({ parse_status: 'pending' });
+    expect(screen.getByTestId('document-status')).toBeInTheDocument();
+  });
+
   it('opens the document from the row', () => {
     renderRow({});
     expect(screen.getByTestId('document-open')).toHaveAttribute('href', '/documents/d1');
   });
 
   describe('actions', () => {
-    it('renders no action buttons when the caller supplies no handlers', () => {
+    it('is a plain row, not a swipeable one, without handlers', () => {
       // The Home app renders these rows as a read-only shelf; it must stay one.
       renderRow({});
+      expect(screen.queryByTestId('document-card-swipe')).not.toBeInTheDocument();
+    });
+
+    it('becomes swipeable once an action is available', () => {
+      renderRow({}, { onDelete: vi.fn() });
+      expect(screen.getByTestId('document-card-swipe')).toBeInTheDocument();
+    });
+
+    it('offers its actions by swipe rather than by button', () => {
+      renderRow({}, { onDelete: vi.fn(), onRemoveFromCollection: vi.fn() });
       expect(screen.queryByTestId('document-card-delete')).not.toBeInTheDocument();
       expect(screen.queryByTestId('document-card-remove')).not.toBeInTheDocument();
-    });
-
-    it('asks to delete when the delete button is pressed', async () => {
-      const onDelete = vi.fn();
-      renderRow({}, { onDelete });
-      await userEvent.click(screen.getByTestId('document-card-delete'));
-      expect(onDelete).toHaveBeenCalledOnce();
-    });
-
-    it('offers removal from a collection only when one is in scope', () => {
-      renderRow({}, { onDelete: vi.fn() });
-      expect(screen.queryByTestId('document-card-remove')).not.toBeInTheDocument();
-    });
-
-    it('names the collection in the removal action, for screen readers', () => {
-      renderRow(
-        {},
-        { onRemoveFromCollection: vi.fn(), collectionName: 'Taxes 2024' },
-      );
-      expect(screen.getByTestId('document-card-remove')).toHaveAttribute(
-        'aria-label',
-        'Remove from Taxes 2024: A document',
-      );
-    });
-
-    it('identifies the document in the delete action, for screen readers', () => {
-      // A list of identical "Delete" buttons is unusable without the title.
-      renderRow({ title: 'W-2 (2024)' }, { onDelete: vi.fn() });
-      expect(screen.getByTestId('document-card-delete')).toHaveAttribute(
-        'aria-label',
-        'Delete: W-2 (2024)',
-      );
     });
   });
 });
