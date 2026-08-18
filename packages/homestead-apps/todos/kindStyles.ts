@@ -26,6 +26,29 @@
 
 import type { TodoKind } from './types';
 
+/**
+ * Geometry shared by every rail: a thin full-height bar pinned to the edge of
+ * the list, out of the row's flow.
+ *
+ * The rail started life as a small rounded pill sitting *in* the row's flow,
+ * between the row's left padding and the title. That read as a stray floating
+ * rectangle — an object in the row rather than an edge on it — and, because it
+ * took up horizontal space, only the rows that had one: a railed row's title
+ * sat ~18px right of an unrailed row's, so the list lost its left edge exactly
+ * where lists most need one (the main view mixes railed todos with unrailed
+ * synthetic ones).
+ *
+ * Absolute positioning fixes both at once. The bar is flush with the list's
+ * own edge, so it reads as part of the row's border rather than as content,
+ * and every title starts at the same x whether its row is railed or not. The
+ * containing card clips it, so it picks up the card's rounded corners for
+ * free.
+ *
+ * Callers supply the left offset, since "the edge of the list" is `left-0`
+ * inside a full-bleed row and a negative inset inside a padded one.
+ */
+export const TODO_KIND_RAIL_BASE = 'absolute inset-y-0 w-1';
+
 export interface TodoKindStyle {
   /** Background for the row's leading rail. */
   rail: string;
