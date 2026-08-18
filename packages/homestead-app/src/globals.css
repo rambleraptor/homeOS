@@ -134,6 +134,56 @@
       transform: translateY(0);
     }
   }
+
+  /* A document finishing classification: its generic file glyph is replaced by
+   * the icon of the type the AI just recognised. This is the one moment in the
+   * app where something genuinely transforms, so it gets the spring — the
+   * "reward moments only" case the easing token is reserved for. */
+  --animate-reveal-pop: reveal-pop 400ms var(--ease-spring) both;
+  @keyframes reveal-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.4) rotate(-14deg);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+  }
+
+  /* Pairs with the pop: a tinted band travelling once across the row that just
+   * resolved, so the change is noticeable in a long list without the row having
+   * to move or resize. Transform + opacity only, so it composites. */
+  --animate-reveal-sweep: reveal-sweep 900ms var(--ease-out-soft) both;
+  @keyframes reveal-sweep {
+    from {
+      opacity: 0;
+      transform: translateX(-100%);
+    }
+    35% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: translateX(340%);
+    }
+  }
+
+  /* Rows of parsed detail arriving in sequence rather than all at once. Used
+   * with a small per-item `animation-delay`; `both` holds each item hidden
+   * until its turn, which is why the reduced-motion guard below has to zero
+   * the delay as well as the duration. */
+  --animate-field-rise: field-rise 260ms var(--ease-out-soft) both;
+  @keyframes field-rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 body {
@@ -187,7 +237,11 @@ button:not(:disabled):not([aria-disabled='true']):active,
  * guarantee like this survives.
  *
  * `animation-iteration-count: 1` matters as much as the duration — without it
- * a looping animation keeps looping, just imperceptibly fast.
+ * a looping animation keeps looping, just imperceptibly fast. Zeroing the
+ * *delay* matters for the same reason: a staggered list (each row animating in
+ * with `both` and a growing `animation-delay`) would otherwise hold every row
+ * invisible for the full length of its delay and then snap it in — the
+ * cascade removed but the waiting kept, which is the worst of both.
  *
  * `.animate-spin` is exempt. A spinner's rotation isn't decoration, it's the
  * signal that the app is still working; frozen mid-turn it reads as a hung
@@ -200,8 +254,10 @@ button:not(:disabled):not([aria-disabled='true']):active,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

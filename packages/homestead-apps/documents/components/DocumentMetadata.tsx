@@ -4,11 +4,30 @@
  * Driven entirely by the doc type's YAML declaration — field order, labels, and
  * which fields exist all come from there. That's what lets an operator add a
  * document type without touching any code: no component knows what a 1099-INT is.
+ *
+ * The rows arrive in sequence rather than all at once. It's a short cascade in
+ * declaration order — which for a tax form is box order — so the eye is walked
+ * down the fields the way the form itself is laid out, and the page reads as
+ * something the app assembled rather than a table that was always there.
  */
 
 import { getDocType } from '../doc-types/registry';
 import { UNKNOWN_DOC_TYPE } from '../doc-types/docType';
 import type { DocumentMetadata as Metadata } from '../types';
+
+/**
+ * Per-row stagger. Capped so a long form (a W-2 has eleven fields, a home
+ * insurance policy more) still finishes promptly — past the cap the remaining
+ * rows share the last delay and land together, which is fine: by then the
+ * cascade has already been read.
+ */
+const STAGGER_MS = 28;
+const MAX_STAGGERED_ROWS = 10;
+
+/** The animation for the nth row: same everywhere, only the delay differs. */
+function rowStyle(index: number) {
+  return { animationDelay: `${Math.min(index, MAX_STAGGERED_ROWS) * STAGGER_MS}ms` };
+}
 
 interface DocumentMetadataProps {
   metadata?: Metadata;
@@ -46,8 +65,8 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2" data-testid="document-metadata">
         {Object.entries(metadata)
           .filter(([key]) => key !== 'doc_type')
-          .map(([key, value]) => (
-            <div key={key}>
+          .map(([key, value], index) => (
+            <div key={key} className="animate-field-rise" style={rowStyle(index)}>
               <dt className="text-xs text-text-muted">{key}</dt>
               <dd className="text-sm text-brand-navy">{formatValue(value)}</dd>
             </div>
@@ -71,8 +90,13 @@ export function DocumentMetadata({ metadata }: DocumentMetadataProps) {
 
   return (
     <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="document-metadata">
-      {rows.map((row) => (
-        <div key={row.name} data-testid={`document-field-${row.name}`}>
+      {rows.map((row, index) => (
+        <div
+          key={row.name}
+          className="animate-field-rise"
+          style={rowStyle(index)}
+          data-testid={`document-field-${row.name}`}
+        >
           <dt className="text-xs text-text-muted">{row.label}</dt>
           <dd className="text-sm font-medium text-brand-navy">{formatValue(row.value)}</dd>
         </div>
