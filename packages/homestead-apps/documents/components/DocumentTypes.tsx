@@ -15,24 +15,13 @@ import { ArrowLeft } from 'lucide-react';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { getDocTypes } from '../doc-types/registry';
+import { categoryLabel, categoryTone, OTHER_CATEGORY } from '../categories';
 import type { DocType } from '../doc-types/docType';
-
-/** Types with no declared category fall into this group, shown last. */
-const UNCATEGORIZED = 'other';
 
 interface DocTypeGroup {
   category: string;
   label: string;
   types: DocType[];
-}
-
-/** Turn a kebab-case category ("tax") into a display heading ("Tax"). */
-function categoryLabel(category: string): string {
-  if (category === UNCATEGORIZED) return 'Other';
-  return category
-    .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 /**
@@ -43,7 +32,7 @@ function categoryLabel(category: string): string {
 function groupByCategory(types: DocType[]): DocTypeGroup[] {
   const byCategory = new Map<string, DocType[]>();
   for (const type of types) {
-    const category = type.category ?? UNCATEGORIZED;
+    const category = type.category ?? OTHER_CATEGORY;
     const group = byCategory.get(category);
     if (group) group.push(type);
     else byCategory.set(category, [type]);
@@ -55,23 +44,25 @@ function groupByCategory(types: DocType[]): DocTypeGroup[] {
       types: groupTypes,
     }))
     .sort((a, b) => {
-      if (a.category === UNCATEGORIZED) return 1;
-      if (b.category === UNCATEGORIZED) return -1;
+      if (a.category === OTHER_CATEGORY) return 1;
+      if (b.category === OTHER_CATEGORY) return -1;
       return a.label.localeCompare(b.label);
     });
 }
 
 function DocTypeCard({ type }: { type: DocType }) {
   const fields = Object.values(type.fields);
+  const tone = categoryTone(type.category);
   return (
     <div
-      className="rounded-lg border border-gray-200 bg-white p-4"
+      className={`rounded-lg border bg-white p-4 ${tone.border}`}
       data-testid="doc-type-card"
       data-doc-type={type.id}
+      data-category={type.category ?? OTHER_CATEGORY}
     >
       <div className="flex items-start gap-3">
         <span
-          className="mt-0.5 inline-flex shrink-0 items-center justify-center text-gray-500"
+          className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone.surface}`}
           aria-hidden="true"
         >
           <AppIcon icon={type.icon} className="h-5 w-5" />
@@ -123,21 +114,30 @@ export function DocumentTypes() {
         subtitle="Upload one of these and we'll recognise it and pull out its details automatically. Anything else is still stored — just without parsed fields."
       />
 
-      {groups.map((group) => (
-        <section key={group.category} className="space-y-3" data-testid="doc-type-group">
-          <h2
-            className="text-sm font-semibold uppercase tracking-wide text-gray-500"
-            data-testid="doc-type-group-label"
-          >
-            {group.label}
-          </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {group.types.map((type) => (
-              <DocTypeCard key={type.id} type={type} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {groups.map((group) => {
+        const tone = categoryTone(group.category);
+        return (
+          <section key={group.category} className="space-y-3" data-testid="doc-type-group">
+            <h2
+              className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-gray-500"
+              data-testid="doc-type-group-label"
+            >
+              <span
+                className={`inline-flex h-5 w-5 items-center justify-center rounded-md ${tone.surface}`}
+                aria-hidden="true"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              </span>
+              {group.label}
+            </h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {group.types.map((type) => (
+                <DocTypeCard key={type.id} type={type} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -2,6 +2,10 @@
  * One row in the documents index: a file glyph, the name and type, a light
  * timestamp, and the parse status — linking to the document's detail page.
  * Parsed fields, full text, the file preview, and actions all live there.
+ *
+ * The row is also where a document's classification lands. When one finishes
+ * reading while the list is open its glyph becomes the recognised type's icon,
+ * and that swap is marked — see `useJustParsed`.
  */
 
 import { Link } from 'react-router-dom';
@@ -10,6 +14,8 @@ import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { formatDate } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { getDocType } from '../doc-types/registry';
+import { categoryTone, documentCategory } from '../categories';
+import { useJustParsed } from '../hooks/useJustParsed';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentFileTile } from './DocumentFileTile';
 import type { Document } from '../types';
@@ -30,15 +36,29 @@ export function DocumentListItem({ document }: { document: Document }) {
   // generic status badge; every other state keeps its status badge (Reading…,
   // No matching type, Failed) since there's no type icon to stand in for it.
   const showTypeIcon = status === 'parsed' && docType;
+  const tone = categoryTone(documentCategory(document));
+  const revealing = useJustParsed(status);
 
   return (
     <Link
       to={`/documents/${document.id}`}
-      className="flex items-center gap-3 rounded-xl border border-gray-100 bg-surface-white p-3.5 shadow-sm transition-colors hover:border-accent-terracotta/40 hover:bg-bg-pearl/60"
+      className="relative flex items-center gap-3 overflow-hidden rounded-xl border border-gray-100 bg-surface-white p-3.5 shadow-sm transition-colors hover:border-accent-terracotta/40 hover:bg-bg-pearl/60"
       data-testid="document-card"
       data-parse-status={status}
+      data-revealing={revealing || undefined}
     >
-      <DocumentFileTile document={document} />
+      {/* One tinted band across the row on the poll where it became parsed. */}
+      {revealing && (
+        <span
+          aria-hidden="true"
+          className="animate-reveal-sweep pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-accent-terracotta/20 to-transparent"
+        />
+      )}
+
+      <DocumentFileTile
+        document={document}
+        className={revealing ? 'animate-reveal-pop' : ''}
+      />
 
       <div className="min-w-0 flex-1">
         <h3
@@ -73,7 +93,7 @@ export function DocumentListItem({ document }: { document: Document }) {
 
       {showTypeIcon ? (
         <span
-          className="inline-flex shrink-0 items-center justify-center text-text-muted"
+          className={`inline-flex shrink-0 items-center justify-center ${tone.icon}`}
           title={docType.label}
           aria-label={docType.label}
           data-testid="document-type-icon"

@@ -1,13 +1,15 @@
 /**
  * The square glyph at the start of a document row. It gives the list a visual
  * anchor without fetching every file: a matched document shows its doc-type
- * icon, otherwise a MIME-based file glyph (PDF / image / generic). Cheap and
+ * icon tinted with its category's colour (tax amber, medical teal, …),
+ * otherwise a MIME-based file glyph (PDF / image / generic). Cheap and
  * consistent — the real page preview lives on the detail page.
  */
 
 import { FileText, Image as ImageIcon, File } from 'lucide-react';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { getDocType } from '../doc-types/registry';
+import { categoryTone, documentCategory } from '../categories';
 import { fileKind } from '../fileKind';
 import type { Document } from '../types';
 
@@ -24,10 +26,12 @@ export function DocumentFileTile({ document, className = '' }: DocumentFileTileP
 
   const base = `flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${className}`;
 
-  // A recognised document leads with its type's icon on a soft neutral tile.
+  // A recognised document leads with its type's icon on its category's tile —
+  // the one place in the list where colour carries meaning rather than status.
   if (status === 'parsed' && docType) {
+    const tone = categoryTone(documentCategory(document));
     return (
-      <span className={`${base} bg-bg-pearl text-brand-navy`} aria-hidden="true">
+      <span className={`${base} ${tone.surface}`} aria-hidden="true">
         <AppIcon icon={docType.icon} className="h-5 w-5" />
       </span>
     );

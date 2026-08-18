@@ -16,17 +16,21 @@ import {
   Scissors,
   Trash2,
 } from 'lucide-react';
+import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { SectionCard } from '@rambleraptor/homestead-core/shared/components/SectionCard';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { getDocType, getDocTypes } from '../doc-types/registry';
+import { categoryLabel, categoryTone, documentCategory, OTHER_CATEGORY } from '../categories';
 import { useDocument } from '../hooks/useDocument';
+import { useJustParsed } from '../hooks/useJustParsed';
 import { useClassifyDocument } from '../hooks/useUploadDocument';
 import { useSplitDocument } from '../hooks/useSplitDocument';
 import { useDeleteDocument, useUpdateDocument } from '../hooks/useUpdateDocument';
 import { useDownloadDocument } from '../hooks/useDownloadDocument';
+import { ConfidenceMeter } from './ConfidenceMeter';
 import { DocumentMetadata } from './DocumentMetadata';
 import { DocumentEditForm } from './DocumentEditForm';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
@@ -44,6 +48,9 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const { data: doc, isLoading, isError, error } = useDocument(documentId);
+  // Before the early returns below: hooks can't be called conditionally, and a
+  // document opened while it's still reading will resolve on this page.
+  const revealing = useJustParsed(doc?.parse_status ?? 'pending');
   const update = useUpdateDocument();
   const remove = useDeleteDocument();
   const classify = useClassifyDocument();
@@ -94,6 +101,8 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const status = doc.parse_status ?? 'pending';
   const docType = doc.metadata?.doc_type ? getDocType(doc.metadata.doc_type) : undefined;
   const busy = classify.isPending || status === 'pending';
+  const category = documentCategory(doc);
+  const tone = categoryTone(category);
 
   return (
     <div className="space-y-6" data-testid="document-detail">
@@ -137,13 +146,24 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
 
       <div className="flex flex-wrap items-center gap-3">
         <DocumentStatusBadge status={status} />
+        {/* The category the matched type belongs to — the same colour the
+            document wears in the list, so the two read as one thing. */}
+        {category !== OTHER_CATEGORY && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${tone.surface} ${
+              revealing ? 'animate-reveal-pop' : ''
+            }`}
+            data-testid="document-category"
+          >
+            {docType && <AppIcon icon={docType.icon} className="h-3.5 w-3.5" />}
+            {categoryLabel(category)}
+          </span>
+        )}
         {typeof doc.file_encrypted === 'boolean' && (
           <DocumentEncryptionBadge encrypted={doc.file_encrypted} />
         )}
         {typeof doc.confidence === 'number' && status === 'parsed' && (
-          <span className="text-xs text-text-muted" data-testid="document-confidence">
-            {Math.round(doc.confidence * 100)}% confidence
-          </span>
+          <ConfidenceMeter value={doc.confidence} />
         )}
       </div>
 

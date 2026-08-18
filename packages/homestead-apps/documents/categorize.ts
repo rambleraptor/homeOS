@@ -13,11 +13,8 @@
  */
 
 import { getDocType } from './doc-types/registry';
+import { categoryLabel, OTHER_CATEGORY } from './categories';
 import type { Document } from './types';
-
-/** The bucket key + label for documents whose type has no category. */
-const OTHER_KEY = 'other';
-const OTHER_LABEL = 'Other';
 
 export interface DocumentCategoryGroup {
   /** The doc-type category (e.g. `tax`), or `other` for the catch-all bucket. */
@@ -26,11 +23,6 @@ export interface DocumentCategoryGroup {
   label: string;
   /** Documents in this category, in the input order (already sorted upstream). */
   documents: Document[];
-}
-
-/** `tax` → `Tax`. Categories are lowercase kebab-case; just cap the first letter. */
-function categoryLabel(key: string): string {
-  return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 /**
@@ -42,7 +34,7 @@ export function groupDocumentsByCategory(documents: Document[]): DocumentCategor
   const byKey = new Map<string, Document[]>();
   for (const doc of documents) {
     const type = doc.metadata?.doc_type ? getDocType(doc.metadata.doc_type) : undefined;
-    const key = type?.category ?? OTHER_KEY;
+    const key = type?.category ?? OTHER_CATEGORY;
     const bucket = byKey.get(key);
     if (bucket) bucket.push(doc);
     else byKey.set(key, [doc]);
@@ -51,12 +43,12 @@ export function groupDocumentsByCategory(documents: Document[]): DocumentCategor
   return [...byKey.entries()]
     .map(([key, docs]): DocumentCategoryGroup => ({
       key,
-      label: key === OTHER_KEY ? OTHER_LABEL : categoryLabel(key),
+      label: categoryLabel(key),
       documents: docs,
     }))
     .sort((a, b) => {
-      if (a.key === OTHER_KEY) return 1;
-      if (b.key === OTHER_KEY) return -1;
+      if (a.key === OTHER_CATEGORY) return 1;
+      if (b.key === OTHER_CATEGORY) return -1;
       return a.label.localeCompare(b.label);
     });
 }
