@@ -84,7 +84,7 @@ export class DocumentsPage {
     return this.card(title).getByTestId('document-type');
   }
 
-  /** The matched type's icon, shown on the row once a document is parsed. */
+  /** The matched type's icon — on the row's tile, once a document is parsed. */
   typeIcon(title: string): Locator {
     return this.card(title).getByTestId('document-type-icon');
   }
@@ -98,10 +98,6 @@ export class DocumentsPage {
     await this.card(title).getByTestId('document-open').click();
   }
 
-  /** The row's delete button (the visible counterpart of the swipe action). */
-  deleteButton(title: string): Locator {
-    return this.card(title).getByTestId('document-card-delete');
-  }
 
   async expectEmpty(): Promise<void> {
     await expect(this.page.getByTestId('documents-empty')).toBeVisible();

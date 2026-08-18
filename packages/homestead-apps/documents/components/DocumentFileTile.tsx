@@ -4,6 +4,10 @@
  * icon tinted with its category's colour (tax amber, medical teal, …),
  * otherwise a MIME-based file glyph (PDF / image / generic). Cheap and
  * consistent — the real page preview lives on the detail page.
+ *
+ * The doc-type icon appears here and nowhere else on the row. It used to be
+ * drawn twice — once on this tile and again at the row's trailing edge — which
+ * read as two facts rather than one said twice.
  */
 
 import { FileText, Image as ImageIcon, File } from 'lucide-react';
@@ -27,11 +31,18 @@ export function DocumentFileTile({ document, className = '' }: DocumentFileTileP
   const base = `flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${className}`;
 
   // A recognised document leads with its type's icon on its category's tile —
-  // the one place in the list where colour carries meaning rather than status.
+  // the one place in the list where colour carries meaning rather than status,
+  // and the row's only rendering of the type's icon.
   if (status === 'parsed' && docType) {
     const tone = categoryTone(documentCategory(document));
     return (
-      <span className={`${base} ${tone.surface}`} aria-hidden="true">
+      <span
+        className={`${base} ${tone.surface}`}
+        title={docType.label}
+        aria-label={docType.label}
+        role="img"
+        data-testid="document-type-icon"
+      >
         <AppIcon icon={docType.icon} className="h-5 w-5" />
       </span>
     );

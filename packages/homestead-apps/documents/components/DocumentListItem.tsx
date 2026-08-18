@@ -8,19 +8,22 @@
  * reading while the list is open its glyph becomes the recognised type's icon,
  * and that swap is marked — see `useJustParsed`.
  *
- * Actions are optional. Given handlers, the row grows buttons for them and a
- * matching swipe gesture; given none — the read-only shelf the Home app builds
- * from these rows — it stays exactly the plain link it was.
+ * Actions are optional. Given handlers, the row can be swiped to delete or to
+ * take it out of the folder in view; given none — the read-only shelf the Home
+ * app builds from these rows — it stays exactly the plain link it was.
+ *
+ * The swipe has no button beside it, against `SwipeRow`'s usual buttons-first
+ * rule. Both actions remain reachable without the gesture, on the document's
+ * own page: Delete under Manage, and collection membership in the edit form.
+ * So the row is a shortcut to them rather than the only way to reach them.
  */
 
 import { Link } from 'react-router-dom';
 import { ChevronRight, FolderMinus, Trash2 } from 'lucide-react';
-import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { SwipeRow, type SwipeAction } from '@rambleraptor/homestead-core/shared/gestures';
 import { formatDate } from '@rambleraptor/homestead-core/shared/utils/dateUtils';
 import { getDocType } from '../doc-types/registry';
-import { categoryTone, documentCategory } from '../categories';
 import { useJustParsed } from '../hooks/useJustParsed';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
 import { DocumentFileTile } from './DocumentFileTile';
@@ -59,11 +62,11 @@ export function DocumentListItem({
     ? getDocType(document.metadata.doc_type)
     : undefined;
 
-  // A parsed document that matched a type shows that type's icon in place of the
-  // generic status badge; every other state keeps its status badge (Reading…,
-  // No matching type, Failed) since there's no type icon to stand in for it.
-  const showTypeIcon = status === 'parsed' && docType;
-  const tone = categoryTone(documentCategory(document));
+  // A parsed document that matched a type is identified by its tile, which
+  // carries that type's icon in its category's colour. Every other state has no
+  // type icon to stand in for it, so it keeps a status badge (Reading…, No
+  // matching type, Failed).
+  const showStatus = !(status === 'parsed' && docType);
   const revealing = useJustParsed(status);
 
   const title = document.title || 'Untitled document';
@@ -86,15 +89,6 @@ export function DocumentListItem({
     className: 'bg-red-500 text-white',
     onAction: onDelete,
   };
-
-  const actionButton =
-    'rounded-lg p-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-
-  // The chevron and the action buttons are both the row's right-hand
-  // affordance, and showing both puts a "this opens" arrow immediately to the
-  // left of two buttons it isn't pointing at. With actions present they *are*
-  // the right edge; the row still opens from anywhere along the link.
-  const hasActions = !!(onRemoveFromCollection || onDelete);
 
   const row = (
     <div
@@ -158,65 +152,30 @@ export function DocumentListItem({
           )}
         </div>
 
-        {showTypeIcon ? (
-          <span
-            className={`inline-flex shrink-0 items-center justify-center ${tone.icon}`}
-            title={docType.label}
-            aria-label={docType.label}
-            data-testid="document-type-icon"
-          >
-            <AppIcon icon={docType.icon} className="h-5 w-5" />
-          </span>
-        ) : (
-          <DocumentStatusBadge status={status} />
-        )}
-        {!hasActions && <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />}
+        {showStatus && <DocumentStatusBadge status={status} />}
+        <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
       </Link>
-
-      {hasActions && (
-        <div className="ml-1 flex shrink-0 items-center gap-1 border-l border-gray-100 pl-2">
-          {onRemoveFromCollection && (
-            <button
-              type="button"
-              onClick={onRemoveFromCollection}
-              disabled={disabled}
-              aria-label={`${removeLabel}: ${title}`}
-              title={removeLabel}
-              data-testid="document-card-remove"
-              className={`${actionButton} text-brand-slate hover:bg-brand-slate/10`}
-            >
-              <FolderMinus className="h-4 w-4" />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={disabled}
-              aria-label={`Delete: ${title}`}
-              title="Delete"
-              data-testid="document-card-delete"
-              className={`${actionButton} text-red-500 hover:bg-red-500/10`}
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 
   if (!swipeRight && !swipeLeft) return row;
 
   return (
-    <SwipeRow
-      swipeRight={swipeRight}
-      swipeLeft={swipeLeft}
-      disabled={disabled}
-      className="rounded-xl bg-surface-white"
-      data-testid="document-card-swipe"
-    >
-      {row}
-    </SwipeRow>
+    // SwipeRow's own container is square-cornered — right for the flush,
+    // divider-separated lists it was built for, wrong here where every row is a
+    // rounded card. Without this the action panel revealed behind the row shows
+    // square corners past the card's curve. Clipping on the outside rounds the
+    // panel and the row together.
+    <div className="overflow-hidden rounded-xl">
+      <SwipeRow
+        swipeRight={swipeRight}
+        swipeLeft={swipeLeft}
+        disabled={disabled}
+        className="rounded-xl bg-surface-white"
+        data-testid="document-card-swipe"
+      >
+        {row}
+      </SwipeRow>
+    </div>
   );
 }
