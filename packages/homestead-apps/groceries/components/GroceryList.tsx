@@ -4,8 +4,10 @@
  * Displays grocery items grouped by store
  */
 
-import { Trash2, Store as StoreIcon, CheckCheck, ShoppingCart } from 'lucide-react';
+import { Check, Trash2, Store as StoreIcon, CheckCheck, ShoppingCart } from 'lucide-react';
 import { usePendingSyncIds } from '@rambleraptor/homestead-core/api/usePendingSync';
+import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
+import { SwipeRow } from '@rambleraptor/homestead-core/shared/gestures';
 import {
   PendingSyncBadge,
   pendingSyncClass,
@@ -112,48 +114,68 @@ function GroceryItemRow({
   isPendingSync = false,
 }: GroceryItemRowProps) {
   return (
-    <div
-      className={cn(
-        'px-4 py-3 flex items-center gap-3 hover:bg-bg-pearl group transition-colors',
-        pendingSyncClass(isPendingSync),
-      )}
-      data-testid="grocery-item"
-      data-pending-sync={isPendingSync || undefined}
+    // Swipe mirrors the two controls already on the row — it never offers an
+    // action the checkbox and the bin button don't. Right to tick off, left to
+    // remove, matching the direction convention every mail app on the phone
+    // already taught the household.
+    <SwipeRow
+      disabled={disabled}
+      swipeRight={{
+        label: item.checked ? 'Uncheck' : 'Check off',
+        icon: Check,
+        className: 'bg-green-500 text-white',
+        onAction: () => onToggle(item.id, !item.checked),
+      }}
+      swipeLeft={{
+        label: 'Delete',
+        icon: Trash2,
+        className: 'bg-red-600 text-white',
+        onAction: () => onDelete(item.id),
+      }}
+      className="bg-white"
     >
-      <input
-        type="checkbox"
-        checked={item.checked}
-        onChange={(e) => onToggle(item.id, e.target.checked)}
-        disabled={disabled}
-        className="w-5 h-5 rounded border-gray-300 text-accent-terracotta focus:ring-2 focus:ring-accent-terracotta"
-        aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
-      />
-
-      <div className="flex-1 min-w-0">
-        <p
-          className={`flex items-center gap-2 font-body font-medium ${
-            item.checked
-              ? 'line-through text-text-muted'
-              : 'text-brand-navy'
-          }`}
-        >
-          <span className="truncate">{item.name}</span>
-          {isPendingSync && <PendingSyncBadge className="no-underline" />}
-        </p>
-        {item.notes && (
-          <p className="text-sm font-body text-text-muted mt-0.5">{item.notes}</p>
+      <div
+        className={cn(
+          'px-4 py-3 flex items-center gap-3 hover:bg-bg-pearl group transition-colors',
+          pendingSyncClass(isPendingSync),
         )}
-      </div>
-
-      <button
-        onClick={() => onDelete(item.id)}
-        disabled={disabled}
-        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-        aria-label={`Delete ${item.name}`}
-        data-testid="delete-grocery-item"
+        data-testid="grocery-item"
+        data-pending-sync={isPendingSync || undefined}
       >
-        <Trash2 className="w-4 h-4" />
-      </button>
-    </div>
+        <Checkbox
+          checked={item.checked}
+          onCheckedChange={(checked) => onToggle(item.id, checked)}
+          disabled={disabled}
+          className="h-5 w-5"
+          aria-label={`Mark ${item.name} as ${item.checked ? 'unchecked' : 'checked'}`}
+        />
+
+        <div className="flex-1 min-w-0">
+          <p
+            className={`flex items-center gap-2 font-body font-medium ${
+              item.checked
+                ? 'line-through text-text-muted'
+                : 'text-brand-navy'
+            }`}
+          >
+            <span className="truncate">{item.name}</span>
+            {isPendingSync && <PendingSyncBadge className="no-underline" />}
+          </p>
+          {item.notes && (
+            <p className="text-sm font-body text-text-muted mt-0.5">{item.notes}</p>
+          )}
+        </div>
+
+        <button
+          onClick={() => onDelete(item.id)}
+          disabled={disabled}
+          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+          aria-label={`Delete ${item.name}`}
+          data-testid="delete-grocery-item"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    </SwipeRow>
   );
 }
