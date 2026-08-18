@@ -5,27 +5,35 @@
  * categories.test.ts) — it's the join that silently regresses.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { DocumentListItem } from '../components/DocumentListItem';
 import { categoryTone } from '../categories';
 import type { Document } from '../types';
 
-function renderRow(document: Partial<Document>) {
+type Actions = Partial<{
+  onDelete: () => void;
+  onRemoveFromCollection: () => void;
+  collectionName: string;
+}>;
+
+function renderRow(document: Partial<Document>, actions: Actions = {}) {
   render(
     <MemoryRouter>
       <DocumentListItem
         document={{ id: 'd1', path: 'documents/d1', title: 'A document', ...document }}
+        {...actions}
       />
     </MemoryRouter>,
   );
   return screen.getByTestId('document-card');
 }
 
-/** The tile is the first child span — the colour-bearing element in the row. */
+/** The tile leads the row's link — the colour-bearing element in the row. */
 function tileClass(card: HTMLElement): string {
-  return card.querySelector('span')?.className ?? '';
+  return card.querySelector('[data-testid="document-open"] span')?.className ?? '';
 }
 
 describe('DocumentListItem', () => {
@@ -62,5 +70,51 @@ describe('DocumentListItem', () => {
       metadata: { doc_type: 'form-w2' },
     });
     expect(card).not.toHaveAttribute('data-revealing');
+  });
+
+  it('opens the document from the row', () => {
+    renderRow({});
+    expect(screen.getByTestId('document-open')).toHaveAttribute('href', '/documents/d1');
+  });
+
+  describe('actions', () => {
+    it('renders no action buttons when the caller supplies no handlers', () => {
+      // The Home app renders these rows as a read-only shelf; it must stay one.
+      renderRow({});
+      expect(screen.queryByTestId('document-card-delete')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('document-card-remove')).not.toBeInTheDocument();
+    });
+
+    it('asks to delete when the delete button is pressed', async () => {
+      const onDelete = vi.fn();
+      renderRow({}, { onDelete });
+      await userEvent.click(screen.getByTestId('document-card-delete'));
+      expect(onDelete).toHaveBeenCalledOnce();
+    });
+
+    it('offers removal from a collection only when one is in scope', () => {
+      renderRow({}, { onDelete: vi.fn() });
+      expect(screen.queryByTestId('document-card-remove')).not.toBeInTheDocument();
+    });
+
+    it('names the collection in the removal action, for screen readers', () => {
+      renderRow(
+        {},
+        { onRemoveFromCollection: vi.fn(), collectionName: 'Taxes 2024' },
+      );
+      expect(screen.getByTestId('document-card-remove')).toHaveAttribute(
+        'aria-label',
+        'Remove from Taxes 2024: A document',
+      );
+    });
+
+    it('identifies the document in the delete action, for screen readers', () => {
+      // A list of identical "Delete" buttons is unusable without the title.
+      renderRow({ title: 'W-2 (2024)' }, { onDelete: vi.fn() });
+      expect(screen.getByTestId('document-card-delete')).toHaveAttribute(
+        'aria-label',
+        'Delete: W-2 (2024)',
+      );
+    });
   });
 });

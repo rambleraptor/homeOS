@@ -5,13 +5,21 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, AlertCircle, FileText, Scissors, Inbox } from 'lucide-react';
+import { Loader2, AlertCircle, FileText, Inbox } from 'lucide-react';
+import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
+import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
 import { useUploadBundle } from '../hooks/useSplitDocument';
 import { RedactionEditor } from '../redaction/RedactionEditor';
 import { useDeleteDocument } from '../hooks/useUpdateDocument';
+import {
+  useCollections,
+  useSetDocumentCollections,
+  toggleMembership,
+} from '../hooks/useCollections';
 import { usePeople } from '../../people/hooks/usePeople';
 import { findDuplicateUploads } from '../duplicates';
 import { getDocType } from '../doc-types/registry';
@@ -70,8 +78,10 @@ export function DocumentsHome() {
   const redactInputRef = useRef<HTMLInputElement>(null);
   const bundleInputRef = useRef<HTMLInputElement>(null);
   const [redactTarget, setRedactTarget] = useState<File | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [splitNotice, setSplitNotice] = useState<string | null>(null);
+  // Deletion is the one action here that a toast can't take back — the file
+  // bytes are gone and a post-classify hook may hold this id — so it keeps a
+  // confirmation. Everything else reports through toasts.
+  const [confirmDelete, setConfirmDelete] = useState<Document | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<SortKey>('newest');
   // Top-level folder scope: null = all, 'unfiled' = no collection, else an id.
@@ -81,14 +91,24 @@ export function DocumentsHome() {
   // Dismissing or deleting a flagged upload drops it from here.
   const [uploadedIds, setUploadedIds] = useState<string[]>([]);
 
+  const toast = useToast();
   const { data: documents, isLoading, isError, error } = useDocuments();
+  const { data: collections } = useCollections();
   const upload = useUploadDocument();
+  const setCollections = useSetDocumentCollections();
   const uploadBundle = useUploadBundle();
   const remove = useDeleteDocument();
   // The people directory resolves extracted names to canonical identities so
   // the person facet follows aliases. Absent (people app disabled / still
   // loading) it's empty, and every name degrades to a by-spelling identity.
   const { data: directory } = usePeople();
+
+  // A real folder is in scope (not "all", not "unfiled") — the only state in
+  // which "remove from collection" means anything.
+  const inCollection = collection !== null && collection !== UNFILED;
+  const activeCollectionName = inCollection
+    ? (collections ?? []).find((c) => c.id === collection)?.name
+    : undefined;
 
   // The selected collection scopes everything below it (facets included), so the
   // facet counts and the visible rows both reflect the chosen folder.
@@ -136,7 +156,6 @@ export function DocumentsHome() {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
-    setUploadError(null);
     // Sequential: each upload is a multipart POST plus a classify kick-off, and
     // firing a whole folder at once would stampede the AI provider.
     const ids: string[] = [];
@@ -145,9 +164,7 @@ export function DocumentsHome() {
         const doc = await upload.mutateAsync(file);
         ids.push(doc.id);
       } catch (err) {
-        setUploadError(
-          `Couldn't upload ${file.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
-        );
+        toast.error(`Couldn't upload ${file.name}. ${getAepErrorMessage(err)}`);
         break;
       }
     }
@@ -159,20 +176,16 @@ export function DocumentsHome() {
   // fires the `split` method instead of `classify`, so the plain upload path
   // above is untouched. The constituent forms arrive in the list as they're read.
   const handleBundle = async (files: FileList | null) => {
-    setUploadError(null);
-    setSplitNotice(null);
     const file = files?.[0];
     if (bundleInputRef.current) bundleInputRef.current.value = '';
     if (!file) return;
     try {
       await uploadBundle.mutateAsync(file);
-      setSplitNotice(
+      toast.info(
         `Splitting “${file.name}” into its separate forms — they'll appear below as they're read.`,
       );
     } catch (err) {
-      setUploadError(
-        `Couldn't upload ${file.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
-      );
+      toast.error(`Couldn't upload ${file.name}. ${getAepErrorMessage(err)}`);
     }
   };
 
@@ -180,7 +193,6 @@ export function DocumentsHome() {
   // file, edit it, then upload the flattened result. The plain path above is
   // untouched, so uploading without redacting stays the default.
   const pickRedactTarget = (files: FileList | null) => {
-    setUploadError(null);
     const file = files?.[0];
     if (file) setRedactTarget(file);
     if (redactInputRef.current) redactInputRef.current.value = '';
@@ -192,9 +204,7 @@ export function DocumentsHome() {
       setRedactTarget(null);
     } catch (err) {
       setRedactTarget(null);
-      setUploadError(
-        `Couldn't upload ${redacted.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
-      );
+      toast.error(`Couldn't upload ${redacted.name}. ${getAepErrorMessage(err)}`);
     }
   };
 
@@ -202,19 +212,16 @@ export function DocumentsHome() {
   // flattened PDF to the split flow instead of the plain upload. Offered only
   // for PDFs (see the editor wiring below) — an image is a single page.
   const handleRedactedSplit = async (redacted: File) => {
-    setSplitNotice(null);
     try {
       await uploadBundle.mutateAsync(redacted);
       setRedactTarget(null);
-      setSplitNotice(
+      toast.info(
         `Splitting the redacted “${redacted.name}” into its separate forms — they'll appear ` +
           `below as they're read.`,
       );
     } catch (err) {
       setRedactTarget(null);
-      setUploadError(
-        `Couldn't upload ${redacted.name}: ${err instanceof Error ? err.message : 'unknown error'}`,
-      );
+      toast.error(`Couldn't upload ${redacted.name}. ${getAepErrorMessage(err)}`);
     }
   };
 
@@ -225,10 +232,44 @@ export function DocumentsHome() {
     try {
       await remove.mutateAsync(id);
       dismissDuplicate(id);
+      toast.success('Duplicate deleted');
     } catch (err) {
-      setUploadError(
-        `Couldn't delete the duplicate: ${err instanceof Error ? err.message : 'unknown error'}`,
-      );
+      toast.error(err);
+    }
+  };
+
+  const handleDelete = async (doc: Document) => {
+    setConfirmDelete(null);
+    try {
+      await remove.mutateAsync(doc.id);
+      dismissDuplicate(doc.id);
+      toast.success(`Deleted “${doc.title || 'Untitled document'}”`);
+    } catch (err) {
+      toast.error(err);
+    }
+  };
+
+  /**
+   * Take a document out of the folder being viewed — the one action on this
+   * page that a toast can genuinely reverse, since it's a patch of an id list
+   * and nothing is destroyed. So it goes through without a dialog and offers
+   * the way back instead.
+   */
+  const handleRemoveFromCollection = async (doc: Document) => {
+    if (collection === null || collection === UNFILED) return;
+    const before = doc.collections ?? [];
+    try {
+      await setCollections.mutateAsync({
+        documentId: doc.id,
+        collections: toggleMembership(before, collection, false),
+      });
+      toast.undo(`Removed from ${activeCollectionName ?? 'the collection'}`, () => {
+        void setCollections
+          .mutateAsync({ documentId: doc.id, collections: before })
+          .catch((err: unknown) => toast.error(err));
+      });
+    } catch (err) {
+      toast.error(err);
     }
   };
 
@@ -292,16 +333,6 @@ export function DocumentsHome() {
         />
       )}
 
-      {splitNotice && (
-        <div
-          className="flex items-center gap-2 rounded-xl bg-blue-50 p-3 text-sm text-blue-700"
-          data-testid="document-split-notice"
-        >
-          <Scissors className="h-4 w-4 shrink-0" />
-          {splitNotice}
-        </div>
-      )}
-
       {redactTarget && (
         <RedactionEditor
           file={redactTarget}
@@ -311,16 +342,6 @@ export function DocumentsHome() {
           }
           onCancel={() => setRedactTarget(null)}
         />
-      )}
-
-      {uploadError && (
-        <div
-          className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700"
-          data-testid="document-upload-error"
-        >
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {uploadError}
-        </div>
       )}
 
       <DuplicateUploadWarning
@@ -400,7 +421,16 @@ export function DocumentsHome() {
           {sortedDocuments.length > 0 ? (
             <div className="space-y-2" data-testid="documents-list">
               {sortedDocuments.map((doc) => (
-                <DocumentListItem key={doc.id} document={doc} />
+                <DocumentListItem
+                  key={doc.id}
+                  document={doc}
+                  onDelete={() => setConfirmDelete(doc)}
+                  onRemoveFromCollection={
+                    inCollection ? () => void handleRemoveFromCollection(doc) : undefined
+                  }
+                  collectionName={activeCollectionName}
+                  disabled={remove.isPending || setCollections.isPending}
+                />
               ))}
             </div>
           ) : (
@@ -415,6 +445,23 @@ export function DocumentsHome() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && void handleDelete(confirmDelete)}
+        title="Delete document"
+        message={
+          confirmDelete
+            ? `Delete “${confirmDelete.title || 'Untitled document'}”? The file goes with it, ` +
+              `and this cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        isLoading={remove.isPending}
+      />
     </div>
   );
 }

@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
-import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
+import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { SectionCard } from '@rambleraptor/homestead-core/shared/components/SectionCard';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { getDocType, getDocTypes } from '../doc-types/registry';
@@ -31,6 +31,8 @@ import { useSplitDocument } from '../hooks/useSplitDocument';
 import { useDeleteDocument, useUpdateDocument } from '../hooks/useUpdateDocument';
 import { useDownloadDocument } from '../hooks/useDownloadDocument';
 import { ConfidenceMeter } from './ConfidenceMeter';
+import { DocumentLabels } from './DocumentLabels';
+import { DocumentOrigin } from './DocumentOrigin';
 import { DocumentMetadata } from './DocumentMetadata';
 import { DocumentEditForm } from './DocumentEditForm';
 import { DocumentStatusBadge } from './DocumentStatusBadge';
@@ -44,6 +46,7 @@ interface DocumentDetailProps {
 
 export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -58,13 +61,29 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   const download = useDownloadDocument();
 
   const handleSave = async (patch: Partial<Document>) => {
-    await update.mutateAsync({ id: documentId, patch });
-    setIsEditing(false);
+    try {
+      await update.mutateAsync({ id: documentId, patch });
+      setIsEditing(false);
+      toast.success('Document updated');
+    } catch (err) {
+      toast.error(err);
+    }
   };
 
+  /**
+   * Deletion stays behind a confirmation rather than an undo toast. The undo
+   * pattern needs a record that can be *recreated* — a document owns its file
+   * bytes, and a post-classify hook may have written a record pointing back at
+   * this id (see `medical-receipt.server.ts`), so there is no honest restore.
+   */
   const handleDelete = async () => {
-    await remove.mutateAsync(documentId);
-    navigate('/documents');
+    try {
+      await remove.mutateAsync(documentId);
+      toast.success('Document deleted');
+      navigate('/documents');
+    } catch (err) {
+      toast.error(err);
+    }
   };
 
   const backLink = (
@@ -167,14 +186,11 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
         )}
       </div>
 
-      {!isEditing && doc.tags && doc.tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2" data-testid="document-tags">
-          {doc.tags.map((tag) => (
-            <Badge key={tag} variant="neutral" data-testid={`document-tag-${tag}`}>
-              {tag}
-            </Badge>
-          ))}
-        </div>
+      {!isEditing && (
+        <>
+          <DocumentLabels document={doc} />
+          <DocumentOrigin document={doc} />
+        </>
       )}
 
       {isEditing ? (
