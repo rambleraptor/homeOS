@@ -10,7 +10,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TodoRow } from '../components/TodoRow';
-import { TODO_KIND_STYLE } from '../kindStyles';
+import { TODO_KIND_RAIL_BASE, TODO_KIND_STYLE } from '../kindStyles';
 import type { TodoItem, TodoKind } from '../types';
 
 function todo(overrides: Partial<TodoItem> = {}): TodoItem {
@@ -77,6 +77,18 @@ describe('TodoRow kind marker', () => {
     const rail = screen.getByTestId('todo-row-t1-family');
     const struck = rail.closest('.line-through');
     expect(struck).toBeNull();
+  });
+
+  it('keeps the rail out of the row flow, so every title starts at the same x', () => {
+    // The main view mixes railed todos with unrailed synthetic ones. An
+    // in-flow rail would indent only the rows that have one and the list would
+    // lose its left edge.
+    renderRow({ kindMarker: 'family' });
+
+    const rail = screen.getByTestId('todo-row-t1-family');
+    for (const cls of TODO_KIND_RAIL_BASE.split(' ')) {
+      expect(rail).toHaveClass(cls);
+    }
   });
 
   it('drops the emoji it replaced', () => {

@@ -8,7 +8,7 @@ import { ListTodo } from 'lucide-react';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { WidgetCard } from '@rambleraptor/homestead-core/shared/components/WidgetCard';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
-import { TODO_KIND_STYLE } from '../kindStyles';
+import { TODO_KIND_RAIL_BASE, TODO_KIND_STYLE } from '../kindStyles';
 import type { TodoKind } from '../types';
 import { useTodoBuckets } from '../hooks/useTodos';
 import {
@@ -57,13 +57,18 @@ export function TodoWidget() {
               <li
                 key={todo.id}
                 data-testid={`todos-widget-item-${todo.id}`}
-                className="flex items-center gap-3 py-3"
+                className="relative flex items-center gap-3 py-3"
               >
                 {kind && (
+                  // Pulled out to the card's own edge — the body is padded by
+                  // the same `px-4`, so the negative inset lands the rail flush
+                  // with the card while the row's dividers stay inset. Same
+                  // edge-not-object reading as the list rows.
                   <span
                     title={TODO_KIND_STYLE[kind].label}
                     className={cn(
-                      'h-5 w-1.5 shrink-0 rounded-full',
+                      TODO_KIND_RAIL_BASE,
+                      '-left-4',
                       TODO_KIND_STYLE[kind].rail,
                     )}
                   >

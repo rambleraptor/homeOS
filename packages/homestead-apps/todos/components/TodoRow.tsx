@@ -3,7 +3,7 @@ import { Check, Moon, Pin, PinOff, Undo2, X } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@rambleraptor/homestead-core/shared/lib/utils';
 import { SwipeRow, type SwipeAction } from '@rambleraptor/homestead-core/shared/gestures';
-import { TODO_KIND_STYLE } from '../kindStyles';
+import { TODO_KIND_RAIL_BASE, TODO_KIND_STYLE } from '../kindStyles';
 import type { Todo, TodoItem, TodoKind, TodoStatus } from '../types';
 
 export type TodoRowVariant = 'active' | 'doLater' | 'completed';
@@ -14,10 +14,11 @@ interface TodoRowProps {
   onSetStatus: (status: TodoStatus) => void;
   disabled?: boolean;
   /**
-   * Render a coloured rail marking the todo's kind. Set on the main mixed
-   * view, where personal and family todos are interleaved and the distinction
-   * carries information; left undefined inside project views, where every row
-   * is family and a marker would be noise on every line.
+   * Render a coloured rail down the row's leading edge marking the todo's
+   * kind. Set on the main mixed view, where personal and family todos are
+   * interleaved and the distinction carries information; left undefined inside
+   * project views, where every row is family and a marker would be noise on
+   * every line.
    */
   kindMarker?: TodoKind;
   /** When true, show a subtle "you" hint — a family todo the viewer created. */
@@ -217,19 +218,21 @@ export function TodoRow({
       <div
         data-testid={`todo-row-${todo.id}`}
         className={cn(
-          'group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-pearl',
+          'group relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg-pearl',
         )}
       >
         {kindMarker && (
-          // A sibling of the title rather than part of it: inside, a cancelled
-          // row's line-through would strike the rail as well, and the marker
-          // would shift left and right as titles change length instead of
-          // forming a straight edge down the list.
+          // Pinned to the row's edge and outside its flow (see
+          // TODO_KIND_RAIL_BASE), so the rail is an edge on the list rather
+          // than an object in the row, and railed and unrailed rows share one
+          // left edge. Being a sibling of the title also keeps a cancelled
+          // row's line-through off it.
           <span
             data-testid={`todo-row-${todo.id}-${kindMarker}`}
             title={TODO_KIND_STYLE[kindMarker].label}
             className={cn(
-              'h-5 w-1.5 shrink-0 rounded-full',
+              TODO_KIND_RAIL_BASE,
+              'left-0',
               TODO_KIND_STYLE[kindMarker].rail,
             )}
           >
