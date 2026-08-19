@@ -21,12 +21,15 @@
  * An app owning **no** collections has nothing to gate on, so visibility is a
  * property of the app itself: an app-scope grant decides. The built-in household
  * roles carry those grants (see `permissions/household.ts`), so a Member keeps
- * seeing Chat and Settings while a Guest, granted nothing, does not.
+ * seeing Chat while a Guest, granted nothing, does not. The exception is
+ * `ALWAYS_VISIBLE_APPS` — Settings manages your *own* preferences, so gating it
+ * would strand an account with no way to reach its own settings.
  */
 
 import { useCallback } from 'react';
 import { useAuth } from '../auth/useAuth';
 import { useCan } from '../permissions/useCan';
+import { ALWAYS_VISIBLE_APPS } from '../permissions/household';
 import type { AppConfig } from './types';
 
 /** An app is superuser-only iff any of its routes carries the `superuser` gate. */
@@ -66,6 +69,8 @@ export function isAppVisible(
   canRead: (resourceType: string, appId: string) => boolean,
 ): boolean {
   if (isSuperuserOnlyApp(app)) return isSuperuser;
+  // Shell apps holding no household data — reachable by anyone signed in.
+  if (ALWAYS_VISIBLE_APPS.includes(app.id)) return true;
 
   const children = app.children ?? [];
   if (children.some((child) => isAppVisible(child, isSuperuser, canRead))) return true;

@@ -237,6 +237,17 @@ describe('useAppVisible + apps with no collections', () => {
     expect(result.current(CHAT)).toBe(true);
   });
 
+  it('shows Settings to an account granted nothing at all', () => {
+    // Settings manages your own preferences — gating it would leave a Guest
+    // with no way to reach their own settings, and there is no household data
+    // behind it.
+    authState.user = { id: 'u1', type: 'user', permissions: closedCtx([]) };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(bareApp('settings'))).toBe(true);
+    // …and it isn't a blanket exemption: Chat is still gated.
+    expect(result.current(CHAT)).toBe(false);
+  });
+
   it('shows it under a blanket grant, and hides it under an app-scope deny', () => {
     authState.user = { id: 'u1', type: 'user', permissions: ctxWith([]) };
     const { result } = renderHook(() => useAppVisible());

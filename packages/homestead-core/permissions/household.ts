@@ -100,11 +100,27 @@ export function householdCollections(
 }
 
 /**
+ * Apps that are part of the shell rather than the household's data, and so are
+ * visible to everyone — including an account granted nothing at all.
+ *
+ * Settings is where you manage *your own* preferences and notifications. Gating
+ * it behind a grant would leave a Guest with no way to reach their own settings,
+ * which is a worse failure than the openness is a risk: there is no household
+ * data behind it. Everything else collection-less (Chat, Dashboard) is granted
+ * normally.
+ *
+ * Deliberately unconditional — not "visible unless denied". If blocking someone
+ * from Settings ever becomes a real requirement, that's a feature to design, not
+ * a default to lean on.
+ */
+export const ALWAYS_VISIBLE_APPS: readonly string[] = ['settings'];
+
+/**
  * Apps whose visibility can only be granted at app scope: they own no
  * collections and have no children, so there is nothing else to gate on (Chat,
- * Dashboard, Settings). Without a grant they'd be invisible to everyone once
- * the sidebar stopped defaulting them to visible, so the household roles carry
- * one app-scope grant each.
+ * Dashboard). Without a grant they'd be invisible to everyone once the sidebar
+ * stopped defaulting them to visible, so the household roles carry one app-scope
+ * grant each. {@link ALWAYS_VISIBLE_APPS} are skipped — they need no grant.
  *
  * Superuser-gated apps are left out: `isAppVisible` hard-gates them on account
  * type regardless, so a grant would be inert and would only make the role
@@ -120,6 +136,7 @@ export function householdApps(apps: readonly AppConfig[]): string[] {
       (r.gates ?? []).includes('superuser'),
     );
     if (superuserOnly) return;
+    if (ALWAYS_VISIBLE_APPS.includes(app.id)) return; // visible without a grant
     const defs = typeof app.resources === 'function' ? app.resources() : app.resources ?? [];
     if (defs.length > 0) return; // gated by its collections
     if ((app.children ?? []).length > 0) return; // gated by its children

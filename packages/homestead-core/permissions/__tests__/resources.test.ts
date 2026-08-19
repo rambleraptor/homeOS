@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { PERMISSION_RESOURCE_DEFS } from '../resources';
 import { OPEN_GRANT_ID, buildSeedRoles } from '../seed';
-import { householdCollections, OWN_ROWS_FILTER } from '../household';
+import { householdApps, householdCollections, OWN_ROWS_FILTER } from '../household';
 import { BUILTIN_RESOURCE_DEFS } from '../../resources/builtins';
 import {
   toWireSchema,
@@ -76,6 +76,20 @@ describe('permission seed data', () => {
     for (const role of roles) {
       expect(role.grants.every((g) => g.target_scope === 'collection')).toBe(true);
     }
+  });
+
+  it('household roles grant collection-less apps, but not the always-visible ones', () => {
+    const apps = householdApps([
+      { id: 'chat', name: 'Chat' },
+      { id: 'settings', name: 'Settings' },
+      { id: 'recipes', name: 'Recipes', resources: [{ singular: 'recipe', plural: 'recipes', fields: {} }] },
+    ] as never);
+    // Chat has nothing to gate on, so a role must grant it explicitly.
+    expect(apps).toContain('chat');
+    // Settings is visible without a grant, so granting it would be noise.
+    expect(apps).not.toContain('settings');
+    // Recipes is gated by its own collection.
+    expect(apps).not.toContain('recipes');
   });
 
   it('household roles cover every declared collection except the self-governing ones', () => {
