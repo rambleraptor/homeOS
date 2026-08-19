@@ -20,7 +20,7 @@ function createTables(db: Database): void {
     `CREATE TABLE access_grants (
        id TEXT PRIMARY KEY, subject_type TEXT, subject_id TEXT,
        target_scope TEXT, target_app TEXT, resource_type TEXT, resource_id TEXT,
-       filter TEXT, capability TEXT, effect TEXT, is_default INTEGER
+       filter TEXT, capability TEXT, effect TEXT, is_default INTEGER -- retired column: kept here so the store is proven to work against an un-migrated db too
      )`,
   );
 }
@@ -158,13 +158,13 @@ describe('PermissionStore.gatherFor', () => {
     expect(resolve(regular, req('write'), principals, grants).allow).toBe(false);
   });
 
-  // ─────────── default-grant fallback suppression (§8.x) ───────────
+  // ─────────── roles union with the grants addressed to a caller ───────────
 
-  /** The seeded open-household default: everyone → write → * , is_default = 1. */
-  function seedDefaultGrant(): void {
+  /** A blanket everyone → write → * grant, written by hand (never seeded). */
+  function seedBlanketGrant(): void {
     db.run(
-      `INSERT INTO access_grants (id, subject_type, target_scope, capability, effect, is_default)
-         VALUES ('open', 'everyone', 'all', 'write', 'allow', 1)`,
+      `INSERT INTO access_grants (id, subject_type, target_scope, capability, effect)
+         VALUES ('open', 'everyone', 'all', 'write', 'allow')`,
     );
   }
 
@@ -178,51 +178,35 @@ describe('PermissionStore.gatherFor', () => {
     db.run(`INSERT INTO group_memberships (id, group_id, user) VALUES ('m1', 'g', '${user}')`);
   }
 
-  test('the default grant applies to a user with no conferred role', () => {
-    seedDefaultGrant();
+  test('an everyone grant reaches a user with no conferred role', () => {
+    seedBlanketGrant();
     const { principals, grants } = store.gatherFor('alice');
-    // No group → default applies → full read/write everywhere.
     expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
     expect(resolve(regular, req('read', { resourceType: 'todo', appId: 'todos' }), principals, grants).allow).toBe(true);
   });
 
-  test('a conferred role suppresses the default — the role defines access outright', () => {
-    seedDefaultGrant();
+  test('a role adds to a caller\'s grants rather than replacing them', () => {
+    // Nothing is a suppressible fallback now: a caller's access is the union of
+    // every grant that matches them. Narrowing someone means removing the grant
+    // that widens them, not layering a narrower role on top.
+    seedBlanketGrant();
     seedPictionaryRoleGroup('alice');
     const { principals, grants } = store.gatherFor('alice');
-    // The role grants only the pictionary app…
     expect(
       resolve(regular, req('write', { resourceType: 'pictionary-game', appId: 'pictionary' }), principals, grants).allow,
     ).toBe(true);
-    // …and the default no longer unions back to cover everything else.
-    expect(resolve(regular, req('write'), principals, grants).allow).toBe(false);
-    expect(resolve(regular, req('read', { resourceType: 'todo', appId: 'todos' }), principals, grants).allow).toBe(false);
+    expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
   });
 
-  test('only the default grant is suppressed — other everyone grants survive a role', () => {
-    seedDefaultGrant();
-    db.run(
-      `INSERT INTO access_grants (id, subject_type, target_scope, capability, effect, is_default)
-         VALUES ('share', 'everyone', 'all', 'read', 'allow', 0)`,
-    );
+  test('with no everyone grant, a role is the whole of a caller\'s access', () => {
+    // The shipped shape: closed household, access from the role alone.
     seedPictionaryRoleGroup('alice');
     const { principals, grants } = store.gatherFor('alice');
-    // The non-default everyone→read grant is untouched: reads stay open…
-    expect(resolve(regular, req('read'), principals, grants).allow).toBe(true);
-    // …but the write default is gone, so writes are limited to the role's app.
+    expect(
+      resolve(regular, req('write', { resourceType: 'pictionary-game', appId: 'pictionary' }), principals, grants).allow,
+    ).toBe(true);
     expect(resolve(regular, req('write'), principals, grants).allow).toBe(false);
-  });
-
-  test('a direct (non-role) grant does not suppress the default', () => {
-    seedDefaultGrant();
-    // Alice gets one shared record but belongs to no role-bearing group.
-    db.run(
-      `INSERT INTO access_grants (id, subject_type, subject_id, target_scope, resource_type, resource_id, capability, effect, is_default)
-         VALUES ('rec', 'user', 'alice', 'record', 'recipe', 'r1', 'read', 'allow', 0)`,
-    );
-    const { principals, grants } = store.gatherFor('alice');
-    // No conferred role → default still applies → full access retained.
-    expect(resolve(regular, req('write'), principals, grants).allow).toBe(true);
+    expect(resolve(regular, req('read', { resourceType: 'todo', appId: 'todos' }), principals, grants).allow).toBe(false);
   });
 
   test('effect defaults to allow when the column is null', () => {

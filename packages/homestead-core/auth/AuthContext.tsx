@@ -28,7 +28,7 @@ import { aepbase, AepbaseError } from '../api/aepbase';
 import { queryClient, queryKeys } from '../api/queryClient';
 import { clearPersistedQueryCache } from '../api/persistQueryClient';
 import { logger } from '../utils/logger';
-import { fetchPermissionContext } from '../permissions/client';
+import { fetchPermissionContext, isRowDependent } from '../permissions/client';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -272,6 +272,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
     void refreshUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Nav visibility for a *filtered* collection depends on whether the caller has
+  // a visible row, so it moves with the data and not only with the grants:
+  // upload your first document and the app has to appear; delete your last and
+  // it has to go. Watch settled create/delete mutations and refresh when the
+  // collection they touched is one of those row-dependent ones — which is
+  // almost never, so this costs nothing in the common case.
+  //
+  // `refreshUser` is a heavier call than strictly needed (it re-fetches the user
+  // and preferences alongside the permission context), but it's the one
+  // well-trodden path that writes a hydrated user back to the auth store; a
+  // permissions-only variant would duplicate that write for a request that
+  // fires rarely.
+  useEffect(() => {
+    const currentUser = state.user;
+    if (!currentUser) return;
+    return queryClient.getMutationCache().subscribe((event) => {
+      const mutation = 'mutation' in event ? event.mutation : undefined;
+      if (!mutation || mutation.state.status !== 'success') return;
+      // Keys are ['app', appId, '<verb>-<singular>'] (see
+      // registerResourceMutationDefaults). Only create/delete can flip a
+      // collection between empty and non-empty.
+      const key = mutation.options.mutationKey;
+      if (!Array.isArray(key) || key.length < 3) return;
+      const [, appId, action] = key as [string, string, string];
+      const match = /^(create|delete)-(.+)$/.exec(String(action));
+      if (!match) return;
+      if (
+        isRowDependent(
+          currentUser.permissions,
+          currentUser.id,
+          currentUser.type === 'superuser',
+          match[2],
+          appId,
+        )
+      ) {
+        void refreshUser();
+      }
+    });
+  }, [state.user, refreshUser]);
 
   // A preview only ever applies on top of a real superuser session; if the
   // real account isn't a superuser, ignore any lingering target.

@@ -26,11 +26,13 @@ import { notFoundText, routeDynamic } from './router';
 import { PermissionStore, permissionCacheTtlMs } from './permission-store';
 import { type Grant } from './permissions';
 import type { EnforceContext } from './enforce';
+import { collectionsWithVisibleRows } from './visible-rows';
 import { TYPE_SUPERUSER, type User } from './types';
 import type { SyncDispatcher } from '../sync';
 import {
   createUserTables,
   extractBearerToken,
+  getUserById,
   getUserByToken,
   handleLogin,
   handleLogout,
@@ -153,6 +155,7 @@ export class Engine {
     groupIds: string[];
     groupNames: string[];
     grants: Grant[];
+    collectionsWithRows: string[];
   } {
     const { principals, grants } = this.permissionStore.gatherFor(userId);
     return {
@@ -162,6 +165,15 @@ export class Engine {
       // §9.2).
       groupNames: this.permissionStore.groupNamesFor(userId),
       grants,
+      // Collections the caller has rows in but whose grants alone don't say so
+      // (a filtered grant). Lets the sidebar tell "no access" apart from
+      // "access, nothing to show" without the client evaluating filters.
+      collectionsWithRows: collectionsWithVisibleRows(
+        this.enforceContext(),
+        this.db,
+        this.registry,
+        getUserById(this.db, userId)?.user ?? null,
+      ),
     };
   }
 

@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { toWireSchema } from '@rambleraptor/homestead-core/resources/translate';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
-import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
+import { BOOK_DEF, installOpenGrant, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const BASE = 'http://localhost:8090';
 
@@ -34,7 +34,9 @@ describe('access-grant manage-on-target write rule', () => {
       );
     }
     await defineResource(t, BOOK_DEF);
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
+    // Seeding writes no grants; these tests narrow from an open baseline.
+    await installOpenGrant(t);
   });
 
   afterEach(() => {
@@ -98,7 +100,8 @@ describe('access-grant manage-on-target write rule', () => {
       body: { user: alice.user.id },
     });
 
-    // Alice now has manage on everything → may create a collection grant.
+    // The admin role confers manage on every household collection (here just
+    // `book`), so Alice may create a grant targeting one.
     expect(
       (await call(t.engine, 'POST', '/access-grants?id=c1', {
         token: alice.token,

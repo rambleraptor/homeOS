@@ -19,6 +19,22 @@ export const permissionsApp: AppConfig = {
   id: 'permissions',
   name: 'Permissions',
   description: 'Manage groups and view roles.',
+  migrations: [
+    {
+      id: 'permissions-close-open-default',
+      title: 'Retire the open-household grant (closed by default)',
+      // Destructive: it deletes a grant. Everyone riding that grant is moved
+      // onto the Member role first, so effective access is preserved — but the
+      // row itself does not come back.
+      destructive: true,
+      // `is_default` marked that grant as the suppressible fallback. Nothing is
+      // a fallback any more, so the field is gone from the definition — and the
+      // engine refuses to drop a populated column without this authorization,
+      // which an un-migrated instance's open grant still is.
+      drops: [{ resource: 'access-grant', field: 'is_default' }],
+      load: () => import('./migrations/close-open-default'),
+    },
+  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.KeyRound),
     basePath: '/superuser/permissions',

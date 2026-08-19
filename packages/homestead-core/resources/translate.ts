@@ -65,9 +65,6 @@ export function validateResourceDefinition(def: ResourceDefinition): void {
       fail(`parent "${parent}" must be kebab-case`);
     }
   }
-  if (def.access && !['household', 'owner', 'acl'].includes(def.access.model)) {
-    fail(`access.model "${def.access.model}" must be one of household, owner, acl`);
-  }
   validateFields(def.fields, '', fail);
 }
 

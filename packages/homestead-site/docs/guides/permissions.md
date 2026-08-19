@@ -5,16 +5,17 @@ go a level deeper: they decide who can see and change individual **records** —
 so you can share one recipe with a housemate, keep a person's medical notes to
 themselves, or let only the adults edit the finances.
 
-A fresh household works with **no setup**: everyone signed in shares all the
-data inside every app they can open. Permissions are always active underneath,
-but a built-in default makes everything shared until you decide to limit
-someone — and the moment you do (by putting them in a group), it just works. You
-never have to "turn anything on" or delete a hidden rule.
+A fresh household starts **closed**: a new account can see nothing until you
+give it an access level. You do that when you create the person — the create-user
+form asks for one and defaults to **Member**, which is read and write across the
+household — so in practice setup is one dropdown, not a chore. Nothing is shared
+by accident, and there is no hidden rule to remember to delete later.
 
 ## This page covers
 
 - [The three building blocks](#the-three-building-blocks)
-- [Turn permissions on](#turn-permissions-on)
+- [Where access comes from](#where-access-comes-from-this-is-the-important-part)
+- [Restrict one person](#restrict-one-person-the-common-case)
 - [Share one record with one person](#share-one-record-with-one-person)
 - [Give a group access](#give-a-group-access)
 - [Block someone](#block-someone)
@@ -43,42 +44,42 @@ A rule grants one of three abilities, each including the ones before it:
 
 ---
 
-## How the default works (this is the important part)
+## Where access comes from (this is the important part)
 
-Every household is seeded with one built-in rule — the **open-household
-default**: *everyone can read and write everything*. It's what makes a new
-household "just work" with no setup.
+Nothing is granted by default. A household is seeded with **roles** and the
+**groups** that confer them (`Admins` / `Members` / `Guests`) — but with no
+grants at all. In plain terms:
 
-The key thing to understand is that this default is a **fallback**, not a
-blanket everyone gets stacked on top of. In plain terms:
+> **A person can do nothing until you give them a role. Their access is then
+> exactly what that role allows, and nothing more.**
 
-> **Everyone can do everything — until you put them in a group with a role.
-> Then their access is exactly what that role allows, and nothing more.**
+A role reaches a person through a group: joining a group confers that group's
+role. So:
 
-So you never delete the default to make a role take effect. The moment a person
-belongs to a role-bearing group, the default simply stops applying *to them*:
-
-- **Ungrouped people** (the whole household, at first) → full access, via the default.
-- **Someone in a role-group** → only what the role grants. The default no longer
-  covers them, so a `guest`-role member sees nothing, a "Pictionary" role sees
-  only Pictionary, and so on.
+- **Someone with no group** → no access. They can sign in, and see nothing.
+- **Someone in a role-group** → exactly what the role grants. `Members` is read
+  and write across the household, `Admins` adds the ability to grant others
+  access, `Guests` grants nothing until you share something specific.
+- **Their own records** → always theirs. Whoever creates a record can always read
+  and change it, no grant required.
 - **Superusers** → everything, always (break-glass) — you can't lock yourself out.
 
 This is what lets one household have full-access adults *and* a limited guest at
-the same time: the adults ride the default (or an `admin`/`member` role), the
-guest is defined by their group's role. Sharing a single record with someone
-(below) does **not** flip them off the default — only a role-group does.
+the same time: the adults are Members or Admins, the guest is defined by their
+group's role or by the individual records you share with them.
 
-> Before the default is seeded (the first moments of a fresh instance, or a
-> fully-wiped database) the engine deliberately **fails open** rather than
-> locking everyone out.
+> Earlier versions seeded an **open-household grant** (*everyone can read and
+> write everything*) so that upgrading changed nothing. That grant is gone. On
+> upgrade, a one-shot migration moves everyone who was relying on it into the
+> `Members` group first, so nobody loses access — what changes is that the *next*
+> account you create starts with nothing instead of everything.
 
 ---
 
 ## Restrict one person (the common case)
 
-Say everyone shares everything, but you want **mom limited to Pictionary**. You
-don't touch the default — you give mom a role, via a group:
+Say the household is mostly Members, but you want **mom limited to Pictionary**.
+You give mom a role of her own, via a group:
 
 ```bash
 # A role that grants just the Pictionary app…
@@ -92,8 +93,8 @@ homestead resources group-membership create --group <group-id> --user <mom-id>
 
 That's it — mom now sees only Pictionary, and everyone else is unaffected. Open
 **Superuser → Users → Edit** on mom to confirm: her access summary will read
-*"Can open 1 app: Pictionary."* Nothing was deleted; the default just no longer
-applies to her because she now has a role.
+*"Can open 1 app: Pictionary."* If mom was already in another role-group, remove
+her from it — access is the union of every role she holds.
 
 ---
 
@@ -178,8 +179,8 @@ A few rules of thumb make the whole system predictable:
   can be blocked by a deny.)
 - **A deny always wins.** If any rule denies access, access is denied, no matter
   how many grants say otherwise.
-- **Everything is shared until you say otherwise.** The starting rule opens the
-  whole household; you tighten from there.
+- **Nothing is shared until you say so.** A new account has no access; you grant
+  it by giving them a role, and widen from there.
 - **Rules apply everywhere.** Enforcement is on the server, so it covers the
   API, the AI assistant, and the CLI — not only the web UI.
 
@@ -199,10 +200,19 @@ A few rules of thumb make the whole system predictable:
   this isn't the tool for that.
 - **Changes are near-instant.** New rules take effect within a few seconds
   (there's a short cache), no restart needed.
-- **Owner-only apps.** A developer can mark a whole resource *owner-private* in
-  its definition (`access: { model: 'owner' }`), so its records default to the
-  creator only even under the open household rule — good for personal notes or
-  one person's receipts. See [Defining Resources](./resources).
+- **Private collections.** A few collections are covered by the household roles
+  only for *your own* records — the Documents app, whose point is per-folder
+  sharing. Nothing is marked on the resource itself: the roles simply don't hand
+  out everyone else's rows. You can still add records there, and you always see
+  what you created.
+- **What shows in the sidebar.** An app appears when you can reach any of its
+  records. For a private collection that means you actually have one — upload
+  your first document and Documents appears; delete your last and it goes.
+- **Apps with nothing to store.** A few apps (like Chat) hold no records of their
+  own, so there is nothing to check. Those are granted per app, and the built-in
+  roles include them — which is why a Guest, granted nothing, doesn't see Chat.
+  **Settings is the exception**: it manages your own preferences, so everyone
+  signed in can reach it.
 - **Filters.** A rule can target records by a condition instead of a fixed id —
   for example "recipes you created" (`created_by == subject.id`). Same
   expression language as list filters.

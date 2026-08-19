@@ -42,7 +42,6 @@ interface GrantRow {
   filter: string | null;
   capability: string;
   effect: string | null;
-  is_default: number | null;
 }
 
 interface MembershipRow {
@@ -76,7 +75,6 @@ function toGrant(row: GrantRow): Grant {
       resource_id: row.resource_id ?? undefined,
       filter: row.filter ?? undefined,
     },
-    isDefault: !!row.is_default,
   };
 }
 
@@ -121,7 +119,7 @@ export class PermissionStore {
     if (this.grants !== null && Date.now() - this.loadedAt < this.ttlMs) return;
 
     this.grants = this.query<GrantRow>(
-      'SELECT subject_type, subject_id, target_scope, target_app, resource_type, resource_id, filter, capability, effect, is_default FROM access_grants',
+      'SELECT subject_type, subject_id, target_scope, target_app, resource_type, resource_id, filter, capability, effect FROM access_grants',
     ).map(toGrant);
 
     this.memberships = this.query<MembershipRow>(
@@ -207,18 +205,11 @@ export class PermissionStore {
       if (roleId) roleIds.add(roleId);
     }
 
-    // The default "everyone can do everything" grant is a *fallback* (§8.x): it
-    // applies only to callers with no conferred role. The moment someone is in a
-    // role-bearing group, their access is defined by that role alone — so we drop
-    // the default here rather than have it union back over the role's limits.
-    // Direct/record grants don't suppress it (sharing a record with someone must
-    // not silently strip their default access); only a conferred role does.
-    const hasRole = roleIds.size > 0;
-    const base = hasRole
-      ? (this.grants ?? []).filter((g) => !g.isDefault)
-      : (this.grants ?? []);
-
-    const grants: Grant[] = [...base];
+    // Every stored grant is a real grant now: nothing is a suppressible
+    // fallback, because nothing is granted household-wide by default. A
+    // caller's access is the union of the grants addressed to them and the
+    // grants their roles confer.
+    const grants: Grant[] = [...(this.grants ?? [])];
     for (const roleId of roleIds) {
       for (const g of this.rolesById?.get(roleId) ?? []) {
         // Re-address the role's grant to this caller so subject matching passes.

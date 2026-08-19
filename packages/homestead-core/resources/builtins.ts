@@ -73,7 +73,6 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
     plural: PERSONAL_ACCESS_TOKENS,
     description: 'A personal access token the owner can use for API calls.',
     user_settable_create: true,
-    access: { model: 'owner' },
     parents: ['user'],
     fields: {
       name: { type: 'string', required: true },
@@ -115,7 +114,6 @@ export const BUILTIN_RESOURCE_DEFS: ResourceDefinition[] = [
     description:
       "A record the owner has starred, to surface it first in pickers. Polymorphic: target_resource names the kind, target_id the record.",
     user_settable_create: true,
-    access: { model: 'owner' },
     parents: ['user'],
     fields: {
       target_resource: {

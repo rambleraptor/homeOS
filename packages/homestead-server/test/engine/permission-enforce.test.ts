@@ -1,17 +1,22 @@
 /**
  * Permissions Phase 3: enforcement wired into the engine. Enforcement is
- * unconditional (gated only by the fail-open baseline), so these just seed a
- * baseline (a 0ms cache TTL makes a just-created grant honored immediately) and
- * verify: the seeded open grant preserves today's behavior; removing it isolates
- * data to owners; record and deny grants take effect; and the superuser
- * break-glass.
+ * unconditional and fail-closed, so these install a broad baseline by hand
+ * (`installOpenGrant`; a 0ms cache TTL makes a just-created grant honored
+ * immediately) and verify: a blanket grant gives ordinary CRUD; removing it
+ * isolates data to owners; record, role, and deny grants take effect; and the
+ * superuser break-glass.
+ *
+ * Nothing seeds a blanket grant any more — a household is closed by default and
+ * the built-in roles enumerate the collections they cover — so the baseline here
+ * is a test fixture, not the shipped shape. `deleteOpenGrant` removes it to get
+ * back to what a real household looks like.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { toWireSchema } from '@rambleraptor/homestead-core/resources/translate';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
-import { BOOK_DEF, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
+import { BOOK_DEF, installOpenGrant, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const BASE = 'http://localhost:8090';
 
@@ -37,6 +42,8 @@ describe('permission enforcement', () => {
     }
     await defineResource(t, BOOK_DEF);
     await seedPermissions(BASE, t.adminToken, fetchImpl);
+    // Seeding writes no grants; these tests narrow from an open baseline.
+    await installOpenGrant(t);
   });
 
   afterEach(() => {
@@ -50,7 +57,7 @@ describe('permission enforcement', () => {
     expect(res.status).toBe(204);
   }
 
-  test('the seeded open grant preserves ordinary CRUD for a regular user', async () => {
+  test('a blanket grant gives a regular user ordinary CRUD', async () => {
     const alice = await seedUser(t.engine, { email: 'alice@example.com' });
     expect((await call(t.engine, 'POST', '/books?id=b1', { token: alice.token, body: { title: 'A' } })).status).toBe(201);
     expect((await call(t.engine, 'GET', '/books/b1', { token: alice.token })).status).toBe(200);
@@ -60,7 +67,7 @@ describe('permission enforcement', () => {
     expect((await call(t.engine, 'DELETE', '/books/b1', { token: alice.token })).status).toBe(204);
   });
 
-  test('without the open grant, a record is visible only to its owner', async () => {
+  test('with no matching grant, a record is visible only to its owner', async () => {
     const alice = await seedUser(t.engine, { email: 'alice@example.com' });
     const bob = await seedUser(t.engine, { email: 'bob@example.com' });
     // Alice creates while the open grant still exists (she owns it).
@@ -109,7 +116,7 @@ describe('permission enforcement', () => {
     expect(ids).toEqual(['b1']);
   });
 
-  test('a deny grant beats the open grant (deny always wins)', async () => {
+  test('a deny grant beats a blanket allow (deny always wins)', async () => {
     const bob = await seedUser(t.engine, { email: 'bob@example.com' });
     await call(t.engine, 'POST', '/books?id=b1', { token: bob.token, body: { title: 'B' } });
     // Deny bob read everywhere.
@@ -137,7 +144,7 @@ describe('permission enforcement', () => {
     expect((await (await call(t.engine, 'GET', '/books', { token: t.adminToken })).json()).results).toHaveLength(1);
   });
 
-  test('user-parented resources stay owner-only even under the open grant', async () => {
+  test('user-parented resources stay owner-only even under a blanket grant', async () => {
     // The blanket everyone→write→* grant must NOT widen access to another
     // user's subtree; checkUserScope still isolates user-parented children.
     await defineResource(t, {
@@ -158,7 +165,7 @@ describe('permission enforcement', () => {
     expect((await call(t.engine, 'GET', `/users/${alice.user.id}/notes/n1`, { token: alice.token })).status).toBe(200);
   });
 
-  test('a conferred role suppresses the open grant — the role defines access, no delete needed', async () => {
+  test('a role is additive — it grants, it does not narrow', async () => {
     const alice = await seedUser(t.engine, { email: 'alice@example.com' });
     const bob = await seedUser(t.engine, { email: 'bob@example.com' });
     await call(t.engine, 'POST', '/books?id=b1', { token: t.adminToken, body: { title: 'A' } });
@@ -177,14 +184,39 @@ describe('permission enforcement', () => {
       body: { user: alice.user.id },
     });
 
-    // The open-household grant is still in place, but Alice's role suppresses it:
-    // she can read a book (the role) but can't write one (default no longer applies).
+    // Access is the union of every grant that matches: Alice holds the reader
+    // role *and* is covered by the blanket grant installed above, so she keeps
+    // write. A role no longer suppresses anything — narrowing someone means
+    // removing the grant that widens them, not layering a role on top.
+    expect((await call(t.engine, 'GET', '/books/b1', { token: alice.token })).status).toBe(200);
+    expect((await call(t.engine, 'POST', '/books?id=b2', { token: alice.token, body: { title: 'B' } })).status).toBe(201);
+
+    // Bob, in no group, is covered by the same blanket grant.
+    expect((await call(t.engine, 'POST', '/books?id=b3', { token: bob.token, body: { title: 'C' } })).status).toBe(201);
+  });
+
+  test('with no blanket grant, a role is the whole of a caller\'s access', async () => {
+    await deleteOpenGrant();
+    const alice = await seedUser(t.engine, { email: 'alice@example.com' });
+    await call(t.engine, 'POST', '/books?id=b1', { token: t.adminToken, body: { title: 'A' } });
+
+    await call(t.engine, 'POST', '/roles?id=reader', {
+      token: t.adminToken,
+      body: { name: 'Reader', grants: [{ target_scope: 'collection', resource_type: 'book', capability: 'read' }] },
+    });
+    await call(t.engine, 'POST', '/groups?id=readers', {
+      token: t.adminToken,
+      body: { name: 'Readers', role: 'reader' },
+    });
+    await call(t.engine, 'POST', '/groups/readers/group-memberships?id=m1', {
+      token: t.adminToken,
+      body: { user: alice.user.id },
+    });
+
+    // This is the shipped shape: read from the role, and nothing else.
     expect((await call(t.engine, 'GET', '/books/b1', { token: alice.token })).status).toBe(200);
     expect((await call(t.engine, 'POST', '/books?id=b2', { token: alice.token, body: { title: 'B' } })).status).toBe(403);
     expect((await call(t.engine, 'PATCH', '/books/b1', { token: alice.token, body: { title: 'A2' } })).status).toBe(403);
-
-    // Bob, in no group, still rides the open default: full CRUD, nothing deleted.
-    expect((await call(t.engine, 'POST', '/books?id=b3', { token: bob.token, body: { title: 'C' } })).status).toBe(201);
   });
 });
 

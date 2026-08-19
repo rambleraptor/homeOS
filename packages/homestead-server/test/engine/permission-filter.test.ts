@@ -10,7 +10,7 @@ import { compileFilter } from '../../src/engine/filter';
 import { toWireSchema } from '@rambleraptor/homestead-core/resources/translate';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
-import { call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
+import { installOpenGrant, call, defineResource, makeEngine, seedUser, type TestEngine } from './helpers';
 
 const SCHEMA = { type: 'object' as const, properties: { created_by: { type: 'string' }, status: { type: 'string' } } };
 
@@ -73,6 +73,8 @@ describe('filter-scoped grant enforcement', () => {
       },
     });
     await seedPermissions(BASE, t.adminToken, fetchImpl);
+    // Seeding writes no grants; these tests narrow from an open baseline.
+    await installOpenGrant(t);
   });
 
   afterEach(() => {

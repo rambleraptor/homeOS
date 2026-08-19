@@ -34,7 +34,7 @@ describe('engine.permissionContext', () => {
         def.singular,
       );
     }
-    await seedPermissions(BASE, t.adminToken, fetchImpl);
+    await seedPermissions(BASE, t.adminToken, fetchImpl, [{ resource_type: 'book' }]);
   });
 
   afterEach(() => {
@@ -55,20 +55,20 @@ describe('engine.permissionContext', () => {
 
     const ctx = t.engine.permissionContext(alice.user.id);
 
-    // A baseline was seeded (roles + open grant), so enforcement is live.
+    // A baseline was seeded (roles + groups), so enforcement is live.
     expect(ctx.enforced).toBe(true);
     expect(ctx.groupIds).toEqual(['parents']);
     // Group *names* also ride along for the app-gating mirror (§9.2).
     expect(ctx.groupNames).toEqual(['Parents']);
-    // Alice holds the `member` role, so the open-household default is suppressed
-    // for her (§8.x) — her access comes from the role, not the everyone default.
-    expect(ctx.grants.some((g) => g.subject.type === 'everyone' && g.target.scope === 'all')).toBe(false);
-    // …and the member role is expanded into a grant addressed to Alice.
-    expect(
-      ctx.grants.some(
-        (g) => g.subject.type === 'user' && g.subject.id === alice.user.id && g.capability === 'write',
-      ),
-    ).toBe(true);
+    // Nothing is granted household-wide, so there is no everyone grant at all.
+    expect(ctx.grants.some((g) => g.subject.type === 'everyone')).toBe(false);
+    // Alice's access is the `member` role, expanded into grants addressed to her
+    // — one per collection the role covers, never a single `all`-scope grant.
+    const hers = ctx.grants.filter(
+      (g) => g.subject.type === 'user' && g.subject.id === alice.user.id,
+    );
+    expect(hers.length).toBeGreaterThan(0);
+    expect(hers.every((g) => g.target.scope === 'collection' && g.capability === 'write')).toBe(true);
   });
 
   test('enforced is true even before a baseline is seeded (fail-closed)', async () => {

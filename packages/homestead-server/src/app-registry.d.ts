@@ -12,6 +12,7 @@ import type {
   RegisteredResourceSync,
 } from '@rambleraptor/homestead-core/apps/registry';
 import type { AppAccessMap } from '@rambleraptor/homestead-core/apps/access-map';
+import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import type { OAuthConfig } from './engine/oauth';
 
 export function appAccessMap(): AppAccessMap | null;
@@ -27,6 +28,7 @@ export function getResourceCustomMethod(
 ): ResourceCustomMethod | undefined;
 export function getAllResourceCustomMethods(): Record<string, ResourceCustomMethod>;
 export function getAllResourceDefs(): ResourceDefinition[];
+export function getAllApps(): AppConfig[];
 export function getAllAppFlagDefs(): Record<string, unknown>;
 export function getAllUserSettingDefs(): Record<string, unknown>;
 export function getAllCronHooks(): RegisteredCronHook[];

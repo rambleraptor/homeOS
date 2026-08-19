@@ -11,6 +11,7 @@
 
 import {
   initializeAppRegistry,
+  getAllApps,
   getResourceCustomMethod,
   getAllResourceCustomMethods,
   getAllResourceDefs,
@@ -126,6 +127,7 @@ export function getAllResourceSyncs() {
 }
 
 export {
+  getAllApps,
   getResourceCustomMethod,
   getAllResourceCustomMethods,
   getAllResourceDefs,
