@@ -69,16 +69,22 @@ export interface HouseholdCollection {
  * Compute the collections a household role should confer, in stable (sorted)
  * order.
  *
- * Excluded entirely, in order of why:
- *   - **user-parented** resources (notifications, preferences, tokens,
- *     favorites) — the router governs these by `checkUserScope` (subtree
- *     ownership by path) and skips grant enforcement, so a grant would do
- *     nothing at all;
- *   - the **self-governing** permission resources (above).
+ * Excluded: the **self-governing** permission resources (above), which the
+ * manage-on-target rule owns.
  *
- * Everything else a household declares — including child collections like
- * `transaction` or `perk`, which need their own grant because a grant matches
- * one `resource_type` — is covered, shared or own-rows-only.
+ * Everything else a household declares is covered — including child collections
+ * like `transaction` or `perk`, which need their own grant because a grant
+ * matches one `resource_type`.
+ *
+ * **User-parented collections are covered too**, which looks redundant and
+ * isn't. The server never consults a grant for them — `enforceGrants` is false
+ * for a user-parented route and `checkUserScope` governs by path instead — but
+ * the *client* mirror has no such rule, so `can('read', 'notification')` is
+ * exactly as false as `can()` on a collection you genuinely can't reach. Leave
+ * them out and every app whose resources are all user-parented (Notifications)
+ * silently drops out of the sidebar. Granting them keeps the mirror honest —
+ * you can read your own notifications — and keeps an app-scope deny working,
+ * which short-circuiting them client-side would not.
  */
 export function householdCollections(
   defs: readonly ResourceDefinition[],
@@ -87,8 +93,6 @@ export function householdCollections(
   const priv = new Set(PRIVATE_COLLECTIONS);
   const names = new Set<string>(ENGINE_MANAGED_SHARED);
   for (const def of defs) {
-    // `parents` names singulars; `user` is aepbase's built-in root.
-    if (def.parents?.includes('user')) continue;
     if (excluded.has(def.singular)) continue;
     names.add(def.singular);
   }

@@ -212,6 +212,41 @@ describe('useAppVisible + apps owning several collections', () => {
   });
 });
 
+describe('useAppVisible + apps whose resources are all user-parented', () => {
+  // Notifications owns only user-parented collections. The server governs those
+  // by path rather than by grant, but the client mirror doesn't know that — so
+  // the household roles grant them, and without that grant the whole app
+  // silently vanishes from the header.
+  const NOTIFICATIONS = multiResourceApp('notifications', [
+    'notification',
+    'notification-subscription',
+  ]);
+
+  beforeEach(() => {
+    authState.user = null;
+  });
+
+  it('shows the app when the role grants its user-parented collections', () => {
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: closedCtx([allowCollection('u1', 'notification')]),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(NOTIFICATIONS)).toBe(true);
+  });
+
+  it('still honors an app-scope deny', () => {
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: closedCtx([allowCollection('u1', 'notification'), denyApp('notifications')]),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(NOTIFICATIONS)).toBe(false);
+  });
+});
+
 describe('useAppVisible + apps with no collections', () => {
   const CHAT = bareApp('chat');
 

@@ -96,7 +96,9 @@ describe('permission seed data', () => {
     const covered = householdCollections([
       { singular: 'todo', plural: 'todos', fields: {} },
       { singular: 'document', plural: 'documents', fields: {} },
-      // user-parented: governed by checkUserScope, so a grant would be inert
+      // user-parented: the server governs these by path, but the client mirror
+      // has no such rule — leave them out and an app whose resources are all
+      // user-parented (Notifications) drops out of the sidebar entirely.
       { singular: 'notification', plural: 'notifications', parents: ['user'], fields: {} },
       // self-governing: the manage-on-target rule owns these
       { singular: 'access-grant', plural: 'access-grants', fields: {} },
@@ -105,7 +107,7 @@ describe('permission seed data', () => {
 
     expect(names).toContain('todo');
     expect(names).toContain('document');
-    expect(names).not.toContain('notification');
+    expect(names).toContain('notification');
     expect(names).not.toContain('access-grant');
     // The documents app is covered only for a member's own rows.
     expect(covered.find((c) => c.resource_type === 'document')?.filter).toBe(OWN_ROWS_FILTER);
