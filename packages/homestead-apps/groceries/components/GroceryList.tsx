@@ -152,13 +152,15 @@ function GroceryItemRow({
 
         <div className="flex-1 min-w-0">
           <p
-            className={`flex items-center gap-2 font-body font-medium ${
+            className={`flex flex-wrap items-center gap-x-2 font-body font-medium ${
               item.checked
                 ? 'line-through text-text-muted'
                 : 'text-brand-navy'
             }`}
           >
-            <span className="truncate">{item.name}</span>
+            {/* Full name always shown — a shopper needs the whole item, so it
+                wraps onto as many lines as it takes instead of truncating. */}
+            <span className="break-words min-w-0">{item.name}</span>
             {isPendingSync && <PendingSyncBadge className="no-underline" />}
           </p>
           {item.notes && (
