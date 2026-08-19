@@ -52,6 +52,48 @@ function ctxWith(grants: PermissionContext['grants']): PermissionContext {
   return { enforced: true, groupIds: [], groupNames: [], grants: [ALL_ALLOW, ...grants] };
 }
 
+/** A closed household: no blanket allow, only the grants under test. */
+function closedCtx(
+  grants: PermissionContext['grants'],
+  collectionsWithRows: string[] = [],
+): PermissionContext {
+  return { enforced: true, groupIds: [], groupNames: [], grants, collectionsWithRows };
+}
+
+/** An app that owns several collections, none of them first-and-only. */
+function multiResourceApp(id: string, singulars: string[]): AppConfig {
+  return {
+    id,
+    name: id,
+    resources: singulars.map((singular) => ({ singular })),
+  } as unknown as AppConfig;
+}
+
+/** An app with no collections and no children — Chat, Settings, Dashboard. */
+function bareApp(id: string): AppConfig {
+  return { id, name: id } as unknown as AppConfig;
+}
+
+/** A collection-scope allow on one resource. */
+function allowCollection(userId: string, resourceType: string) {
+  return {
+    subject: { type: 'user' as const, id: userId },
+    capability: 'read' as const,
+    effect: 'allow' as const,
+    target: { scope: 'collection' as const, resource_type: resourceType },
+  };
+}
+
+/** An app-scope allow — the only thing that can reveal a collection-less app. */
+function allowApp(userId: string, appId: string) {
+  return {
+    subject: { type: 'user' as const, id: userId },
+    capability: 'read' as const,
+    effect: 'allow' as const,
+    target: { scope: 'app' as const, app: appId },
+  };
+}
+
 const RECIPES = app('recipes', 'recipe');
 const TODOS = app('todos', 'todo');
 
@@ -121,5 +163,87 @@ describe('useAppVisible + nested apps', () => {
     };
     const { result } = renderHook(() => useAppVisible());
     expect(result.current(GAMES)).toBe(false);
+  });
+});
+
+
+describe('useAppVisible + apps owning several collections', () => {
+  // `documents` owns `collection` and `document`; gating on the first declared
+  // one alone would hide the app from someone who can reach only the second.
+  const DOCUMENTS = multiResourceApp('documents', ['collection', 'document']);
+
+  beforeEach(() => {
+    authState.user = null;
+  });
+
+  it('shows the app when any of its collections is reachable, not just the first', () => {
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: closedCtx([allowCollection('u1', 'document')]),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(DOCUMENTS)).toBe(true);
+  });
+
+  it('hides the app when none of its collections is reachable', () => {
+    authState.user = { id: 'u1', type: 'user', permissions: closedCtx([]) };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(DOCUMENTS)).toBe(false);
+  });
+
+  it('shows the app when the caller has rows behind a filtered grant', () => {
+    // The real documents case: access comes from a filtered grant, which the
+    // client resolver refuses to evaluate, so the grants alone say "no". The
+    // server's row-existence report is what keeps the app in the sidebar.
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: closedCtx([], ['document']),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(DOCUMENTS)).toBe(true);
+  });
+
+  it('hides it again once the caller has no rows left', () => {
+    authState.user = { id: 'u1', type: 'user', permissions: closedCtx([], []) };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(DOCUMENTS)).toBe(false);
+  });
+});
+
+describe('useAppVisible + apps with no collections', () => {
+  const CHAT = bareApp('chat');
+
+  beforeEach(() => {
+    authState.user = null;
+  });
+
+  it('hides a collection-less app when nothing grants it', () => {
+    // Closed by default: with no collections to gate on, only an app-scope
+    // grant can reveal it.
+    authState.user = { id: 'u1', type: 'user', permissions: closedCtx([]) };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(CHAT)).toBe(false);
+  });
+
+  it('shows it under an app-scope grant', () => {
+    authState.user = {
+      id: 'u1',
+      type: 'user',
+      permissions: closedCtx([allowApp('u1', 'chat')]),
+    };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(CHAT)).toBe(true);
+  });
+
+  it('shows it under a blanket grant, and hides it under an app-scope deny', () => {
+    authState.user = { id: 'u1', type: 'user', permissions: ctxWith([]) };
+    const { result } = renderHook(() => useAppVisible());
+    expect(result.current(CHAT)).toBe(true);
+
+    authState.user = { id: 'u1', type: 'user', permissions: ctxWith([denyApp('chat')]) };
+    const { result: denied } = renderHook(() => useAppVisible());
+    expect(denied.current(CHAT)).toBe(false);
   });
 });

@@ -22,6 +22,7 @@
  */
 
 import type { ResourceDefinition } from '../resources/types';
+import type { AppConfig } from '../apps/types';
 
 /** Scopes a grant to rows the caller created. See {@link PRIVATE_COLLECTIONS}. */
 export const OWN_ROWS_FILTER = 'created_by == subject.id';
@@ -96,4 +97,34 @@ export function householdCollections(
     .map((resource_type) =>
       priv.has(resource_type) ? { resource_type, filter: OWN_ROWS_FILTER } : { resource_type },
     );
+}
+
+/**
+ * Apps whose visibility can only be granted at app scope: they own no
+ * collections and have no children, so there is nothing else to gate on (Chat,
+ * Dashboard, Settings). Without a grant they'd be invisible to everyone once
+ * the sidebar stopped defaulting them to visible, so the household roles carry
+ * one app-scope grant each.
+ *
+ * Superuser-gated apps are left out: `isAppVisible` hard-gates them on account
+ * type regardless, so a grant would be inert and would only make the role
+ * listing misleading. The gate is read inline rather than imported from
+ * `apps/useAppVisibility` — that module pulls in React, and this one runs in the
+ * boot-time seeder.
+ */
+export function householdApps(apps: readonly AppConfig[]): string[] {
+  const out: string[] = [];
+  const visit = (app: AppConfig): void => {
+    for (const child of app.children ?? []) visit(child);
+    const superuserOnly = (app.web?.routes ?? []).some((r) =>
+      (r.gates ?? []).includes('superuser'),
+    );
+    if (superuserOnly) return;
+    const defs = typeof app.resources === 'function' ? app.resources() : app.resources ?? [];
+    if (defs.length > 0) return; // gated by its collections
+    if ((app.children ?? []).length > 0) return; // gated by its children
+    out.push(app.id);
+  };
+  for (const app of apps) visit(app);
+  return out.sort();
 }

@@ -15,12 +15,16 @@ import { syncResourceDefinitions } from '@rambleraptor/homestead-core/resources/
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
 import { PERMISSION_RESOURCE_DEFS } from '@rambleraptor/homestead-core/permissions/resources';
 import { seedPermissions } from '@rambleraptor/homestead-core/permissions/seed';
-import { householdCollections } from '@rambleraptor/homestead-core/permissions/household';
+import {
+  householdApps,
+  householdCollections,
+} from '@rambleraptor/homestead-core/permissions/household';
 import { syncAppFlagsSchema } from '@rambleraptor/homestead-core/app-flags/sync';
 import { syncUserSettingsSchema } from '@rambleraptor/homestead-core/user-settings/sync';
 import { sweepStaleOperations } from '@rambleraptor/homestead-core/server/operations';
 import {
   getAllAppFlagDefs,
+  getAllApps,
   getAllMigrations,
   getAllResourceDefs,
   getAllUserSettingDefs,
@@ -108,6 +112,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         token,
         undefined,
         householdCollections(defs),
+        householdApps(getAllApps()),
       );
       if (seeded.rolesSeeded || seeded.groupsSeeded || seeded.rolesReconciled.length) {
         log.child('permissions').info('seeded baseline', {

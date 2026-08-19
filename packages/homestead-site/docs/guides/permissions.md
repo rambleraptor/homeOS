@@ -205,6 +205,13 @@ A few rules of thumb make the whole system predictable:
   sharing. Nothing is marked on the resource itself: the roles simply don't hand
   out everyone else's rows. You can still add records there, and you always see
   what you created.
+- **What shows in the sidebar.** An app appears when you can reach any of its
+  records. For a private collection that means you actually have one — upload
+  your first document and Documents appears; delete your last and it goes.
+- **Apps with nothing to store.** A few apps (Chat, Settings) hold no records of
+  their own, so there is nothing to check. Those are granted per app, and the
+  built-in roles include them — which is why a Guest, granted nothing, sees
+  neither.
 - **Filters.** A rule can target records by a condition instead of a fixed id —
   for example "recipes you created" (`created_by == subject.id`). Same
   expression language as list filters.

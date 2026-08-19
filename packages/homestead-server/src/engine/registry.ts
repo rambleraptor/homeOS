@@ -42,7 +42,6 @@ export interface RegisteredResource {
   userSettableId: boolean;
   /** Only superusers may create/update/delete records of this resource. */
   superuserWrite: boolean;
-  /** Per-resource permission model (design §7); defaults to `household`. */
   /** Built-in resources (user) have no _aep_resource_definitions row. */
   builtin: boolean;
   /**

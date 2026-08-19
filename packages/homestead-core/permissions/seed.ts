@@ -39,8 +39,11 @@ import { ROLES, GROUPS } from './resources';
 import type { HouseholdCollection } from './household';
 
 export interface SeedRoleGrant {
-  target_scope: 'collection';
-  resource_type: string;
+  target_scope: 'collection' | 'app';
+  /** Present for a collection-scope grant. */
+  resource_type?: string;
+  /** Present for an app-scope grant (an app that owns no collections). */
+  target_app?: string;
   capability: 'read' | 'write' | 'manage';
   /** Scopes the grant to a subset of rows; see `household.ts`. */
   filter?: string;
@@ -53,17 +56,29 @@ export interface SeedRole {
   grants: SeedRoleGrant[];
 }
 
-/** One collection-scope grant per covered collection, in the given capability. */
+/**
+ * One grant per thing a household role covers: a collection-scope grant per
+ * collection, plus an app-scope grant per collection-less app (whose visibility
+ * has nothing else to hang on).
+ */
 export function householdRoleGrants(
   collections: readonly HouseholdCollection[],
   capability: 'read' | 'write' | 'manage',
+  apps: readonly string[] = [],
 ): SeedRoleGrant[] {
-  return collections.map(({ resource_type, filter }) => ({
-    target_scope: 'collection' as const,
-    resource_type,
-    capability,
-    ...(filter ? { filter } : {}),
-  }));
+  return [
+    ...collections.map(({ resource_type, filter }) => ({
+      target_scope: 'collection' as const,
+      resource_type,
+      capability,
+      ...(filter ? { filter } : {}),
+    })),
+    ...apps.map((target_app) => ({
+      target_scope: 'app' as const,
+      target_app,
+      capability,
+    })),
+  ];
 }
 
 /**
@@ -73,20 +88,23 @@ export function householdRoleGrants(
  * share what they can already see. `guest` is deliberately empty: a guest gets
  * exactly what someone shares with them, one record at a time.
  */
-export function buildSeedRoles(collections: readonly HouseholdCollection[]): SeedRole[] {
+export function buildSeedRoles(
+  collections: readonly HouseholdCollection[],
+  apps: readonly string[] = [],
+): SeedRole[] {
   return [
     {
       id: 'admin',
       name: 'Admin',
       description:
         'Read, write, and share everything in the household (without being a superuser account).',
-      grants: householdRoleGrants(collections, 'manage'),
+      grants: householdRoleGrants(collections, 'manage', apps),
     },
     {
       id: 'member',
       name: 'Member',
       description: 'Read and write everything in the household.',
-      grants: householdRoleGrants(collections, 'write'),
+      grants: householdRoleGrants(collections, 'write', apps),
     },
     {
       id: 'guest',
@@ -214,8 +232,13 @@ async function read(
 /** Same collections, same capabilities — order-insensitive. */
 function grantsMatch(a: SeedRoleGrant[], b: unknown): boolean {
   if (!Array.isArray(b) || b.length !== a.length) return false;
-  const key = (g: { resource_type?: unknown; capability?: unknown; filter?: unknown }) =>
-    `${String(g.resource_type)}:${String(g.capability)}:${String(g.filter ?? '')}`;
+  const key = (g: {
+    resource_type?: unknown;
+    target_app?: unknown;
+    capability?: unknown;
+    filter?: unknown;
+  }) =>
+    `${String(g.resource_type ?? '')}:${String(g.target_app ?? '')}:${String(g.capability)}:${String(g.filter ?? '')}`;
   const have = new Set((b as SeedRoleGrant[]).map(key));
   return a.every((g) => have.has(key(g)));
 }
@@ -238,8 +261,9 @@ export async function seedPermissions(
   token: string,
   fetchImpl: FetchLike = fetch,
   collections: readonly HouseholdCollection[] = [],
+  apps: readonly string[] = [],
 ): Promise<{ rolesSeeded: number; groupsSeeded: number; rolesReconciled: string[] }> {
-  const seedRoles = buildSeedRoles(collections);
+  const seedRoles = buildSeedRoles(collections, apps);
 
   let rolesSeeded = 0;
   if (await isEmpty(fetchImpl, aepbaseUrl, token, ROLES)) {

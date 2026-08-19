@@ -34,8 +34,14 @@ export function UserAccessSummary({ user }: { user: ManagedUser }) {
     // when the user can open any child (e.g. Pictionary).
     return getNavigationApps()
       .filter((app) =>
-        isAppVisible(app, isSuperuser, (resourceType, appId) =>
-          canWith(ctx, user.id, isSuperuser, 'read', resourceType, { appId }),
+        isAppVisible(
+          app,
+          isSuperuser,
+          (resourceType, appId) =>
+            canWith(ctx, user.id, isSuperuser, 'read', resourceType, { appId }) ||
+            // Same fold as the nav: a filtered grant reads as unreachable
+            // client-side, so trust the server's row-existence report.
+            (ctx?.collectionsWithRows ?? []).includes(resourceType),
         ),
       )
       .map((app) => app.name);

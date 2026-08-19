@@ -5,11 +5,23 @@
  *   1. **Superuser-only apps** (any whose route carries the `superuser` gate)
  *      are hidden from non-superusers. This is a *hard* rule, independent of the
  *      permission resolver — admin surfaces must never leak into a regular
- *      user's nav, even in the fail-open window where `can()` is permissive.
- *   2. Every other app is filtered by the permission resolver via `can()`: an
- *      app shows if the viewer can read its primary collection. A default
- *      (open-household) household sees every feature app; once access is
- *      narrowed, an app the viewer can't reach drops out of nav.
+ *      user's nav.
+ *   2. Every other app is filtered by the permission resolver: an app shows if
+ *      the viewer can reach **any** collection it owns. A household is closed by
+ *      default, so what a viewer sees is exactly what their role grants.
+ *
+ * "Reach" is deliberately broader than "the grants say read". A collection
+ * behind a *filtered* grant (your own documents) can't be resolved client-side —
+ * `canWith` passes no `filterEval` — so the server also reports which
+ * collections the viewer has at least one visible row of
+ * (`PermissionContext.collectionsWithRows`), and callers fold that into the
+ * `canRead` they pass here. Without it an app you can genuinely use looks
+ * unreachable and vanishes from the sidebar.
+ *
+ * An app owning **no** collections has nothing to gate on, so visibility is a
+ * property of the app itself: an app-scope grant decides. The built-in household
+ * roles carry those grants (see `permissions/household.ts`), so a Member keeps
+ * seeing Chat and Settings while a Guest, granted nothing, does not.
  */
 
 import { useCallback } from 'react';
@@ -22,10 +34,18 @@ export function isSuperuserOnlyApp(app: AppConfig): boolean {
   return (app.web?.routes ?? []).some((r) => (r.gates ?? []).includes('superuser'));
 }
 
-/** An app's primary (first declared) resource singular, if it has one. */
-export function primaryResource(app: AppConfig): string | undefined {
+/**
+ * Sentinel resource type for an app that owns no collections. It matches no
+ * collection- or record-scope grant, so only an `app`-scope grant (or a blanket
+ * `all`-scope one) can make such an app visible — which is exactly the question
+ * being asked.
+ */
+export const APP_ITSELF = '__app__';
+
+/** Every collection singular an app owns, in declaration order. */
+export function appResources(app: AppConfig): string[] {
   const defs = typeof app.resources === 'function' ? app.resources() : app.resources ?? [];
-  return defs[0]?.singular;
+  return defs.map((d) => d.singular);
 }
 
 /**
@@ -46,15 +66,21 @@ export function isAppVisible(
   canRead: (resourceType: string, appId: string) => boolean,
 ): boolean {
   if (isSuperuserOnlyApp(app)) return isSuperuser;
+
   const children = app.children ?? [];
-  const anyChildVisible = children.some((child) => isAppVisible(child, isSuperuser, canRead));
-  const primary = primaryResource(app);
-  // Pass the app id so an app-scope grant/deny (e.g. blocking someone from an
-  // app) is honored here, matching the engine.
-  if (primary) return canRead(primary, app.id) || anyChildVisible;
-  // No own resource: a pure parent shows iff a child does; a plain landing-only
-  // app (no resources and no children) stays visible.
-  return children.length > 0 ? anyChildVisible : true;
+  if (children.some((child) => isAppVisible(child, isSuperuser, canRead))) return true;
+
+  // Any collection the app owns will do — gating on the *first* declared one
+  // would hide an app whose second resource is the one you can reach. The app id
+  // rides along so an app-scope grant or deny is honored, matching the engine.
+  const resources = appResources(app);
+  if (resources.length > 0) return resources.some((r) => canRead(r, app.id));
+
+  // A pure parent with no collections of its own is exactly its children.
+  if (children.length > 0) return false;
+
+  // Nothing to gate on but the app itself.
+  return canRead(APP_ITSELF, app.id);
 }
 
 /**
@@ -64,13 +90,15 @@ export function isAppVisible(
 export function useAppVisible(): (app: AppConfig) => boolean {
   const { user } = useAuth();
   const can = useCan();
+  const withRows = user?.permissions?.collectionsWithRows;
   return useCallback(
     (app: AppConfig): boolean => {
       if (!user) return false;
+      const reachable = new Set(withRows ?? []);
       return isAppVisible(app, user.type === 'superuser', (resourceType, appId) =>
-        can('read', resourceType, { appId }),
+        can('read', resourceType, { appId }) || reachable.has(resourceType),
       );
     },
-    [user, can],
+    [user, can, withRows],
   );
 }
