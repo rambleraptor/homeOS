@@ -69,3 +69,65 @@ export async function deleteAllEvents(token: string) {
     await deleteIfPresent(token, 'events', item.id);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Standalone reminders
+// ---------------------------------------------------------------------------
+
+export interface ReminderRecord {
+  id: string;
+  title: string;
+  notes?: string;
+  due_at: string;
+  status?: 'pending' | 'done';
+  created_by?: string;
+  create_time?: string;
+  update_time?: string;
+}
+
+interface CreateReminderInput {
+  title: string;
+  /** RFC3339 instant. Use {@link dueAtFrom} to build one from a wall clock. */
+  due_at: string;
+  notes?: string;
+  status?: 'pending' | 'done';
+}
+
+/**
+ * Build a `due_at` from a local wall clock, `n` days from now. Seeding with a
+ * fixed calendar date would make "overdue" and "today" assertions drift as the
+ * suite ages, so specs express what they mean relative to the run.
+ */
+export function dueAtFrom(offsetDays: number, hour = 9): string {
+  const now = new Date();
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() + offsetDays,
+    hour,
+  ).toISOString();
+}
+
+export async function createReminder(
+  token: string,
+  data: CreateReminderInput,
+): Promise<ReminderRecord> {
+  const payload: Record<string, unknown> = {
+    title: data.title,
+    due_at: data.due_at,
+    status: data.status ?? 'pending',
+  };
+  if (data.notes) payload.notes = data.notes;
+  return e2eClient(token).collection<ReminderRecord>('reminders').create(payload);
+}
+
+export async function listReminders(token: string): Promise<ReminderRecord[]> {
+  return e2eClient(token).collection<ReminderRecord>('reminders').listAll();
+}
+
+export async function deleteAllReminders(token: string) {
+  const items = await e2eClient(token).collection<{ id: string }>('reminders').listAll();
+  for (const item of items) {
+    await deleteIfPresent(token, 'reminders', item.id);
+  }
+}
