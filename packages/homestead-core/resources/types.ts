@@ -179,6 +179,22 @@ export interface FieldDef {
    */
   deprecated?: boolean;
   /**
+   * Settable once, at create, and refused on every later write. The engine
+   * rejects an update or full-replace carrying this field with a 400 rather
+   * than silently dropping it — a caller that believes it changed something is
+   * worse off than one told it can't (the chat tool builder derives
+   * `update_<resource>` params from these fields, so a model *will* try).
+   *
+   * Distinct from the wire-level `readOnly`, which `preparePayload` strips on
+   * create too, for values a client may never set at all.
+   *
+   * Use for a field whose whole meaning is "decided when this record came into
+   * existence": a row's visibility (see the per-record access model), the
+   * period a redemption belongs to, the email a document was ingested from.
+   * @default false
+   */
+  immutable?: boolean;
+  /**
    * Default value applied by the engine when the field is omitted from a
    * create (or full-replace apply) request. Encoded into the wire schema's
    * standard JSON-schema `default` keyword (which aepbase preserves on
@@ -329,6 +345,12 @@ export interface JsonSchemaProperty {
    * translator to each `<field>_text` companion.
    */
   'x-aepbase-file-text-field'?: boolean;
+  /**
+   * Marks a create-only field, produced by the translator from a field's
+   * `immutable` annotation. The engine refuses an update or full-replace that
+   * carries it (see `homestead-server/src/engine/validate.ts`).
+   */
+  'x-aepbase-immutable'?: boolean;
 }
 
 export interface ResourceSchema {
@@ -511,6 +533,44 @@ export interface ResourceCustomMethod {
   }>;
 }
 
+/**
+ * How a resource's rows are scoped to people.
+ *
+ * Omitted means `shared` — today's behavior for every resource that isn't
+ * user-parented. The model decides only what filter (if any) the seeded
+ * household roles put on their collection grant; enforcement itself is
+ * unchanged, because the engine already unions the caller's own `_owner` rows
+ * with anything a grant filter matches (see `engine/enforce.ts`
+ * `visibilityToSql`).
+ *
+ * See `packages/homestead-site/docs/design/record-visibility.md`.
+ */
+export type ResourceAccess =
+  /** Household-wide: every member reads and writes every row. */
+  | { model: 'shared' }
+  /**
+   * Every row belongs to whoever created it and is reachable by others only
+   * through an explicit grant. The grant filter is always `created_by ==
+   * subject.id`, whose real job is authorizing CREATE — row visibility for the
+   * owner comes from the engine-set `_owner`.
+   */
+  | { model: 'private' }
+  /**
+   * Each row carries its own visibility in a declared, immutable field. The
+   * household role's grant is filtered `<field> == <sharedValue>`, which the
+   * engine unions with the caller's `_owner` rows — so one collection holds
+   * both private and household rows without forking into two resources.
+   */
+  | {
+      model: 'per-record';
+      /** snake_case name of the discriminator field, declared in `fields`. */
+      field: string;
+      /** The value meaning "the whole household". Builds the grant filter. */
+      sharedValue: string;
+      /** The value meaning "only its owner". */
+      privateValue: string;
+    };
+
 export interface ResourceDefinition {
   /** Kebab-case singular form, e.g. `gift-card`. Globally unique. */
   singular: string;
@@ -563,4 +623,9 @@ export interface ResourceDefinition {
    * `core/resources/bulk-export/types.ts`.
    */
   bulkExport?: BulkExportDef<any>;
+  /**
+   * Row-scoping model (see {@link ResourceAccess}). Omit for `shared`.
+   * Validated at boot by `validateResourceDefinition`.
+   */
+  access?: ResourceAccess;
 }

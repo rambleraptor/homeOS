@@ -32,11 +32,20 @@ function NotificationsPanel() {
   };
 
   const getNotificationIcon = (notification: Notification) => {
-    // Use source_collection for icon selection (with person_id fallback for backward compatibility)
-    if (notification.source_collection === 'people' || notification.person_id) {
-      return <Calendar className="w-5 h-5 text-blue-500" />;
-    }
-    return <Bell className="w-5 h-5 text-gray-500" />;
+    // Keyed off *why* the notification fired, not which app sent it. The old
+    // rule matched `source_collection === 'people'`, which named a feature app
+    // from core and had stopped matching anything besides: the events cron
+    // stamps `events`, and `person_id` is deprecated. Every scheduled reminder
+    // — from any app — now reads as a calendar; anything else is a bell.
+    const scheduled =
+      notification.notification_type === 'day_of' ||
+      notification.notification_type === 'day_before' ||
+      notification.notification_type === 'week_before';
+    return scheduled ? (
+      <Calendar className="w-5 h-5 text-blue-500" />
+    ) : (
+      <Bell className="w-5 h-5 text-gray-500" />
+    );
   };
 
   const unreadNotifications = notifications?.filter((n) => !n.read) || [];

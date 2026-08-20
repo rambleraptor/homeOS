@@ -95,7 +95,9 @@ describe('permission seed data', () => {
   it('household roles cover every declared collection except the self-governing ones', () => {
     const covered = householdCollections([
       { singular: 'todo', plural: 'todos', fields: {} },
-      { singular: 'document', plural: 'documents', fields: {} },
+      // Privacy comes from the resource's own declaration now — core names no
+      // app collection, so an undeclared resource is shared.
+      { singular: 'document', plural: 'documents', fields: {}, access: { model: 'private' } },
       // user-parented: the server governs these by path, but the client mirror
       // has no such rule — leave them out and an app whose resources are all
       // user-parented (Notifications) drops out of the sidebar entirely.
@@ -109,7 +111,7 @@ describe('permission seed data', () => {
     expect(names).toContain('document');
     expect(names).toContain('notification');
     expect(names).not.toContain('access-grant');
-    // The documents app is covered only for a member's own rows.
+    // Covered only for a member's own rows, because the def says so.
     expect(covered.find((c) => c.resource_type === 'document')?.filter).toBe(OWN_ROWS_FILTER);
     expect(covered.find((c) => c.resource_type === 'todo')?.filter).toBeUndefined();
   });

@@ -10,7 +10,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { GROCERIES } from '../resources';
-import { extractGroceryItemsFromImage } from '@rambleraptor/homestead-core/services/gemini';
+import { extractGroceryItemsFromImage } from '../api/extractItemsFromImage';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import { useAppFlag } from '@rambleraptor/homestead-core/settings';
 import { useStores } from './useStores';

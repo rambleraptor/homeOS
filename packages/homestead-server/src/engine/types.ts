@@ -46,6 +46,12 @@ export interface SchemaProperty {
    */
   oneOf?: SchemaProperty[];
   discriminator?: SchemaDiscriminator;
+  /**
+   * Create-only field: settable on create, refused on update / apply-onto-an-
+   * existing-record. Declared explicitly (rather than left to the index
+   * signature) because the write path branches on it.
+   */
+  'x-aepbase-immutable'?: boolean;
   [extension: string]: unknown; // x-aepbase-file-field and friends
 }
 

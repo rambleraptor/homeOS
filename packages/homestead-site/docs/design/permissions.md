@@ -634,7 +634,7 @@ Both are just the §4 resolver run in the other direction; no new storage. A thi
 > now name the collections they cover, one by one — there is nothing to opt out
 > of, so `ResourceAccess`, the `x-homestead-access` wire marker, and the
 > `scopedGrants` pre-filter are gone. A collection is private when the household
-> roles cover it only for a member's own rows; see `PRIVATE_COLLECTIONS` in
+> roles cover it only for a member's own rows; see the resource's `access: { model: 'private' }` and `householdFilterFor` in
 > `homestead-core/permissions/household.ts`. The section is kept as the record of
 > why the block existed.
 

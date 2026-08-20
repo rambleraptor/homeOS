@@ -17,27 +17,22 @@
  *     absent); the filter's real job is to authorize CREATE without opening
  *     everyone else's rows.
  *
- * Privacy is therefore the shape of a grant, in one list here, rather than a
- * keyword scattered across resource definitions.
+ * Privacy is therefore the shape of a grant. Which shape a collection gets is
+ * declared by the resource itself (`ResourceDefinition.access`) and translated
+ * here — so this module knows the *models*, never the app resources that use
+ * them.
  */
 
 import type { ResourceDefinition } from '../resources/types';
 import type { AppConfig } from '../apps/types';
 
-/** Scopes a grant to rows the caller created. See {@link PRIVATE_COLLECTIONS}. */
-export const OWN_ROWS_FILTER = 'created_by == subject.id';
-
 /**
- * Collections a household role covers **only for the member's own rows**, so
- * they stay private until explicitly shared.
- *
- * Keep this list short and justified — every entry is a collection whose rows
- * an ordinary household member cannot see, which is a surprise unless the app
- * makes it obvious. Today that is the documents app, whose whole point is
- * per-folder sharing: a document is visible to its owner plus whoever holds a
- * record grant, or the collection-scope grant that sharing a folder writes.
+ * Scopes a grant to rows the caller created — the filter the `private` access
+ * model carries. Its real job is authorizing CREATE: on create there is no row
+ * to match, so the filter is vacuously true and the grant permits adding a row,
+ * while row visibility for the owner comes from the engine-set `_owner`.
  */
-export const PRIVATE_COLLECTIONS: readonly string[] = ['document', 'collection'];
+export const OWN_ROWS_FILTER = 'created_by == subject.id';
 
 /**
  * Household collections the engine manages itself, so they never appear in any
@@ -61,8 +56,36 @@ const SELF_GOVERNING: readonly string[] = [
 /** One collection a household role covers, and the filter (if any) scoping it. */
 export interface HouseholdCollection {
   resource_type: string;
-  /** Present only for {@link PRIVATE_COLLECTIONS}. */
+  /** Present for any resource whose `access` model declares one. */
   filter?: string;
+}
+
+/**
+ * The filter a household role's grant carries for one resource, or undefined
+ * for an unfiltered (fully shared) grant.
+ *
+ * This is the one place the {@link ResourceAccess} declaration turns into
+ * enforcement. Nothing downstream changes: `HouseholdCollection` already
+ * carries an arbitrary filter string and `seed.ts` passes it through verbatim,
+ * and the engine already unions a grant filter with the caller's own `_owner`
+ * rows (`enforce.ts` `visibilityToSql`).
+ *
+ * `per-record` produces a literal comparison — `visibility == 'household'` —
+ * so a member reaches every household row plus their own private ones, in one
+ * indexed SQL clause. The value is a declared constant from the resource
+ * definition, not user input, and boot validation has already checked it
+ * against the field's enum.
+ */
+export function householdFilterFor(def: ResourceDefinition): string | undefined {
+  const access = def.access ?? { model: 'shared' as const };
+  switch (access.model) {
+    case 'shared':
+      return undefined;
+    case 'private':
+      return OWN_ROWS_FILTER;
+    case 'per-record':
+      return `${access.field} == '${access.sharedValue}'`;
+  }
 }
 
 /**
@@ -90,17 +113,19 @@ export function householdCollections(
   defs: readonly ResourceDefinition[],
 ): HouseholdCollection[] {
   const excluded = new Set(SELF_GOVERNING);
-  const priv = new Set(PRIVATE_COLLECTIONS);
+  // Each resource states its own scoping. Nothing in core names an app's
+  // collections any more — a privacy rule lives next to the schema it governs.
+  const filters = new Map<string, string | undefined>();
   const names = new Set<string>(ENGINE_MANAGED_SHARED);
   for (const def of defs) {
     if (excluded.has(def.singular)) continue;
     names.add(def.singular);
+    filters.set(def.singular, householdFilterFor(def));
   }
-  return [...names]
-    .sort()
-    .map((resource_type) =>
-      priv.has(resource_type) ? { resource_type, filter: OWN_ROWS_FILTER } : { resource_type },
-    );
+  return [...names].sort().map((resource_type) => {
+    const filter = filters.get(resource_type);
+    return filter ? { resource_type, filter } : { resource_type };
+  });
 }
 
 /**

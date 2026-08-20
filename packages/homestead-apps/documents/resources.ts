@@ -25,11 +25,11 @@ export const documentsResources: ResourceDefinition[] = [
       'A named, folder-like grouping of documents. A document can belong to ' +
       'many collections. Sharing a collection (via the permissions system) is ' +
       'what grants other people access to the documents inside it.',
-    // Private to its owner until explicitly shared. Nothing here says so: the
-    // household roles name the collections they cover, and `collection` and
-    // `document` are deliberately left out (see PRIVATE_COLLECTIONS in
-    // `homestead-core/permissions/household.ts`). Privacy is the absence of a
-    // grant, which is what makes "share a collection" mean something.
+    // Private to its owner until explicitly shared — which is what makes
+    // "share a collection" mean something. This used to be expressed from the
+    // outside, by a `PRIVATE_COLLECTIONS` list in core naming this app's
+    // resources; the resource says it itself now.
+    access: { model: 'private' },
     user_settable_create: true,
     fields: {
       name: { type: 'string', required: true, description: 'Display name of the collection.' },
@@ -45,6 +45,10 @@ export const documentsResources: ResourceDefinition[] = [
     description:
       'An uploaded document — the file, its extracted text, and any metadata ' +
       'parsed from it when it matches a known document type.',
+    // Owner-only until a grant says otherwise. A document is reached by its
+    // owner, by whoever holds a record grant on it, or through the
+    // collection-scope grant that sharing a folder writes.
+    access: { model: 'private' },
     user_settable_create: true,
     fields: {
       // `ai.embed` makes the platform extract the file's text into the

@@ -232,3 +232,34 @@ export function stripReadOnlyFields(schema: Schema, fields: Record<string, unkno
     }
   }
 }
+
+/**
+ * The immutable fields a payload carries, if any.
+ *
+ * A field marked `x-aepbase-immutable` (from a `FieldDef`'s `immutable`) is
+ * settable at create and refused afterwards. Unlike {@link stripReadOnlyFields},
+ * this **reports** rather than deletes: silently dropping the key would leave a
+ * caller believing it changed something. That matters most for the chat tools,
+ * whose `update_<resource>` parameters are derived from the schema's fields, so
+ * a model is offered the field and would take a no-op for success.
+ *
+ * Callers use it on update and full-replace-onto-an-existing-record only —
+ * never on create, which is the one write that may set these fields.
+ */
+export function immutableFieldsIn(
+  schema: Schema,
+  fields: Record<string, unknown>,
+): string[] {
+  const found: string[] = [];
+  for (const name of Object.keys(fields)) {
+    if (STANDARD_FIELDS.has(name)) continue;
+    if (schema.properties?.[name]?.['x-aepbase-immutable']) found.push(name);
+  }
+  return found;
+}
+
+/** The 400 message for an update that carries immutable fields. */
+export function immutableFieldsError(names: string[]): string {
+  const plural = names.length === 1 ? 'field' : 'fields';
+  return `cannot modify immutable ${plural}: ${names.join(', ')}`;
+}
