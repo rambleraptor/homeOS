@@ -1,12 +1,17 @@
 /**
- * Gemini AI Service
+ * Client half of the grocery photo import: hand an image to this app's
+ * `groceries:process-image` custom method and get back the items the model read
+ * off it. The server half (which holds the API key and talks to the model) is
+ * `../methods/process-image.ts`.
  *
- * Integration with Google's Gemini AI for image processing. Uses backend
- * API to keep the API key secure.
+ * Lived in `homestead-core/services/gemini.ts` until it was noticed that core
+ * was calling one feature app's custom method by name — the only consumer was
+ * ever this app, so it belongs here.
  */
 
-import { logger } from '../utils/logger';
-import { aepbase } from '../api/aepbase';
+import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
+import { GROCERIES } from '../resources';
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -34,7 +39,7 @@ export async function extractGroceryItemsFromImage(
     const response = await aepbase.customMethod<{
       items: ExtractedGroceryItem[];
       message: string;
-    }>('groceries', 'process-image', {
+    }>(GROCERIES, 'process-image', {
       image: base64Image,
       mimeType: imageFile.type,
     });

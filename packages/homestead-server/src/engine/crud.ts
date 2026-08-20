@@ -53,6 +53,8 @@ import { applyDynamicDefaults } from './defaults';
 import {
   applyDefaults,
   stripReadOnlyFields,
+  immutableFieldsIn,
+  immutableFieldsError,
   validateConstraints,
   validateEnums,
   validateRequiredWithFiles,
@@ -550,6 +552,11 @@ export async function handleUpdate(
   const { fields: patch, uploaded } = await readCreateOrApplyBody(req, r, reg, path);
   preparePayload(r, patch, uploaded);
 
+  // Create-only fields are refused, not dropped: a caller told "no" can correct
+  // itself, one whose key vanished silently cannot. See `immutableFieldsIn`.
+  const frozen = immutableFieldsIn(r.schema, patch);
+  if (frozen.length) return errorResponse(400, immutableFieldsError(frozen));
+
   // RFC 7396 merge patch onto existing fields (AEP-134 HTTP semantics).
   applyMergePatch(r.schema, existing.fields, patch);
   const now = nowRFC3339();
@@ -590,6 +597,11 @@ export async function handleApply(
     // onto the stored fields rather than replacing them wholesale.
     const requiredErr = validateRequiredWithFiles(r.schema, fields, r.fileFields, uploaded);
     if (requiredErr) throw new HttpError(400, requiredErr);
+
+    // Only on the update branch: an apply onto a path with no record is a
+    // create, and create is the one write that may set an immutable field.
+    const frozen = immutableFieldsIn(r.schema, fields);
+    if (frozen.length) throw new HttpError(400, immutableFieldsError(frozen));
 
     // Snapshot the pre-state before the merge mutates `existing.fields`.
     const preState = reg.syncDispatcher ? storedToMap(reg, r, existing) : null;

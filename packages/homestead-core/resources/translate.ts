@@ -66,6 +66,68 @@ export function validateResourceDefinition(def: ResourceDefinition): void {
     }
   }
   validateFields(def.fields, '', fail);
+  validateAccess(def, fail);
+}
+
+/**
+ * Check a `per-record` access declaration against the fields it names.
+ *
+ * The declaration turns into a *grant filter* at seed time, so a mistake here
+ * doesn't fail loudly at runtime — it silently produces a filter that matches
+ * nothing, and every row of the collection becomes invisible to everyone but
+ * its owner. Failing the boot instead is the whole point.
+ */
+function validateAccess(
+  def: ResourceDefinition,
+  fail: (message: string) => never,
+): void {
+  const access = def.access;
+  if (!access || access.model !== 'per-record') return;
+
+  const { field, sharedValue, privateValue } = access;
+  if (sharedValue === privateValue) {
+    fail(`access.sharedValue and access.privateValue must differ ("${sharedValue}")`);
+  }
+
+  const def_ = def.fields[field];
+  if (!def_) {
+    fail(`access.field "${field}" is not a declared field`);
+  }
+  if (def_.type !== 'string') {
+    fail(`access.field "${field}" must be a string field (got "${def_.type}")`);
+  }
+  const values = def_.enum;
+  if (!values) {
+    fail(`access.field "${field}" must declare an enum`);
+  }
+  for (const value of [sharedValue, privateValue]) {
+    if (!values.includes(value)) {
+      fail(`access.field "${field}" enum does not include "${value}"`);
+    }
+  }
+  if (def_.default === undefined) {
+    fail(`access.field "${field}" must declare a default`);
+  }
+  if (def_.default !== sharedValue && def_.default !== privateValue) {
+    fail(
+      `access.field "${field}" default "${String(def_.default)}" must be ` +
+        `either "${sharedValue}" or "${privateValue}"`,
+    );
+  }
+  if (def_.required) {
+    // It has a default, so requiring it would only break existing create paths.
+    fail(`access.field "${field}" must not be required — it has a default`);
+  }
+  if (!def_.immutable) {
+    // Visibility is decided at create. A mutable discriminator would let anyone
+    // with write access hide a household row from the rest of the household.
+    fail(`access.field "${field}" must be immutable`);
+  }
+  if ((def.parents ?? []).includes('user')) {
+    // A user-parented resource is scoped by path — `checkUserScope` governs it
+    // and the router never consults a grant, so the filter would be inert.
+    fail(`access model "per-record" is not valid on a user-parented resource`);
+  }
 }
 
 function validateFields(
@@ -641,6 +703,7 @@ function toWireProperty(
     ...constraintKeywords(field),
     ...(field.default !== undefined ? { default: field.default } : {}),
     ...(field.type === 'file' ? { 'x-aepbase-file-field': true } : {}),
+    ...(field.immutable ? { 'x-aepbase-immutable': true } : {}),
     ...(field.reference
       ? {
           'x-aepbase-reference': {
