@@ -78,3 +78,39 @@ export interface EventReminder {
   create_time?: string;
   update_time?: string;
 }
+
+/**
+ * A standalone reminder (`/reminders`). Distinct from {@link EventReminder},
+ * which is a per-user notification preference for an event — this is a thing to
+ * be reminded about in its own right.
+ */
+export type ReminderStatus = 'pending' | 'done';
+
+/**
+ * Who a reminder is for. Fixed at create (the field is `immutable`) — changing
+ * it means deleting the reminder and making a new one.
+ */
+export type ReminderVisibility = 'private' | 'household';
+
+export interface Reminder {
+  id: string;
+  title: string;
+  notes?: string;
+  /** RFC3339 instant the reminder is due. */
+  due_at: string;
+  status?: ReminderStatus;
+  visibility?: ReminderVisibility;
+  created_by?: string;
+  create_time?: string;
+  update_time?: string;
+}
+
+export interface ReminderFormData {
+  title: string;
+  /** `null` clears previously-entered notes on update. */
+  notes?: string | null;
+  due_at: string;
+  status?: ReminderStatus;
+  /** Create-only. Omitted on update — the engine rejects it with a 400. */
+  visibility?: ReminderVisibility;
+}
