@@ -14,7 +14,11 @@ import { useCreditCardPerks } from '../hooks/useCreditCardPerks';
 import { usePerkRedemptions } from '../hooks/usePerkRedemptions';
 import { useUpcomingPerks } from '../hooks/useUpcomingPerks';
 import { useRedeemPerk } from '../hooks/useRedeemPerk';
-import { formatPeriod, getPeriodDeadline } from '../utils/periodUtils';
+import {
+  URGENT_WINDOW_DAYS,
+  formatPeriod,
+  getPeriodDeadline,
+} from '../utils/periodUtils';
 import type { UpcomingPerk } from '../types';
 
 export function UpcomingPerksWidget() {
@@ -76,7 +80,7 @@ export function UpcomingPerksWidget() {
             const daysUntilDeadline = Math.ceil(
               (item.currentPeriod.end.getTime() - now) / (1000 * 60 * 60 * 24),
             );
-            const isUrgent = daysUntilDeadline <= 7;
+            const isUrgent = daysUntilDeadline <= URGENT_WINDOW_DAYS;
             const isExpired = daysUntilDeadline <= 0;
 
             return (
