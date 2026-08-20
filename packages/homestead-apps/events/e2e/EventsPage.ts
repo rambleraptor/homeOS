@@ -159,8 +159,37 @@ export class EventsPage {
   }
 
   // ---------------------------------------------------------------------------
-  // Reminders section
+  // Reminders tab
   // ---------------------------------------------------------------------------
+
+  /**
+   * Open the Reminders tab. Reminders share the Events page but not its list —
+   * every reminder interaction below needs this first.
+   */
+  async gotoReminders() {
+    await this.page.goto('/events?tab=reminders');
+    await this.page
+      .getByTestId('add-reminder-button')
+      .waitFor({ state: 'visible' });
+  }
+
+  /** Switch tabs in place, without a navigation. */
+  async selectTab(tab: 'events' | 'reminders') {
+    await this.page.getByTestId(`events-tab-${tab}`).click();
+  }
+
+  tab(tab: 'events' | 'reminders') {
+    return this.page.getByTestId(`events-tab-${tab}`);
+  }
+
+  async expectTabSelected(tab: 'events' | 'reminders') {
+    await expect(this.tab(tab)).toHaveAttribute('aria-selected', 'true');
+  }
+
+  /** The tab choice round-trips through the URL, so notifications can link to it. */
+  async expectRemindersTabInUrl() {
+    await expect(this.page).toHaveURL(/tab=reminders/);
+  }
 
   async clickAddReminder() {
     const addButton = this.page.getByTestId('add-reminder-button');
@@ -231,6 +260,15 @@ export class EventsPage {
 
   async showDoneReminders() {
     await this.page.getByTestId('reminders-toggle-done').click();
+  }
+
+  /** Unfold the reminders raised by apps, which the list hides by default. */
+  async showAppReminders() {
+    await this.page.getByTestId('reminders-toggle-app').click();
+  }
+
+  appRemindersToggle() {
+    return this.page.getByTestId('reminders-toggle-app');
   }
 
   async editReminder(

@@ -80,6 +80,10 @@ export interface ReminderRecord {
   notes?: string;
   due_at: string;
   status?: 'pending' | 'done';
+  /** Id of the app that raised it; unset on one a person created. */
+  type?: string;
+  source_key?: string;
+  notify_users?: string[];
   created_by?: string;
   create_time?: string;
   update_time?: string;
@@ -91,6 +95,10 @@ interface CreateReminderInput {
   due_at: string;
   notes?: string;
   status?: 'pending' | 'done';
+  /** Seed an app-raised reminder — the kind the list folds away by default. */
+  type?: string;
+  source_key?: string;
+  notify_users?: string[];
 }
 
 /**
@@ -118,6 +126,9 @@ export async function createReminder(
     status: data.status ?? 'pending',
   };
   if (data.notes) payload.notes = data.notes;
+  if (data.type) payload.type = data.type;
+  if (data.source_key) payload.source_key = data.source_key;
+  if (data.notify_users) payload.notify_users = data.notify_users;
   return e2eClient(token).collection<ReminderRecord>('reminders').create(payload);
 }
 

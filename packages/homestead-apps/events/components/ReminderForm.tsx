@@ -8,6 +8,7 @@
  * declared as extra fields and `buildPayload` recombines them.
  */
 
+import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Input } from '@rambleraptor/homestead-core/shared/components/Input';
 import { useSchemaForm } from '@rambleraptor/homestead-core/shared/forms';
@@ -93,9 +94,16 @@ export function ReminderForm({
         // Editing and notes were cleared — send null so merge-patch drops it.
         payload.notes = null;
       }
-      // Create-only: an update carrying it is a 400.
+      // Create-only: an update carrying `visibility` is a 400, and re-sending
+      // `created_by` on an edit would let whoever edits a reminder inherit it.
       if (!initialData) {
         payload.visibility = (v.visibility as ReminderVisibility) ?? 'household';
+        // Stamped explicitly rather than left to the engine: the delivery cron
+        // holds an admin token and has no other way to learn who a *private*
+        // reminder belongs to (the engine's `_owner` column isn't exposed over
+        // the API), so an unstamped private reminder can never be pushed.
+        const userId = aepbase.getCurrentUser()?.id;
+        if (userId) payload.created_by = userId;
       }
       return payload as unknown as Record<string, unknown>;
     },

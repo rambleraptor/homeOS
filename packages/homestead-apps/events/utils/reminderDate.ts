@@ -13,8 +13,19 @@
  * constructor, so no offset arithmetic is needed.
  */
 
-/** Hour a date-only reminder is due at, local time. Mirrors `events-notify`. */
-export const DEFAULT_HOUR = 9;
+/**
+ * The two hours (server-local) at which reminder notifications go out — see the
+ * `reminders-notify-*` hooks in `../app.config.ts`. Shared with the crons so the
+ * form's copy and the delivery schedule can't drift apart.
+ */
+export const MORNING_HOUR = 9;
+export const EVENING_HOUR = 18;
+
+/**
+ * Hour a date-only reminder is due at, local time. The morning slot: "remind me
+ * Thursday" with no time means the first delivery on Thursday.
+ */
+export const DEFAULT_HOUR = MORNING_HOUR;
 
 /** Two-digit zero-padded, for `YYYY-MM-DD` / `HH:MM` assembly. */
 function pad(n: number): string {
