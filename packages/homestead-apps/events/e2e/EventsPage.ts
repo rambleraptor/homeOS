@@ -158,6 +158,111 @@ export class EventsPage {
     await this.page.getByTestId(`filter-chip-tag-${tag}`).click();
   }
 
+  // ---------------------------------------------------------------------------
+  // Reminders section
+  // ---------------------------------------------------------------------------
+
+  async clickAddReminder() {
+    const addButton = this.page.getByTestId('add-reminder-button');
+    await addButton.waitFor({ state: 'visible' });
+    await addButton.click();
+  }
+
+  async fillReminderForm(data: {
+    title: string;
+    /** `YYYY-MM-DD`. */
+    date: string;
+    /** `HH:MM`; omitted leaves the form's default hour in place. */
+    time?: string;
+    notes?: string;
+  }) {
+    await this.page.getByTestId('reminder-form-title').fill(data.title);
+    await this.page.getByTestId('reminder-form-date').fill(data.date);
+    if (data.time !== undefined) {
+      await this.page.getByTestId('reminder-form-time').fill(data.time);
+    }
+    if (data.notes !== undefined) {
+      await this.page.getByTestId('reminder-form-notes').fill(data.notes);
+    }
+  }
+
+  async submitReminderForm() {
+    const submit = this.page.getByTestId('reminder-form-submit');
+    await submit.waitFor({ state: 'visible' });
+    await submit.click();
+    await submit.waitFor({ state: 'hidden' });
+  }
+
+  async createReminder(data: {
+    title: string;
+    date: string;
+    time?: string;
+    notes?: string;
+  }) {
+    await this.clickAddReminder();
+    await this.fillReminderForm(data);
+    await this.submitReminderForm();
+  }
+
+  reminderRow(title: string) {
+    return this.page
+      .getByTestId('reminders-list')
+      .locator('li')
+      .filter({ hasText: title });
+  }
+
+  async expectReminderInList(title: string) {
+    await expect(this.reminderRow(title).first()).toBeVisible();
+  }
+
+  async expectReminderNotInList(title: string) {
+    await expect(this.reminderRow(title)).toHaveCount(0);
+  }
+
+  async expectReminderOverdue(title: string) {
+    await expect(this.reminderRow(title).first()).toContainText('Overdue');
+  }
+
+  async toggleReminderDone(title: string) {
+    await this.page
+      .getByRole('checkbox', { name: `Mark ${title} as done` })
+      .click();
+  }
+
+  async showDoneReminders() {
+    await this.page.getByTestId('reminders-toggle-done').click();
+  }
+
+  async editReminder(
+    title: string,
+    newData: Partial<{ title: string; date: string; time: string; notes: string }>,
+  ) {
+    await this.page.getByRole('button', { name: `Edit ${title}` }).click();
+    await this.page.getByTestId('reminder-form-title').waitFor({ state: 'visible' });
+    if (newData.title !== undefined) {
+      await this.page.getByTestId('reminder-form-title').fill(newData.title);
+    }
+    if (newData.date !== undefined) {
+      await this.page.getByTestId('reminder-form-date').fill(newData.date);
+    }
+    if (newData.time !== undefined) {
+      await this.page.getByTestId('reminder-form-time').fill(newData.time);
+    }
+    if (newData.notes !== undefined) {
+      await this.page.getByTestId('reminder-form-notes').fill(newData.notes);
+    }
+    await this.submitReminderForm();
+  }
+
+  async deleteReminder(title: string) {
+    await this.expectReminderInList(title);
+    await this.page.getByRole('button', { name: `Delete ${title}` }).click();
+    const confirmButton = this.page.getByRole('button', {
+      name: /confirm|yes|delete/i,
+    });
+    await confirmButton.last().click();
+  }
+
   async deleteEvent(eventName: string) {
     await this.expectEventInList(eventName);
     const deleteButton = this.page

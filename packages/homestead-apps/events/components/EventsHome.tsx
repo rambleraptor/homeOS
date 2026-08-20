@@ -7,6 +7,7 @@ import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastPr
 import { useCreateEvent } from '../hooks/useCreateEvent';
 import { EventForm } from './EventForm';
 import { EventsList } from './EventsList';
+import { RemindersSection } from './RemindersSection';
 import type { EventFormData } from '../types';
 
 export function EventsHome() {
@@ -39,6 +40,8 @@ export function EventsHome() {
           </Button>
         }
       />
+
+      <RemindersSection />
 
       <EventsList />
 
