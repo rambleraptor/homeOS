@@ -25,7 +25,7 @@ export const notificationsResources: ResourceDefinition[] = [
       message: { type: 'string', required: true },
       notification_type: {
         type: 'string',
-        enum: ['day_of', 'day_before', 'week_before', 'system'],
+        enum: ['day_of', 'day_before', 'week_before', 'reminder', 'system'],
         required: true,
       },
       scheduled_for: { type: 'string', format: 'date-time' },

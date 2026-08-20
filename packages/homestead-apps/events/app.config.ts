@@ -13,15 +13,34 @@ export const eventsApp: AppConfig = {
   name: 'Events',
   description: 'Track yearly-recurring household events',
   resources: eventsResources,
-  // Fire once a day at 09:00 (server-local) and notify each user about the
-  // events they asked to be reminded of — today's, and those a week out. The
-  // handler lives under `crons/` so it's stubbed out of the browser bundle.
+  // Handlers live under `crons/` so they're stubbed out of the browser bundle.
   crons: [
+    // Reminder delivery, twice a day. Everything with a due time — a reminder
+    // someone typed in, an event a household member asked to be warned about, a
+    // bin that goes out tomorrow — is announced by one of these two firings, so
+    // Homestead interrupts anybody at exactly two moments a day. Each run covers
+    // up to the next one; see `crons/notifyReminders.ts`.
     {
-      id: 'events-notify',
-      title: 'Recurring event reminders',
+      id: 'reminders-notify-morning',
+      title: 'Morning reminders',
       dailyAtHour: 9,
-      load: () => import('./crons/notify'),
+      load: () => import('./crons/notify-morning'),
+    },
+    {
+      id: 'reminders-notify-evening',
+      title: 'Evening reminders',
+      dailyAtHour: 18,
+      load: () => import('./crons/notify-evening'),
+    },
+    // Turn the events people asked to be reminded about into reminder records,
+    // early enough that the morning firing finds them. Reconciles rather than
+    // appends, and catches up at boot if the box was down at 01:00.
+    {
+      id: 'events-materialize-reminders',
+      title: 'Event reminders',
+      dailyAtHour: 1,
+      runOnStart: true,
+      load: () => import('./crons/materialize'),
     },
   ],
   // Split the legacy single `date` field into month/day on existing events.

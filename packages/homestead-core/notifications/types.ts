@@ -1,4 +1,10 @@
-export type NotificationType = 'day_of' | 'day_before' | 'week_before' | 'system';
+export type NotificationType =
+  | 'day_of'
+  | 'day_before'
+  | 'week_before'
+  /** A `reminder` record came due and the morning/evening cron delivered it. */
+  | 'reminder'
+  | 'system';
 
 export interface Notification {
   id: string;

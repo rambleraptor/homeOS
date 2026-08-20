@@ -81,12 +81,19 @@ export const eventsResources: ResourceDefinition[] = [
     // nowhere else in Homestead to live (an event recurs yearly; a todo has no
     // date at all).
     //
-    // Deliberately narrow for now. No `recurrence` field: the design's open
-    // question is whether recurrence counts from a fixed date or from the last
-    // completion (home maintenance needs the latter), and shipping the wrong
-    // enum first would cost a migration. No `source_collection`/`source_id`
-    // either — those describe reminders derived from another app's records,
-    // which nothing raises yet.
+    // This is also the household's one notification surface for anything with a
+    // due time: an app that wants to tell someone about a record it owns
+    // materializes a reminder (stamped `type` + `source_key`) instead of pushing
+    // its own notification, and the two reminder crons deliver it. See the
+    // events materializer (`crons/materialize.ts`) for the reference shape.
+    //
+    // Still no `recurrence` field: the design's open question is whether
+    // recurrence counts from a fixed date or from the last completion (home
+    // maintenance needs the latter), and shipping the wrong enum first would
+    // cost a migration. Recurring *app* reminders don't need it — the owning app
+    // re-materializes each occurrence from whatever it already recurs on (a
+    // yearly event, a pickup calendar), which is a truer source than a rule
+    // copied onto the reminder.
     singular: 'reminder',
     plural: REMINDERS,
     description:
@@ -133,6 +140,39 @@ export const eventsResources: ResourceDefinition[] = [
         description: 'who can see this: just its owner, or the whole household',
       },
       created_by: { type: 'string', reference: { resource: 'user' } },
+      // Set only on a reminder an app raised on the household's behalf: the id
+      // of that app (`events`, `home`, …). Absent means a person typed it in.
+      // The reminders tab hides typed rows by default — an app that materializes
+      // one reminder per pickup day would otherwise bury the handful someone
+      // actually wrote — and the notify cron uses it to pick the app's basePath
+      // for the notification's click-through.
+      type: {
+        type: 'string',
+        description:
+          'id of the app that raised this reminder; unset for one a person created',
+      },
+      // The creating app's idempotency key for this reminder, unique within the
+      // app (`<event id>:<lead>:<year>`, `pickup:<date>`, …). A materializer
+      // runs daily over an overlapping horizon, so it needs to recognise the
+      // rows it already wrote; the key is opaque to everything else. Deliberately
+      // not a `reference` — a key is often a record id, but it's just as often a
+      // date or a compound of both.
+      source_key: {
+        type: 'string',
+        description:
+          'stable per-app key identifying what this reminder was raised from',
+      },
+      // Who gets notified. Empty means everyone who can see the reminder: its
+      // owner for a private row, the whole household for a shared one. Apps that
+      // materialize from a per-user preference (event reminders) narrow it to
+      // the people who actually opted in, without making the row itself private —
+      // a private row created by a cron would be owned by the cron, not by them.
+      notify_users: {
+        type: 'array',
+        description:
+          'users to notify; empty means everyone who can see the reminder',
+        items: { type: 'string', reference: { resource: 'user' } },
+      },
     },
   },
 ];

@@ -40,7 +40,8 @@ function NotificationsPanel() {
     const scheduled =
       notification.notification_type === 'day_of' ||
       notification.notification_type === 'day_before' ||
-      notification.notification_type === 'week_before';
+      notification.notification_type === 'week_before' ||
+      notification.notification_type === 'reminder';
     return scheduled ? (
       <Calendar className="w-5 h-5 text-blue-500" />
     ) : (

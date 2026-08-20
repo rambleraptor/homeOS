@@ -8,11 +8,10 @@
 > `document` and `collection` declare `access: { model: 'private' }`, which
 > retired the hardcoded `PRIVATE_COLLECTIONS` list.
 >
-> **What has not:** any `per-record` consumer. Reminders is the motivating
-> example throughout this document and ships separately; the `todo` /
-> `personal-todo` merge (§5) is unscheduled. So the `per-record` model is built
-> and tested but not yet used by a shipped resource — read the reminder
-> declarations below as illustration, not as current repo state.
+> **What has not:** the `todo` / `personal-todo` merge (§5), which is
+> unscheduled. `reminder` — the motivating example throughout this document — now
+> declares `per-record` for real, so the declarations below match the repo;
+> anything said about `todo` is still illustration.
 
 > Companion to [Permissions](./permissions). That document answers "who may
 > reach this collection". This one answers a narrower question it left open:

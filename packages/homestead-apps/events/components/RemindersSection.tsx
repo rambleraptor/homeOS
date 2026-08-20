@@ -1,19 +1,30 @@
 /**
- * The Reminders section of the Events page.
+ * The Reminders tab.
  *
- * Deliberately its own section rather than a column on the events list: an
- * event is a date that comes round every year, a reminder is a one-off thing to
- * be told about. They share a page because both are "things with dates" and
- * neither fills one on its own; they don't share a list because sorting them
- * together would mix a birthday in 2027 with a plumber call on Thursday.
+ * Two kinds of row share this list, and the split is what most of the code here
+ * is about. A reminder someone typed in is the point of the page. A reminder an
+ * *app* raised — an event a week out, tomorrow's bin night — is scaffolding: it
+ * exists so the notification crons have something to deliver, and there can be
+ * one per collection day per week. Left mixed in, the second kind buries the
+ * first within a fortnight, so app reminders are folded away behind a count and
+ * only unfold when someone asks what's queued up.
  *
- * Done reminders stay visible but collapse behind a toggle — a reminder you
- * completed is worth seeing for a moment ("yes, I did that") and worth hiding
- * after that.
+ * App rows are also read-only here. Their content is reconciled from the source
+ * record on every materializer run, so an edit would be silently reverted and a
+ * delete would reappear tomorrow — the honest control is the checkbox, which
+ * marks one done and stops the crons announcing it. What you actually want to
+ * change is the thing behind it: the event's reminder setting, the pickup opt-in
+ * on Home.
+ *
+ * Done reminders stay visible but collapse behind their own toggle — a reminder
+ * you completed is worth seeing for a moment ("yes, I did that") and worth
+ * hiding after that.
  */
 
 import { useState } from 'react';
 import { BellRing, Check, Edit, Lock, Plus, Trash2 } from 'lucide-react';
+import { getAppById } from '@rambleraptor/homestead-core/apps/registry';
+import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
@@ -27,10 +38,19 @@ import { useUpdateReminder } from '../hooks/useUpdateReminder';
 import { useDeleteReminder } from '../hooks/useDeleteReminder';
 import { formatDueAt, isOverdue } from '../utils/reminderDate';
 import { ReminderForm } from './ReminderForm';
-import type { Reminder, ReminderFormData } from '../types';
+import { isAppReminder, type Reminder, type ReminderFormData } from '../types';
 
 function isDone(reminder: Reminder): boolean {
   return reminder.status === 'done';
+}
+
+/**
+ * Display name of the app that raised a reminder. Falls back to the stored id:
+ * an app can be uninstalled from an instance while the rows it wrote are still
+ * on the list, and "events" beats a blank badge.
+ */
+function appLabel(type: string): string {
+  return getAppById(type)?.name ?? type;
 }
 
 export function RemindersSection() {
@@ -44,14 +64,18 @@ export function RemindersSection() {
   const [editing, setEditing] = useState<Reminder | null>(null);
   const [confirm, setConfirm] = useState<Reminder | null>(null);
   const [showDone, setShowDone] = useState(false);
+  const [showApp, setShowApp] = useState(false);
 
-  const pending = reminders.filter((r) => !isDone(r));
-  const done = reminders.filter(isDone);
+  const appRaised = reminders.filter(isAppReminder);
+  const listed = showApp ? reminders : reminders.filter((r) => !isAppReminder(r));
+  const pending = listed.filter((r) => !isDone(r));
+  const done = listed.filter(isDone);
   const visible = showDone ? [...pending, ...done] : pending;
 
   const handleCreate = async (data: ReminderFormData) => {
     try {
-      // `data` already carries the chosen `visibility` (create-only).
+      // `data` already carries the chosen `visibility` and `created_by` (both
+      // create-only).
       await createReminder.mutateAsync({ ...data, status: 'pending' });
       setIsCreateOpen(false);
       toast.success('Reminder created');
@@ -99,6 +123,18 @@ export function RemindersSection() {
       title="Reminders"
       action={
         <div className="flex items-center gap-2">
+          {appRaised.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowApp((v) => !v)}
+              data-testid="reminders-toggle-app"
+              className="text-sm text-gray-500 hover:text-brand-navy"
+            >
+              {showApp
+                ? 'Hide app reminders'
+                : `Show app reminders (${appRaised.length})`}
+            </button>
+          )}
           {done.length > 0 && (
             <button
               type="button"
@@ -126,7 +162,7 @@ export function RemindersSection() {
         </div>
       ) : visible.length === 0 ? (
         <p className="text-center text-gray-600 py-8" data-testid="reminders-empty">
-          {reminders.length === 0
+          {listed.length === 0
             ? 'No reminders yet. Add one for something that isn’t a yearly event.'
             : 'Nothing outstanding — every reminder is done.'}
         </p>
@@ -135,6 +171,7 @@ export function RemindersSection() {
           {visible.map((reminder) => {
             const complete = isDone(reminder);
             const overdue = !complete && isOverdue(reminder.due_at);
+            const fromApp = isAppReminder(reminder);
             return (
               <li
                 key={reminder.id}
@@ -160,6 +197,16 @@ export function RemindersSection() {
                       }`}
                     >
                       {reminder.title}
+                      {fromApp && (
+                        <span
+                          className="ml-2 align-middle"
+                          data-testid={`reminder-app-${reminder.id}`}
+                        >
+                          <Badge variant="neutral">
+                            {appLabel(reminder.type as string)}
+                          </Badge>
+                        </span>
+                      )}
                       {reminder.visibility === 'private' && (
                         <span
                           data-testid={`reminder-private-${reminder.id}`}
@@ -190,26 +237,28 @@ export function RemindersSection() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    aria-label={`Edit ${reminder.title}`}
-                    onClick={() => setEditing(reminder)}
-                    data-testid={`reminder-edit-${reminder.id}`}
-                    className="p-2 rounded-md text-gray-500 hover:text-brand-navy hover:bg-gray-100"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Delete ${reminder.title}`}
-                    onClick={() => setConfirm(reminder)}
-                    data-testid={`reminder-delete-${reminder.id}`}
-                    className="p-2 rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {!fromApp && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      aria-label={`Edit ${reminder.title}`}
+                      onClick={() => setEditing(reminder)}
+                      data-testid={`reminder-edit-${reminder.id}`}
+                      className="p-2 rounded-md text-gray-500 hover:text-brand-navy hover:bg-gray-100"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${reminder.title}`}
+                      onClick={() => setConfirm(reminder)}
+                      data-testid={`reminder-delete-${reminder.id}`}
+                      className="p-2 rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </li>
             );
           })}

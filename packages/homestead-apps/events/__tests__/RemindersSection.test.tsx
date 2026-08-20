@@ -1,9 +1,9 @@
 /**
- * Tests for RemindersSection — the Reminders section on the Events page.
+ * Tests for RemindersSection — the body of the Events page's Reminders tab.
  *
  * The data hooks are mocked so the section's own behavior (splitting pending
- * from done, the done toggle, the overdue label, the empty states) is what's
- * under test, not the resource-hook plumbing.
+ * from done, folding away app-raised reminders, the toggles, the overdue label,
+ * the empty states) is what's under test, not the resource-hook plumbing.
  */
 
 import React from 'react';
@@ -189,6 +189,9 @@ describe('RemindersSection', () => {
       due_at: new Date(2026, 2, 4, 9, 0).toISOString(),
       status: 'pending',
       visibility: 'household',
+      // Stamped from the signed-in user so the delivery cron can address a
+      // private reminder; the shared test setup's mock user.
+      created_by: 'test-user-id',
     });
   });
 
@@ -290,5 +293,73 @@ describe('RemindersSection', () => {
     renderSection();
     expect(screen.queryByTestId('reminders-empty')).not.toBeInTheDocument();
     expect(screen.queryByTestId('reminders-list')).not.toBeInTheDocument();
+  });
+
+  it('folds app-raised reminders away behind a count', async () => {
+    const user = userEvent.setup();
+    mockReminders([
+      { id: 'r1', title: 'Call the plumber', due_at: isoAt(1), status: 'pending' },
+      {
+        id: 'r2',
+        title: 'Bins out tonight: Trash',
+        due_at: isoAt(1),
+        status: 'pending',
+        type: 'home',
+        source_key: 'pickup:2026-03-05',
+      },
+    ]);
+    renderSection();
+
+    expect(screen.getByText('Call the plumber')).toBeInTheDocument();
+    expect(screen.queryByText(/Bins out tonight/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('reminders-toggle-app'));
+    expect(screen.getByText(/Bins out tonight/)).toBeInTheDocument();
+  });
+
+  it('offers no app toggle when nothing was app-raised', () => {
+    mockReminders([
+      { id: 'r1', title: 'Call the plumber', due_at: isoAt(1), status: 'pending' },
+    ]);
+    renderSection();
+    expect(screen.queryByTestId('reminders-toggle-app')).not.toBeInTheDocument();
+  });
+
+  it('still invites a first reminder when only app ones exist', () => {
+    mockReminders([
+      {
+        id: 'r2',
+        title: 'Today: Mum’s birthday',
+        due_at: isoAt(0),
+        status: 'pending',
+        type: 'events',
+      },
+    ]);
+    renderSection();
+    expect(screen.getByTestId('reminders-empty')).toHaveTextContent(
+      /No reminders yet/i,
+    );
+  });
+
+  it('labels an app reminder and leaves it read-only', async () => {
+    const user = userEvent.setup();
+    mockReminders([
+      {
+        id: 'r2',
+        title: 'Today: Mum’s birthday',
+        due_at: isoAt(0),
+        status: 'pending',
+        type: 'events',
+      },
+    ]);
+    renderSection();
+    await user.click(screen.getByTestId('reminders-toggle-app'));
+
+    expect(screen.getByTestId('reminder-app-r2')).toBeInTheDocument();
+    // Editing or deleting would be undone by the next materializer run; the
+    // checkbox (dismiss) is the only honest control.
+    expect(screen.queryByTestId('reminder-edit-r2')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('reminder-delete-r2')).not.toBeInTheDocument();
+    expect(screen.getByTestId('reminder-toggle-r2')).toBeInTheDocument();
   });
 });

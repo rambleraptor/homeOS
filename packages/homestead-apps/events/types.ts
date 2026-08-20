@@ -100,6 +100,18 @@ export interface Reminder {
   due_at: string;
   status?: ReminderStatus;
   visibility?: ReminderVisibility;
+  /**
+   * Id of the app that raised this reminder (`events`, `home`, …). Unset on one
+   * a person created — which is the distinction the reminders tab filters on.
+   */
+  type?: string;
+  /** The creating app's idempotency key. Opaque outside that app. */
+  source_key?: string;
+  /**
+   * Bare user ids to notify. Empty/absent means everyone who can see the
+   * reminder.
+   */
+  notify_users?: string[];
   created_by?: string;
   create_time?: string;
   update_time?: string;
@@ -113,4 +125,11 @@ export interface ReminderFormData {
   status?: ReminderStatus;
   /** Create-only. Omitted on update — the engine rejects it with a 400. */
   visibility?: ReminderVisibility;
+  /** Create-only. Bare user id of whoever is adding the reminder. */
+  created_by?: string;
+}
+
+/** True for a reminder an app raised rather than a person. */
+export function isAppReminder(reminder: Reminder): boolean {
+  return typeof reminder.type === 'string' && reminder.type !== '';
 }

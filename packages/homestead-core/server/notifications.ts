@@ -24,6 +24,7 @@ export type NotificationType =
   | 'day_of'
   | 'day_before'
   | 'week_before'
+  | 'reminder'
   | 'system';
 
 export interface UserNotificationOptions {

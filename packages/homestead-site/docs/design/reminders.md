@@ -1,10 +1,60 @@
 # Reminders — Design
 
-**Status:** Proposed · not implemented · **Audience:** contributors
+**Status:** Partly shipped (see §0) · the extension point is still proposed ·
+**Audience:** contributors
 
 > This is a design and decision record, not a guide. It answers two questions:
 > what a Reminders app in Homestead should be, and how it should reach across
 > the apps that already hold reminder-shaped data.
+
+---
+
+## 0. What shipped, and what this document is still proposing
+
+A narrow slice of this design is live. It delivers the *outcome* — one list, two
+delivery moments, apps raising reminders instead of pushing their own
+notifications — without the `ReminderSource` / `reminder-subscription` /
+`lead_days` machinery below, which remains unbuilt.
+
+**Shipped:**
+
+| Piece | Where |
+|---|---|
+| Reminders as their own tab | `events/components/EventsHome.tsx` (`/events?tab=reminders`) |
+| `type` + `source_key` + `notify_users` on `reminder` | `events/resources.ts` |
+| Two delivery crons, 09:00 and 18:00 | `reminders-notify-morning` / `-evening` → `events/crons/notifyReminders.ts` |
+| Shared reconcile helper for app-raised reminders | `events/crons/materializer.ts` |
+| Events migrated onto it | `events-materialize-reminders` → `events/crons/materialize.ts` |
+| Bin night, the evening before | `home-pickup-reminders` → `home/crons/pickup-reminders.ts`, opt-in per person |
+| `'reminder'` inbox type | `homestead-core/notifications/resources.ts` |
+
+**The three departures worth knowing about, and why:**
+
+1. **Materialize, don't scan.** §3.3 has apps declare a `ReminderSource` and a
+   scanner the platform calls at send time. What shipped inverts it: an app's own
+   daily cron *writes reminder records* keyed by a `source_key`, and the delivery
+   crons treat them like any other reminder. The reminder becomes visible in the
+   list the moment it's raised rather than at the moment it fires, an app needs no
+   new extension point to participate, and reconciliation is a plain diff against
+   what the app wrote last time. What it gives up is §3.3's single lookahead
+   window — each app owns its own horizon.
+2. **Two fixed hours, not a per-source hour.** §6.1 wanted a per-source hour
+   override because 09:00 is the wrong time to mention tonight's bins. A morning
+   and an evening slot answer that without a knob: a reminder is announced at the
+   last slot before it comes due, so a 18:00 due time is an evening
+   notification by construction.
+3. **`notify_users`, not per-user subscriptions.** §3.2's
+   `reminder-subscription` is still the right shape for "subscribe me to every
+   warranty expiry". For the two cases that shipped, the opt-in already exists
+   elsewhere (`event-reminder`; the Home app's `pickup_reminder` setting), so the
+   materializer resolves it once and stamps the audience on the row. A reminder
+   created by a cron can't be *owned* by a user — the engine stamps the caller as
+   owner — so an audience field was needed regardless.
+
+Everything from §1 on is the original proposal, left intact: `lead_days` is still
+the answer to "30 days before this warranty lapses", and §6's app-by-app survey
+is still the roadmap. Read the sections below as "what a full Reminders platform
+should be", and this section as "what exists".
 
 ---
 
@@ -22,8 +72,8 @@ The events app has the whole thing, end to end:
 | Per-user opt-in resource | `event-reminder` (`packages/homestead-apps/events/resources.ts`), parented under `user`, `lead: day_of \| week_before \| both` |
 | UI control | `EventReminderSelect.tsx` — a four-way select on each event card |
 | Read/write hook | `useEventReminder.ts` — models absence-of-record as `none` |
-| Scheduler | `events-notify` cron, `dailyAtHour: 9` (`events/app.config.ts`) |
-| Fan-out + dedup | `events/crons/notify.ts` — scans events, buckets today / a week out, walks every user's reminders, dedups against the inbox |
+| Scheduler | was `events-notify`, `dailyAtHour: 9`; now `events-materialize-reminders` plus the two shared delivery crons (§0) |
+| Fan-out + dedup | was `events/crons/notify.ts`; the fan-out now lives in `events/crons/notifyReminders.ts` and serves every app |
 
 The design decisions in there are good and worth keeping:
 
@@ -266,9 +316,10 @@ The Reminders app owns a single `dailyAtHour: 9` cron. Each firing:
    `(occurrence, lead)` pair where `dueAt - lead` is today, checks the inbox
    dedup key and sends via `sendNotificationToUser`.
 
-Steps 3's dedup and fan-out are lifted almost verbatim from
+Steps 3's dedup and fan-out are lifted almost verbatim from the old
 `events/crons/notify.ts` — the point is that they get written once and the app
-crons go away.
+crons go away. (This much did happen, in `events/crons/notifyReminders.ts`; what
+did not is the scanner-driven step 2 — see §0.)
 
 The Reminders app **registers its own `reminder` collection as a source**, so
 the standalone case isn't special-cased. That's the proof the extension point
@@ -281,7 +332,8 @@ is real rather than a hook events happens to fit.
 Two small changes, both additive:
 
 - Add `lead_days: { type: 'number' }` to the `notification` resource, and add
-  `'reminder'` to the `notification_type` enum. `day_of` / `week_before` /
+  `'reminder'` to the `notification_type` enum. (The enum value shipped; the
+  `lead_days` field waits on the subscription model.) `day_of` / `week_before` /
   `day_before` stay for the rows that already exist. (Enum values are folded
   into the wire `description` by the translator, so this is not a breaking
   schema change.)
@@ -304,6 +356,13 @@ wrong. It does.
 | `lead: 'day_of' \| 'week_before' \| 'both'` | `lead_days: [0]` / `[7]` / `[0, 7]` |
 | `events/crons/notify.ts` (≈190 lines: bucketing, fan-out, dedup, content) | a scanner returning occurrences (≈40 lines: `nextOccurrence` + wording) |
 | `events-notify` cron declaration | deleted — one platform cron replaces it |
+
+**What actually happened** (§0): `crons/notify.ts` was deleted and `events-notify`
+with it; the fan-out and dedup moved to the shared delivery crons as this table
+predicted. `event-reminder` stayed as it is rather than becoming a
+`reminder-subscription` — the materializer reads the existing `lead` enum and
+resolves it to an audience — so the migration below is still pending, along with
+the `lead_days` generalization that motivates it.
 | `EventReminderSelect` + `useEventReminder` | a generic `<ReminderBell>` (§6.3) |
 
 The `event-reminder` rows migrate with a one-shot `Migration` (the app already

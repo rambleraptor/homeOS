@@ -12,6 +12,7 @@ import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useUpcomingPickupDays } from '../hooks/useGarbagePickups';
 import { parseIsoDate, relativeDayLabel } from '../utils/pickups';
+import { PickupReminderToggle } from './PickupReminderToggle';
 import { StreamChip } from './StreamChip';
 
 const LOOKAHEAD_DAYS = 14;
@@ -21,9 +22,12 @@ export function UpcomingPickups() {
 
   return (
     <section data-testid="home-pickups">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Trash &amp; recycling
-      </h2>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          Trash &amp; recycling
+        </h2>
+        <PickupReminderToggle />
+      </div>
 
       {isLoading && (
         <SkeletonList
