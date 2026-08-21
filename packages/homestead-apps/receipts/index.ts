@@ -2,7 +2,7 @@
  * HSA App Exports
  */
 
-export { hsaApp } from './app.config';
+export { receiptsApp } from './app.config';
 export type {
   HSAReceipt,
   HSAReceiptFormData,

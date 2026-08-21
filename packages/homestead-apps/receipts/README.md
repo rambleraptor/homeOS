@@ -130,7 +130,7 @@ Collection: `hsa_receipts`
 The app follows the standard Homestead app pattern:
 
 ```
-src/apps/hsa/
+packages/homestead-apps/receipts/
 ├── components/           # UI components
 ├── hooks/               # React Query hooks
 ├── types.ts            # TypeScript types

@@ -9,7 +9,7 @@ interface AepHSAReceipt extends HSAReceipt {
 }
 
 export function useHSAReceipts() {
-  return useResourceList<AepHSAReceipt>('hsa', 'hsa-receipt', HSA_RECEIPTS, {
+  return useResourceList<AepHSAReceipt>('receipts', 'hsa-receipt', HSA_RECEIPTS, {
     map: (rec) => ({
       ...rec,
       created: rec.create_time || '',

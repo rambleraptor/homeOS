@@ -248,5 +248,5 @@ independently, but they stay out of top-level nav — the parent owns the
 placement.
 
 ```ts
-{ id: 'finance', web: { basePath: '/finance', /* ... */ }, children: [creditCardsApp, hsaApp] }
+{ id: 'finance', web: { basePath: '/finance', /* ... */ }, children: [creditCardsApp, receiptsApp] }
 ```

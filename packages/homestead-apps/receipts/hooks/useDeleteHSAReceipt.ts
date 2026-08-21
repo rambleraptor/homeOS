@@ -1,5 +1,5 @@
 import { useResourceDelete } from '@rambleraptor/homestead-core/api/resourceHooks';
 
 export function useDeleteHSAReceipt() {
-  return useResourceDelete('hsa', 'hsa-receipt');
+  return useResourceDelete('receipts', 'hsa-receipt');
 }

@@ -33,8 +33,8 @@ export function useCreateHSAReceipt() {
       return await aepbase.create<HSAReceipt>(HSA_RECEIPTS, formData);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.app('hsa').all() });
-      await queryClient.refetchQueries({ queryKey: queryKeys.app('hsa').all() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.app('receipts').all() });
+      await queryClient.refetchQueries({ queryKey: queryKeys.app('receipts').all() });
       logger.info('HSA receipt created successfully');
     },
     onError: (error) => logger.error('Failed to create HSA receipt', error),

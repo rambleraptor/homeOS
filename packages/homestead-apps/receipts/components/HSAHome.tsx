@@ -109,8 +109,8 @@ export function HSAHome() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="HSA Receipts"
-        subtitle="Track unreimbursed medical expenses"
+        title="Receipts"
+        subtitle="Medical expenses kept for a tax-free HSA withdrawal"
         actions={
           <Button
             data-testid="add-hsa-receipt-button"

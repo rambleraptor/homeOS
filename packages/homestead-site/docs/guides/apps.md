@@ -21,7 +21,7 @@ edit it any time.
 
 - [**Gift Cards**](https://github.com/rambleraptor/homestead/tree/main/packages/homestead-apps/gift-cards) — every gift card the household owns, with its current balance.
 - [**Credit Cards**](https://github.com/rambleraptor/homestead/tree/main/packages/homestead-apps/credit-cards) — each card's perks in one place, so the rewards don't go to waste.
-- [**HSA Receipts**](https://github.com/rambleraptor/homestead/tree/main/packages/homestead-apps/hsa) — unreimbursed medical receipts, kept ready for a tax-free HSA withdrawal.
+- [**Receipts**](https://github.com/rambleraptor/homestead/tree/main/packages/homestead-apps/receipts) — unreimbursed medical receipts, kept ready for a tax-free HSA withdrawal.
 
 ## Relationships
 

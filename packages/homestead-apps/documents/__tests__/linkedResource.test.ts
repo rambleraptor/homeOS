@@ -15,7 +15,7 @@ describe('describeLinkedResource', () => {
       id: 'abc123',
       label: 'HSA receipt',
       article: 'an',
-      href: '/hsa',
+      href: '/receipts',
     });
   });
 

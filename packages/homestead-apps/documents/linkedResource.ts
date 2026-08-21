@@ -45,7 +45,7 @@ interface LinkedResourceTarget {
 }
 
 const TARGETS: Record<string, LinkedResourceTarget> = {
-  'hsa-receipts': { label: 'HSA receipt', article: 'an', href: () => '/hsa' },
+  'hsa-receipts': { label: 'HSA receipt', article: 'an', href: () => '/receipts' },
   recipes: { label: 'recipe', href: (id) => `/recipes/${id}` },
 };
 

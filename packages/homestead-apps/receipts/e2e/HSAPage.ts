@@ -8,11 +8,11 @@ export class HSAPage {
   constructor(private page: Page) {}
 
   async goto() {
-    await this.page.goto('/hsa');
+    await this.page.goto('/receipts');
   }
 
   async expectToBeOnHSAPage() {
-    await expect(this.page).toHaveURL(/\/hsa/);
+    await expect(this.page).toHaveURL(/\/receipts/);
   }
 
   async clickAddReceipt() {
