@@ -12,7 +12,8 @@ import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useUpcomingPickupDays } from '../hooks/useGarbagePickups';
 import { parseIsoDate, relativeDayLabel } from '../utils/pickups';
-import { PickupReminderToggle } from './PickupReminderToggle';
+import { ReminderOptInToggle } from '@rambleraptor/homestead-core/user-settings';
+import { PICKUP_REMINDER_SETTING } from '../pickupReminderSetting';
 import { StreamChip } from './StreamChip';
 
 const LOOKAHEAD_DAYS = 14;
@@ -26,7 +27,15 @@ export function UpcomingPickups() {
         <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Trash &amp; recycling
         </h2>
-        <PickupReminderToggle />
+        <ReminderOptInToggle
+          appId="home"
+          settingKey={PICKUP_REMINDER_SETTING}
+          offLabel="Remind me the night before"
+          onLabel="Reminding me"
+          offTitle="Get a reminder at 6pm the night before each collection"
+          onTitle="You get a reminder at 6pm the night before each collection"
+          data-testid="home-pickup-reminder-toggle"
+        />
       </div>
 
       {isLoading && (

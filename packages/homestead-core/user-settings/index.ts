@@ -15,6 +15,8 @@ export type { UseUserSettingsResult } from './hooks/useUserSettings';
 export { useUpdateUserSetting } from './hooks/useUpdateUserSetting';
 
 export { AppUserSettingsCard } from './components/AppUserSettingsCard';
+export { ReminderOptInToggle } from './components/ReminderOptInToggle';
+export type { ReminderOptInToggleProps } from './components/ReminderOptInToggle';
 export { UserSettingsAutoForm } from './components/UserSettingsAutoForm';
 
 export {
