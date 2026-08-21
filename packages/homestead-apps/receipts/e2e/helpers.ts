@@ -1,6 +1,7 @@
 /**
- * HSA E2E helpers — seed receipts (multipart-file uploads) via the
- * aepbase REST API and test data the HSA specs use.
+ * Receipts E2E helpers — seed medical receipts (multipart-file uploads) and
+ * charitable ones (plain JSON) via the aepbase REST API, plus the test data
+ * both specs use.
  */
 
 import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-helpers';
@@ -107,5 +108,87 @@ export const testHSAReceipts = [
     patient: 'Self',
     status: 'Reimbursed' as const,
     notes: 'Annual checkup',
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Charitable receipts
+// ---------------------------------------------------------------------------
+
+interface CreateCharitableReceiptInput {
+  organization: string;
+  donation_date: string;
+  gift_type: 'Cash' | 'Goods' | 'Other';
+  status: 'Unclaimed' | 'Claimed';
+  amount?: number;
+  value_received?: number;
+  tax_year?: number;
+  description_of_property?: string;
+  donor?: string;
+  notes?: string;
+}
+
+export interface CharitableReceiptRecord extends CreateCharitableReceiptInput {
+  id: string;
+}
+
+/**
+ * Seed a donation. Unlike an HSA receipt, the acknowledgment file is optional
+ * (a donation is often recorded before its letter arrives), so this posts plain
+ * JSON — the multipart path is exercised through the UI instead.
+ */
+export async function createCharitableReceipt(
+  token: string,
+  data: CreateCharitableReceiptInput,
+): Promise<CharitableReceiptRecord> {
+  return e2eClient(token)
+    .collection<CharitableReceiptRecord>('charitable-receipts')
+    .create({ ...data });
+}
+
+export async function deleteAllCharitableReceipts(token: string) {
+  const items = await e2eClient(token)
+    .collection<{ id: string }>('charitable-receipts')
+    .listAll();
+  for (const item of items) {
+    await deleteIfPresent(token, 'charitable-receipts', item.id);
+  }
+}
+
+/**
+ * Two years of giving. The 2025 rows exercise every rule the tab has: a gift
+ * reduced by what was received back, a gift of goods with no value on it, and
+ * a plain cash gift. 2024 exists so the by-year table has a second row.
+ */
+export const testCharitableReceipts = [
+  {
+    organization: 'City Food Bank',
+    donation_date: '2025-06-01T00:00:00.000Z',
+    gift_type: 'Cash' as const,
+    amount: 400,
+    value_received: 60, // deductible: 340
+    status: 'Unclaimed' as const,
+    donor: 'Self',
+  },
+  {
+    organization: 'Neighborhood Shelter',
+    donation_date: '2025-09-14T00:00:00.000Z',
+    gift_type: 'Goods' as const,
+    description_of_property: '3 bags of clothing',
+    status: 'Unclaimed' as const,
+  },
+  {
+    organization: 'Public Library Fund',
+    donation_date: '2025-11-02T00:00:00.000Z',
+    gift_type: 'Cash' as const,
+    amount: 75,
+    status: 'Unclaimed' as const,
+  },
+  {
+    organization: 'Animal Rescue',
+    donation_date: '2024-02-02T00:00:00.000Z',
+    gift_type: 'Cash' as const,
+    amount: 90,
+    status: 'Claimed' as const,
   },
 ];

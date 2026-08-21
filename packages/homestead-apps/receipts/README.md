@@ -1,170 +1,158 @@
-# HSA App
+# Receipts App
 
-Track unreimbursed medical expenses for tax-free HSA withdrawals.
+The receipts you keep because the tax code will eventually care, in two tabs:
 
-## Overview
+- **Medical** — out-of-pocket medical expenses, held against a future HSA
+  withdrawal you can take tax-free whenever you choose.
+- **Charitable** — donations to charity, totalled per tax year.
 
-The HSA (Health Savings Account) app helps you track out-of-pocket medical expenses that you've paid with personal funds. These expenses can be reimbursed from your HSA at any time in the future, tax-free. The app calculates your "Liquidatable Tax-Free Cash" - the total amount you can withdraw from your HSA.
+They share a shape — an organization, a date, an amount, a scan of the paper —
+and almost nothing else, so they get one page and two tabs rather than one
+merged list. The tab lives in the URL (`/receipts?tab=charitable`), so a link
+can point at either.
 
-## Features
+> **Naming.** The medical collection is `hsa-receipts` on the wire and its
+> records are `hsa-receipt`s. That predates the charitable tab and stays: aepbase
+> has no rename, so a new name would mean copying every row, re-uploading every
+> file blob, and re-pointing every grant and back-link, for a string no user ever
+> sees. See [`docs/design/receipts.md`](../../homestead-site/docs/design/receipts.md) §2.2.
 
-### 📊 KPI Dashboard
-- **Liquidatable Tax-Free Cash**: Prominently displays the total amount available for tax-free withdrawal
-- Real-time calculation based on stored (unreimbursed) receipts
-- Summary statistics showing stored vs. reimbursed receipts
+## Medical tab
 
-### 📸 Automatic Capture from Documents
-- Upload a receipt in the **Documents** app instead of keying it in here.
-- The documents pipeline classifies it as a `medical-receipt`, extracts the
-  merchant, date, amount, category, and patient, and mirrors the result into
-  HSA Receipts automatically — the created receipt links back to the source
-  document via `source_document` rather than storing a second copy of the file.
-- See `documents/doc-types/medical-receipt.ts` and its `post_classify` hook at
-  `documents/doc-types/post-classify/medical-receipt.server.ts`.
+### Liquidatable tax-free cash
 
-### 📝 Quick Capture Form
-- Simple, clean form for adding a receipt by hand.
-- Required fields: Merchant, Service Date, Amount, Category, Receipt File
-- Optional fields: Patient, Person, Notes
-- File upload with validation (max 10MB)
-- Real-time form validation
+The hero metric: everything you've paid out of pocket and not yet reimbursed —
+the total you could withdraw from your HSA today, tax-free. Reimbursing a
+receipt takes it out of the number.
 
-### 🗂️ Audit Vault
-- Comprehensive table view of all receipts
-- Filter by status: All, Stored, Reimbursed
-- Columns: Date, Merchant, Amount, Category, Patient, Receipt (link), Status, Actions
-- Direct links to view uploaded receipt files
-- "Mark as Reimbursed" button to update receipt status
-- Delete functionality with confirmation
+### Capture
 
-## File Storage
+- **From Documents.** Upload a receipt in the Documents app; the pipeline
+  classifies it as a `medical-receipt`, extracts merchant, date, amount,
+  category and patient, and mirrors it here. The created receipt links back to
+  the document via `source_document` rather than storing a second copy of the
+  file. See `documents/doc-types/medical-receipt.ts` and its `post_classify`
+  hook.
+- **By hand.** "Add receipt" opens a form over the schema — merchant, service
+  date, amount, category and a file, plus an optional patient, person link and
+  notes.
 
-### Where Uploads Are Stored
+### Audit Vault
 
-Receipt files are stored by aepbase on disk under `aepbase/data/files/`:
+Every receipt, filterable by status and by person, with a running total for
+whatever the filters left showing. "Mark reimbursed" moves a receipt out of the
+liquidatable total.
+
+## Charitable tab
+
+### The year's deduction
+
+Everything on the tab is scoped to one tax year, because a donation belongs to
+exactly one and the question is always "what did I give in *year*". The year
+lives in the URL (`?tab=charitable&year=2025`) so the answer is linkable; with
+no year named, the tab opens on this year when there's giving in it, and
+otherwise on the most recent year that has any.
+
+Two rules decide every figure (`charitable/stats.ts`):
+
+- **Which year a gift counts for** — its `tax_year` when the acknowledgment
+  states one, otherwise the year of the donation date. A check mailed on 30
+  December is deductible for the year it was sent even though the letter is
+  dated January.
+- **What a gift is worth** — what you gave less anything you got back
+  (`amount − value_received`). A charity that hands you a $60 tote for a $250
+  gift has to say so, and only the $190 is deductible.
+
+### Unvalued gifts and missing acknowledgments
+
+A charity describes donated goods but never values them, so a gift of goods
+arrives with no amount. It reads **"Needs a value"** in the list and is counted
+in the "needs attention" tile — it contributes nothing to the total until
+someone puts a number on it, rather than being silently treated as zero.
+
+The same tile counts gifts of **$250 or more with no acknowledgment on file**
+(no uploaded file and no source document), which the IRS doesn't allow to be
+deducted at all. Those rows carry a warning marker in the list.
+
+### By year
+
+A compact table of every year with giving — receipts, cash, non-cash, total —
+so three years of history read at a glance. Clicking a row moves the whole tab
+to that year.
+
+### Capture
+
+Same two ways in. In Documents, an acknowledgment letter classified as
+`charitable-donation-receipt` is mirrored here by its `post_classify` hook,
+which infers the gift type from what was extracted (a stated amount → Cash, a
+described pile of goods → Goods, neither → Other) and leaves a gift of goods
+unvalued rather than inventing a number.
+
+## Structure
 
 ```
-aepbase/
-└── data/
-    └── files/
-        └── <plural>/<record_id>/<filename>
+receipts/
+├── shared/        # the kernel both tabs render: KPI card, stat tiles,
+│                  # breakdown bars, thumbnail, empty state, vault shell
+├── medical/       # hsa-receipt: schema, hooks, components, category config
+├── charitable/    # charitable-receipt: schema, hooks, components, year math
+├── components/    # the page shell and its tabs
+├── e2e/           # Page Objects, seed helpers, CRUD specs for both tabs
+└── app.config.ts  # app metadata; aggregates both resource definitions
 ```
 
-### Accessing Files
+## Schema
 
-File fields are downloaded via aepbase's `:download` custom method on
-the parent resource (e.g. `POST /hsa-receipts/{id}:download`). The
-frontend abstracts this through the standard aepbase wrapper.
-
-### File Security
-
-- Files inherit the access scoping of the owning resource (per-user via
-  parent scoping)
-- Authentication is required to download files
-
-### Backup Considerations
-
-When backing up your Homestead data, include the entire
-`aepbase/data/` directory:
-- `aepbase/data/data.db` - SQLite database with receipt metadata
-- `aepbase/data/files/` - Uploaded receipt blobs
-
-## API Endpoints
-
-AI extraction is no longer a bespoke HSA endpoint — it's handled by the
-Documents app, which classifies an uploaded receipt and mirrors it into HSA.
-
-### CRUD Operations
-
-All CRUD operations use the shared aepbase wrapper through React Query hooks:
-
-- `useHSAReceipts()` - Fetch all receipts
-- `useHSAStats()` - Get calculated statistics
-- `useCreateHSAReceipt()` - Create new receipt
-- `useUpdateHSAReceipt()` - Update receipt (mark as reimbursed)
-- `useDeleteHSAReceipt()` - Delete receipt
-
-## Database Schema
-
-Collection: `hsa_receipts`
+### `hsa-receipts`
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| merchant | text | Yes | Provider name (e.g., "CVS Pharmacy") |
-| service_date | date | Yes | Date of service |
-| amount | number | Yes | Amount paid (min: 0) |
-| category | select | Yes | Medical, Dental, Vision, or Rx |
-| patient | text | No | Patient name |
-| status | select | Yes | Stored or Reimbursed |
-| receipt_file | file | Yes | Image or PDF (max 10MB) |
-| notes | text | No | Additional notes |
-| created_by | relation | No | User who created the record |
+|---|---|---|---|
+| `merchant` | string | ✔ | Provider name (e.g. "CVS Pharmacy") |
+| `service_date` | date-time | ✔ | Date of service |
+| `amount` | number | ✔ | Amount paid |
+| `category` | enum | ✔ | Medical, Dental, Vision, Rx |
+| `patient` | string | | Patient name as printed |
+| `person` | ref → person | | Canonical link, collapsing name variants |
+| `status` | enum | ✔ | Stored (default) or Reimbursed |
+| `receipt_file` | file | | Image or PDF, ≤10MB. Absent when mirrored |
+| `source_document` | string | | `documents/{id}` it was derived from |
+| `notes` | string | | |
+| `created_by` | ref → user | | |
 
-## Usage
+### `charitable-receipts`
 
-1. **Add a Receipt**:
-   - To capture automatically, upload the receipt in the **Documents** app —
-     it's classified and mirrored into HSA for you.
-   - To add one by hand, click "Add Receipt" in the Quick Capture section,
-     upload the receipt image or PDF, fill in the fields, and click "Save
-     Receipt".
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `organization` | string | ✔ | The charity |
+| `organization_ein` | string | | As printed; distinguishes same-named chapters |
+| `donation_date` | date-time | ✔ | When the gift was made |
+| `tax_year` | number | | The year claimed against; falls back to the date's year |
+| `gift_type` | enum | ✔ | Cash (default), Goods, Other |
+| `amount` | number | | What you're claiming. Blank on an unvalued gift of goods |
+| `value_received` | number | | Value of anything received back; reduces the deduction |
+| `description_of_property` | string | | Non-cash: what was given |
+| `goods_or_services` | string | | The acknowledgment's wording, verbatim |
+| `donor` | string | | Donor name as printed |
+| `person` | ref → person | | Canonical link |
+| `status` | enum | ✔ | Unclaimed (default) or Claimed |
+| `receipt_file` | file | | Image or PDF, ≤10MB. Absent when mirrored |
+| `source_document` | string | | `documents/{id}` it was derived from |
+| `notes` | string | | |
+| `created_by` | ref → user | | |
 
-2. **Mark as Reimbursed**:
-   - When you withdraw money from your HSA
-   - Find the receipt in the Audit Vault
-   - Click "Mark Reimbursed"
-   - The receipt is removed from the Liquidatable Cash total
+Deductible amount and "is this substantiated" are computed, never stored — a
+stored copy would drift from the fields it's derived from.
 
-3. **Filter Receipts**:
-   - Use the dropdown in the Audit Vault
-   - View "All", "Stored", or "Reimbursed" receipts
+## File storage
 
-4. **View Receipt**:
-   - Click the "View" link in the Receipt column
-   - Opens the receipt file in a new tab
+Files are stored by the engine on disk under `data/files/<plural>/<id>/<name>`
+and downloaded through the `:download` custom method on the owning resource.
+They inherit the record's access scoping, and authentication is required. Back
+up `data/` as a whole — the SQLite database and the blobs belong together.
 
-## Development
+## Testing
 
-### Adding New Features
-
-The app follows the standard Homestead app pattern:
-
-```
-packages/homestead-apps/receipts/
-├── components/           # UI components
-├── hooks/               # React Query hooks
-├── types.ts            # TypeScript types
-├── app.config.ts    # App metadata
-└── index.ts            # Public exports
-```
-
-### Testing
-
-Run tests with:
 ```bash
-make test
+make test                                    # unit
+cd tests/e2e && npm run test:receipts        # both tabs, end to end
 ```
-
-## Configuration
-
-### AI provider
-
-The HSA app itself no longer calls the AI provider directly — receipt
-extraction is done by the Documents app. Configure the `ai` block in
-`homestead.config.ts` for that pipeline; see the
-[AI guide](../../homestead-site/docs/guides/ai.md).
-
-### aepbase URL
-
-The app talks to aepbase via the shared `/api/aep` same-origin
-prefix on the one server port. Server-side helpers reach the engine at the
-same prefix; override the target by setting `AEPBASE_URL` if the engine runs
-somewhere other than `http://127.0.0.1:3000/api/aep`.
-
-## Tips
-
-1. **Better Extraction Results**: When capturing via Documents, upload a clear, well-lit scan or photo with all text visible
-2. **Manual Review**: Review a mirrored receipt's fields before marking it reimbursed
-3. **Organize Receipts**: Use the Patient/Person fields to track expenses by family member
-4. **Regular Backups**: Keep receipts stored for IRS audit purposes (typically 3-7 years)
-5. **Notes Field**: Add context like "vision exam" or "prescription refill" for future reference

@@ -1,11 +1,45 @@
 # Receipts — Design
 
-**Status:** Proposed · **Audience:** contributors
+**Status:** Shipped (see §0) · **Audience:** contributors
 
 > This is a design and decision record, not a guide. It answers one question:
 > what it takes to turn the HSA Receipts app into a **Receipts** app that also
 > holds charitable donation receipts and can tell you what you gave in a year —
 > while keeping the HSA UI, its data, and its capture path exactly as they are.
+
+---
+
+## 0. What shipped
+
+All six steps of §7 landed, as designed, in six commits. The three open
+questions in §9 were answered yes: `status` stayed, `tax_year` is stored but
+optional, and Medical is the default tab.
+
+| Piece | Where |
+|---|---|
+| The app, renamed | `packages/homestead-apps/receipts/`, id `receipts`, `/hsa` redirects |
+| Two tabs | `receipts/components/ReceiptsHome.tsx` (`/receipts?tab=charitable`) |
+| The shared kernel | `receipts/shared/` — KPI card, stat tiles, breakdown bars, thumb, empty state, vault shell |
+| `charitable-receipt` | `receipts/charitable/resources.ts` |
+| The year math | `receipts/charitable/stats.ts`, tested in `receipts/__tests__/charitableStats.test.ts` |
+| The charitable tab | `receipts/charitable/components/` |
+| Mirroring from Documents | `documents/doc-types/post-classify/charitable-donation-receipt.server.ts` |
+| e2e | `receipts/e2e/charitable-crud.spec.ts` (12 specs) beside the 10 medical ones |
+
+**Three details worth knowing that the design below doesn't state:**
+
+1. **The shell owns the add affordance, not the tabs.** `ReceiptsHome` holds one
+   "the reader asked to add something" flag and hands it down; what that means,
+   and the form it opens, is the tab's business. It keeps the header button and
+   the phone FAB in one place without the shell knowing either form.
+2. **`useCharitableStats` resolves the default year itself** when the caller
+   passes none, reporting what it landed on as `stats.year`. The chicken-and-egg
+   (you can't pick a sensible year until you've loaded the receipts that say
+   which years exist) belongs in the hook, not in the component.
+3. **The by-organization chart is year-scoped but not filter-scoped**, so it
+   keeps naming a charity whose donation the status filter has hidden. That's
+   deliberate — it answers "who did I give to this year", not "what's in this
+   list" — and it's why the e2e assertions scope to `charitable-vault`.
 
 ---
 
@@ -306,13 +340,12 @@ that's where `make test-e2e` earns its run.
 
 ---
 
-## 9. Open questions
+## 9. Questions, answered
 
-1. **Does `status` (`Unclaimed`/`Claimed`) earn its place**, or is the by-year
-   table enough? It costs a column and buys "which of these did I already file".
-   Default: keep it, because it makes the vault the same component as medical's.
-2. **`tax_year` stored, or always derived** from `donation_date`? Stored handles
-   the December-check case; derived is one less field to get wrong. Default:
-   stored but optional, deriving when absent.
-3. **Default tab.** Medical, to protect the existing landing — unless the
-   charitable view is the one you'd actually open.
+1. **Does `status` (`Unclaimed`/`Claimed`) earn its place?** Yes. It costs a
+   column, buys "which of these did I already file", and makes the charitable
+   vault the same component as the medical one.
+2. **`tax_year` stored, or always derived?** Stored but optional, deriving from
+   `donation_date` when absent — which handles the December-check case without
+   making anyone fill in a field that usually restates the date.
+3. **Default tab.** Medical, protecting the landing `/hsa` regulars know.

@@ -45,6 +45,8 @@ interface ReceiptVaultProps<T> {
   /** Offered alongside the empty message when a filter is what emptied the list. */
   filtersActive?: boolean;
   onClearFilters?: () => void;
+  /** Marks the section, so a test can scope "is this row listed" to the list. */
+  testId?: string;
 }
 
 export function ReceiptVault<T>({
@@ -59,9 +61,13 @@ export function ReceiptVault<T>({
   emptyMessage,
   filtersActive = false,
   onClearFilters,
+  testId,
 }: ReceiptVaultProps<T>) {
   return (
-    <section className="bg-surface-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <section
+      data-testid={testId}
+      className="bg-surface-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+    >
       <div className="flex flex-col gap-3 p-4 border-b border-gray-50 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-gray-50 rounded-lg p-2" aria-hidden="true">

@@ -88,7 +88,10 @@ export function CharitableYearTable({
                   <td className="px-2 py-2 text-right text-sm text-brand-slate tabular-nums">
                     {formatCurrency(year.nonCash)}
                   </td>
-                  <td className="px-2 py-2 text-right text-sm font-semibold text-brand-navy tabular-nums">
+                  <td
+                    data-testid={`charitable-year-total-${year.year}`}
+                    className="px-2 py-2 text-right text-sm font-semibold text-brand-navy tabular-nums"
+                  >
                     {formatCurrency(year.total)}
                   </td>
                 </tr>

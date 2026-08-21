@@ -249,6 +249,7 @@ export function CharitableVault({
 
   return (
     <ReceiptVault<CharitableReceipt>
+      testId="charitable-vault"
       title={`Donations in ${year}`}
       icon={Archive}
       rows={filtered}
