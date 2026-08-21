@@ -11,13 +11,14 @@
  */
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
+import { charitableResources } from './charitable/resources';
 import { hsaResources } from './resources';
 
 export const receiptsApp: AppConfig = {
   id: 'receipts',
   name: 'Receipts',
   description: 'Medical and charitable receipts, kept for tax time',
-  resources: hsaResources,
+  resources: [...hsaResources, ...charitableResources],
   web: {
     icon: () => import('lucide-react').then((m) => m.Receipt),
     basePath: '/receipts',
