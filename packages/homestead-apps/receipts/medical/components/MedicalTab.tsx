@@ -1,33 +1,41 @@
 /**
- * HSA Home Component
+ * The medical half of the Receipts page: out-of-pocket expenses held against a
+ * future HSA withdrawal.
  *
- * Main interface for managing unreimbursed medical expenses.
+ * The page shell (`ReceiptsHome`) owns the header, the tabs and the add
+ * affordances; this owns everything below them, including its own edit and
+ * delete flows and the form the shell's add button opens.
  */
 
 import { useState } from 'react';
-import { AlertCircle, PiggyBank, Plus, Sparkles } from 'lucide-react';
+import { AlertCircle, PiggyBank, Sparkles } from 'lucide-react';
 import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
+import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
+import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
+import { logger } from '@rambleraptor/homestead-core/utils/logger';
+import { ReceiptKPICard } from '../../shared/ReceiptKPICard';
 import { useHSAStats } from '../hooks/useHSAStats';
 import { useCreateHSAReceipt } from '../hooks/useCreateHSAReceipt';
 import { useUpdateHSAReceipt } from '../hooks/useUpdateHSAReceipt';
 import { useDeleteHSAReceipt } from '../hooks/useDeleteHSAReceipt';
-import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
-import { ReceiptKPICard } from '../../shared/ReceiptKPICard';
 import { HSAStatTiles } from './HSAStatTiles';
 import { HSACategoryBreakdown } from './HSACategoryBreakdown';
 import { HSAQuickCaptureForm } from './HSAQuickCaptureForm';
 import { HSAReceiptEditForm } from './HSAReceiptEditForm';
 import { HSAAuditVault } from './HSAAuditVault';
 import { HSAEmptyState } from './HSAEmptyState';
-import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
-import { Modal } from '@rambleraptor/homestead-core/shared/components/Modal';
-import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
-import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { HSAReceipt, HSAReceiptFormData, ReceiptStatus } from '../types';
 
-export function HSAHome() {
-  const [showForm, setShowForm] = useState(false);
+interface MedicalTabProps {
+  /** The shell's add affordance was used. */
+  addOpen: boolean;
+  /** Opens the shell's add flow — for the empty state's own call to action. */
+  onOpenAdd: () => void;
+  onCloseAdd: () => void;
+}
+
+export function MedicalTab({ addOpen, onOpenAdd, onCloseAdd }: MedicalTabProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [receiptToDelete, setReceiptToDelete] = useState<string | null>(null);
   const [editingReceipt, setEditingReceipt] = useState<HSAReceipt | null>(null);
@@ -41,7 +49,7 @@ export function HSAHome() {
   const handleFormSubmit = async (data: HSAReceiptFormData) => {
     try {
       await createMutation.mutateAsync(data);
-      setShowForm(false);
+      onCloseAdd();
     } catch (err) {
       logger.error('Failed to create HSA receipt', err);
     }
@@ -55,10 +63,7 @@ export function HSAHome() {
 
   const handleMarkAsReimbursed = async (id: string) => {
     try {
-      await updateMutation.mutateAsync({
-        id,
-        data: { status: 'Reimbursed' },
-      });
+      await updateMutation.mutateAsync({ id, data: { status: 'Reimbursed' } });
     } catch (err) {
       logger.error('Failed to mark receipt as reimbursed', err);
     }
@@ -79,11 +84,7 @@ export function HSAHome() {
 
   if (isLoading) {
     return (
-      <SkeletonPage
-        body="cards"
-        label="Loading HSA receipts"
-        data-testid="hsa-loading"
-      />
+      <SkeletonPage body="cards" label="Loading HSA receipts" data-testid="hsa-loading" />
     );
   }
 
@@ -93,9 +94,7 @@ export function HSAHome() {
         <div className="flex items-center gap-3">
           <AlertCircle className="w-6 h-6 text-red-600" />
           <div>
-            <h3 className="font-semibold text-red-900">
-              Failed to load HSA receipts
-            </h3>
+            <h3 className="font-semibold text-red-900">Failed to load HSA receipts</h3>
             <p className="text-sm text-red-700">
               {error instanceof Error ? error.message : 'An error occurred'}
             </p>
@@ -109,20 +108,6 @@ export function HSAHome() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Receipts"
-        subtitle="Medical expenses kept for a tax-free HSA withdrawal"
-        actions={
-          <Button
-            data-testid="add-hsa-receipt-button"
-            onClick={() => setShowForm(true)}
-          >
-            <Plus className="h-4 w-4" />
-            Add receipt
-          </Button>
-        }
-      />
-
       {stats && (
         <ReceiptKPICard
           badge={{ icon: Sparkles, label: 'Tax-free' }}
@@ -136,9 +121,7 @@ export function HSAHome() {
         />
       )}
 
-      {stats && !hasReceipts && (
-        <HSAEmptyState onAdd={() => setShowForm(true)} />
-      )}
+      {stats && !hasReceipts && <HSAEmptyState onAdd={onOpenAdd} />}
 
       {stats && hasReceipts && (
         <>
@@ -161,14 +144,10 @@ export function HSAHome() {
       )}
 
       {/* Quick capture (modal) */}
-      <Modal
-        isOpen={showForm}
-        onClose={() => setShowForm(false)}
-        title="Add Receipt"
-      >
+      <Modal isOpen={addOpen} onClose={onCloseAdd} title="Add Receipt">
         <HSAQuickCaptureForm
           onSubmit={handleFormSubmit}
-          onCancel={() => setShowForm(false)}
+          onCancel={onCloseAdd}
           isSubmitting={createMutation.isPending}
         />
       </Modal>
@@ -199,15 +178,6 @@ export function HSAHome() {
         variant="danger"
         isLoading={deleteMutation.isPending}
       />
-
-      {/* Mobile quick-add: a thumb-reachable floating action button. */}
-      <button
-        onClick={() => setShowForm(true)}
-        aria-label="Add receipt"
-        className="fixed bottom-6 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-accent-terracotta text-white shadow-lg transition-colors hover:bg-accent-terracotta-hover md:hidden"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
     </div>
   );
 }

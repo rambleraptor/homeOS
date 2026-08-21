@@ -26,7 +26,7 @@ export const receiptsApp: AppConfig = {
       {
         path: '',
         index: true,
-        component: () => import('./medical/components/HSAHome').then((m) => m.HSAHome),
+        component: () => import('./components/ReceiptsHome').then((m) => m.ReceiptsHome),
       },
     ],
     showInNav: true,
