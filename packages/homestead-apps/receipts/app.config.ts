@@ -12,7 +12,7 @@
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { charitableResources } from './charitable/resources';
-import { hsaResources } from './resources';
+import { hsaResources } from './medical/resources';
 
 export const receiptsApp: AppConfig = {
   id: 'receipts',
@@ -26,7 +26,7 @@ export const receiptsApp: AppConfig = {
       {
         path: '',
         index: true,
-        component: () => import('./components/HSAHome').then((m) => m.HSAHome),
+        component: () => import('./medical/components/HSAHome').then((m) => m.HSAHome),
       },
     ],
     showInNav: true,

@@ -11,7 +11,7 @@ export type {
   ReceiptStatus,
   CategoryBreakdown,
   PatientBreakdown,
-} from './types';
+} from './medical/types';
 export type {
   CharitableReceipt,
   CharitableReceiptFormData,

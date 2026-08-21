@@ -5,13 +5,14 @@
  */
 
 import { useState } from 'react';
-import { AlertCircle, Plus } from 'lucide-react';
+import { AlertCircle, PiggyBank, Plus, Sparkles } from 'lucide-react';
 import { SkeletonPage } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useHSAStats } from '../hooks/useHSAStats';
 import { useCreateHSAReceipt } from '../hooks/useCreateHSAReceipt';
 import { useUpdateHSAReceipt } from '../hooks/useUpdateHSAReceipt';
 import { useDeleteHSAReceipt } from '../hooks/useDeleteHSAReceipt';
-import { HSAKPICard } from './HSAKPICard';
+import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
+import { ReceiptKPICard } from '../../shared/ReceiptKPICard';
 import { HSAStatTiles } from './HSAStatTiles';
 import { HSACategoryBreakdown } from './HSACategoryBreakdown';
 import { HSAQuickCaptureForm } from './HSAQuickCaptureForm';
@@ -123,9 +124,15 @@ export function HSAHome() {
       />
 
       {stats && (
-        <HSAKPICard
-          totalStored={stats.totalStored}
-          storedReceipts={stats.storedReceipts}
+        <ReceiptKPICard
+          badge={{ icon: Sparkles, label: 'Tax-free' }}
+          label="Liquidatable Cash"
+          value={formatCurrency(stats.totalStored)}
+          caption={`Available across ${stats.storedReceipts} stored ${
+            stats.storedReceipts === 1 ? 'receipt' : 'receipts'
+          }`}
+          footnote="The total you can withdraw from your HSA tax-free, based on the unreimbursed medical expenses you’ve stored."
+          icon={PiggyBank}
         />
       )}
 

@@ -8,7 +8,7 @@
  */
 
 import { SchemaForm } from '@rambleraptor/homestead-core/shared/forms';
-import { PersonReferenceField } from '../../people/components/PersonReferenceField';
+import { PersonReferenceField } from '../../../people/components/PersonReferenceField';
 import type { HSAReceipt } from '../types';
 import { hsaResources } from '../resources';
 

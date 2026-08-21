@@ -8,8 +8,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { HSAReceiptEditForm } from '../components/HSAReceiptEditForm';
-import type { HSAReceipt } from '../types';
+import { HSAReceiptEditForm } from '../medical/components/HSAReceiptEditForm';
+import type { HSAReceipt } from '../medical/types';
 
 function renderWithClient(ui: React.ReactElement) {
   const client = new QueryClient({
