@@ -19,6 +19,16 @@ describe('describeLinkedResource', () => {
     });
   });
 
+  it('describes a charitable receipt, linking to the tab holding it', () => {
+    expect(describeLinkedResource('charitable-receipts/xyz789')).toMatchObject({
+      plural: 'charitable-receipts',
+      id: 'xyz789',
+      label: 'charitable receipt',
+      article: 'a',
+      href: '/receipts?tab=charitable',
+    });
+  });
+
   it('links a recipe to its own page', () => {
     expect(describeLinkedResource('recipes/xyz')).toMatchObject({
       id: 'xyz',

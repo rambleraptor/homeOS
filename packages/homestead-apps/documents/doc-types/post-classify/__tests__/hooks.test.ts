@@ -1,8 +1,9 @@
 /**
  * post_classify hook handlers: how a classified document's metadata maps onto
- * the HSA receipt / recipe it creates. The shared homestead-client is mocked, so
- * these assert the body built for the downstream resource and the returned link —
- * the field coercions (date widening, enum fallback, null-dropping) are what break.
+ * the HSA receipt / charitable receipt / recipe it creates. The shared
+ * homestead-client is mocked, so these assert the body built for the downstream
+ * resource and the returned link — the field coercions (date widening, enum
+ * fallback, null-dropping) are what break.
  */
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -21,6 +22,7 @@ vi.mock('@rambleraptor/homestead-core/server/client', () => ({
 const { createFn, listAllFn } = fake;
 
 import medicalReceiptHook from '../medical-receipt.server';
+import charitableReceiptHook from '../charitable-donation-receipt.server';
 import recipeHook from '../recipe.server';
 
 const auth = {
@@ -158,6 +160,129 @@ describe('medical-receipt post_classify', () => {
     expect(body.merchant).toBe('Scan 001'); // no merchant → document title
     expect(body.amount).toBe(0); // no amount → 0
     expect(body.service_date).toBe('2026-01-02T03:04:05.000Z'); // no date → doc create_time
+  });
+});
+
+describe('charitable-donation-receipt post_classify', () => {
+  it('maps an acknowledgment onto a charitable receipt linked to the document', async () => {
+    const result = await charitableReceiptHook({
+      document: doc({ title: 'Food bank letter' }),
+      metadata: {
+        doc_type: 'charitable-donation-receipt',
+        organization_name: 'Food Bank',
+        organization_ein: '12-3456789',
+        donor_name: 'Jamie',
+        donation_date: '2025-12-30',
+        donation_amount: 250,
+        goods_or_services: 'No goods or services were provided in exchange.',
+        tax_year: 2025,
+      },
+      auth,
+    });
+
+    expect(createFn).toHaveBeenCalledTimes(1);
+    const [path, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(path).toBe('/charitable-receipts');
+    expect(serverClientTokens).toContain('tok');
+    expect(body).toMatchObject({
+      organization: 'Food Bank',
+      organization_ein: '12-3456789',
+      donation_date: '2025-12-30T00:00:00.000Z',
+      amount: 250,
+      gift_type: 'Cash',
+      tax_year: 2025,
+      status: 'Unclaimed',
+      donor: 'Jamie',
+      source_document: 'documents/doc1',
+      created_by: 'users/u1',
+    });
+    expect(body.goods_or_services).toBe(
+      'No goods or services were provided in exchange.',
+    );
+    expect(result).toEqual({ linked_resource: 'charitable-receipts/created1' });
+  });
+
+  it('leaves a gift of goods unvalued rather than inventing a deduction', async () => {
+    await charitableReceiptHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'charitable-donation-receipt',
+        organization_name: 'Shelter',
+        description_of_property: '3 bags of clothing',
+      },
+      auth,
+    });
+
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.gift_type).toBe('Goods');
+    expect(body.description_of_property).toBe('3 bags of clothing');
+    expect(body.amount).toBeUndefined();
+  });
+
+  it('calls a gift it cannot characterize Other', async () => {
+    await charitableReceiptHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'charitable-donation-receipt',
+        organization_name: 'Endowment',
+      },
+      auth,
+    });
+
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.gift_type).toBe('Other');
+  });
+
+  it('links the donation to a person on an unambiguous donor-name match', async () => {
+    listAllFn.mockResolvedValue([
+      { id: 'p1', name: 'Jamie', aliases: [] },
+      { id: 'p2', name: 'Alex', aliases: [] },
+    ]);
+
+    await charitableReceiptHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'charitable-donation-receipt',
+        organization_name: 'Food Bank',
+        donor_name: 'Jamie',
+      },
+      auth,
+    });
+
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.donor).toBe('Jamie');
+    expect(body.person).toBe('people/p1');
+  });
+
+  it('still creates the donation when the people lookup fails', async () => {
+    listAllFn.mockRejectedValue(new Error('boom'));
+
+    await charitableReceiptHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'charitable-donation-receipt',
+        organization_name: 'Food Bank',
+        donor_name: 'Jamie',
+      },
+      auth,
+    });
+
+    expect(createFn).toHaveBeenCalledTimes(1);
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.person).toBeUndefined();
+  });
+
+  it('falls back to the document title and date, and drops an implausible tax year', async () => {
+    await charitableReceiptHook({
+      document: doc({ title: 'Scan 002' }),
+      metadata: { doc_type: 'charitable-donation-receipt', tax_year: 25 },
+      auth,
+    });
+
+    const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
+    expect(body.organization).toBe('Scan 002');
+    expect(body.donation_date).toBe('2026-01-02T03:04:05.000Z');
+    expect(body.tax_year).toBeUndefined();
   });
 });
 

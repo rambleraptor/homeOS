@@ -17,6 +17,8 @@ const charitableDonationReceipt: DocType = {
   label: 'Charitable donation receipt',
   icon: () => import('lucide-react').then((m) => m.HandHeart),
   category: 'tax',
+  // On a match, mirror the donation into the Receipts app (server-only hook).
+  post_classify: () => import('./post-classify/charitable-donation-receipt.server'),
   title_template: 'Donation ({tax_year}) — {organization_name}',
   description:
     'A receipt or written acknowledgment from a charity for a donation — cash or ' +
