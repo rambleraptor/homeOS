@@ -214,6 +214,48 @@ export function deleteTokenByPatId(db: Database, patId: string): void {
 }
 
 /**
+ * How stale a PAT's recorded `last_used_at` must be before a request rewrites
+ * it. Usage is stamped on *every* authenticated call a token makes, so without
+ * a floor an integration polling every few seconds would write a row per
+ * request; a minute's resolution is far finer than the UI (which renders a
+ * date) needs.
+ */
+const PAT_LAST_USED_RESOLUTION_MS = 60_000;
+
+/** Table backing the `personal-access-token` resource (plural, dashes → underscores). */
+const PAT_TABLE = 'personal_access_tokens';
+
+/**
+ * Stamp `last_used_at` on the readable `personal-access-token` record after a
+ * request authenticated with that token. Without this the field is only ever
+ * written at mint time (never), so the settings page reports every token as
+ * "Never used" no matter how much traffic it serves.
+ *
+ * Deliberately cheap and best-effort:
+ *  - one conditional UPDATE, no read-back — the WHERE clause enforces the
+ *    resolution floor above, so a busy token writes at most once a minute;
+ *  - `update_time` is left alone: using a token is not an edit of the record,
+ *    and bumping it would make every API call look like a settings change;
+ *  - a missing table (a db whose resource definitions haven't synced yet, or a
+ *    bare engine in tests) is not an error — authentication must not fail
+ *    because a usage stamp couldn't be written.
+ */
+export function touchPatLastUsed(db: Database, patId: string): void {
+  const now = nowRFC3339();
+  const floor = new Date(Date.now() - PAT_LAST_USED_RESOLUTION_MS)
+    .toISOString()
+    .replace(/\.\d{3}Z$/, 'Z');
+  try {
+    db.query(
+      `UPDATE ${PAT_TABLE} SET last_used_at = ?
+         WHERE id = ? AND (last_used_at IS NULL OR last_used_at < ?)`,
+    ).run(now, patId, floor);
+  } catch {
+    // Table or column absent (definitions not synced yet) → nothing to stamp.
+  }
+}
+
+/**
  * Revoke every *session* a user holds — password/federated/OAuth access tokens,
  * their refresh tokens, and the audience bindings. Used when the password
  * changes (tokens minted under the old one must stop working) and by

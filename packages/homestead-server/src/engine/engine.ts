@@ -41,6 +41,7 @@ import {
   handleUserGet,
   handleUserList,
   handleUserUpdate,
+  touchPatLastUsed,
 } from './users';
 
 const log = createLogger('engine');
@@ -301,6 +302,10 @@ export class Engine {
         ? await this.tokenValidator(token)
         : getUserByToken(this.db, token);
       if (!caller) return errorResponse(401, 'invalid token');
+      // Every authenticated path — both token validators, and the loopback
+      // /users/me the API routes authenticate through — funnels through here,
+      // so this is the one place a PAT's usage can be recorded.
+      if (caller.pat) touchPatLastUsed(this.db, caller.pat.id);
     }
 
     const segments = path.split('/').filter((s) => s.length > 0);
