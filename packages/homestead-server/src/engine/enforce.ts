@@ -138,7 +138,7 @@ export function enforceRecordAccess(
   if (!decision.allow) throw new HttpError(403, 'you do not have access to this resource');
 
   // …and then whatever the credential itself narrows that down to.
-  applyCredentialCeiling(caller, request, gathered.grants, filterEval);
+  applyCredentialCeiling(caller, request, () => gathered.grants, filterEval);
 }
 
 /**
@@ -164,15 +164,15 @@ export function enforceRecordAccess(
 function applyCredentialCeiling(
   caller: User,
   request: AccessRequest,
-  grants: Grant[],
+  grants: () => Grant[],
   filterEval?: FilterEval,
 ): void {
-  if (caller.oauth && request.verb !== 'read' && !scopeAllowsWrite(caller.oauth.scope)) {
+  if (cappedByScope(caller, request.verb)) {
     throw new HttpError(403, 'this token is not scoped for that action');
   }
 
   if (caller.pat) {
-    const tGrants = tokenGrantsFor(grants, caller.pat.id);
+    const tGrants = tokenGrantsFor(grants(), caller.pat.id);
     const tokenDecision = resolve(
       { isSuperuser: false },
       request,
@@ -182,6 +182,20 @@ function applyCredentialCeiling(
     );
     if (!tokenDecision.allow) throw new HttpError(403, 'this token is not scoped for that action');
   }
+}
+
+/**
+ * Whether the caller's OAuth scope forbids this verb.
+ *
+ * Every session carries a binding row — an interactive login gets one with a
+ * null scope — so the presence of `caller.oauth` says nothing on its own. Only
+ * a scope that actually withholds write narrows anything, which is also what
+ * keeps ordinary logins off the grant-gathering path below.
+ */
+function cappedByScope(caller: User, verb: Verb): boolean {
+  if (!caller.oauth) return false;
+  if (verb === 'read') return false;
+  return !scopeAllowsWrite(caller.oauth.scope);
 }
 
 /**
@@ -208,9 +222,10 @@ export function enforceCredentialCeiling(
 ): void {
   const { caller } = opts;
   if (!caller) return;
-  if (!caller.oauth && !caller.pat) return; // unattenuated credential: nothing to add
+  // An unattenuated credential adds nothing, and must not pay for the check:
+  // this runs on every user-subtree request, which is the SPA's hot path.
+  if (!caller.pat && !cappedByScope(caller, opts.verb)) return;
 
-  const { grants } = ctx.store.gatherFor(caller.id);
   const request: AccessRequest = {
     verb: opts.verb,
     resourceType: opts.resourceType,
@@ -229,7 +244,8 @@ export function enforceCredentialCeiling(
       subjectOf(caller),
     );
   };
-  applyCredentialCeiling(caller, request, grants, filterEval);
+  // Gathered lazily: the scope cap needs no grants, only the PAT pass does.
+  applyCredentialCeiling(caller, request, () => ctx.store.gatherFor(caller.id).grants, filterEval);
 }
 
 /** True iff the addressed row satisfies `filter` (subject.* bound to the caller). */
