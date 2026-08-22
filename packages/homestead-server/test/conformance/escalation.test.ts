@@ -4,20 +4,26 @@
  * The matrix in `matrix.test.ts` asks whether the surfaces agree with each
  * other. These tests ask the prior question — whether a credential's scope is a
  * boundary at all, or only a boundary in the places that happen to check it.
- * Two places currently do not:
+ * Four places had to be made to hold it, and each is pinned here:
  *
- *  1. **The user subtree.** `router.ts` skips grant enforcement for resources
- *     parented to `user`, because owner-visibility would wrongly hide a record
- *     created *for* a user by someone else. That reasoning is about the
- *     owner-side pass; it takes the token-side intersection down with it.
+ *  1. **The user subtree.** `router.ts` skips the owner-side grant pass for
+ *     resources parented to `user`, because owner visibility would wrongly hide
+ *     a record created *for* a user by someone else. The credential ceiling is
+ *     a separate question and must not be skipped with it.
  *
- *  2. **Token minting.** `/api/tokens` authenticates the caller and then writes
- *     the new token's grants as an admin. It bounds the new token by its
- *     *owner's* authority, never by the authority of the credential doing the
- *     minting — so a narrow credential can mint a broad one for the same user.
+ *  2. **Token minting.** `/api/tokens` bounds a new token by its *owner's*
+ *     authority, which says nothing about the credential doing the minting, so
+ *     minting is reserved for interactive sessions.
  *
- * Chained, those two turn any leaked read-only credential into full account
- * access, which is why they are tested as one concern.
+ *  3. **Externally-authenticated MCP callers.** The route mints a token for an
+ *     identity a gateway authenticator resolved; that token has to carry the
+ *     identity's scope, or filtering the tool list by it decides nothing.
+ *
+ *  4. **Custom methods.** The dispatcher authenticates and nothing more, so the
+ *     ceiling reaches a handler only through the token it forwards.
+ *
+ * The first two chain: without them, any leaked read-only credential became
+ * full account access.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
