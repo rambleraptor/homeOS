@@ -27,7 +27,7 @@ import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
 import { registerHomesteadTools } from '../mcp/register';
 import { homesteadInstructions } from '../mcp/generic';
-import { scopeAllowsWrite } from '../mcp/scopes';
+import { scopeAllowsWrite } from '../auth/scopes';
 import { readAppFlag } from '../app-flags';
 
 /** The resource identifier MCP tokens are audience-bound to. */

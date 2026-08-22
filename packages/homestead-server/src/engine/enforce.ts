@@ -17,6 +17,7 @@ import { OWNER_COLUMN, sanitizeTableName } from './db';
 import { compileFilter, type FilterSubject } from './filter';
 import { TYPE_SUPERUSER, type Schema, type User } from './types';
 import type { PermissionStore } from './permission-store';
+import { scopeAllowsWrite } from '../auth/scopes';
 import type { Registry } from './registry';
 import {
   computeVisibility,
@@ -125,8 +126,8 @@ export function enforceRecordAccess(
   };
 
   // Owner-side decision: the caller's full authority (superuser, group roles,
-  // owner⇒manage). For a PAT this is the *ceiling* — the token can never exceed
-  // what its owner may still do.
+  // owner⇒manage). For an attenuated credential this is the *ceiling* — the
+  // credential can never exceed what its owner may still do.
   const decision = resolve(
     { isSuperuser: caller.type === TYPE_SUPERUSER },
     request,
@@ -136,11 +137,42 @@ export function enforceRecordAccess(
   );
   if (!decision.allow) throw new HttpError(403, 'you do not have access to this resource');
 
-  // Token-side decision: when acting through a PAT, authority is *also* bounded
-  // by the grants assigned to that token (resolved with no superuser bypass and
-  // no owner identity). Effective access is the intersection — both must allow.
+  // …and then whatever the credential itself narrows that down to.
+  applyCredentialCeiling(caller, request, gathered.grants, filterEval);
+}
+
+/**
+ * The ceiling the *credential* imposes, independent of who owns it.
+ *
+ * Two credential kinds attenuate their owner's authority, and both are applied
+ * here so there is exactly one place that knows how:
+ *
+ *  - **OAuth access tokens** carry a scope. A read-only scope caps the verbs
+ *    the credential may exercise, no matter what its owner could do. Filtering
+ *    the MCP tool list to match (`routes/mcp.ts`) is a courtesy to the client;
+ *    this is the boundary, because the same token is a valid bearer at every
+ *    other door too.
+ *  - **Personal access tokens** carry grants of their own. Authority is the
+ *    intersection of those grants with the owner's, resolved with no superuser
+ *    bypass and no owner identity, so a PAT draws nothing from who holds it.
+ *
+ * Separated from {@link enforceRecordAccess} because the router deliberately
+ * skips the *owner-side* pass for user-parented resources (see there) and must
+ * not skip this one with it: the reason owner visibility is wrong in a user
+ * subtree has nothing to do with what a credential was scoped for.
+ */
+function applyCredentialCeiling(
+  caller: User,
+  request: AccessRequest,
+  grants: Grant[],
+  filterEval?: FilterEval,
+): void {
+  if (caller.oauth && request.verb !== 'read' && !scopeAllowsWrite(caller.oauth.scope)) {
+    throw new HttpError(403, 'this token is not scoped for that action');
+  }
+
   if (caller.pat) {
-    const tGrants = tokenGrantsFor(gathered.grants, caller.pat.id);
+    const tGrants = tokenGrantsFor(grants, caller.pat.id);
     const tokenDecision = resolve(
       { isSuperuser: false },
       request,
@@ -150,6 +182,54 @@ export function enforceRecordAccess(
     );
     if (!tokenDecision.allow) throw new HttpError(403, 'this token is not scoped for that action');
   }
+}
+
+/**
+ * Apply only the credential ceiling to a single-record or create request.
+ *
+ * Used on the paths where the owner-side grant pass is intentionally not run —
+ * today that is every resource parented to `user`, whose access is governed by
+ * `checkUserScope` (subtree ownership by path) instead. `checkUserScope` answers
+ * "is this your subtree"; it has nothing to say about how far the credential in
+ * your hand was scoped, which is what this adds back.
+ */
+export function enforceCredentialCeiling(
+  ctx: EnforceContext,
+  db: Database,
+  opts: {
+    caller: User | null;
+    verb: Verb;
+    resourceType: string;
+    plural: string;
+    schema: Schema;
+    recordId?: string;
+    recordPath?: string;
+  },
+): void {
+  const { caller } = opts;
+  if (!caller) return;
+  if (!caller.oauth && !caller.pat) return; // unattenuated credential: nothing to add
+
+  const { grants } = ctx.store.gatherFor(caller.id);
+  const request: AccessRequest = {
+    verb: opts.verb,
+    resourceType: opts.resourceType,
+    appId: ctx.appIdFor(opts.plural),
+    recordId: opts.recordId,
+    recordOwner: opts.recordPath ? ownerOf(db, opts.plural, opts.recordPath) : undefined,
+  };
+  const filterEval: FilterEval = (filter) => {
+    if (!opts.recordPath) return true;
+    return recordMatchesFilter(
+      db,
+      opts.plural,
+      opts.recordPath,
+      filter,
+      opts.schema,
+      subjectOf(caller),
+    );
+  };
+  applyCredentialCeiling(caller, request, grants, filterEval);
 }
 
 /** True iff the addressed row satisfies `filter` (subject.* bound to the caller). */
@@ -231,6 +311,40 @@ export function listVisibilityClause(
     subjectOf(caller),
   );
   return intersectClauses(ownerClause, tokenClause);
+}
+
+/**
+ * The LIST visibility a credential imposes on its own, for the paths where the
+ * owner-side clause is not computed (user-parented resources). Returns `null`
+ * for an unattenuated credential — nothing to narrow.
+ *
+ * A read-only OAuth scope contributes nothing here: it caps verbs, and LIST is
+ * a read. Only a PAT narrows what rows are visible.
+ */
+export function credentialVisibilityClause(
+  ctx: EnforceContext,
+  opts: {
+    caller: User | null;
+    resourceType: string;
+    plural: string;
+    schema: Schema;
+  },
+): { sql: string; params: (string | number)[] } | null {
+  const { caller } = opts;
+  if (!caller?.pat) return null;
+
+  const gathered = ctx.store.gatherFor(caller.id);
+  const tokenVisibility = computeVisibility(
+    { resourceType: opts.resourceType, appId: ctx.appIdFor(opts.plural) },
+    tokenPrincipals(caller.pat.id),
+    tokenGrantsFor(gathered.grants, caller.pat.id),
+  );
+  return visibilityToSql(
+    tokenVisibility,
+    TOKEN_SENTINEL_USER,
+    opts.schema,
+    subjectOf(caller),
+  );
 }
 
 /**

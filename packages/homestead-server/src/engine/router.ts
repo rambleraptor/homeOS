@@ -23,6 +23,8 @@ import {
 import { errorResponse } from './errors';
 import {
   enforceGrantWrite,
+  credentialVisibilityClause,
+  enforceCredentialCeiling,
   enforceRecordAccess,
   listVisibilityClause,
   validateGrantFilter,
@@ -176,6 +178,12 @@ export async function routeDynamic(
   // system notification, a superuser-set account tag) so its `_owner` isn't the
   // subtree user — applying grant/owner visibility there would wrongly hide it.
   // checkUserScope already denies cross-user access, so grants add nothing here.
+  //
+  // What that reasoning does *not* excuse is the credential ceiling: how far a
+  // PAT or an OAuth token was scoped is a property of the credential, not of the
+  // record's owner, so it still applies inside the subtree. Skipping it there
+  // let a read-scoped token write its owner's user-parented records — including
+  // minting itself a broader token.
   const userScoped = match.parentIds.user_id !== undefined;
   const enforceGrants = enforcing && !userScoped;
 
@@ -189,8 +197,8 @@ export async function routeDynamic(
   }
 
   const enforce = (verb: 'read' | 'write', recordId?: string, recordPath?: string): void => {
-    if (!enforceGrants) return;
-    enforceRecordAccess(ctx, reg.db, {
+    if (!enforcing) return;
+    const opts = {
       caller,
       verb,
       resourceType: r.singular,
@@ -198,7 +206,11 @@ export async function routeDynamic(
       schema: r.schema,
       recordId,
       recordPath,
-    });
+    };
+    // enforceRecordAccess runs the owner-side pass *and* the credential ceiling;
+    // where the owner-side pass is skipped, the ceiling still has to run.
+    if (enforceGrants) enforceRecordAccess(ctx, reg.db, opts);
+    else enforceCredentialCeiling(ctx, reg.db, opts);
   };
 
   if (match.kind === 'singleton') {
@@ -221,14 +233,17 @@ export async function routeDynamic(
       return handleCreate(reg, match, req, caller);
     }
     if (req.method === 'GET') {
+      const listOpts = {
+        caller,
+        resourceType: r.singular,
+        plural: r.plural,
+        schema: r.schema,
+      };
       const visibility = enforceGrants
-        ? listVisibilityClause(ctx, {
-            caller,
-            resourceType: r.singular,
-            plural: r.plural,
-            schema: r.schema,
-                })
-        : null;
+        ? listVisibilityClause(ctx, listOpts)
+        : enforcing
+          ? credentialVisibilityClause(ctx, listOpts)
+          : null;
       return handleList(reg, match, req, visibility);
     }
     return methodNotAllowed();

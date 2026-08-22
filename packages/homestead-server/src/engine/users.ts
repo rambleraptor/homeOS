@@ -139,6 +139,47 @@ export function getUserByEmail(db: Database, email: string): { user: User; hash:
   return row ? { user: rowToUser(row), hash: row.password_hash! } : null;
 }
 
+/**
+ * Whether a database carries the auth service's access-token side table.
+ *
+ * The engine runs with or without the auth service (an embedded engine, and
+ * most engine unit tests, never create its tables), so the scope lookup below
+ * is guarded rather than assumed. Memoized because it sits on the request hot
+ * path; {@link authTablesChanged} clears the memo when the auth service creates
+ * its tables, so a scope issued after the first lookup is never missed.
+ */
+const authTableCache = new WeakMap<Database, boolean>();
+
+/** Invalidate the memo above. Called by the auth service after table creation. */
+export function authTablesChanged(db: Database): void {
+  authTableCache.delete(db);
+}
+
+/**
+ * The OAuth scope bound to `token`, or `undefined` when the token is not an
+ * AS-issued access token (a password session or a PAT). `null` means an
+ * AS-issued token that carries no scope.
+ *
+ * This is the one place the engine reads an auth-service table. It is here
+ * rather than in the auth layer because a credential's scope has to reach
+ * enforcement on *every* request, through every door — the same reason
+ * `pat_id` is a column on `_tokens`.
+ */
+function oauthScopeFor(db: Database, token: string): string | null | undefined {
+  let present = authTableCache.get(db);
+  if (present === undefined) {
+    present = !!db
+      .query(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_auth_access_tokens'`)
+      .get();
+    authTableCache.set(db, present);
+  }
+  if (!present) return undefined;
+  const row = db
+    .query('SELECT scope FROM _auth_access_tokens WHERE access_token = ?')
+    .get(hashToken(token)) as { scope: string | null } | null;
+  return row ? row.scope : undefined;
+}
+
 export function getUserByToken(db: Database, token: string): User | null {
   // An access token is valid only while unexpired. NULL expires_at = never
   // expires (leased admin mints, and every token issued before the expiry
@@ -150,7 +191,11 @@ export function getUserByToken(db: Database, token: string): User | null {
       `SELECT u.id, u.path, u.email, u.display_name, u.type, u.create_time, u.update_time, t.pat_id AS pat_id FROM _users u INNER JOIN _tokens t ON u.id = t.user_id WHERE t.token = ? AND (t.expires_at IS NULL OR t.expires_at > ?)`,
     )
     .get(hashToken(token), nowRFC3339()) as (UserRow & { pat_id: string | null }) | null;
-  return row ? rowToUser(row, row.pat_id) : null;
+  if (!row) return null;
+  const user = rowToUser(row, row.pat_id);
+  const scope = oauthScopeFor(db, token);
+  if (scope !== undefined) user.oauth = { scope };
+  return user;
 }
 
 export function countUsers(db: Database): number {

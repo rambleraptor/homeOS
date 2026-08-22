@@ -17,6 +17,8 @@
  * with no mocking of the permission layer itself.
  */
 
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Hono } from 'hono';
 import { AEPBASE_URL } from '@rambleraptor/homestead-core/server/aepbase';
 import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/types';
@@ -26,13 +28,14 @@ import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config'
 import { Engine } from '../../src/engine/engine';
 import { AuthService } from '../../src/auth/service';
 import { createOAuthTables } from '../../src/auth/oauth/storage';
-import { makeAepGateway } from '../../src/routes/aep-gateway';
 import { makeMcpRoute, mcpAudience } from '../../src/routes/mcp';
 import { makeTokensRoute } from '../../src/routes/tokens';
 import { insertToken } from '../../src/engine/users';
 import { generatePatSecret } from '../../src/engine/pat';
-import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from '../../src/mcp/scopes';
+import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from '../../src/auth/scopes';
 import { call, defineResource, makeEngine, seedOpenHousehold, seedUser, type TestEngine } from '../engine/helpers';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 export const ORIGIN = 'http://localhost:8090';
 
@@ -133,6 +136,25 @@ export function installEngineFetch(engine: Engine): () => void {
   };
 }
 
+
+/**
+ * Load the `/api/aep` gateway, pointing the app registry at a minimal config
+ * first.
+ *
+ * `src/app-registry.js` resolves the operator's `homestead.config.ts` with a
+ * top-level await the moment it is imported, and the gateway imports it. Left
+ * alone it finds the repo-root config (and every React app behind it) or, under
+ * vitest, nothing at all — so the env has to be set before the import, which is
+ * why this is dynamic. `HOMESTEAD_APPS_DIR` is pinned at a path that does not
+ * exist so auto-discovery stays deterministic regardless of the runner's cwd.
+ */
+async function loadGateway(): Promise<typeof import('../../src/routes/aep-gateway')['makeAepGateway']> {
+  process.env.HOMESTEAD_CONFIG ??= join(HERE, '..', 'fixtures', 'minimal-homestead.config.ts');
+  process.env.HOMESTEAD_APPS_DIR ??= join(HERE, '..', 'fixtures', 'no-such-apps-dir');
+  const mod = await import('../../src/routes/aep-gateway');
+  return mod.makeAepGateway;
+}
+
 /** Mint a PAT for `userId` carrying exactly the given collection capability. */
 async function mintPat(
   t: TestEngine,
@@ -203,6 +225,7 @@ export async function makeConformanceHarness(): Promise<ConformanceHarness> {
 
   const dispose = installEngineFetch(t.engine);
 
+  const makeAepGateway = await loadGateway();
   const gateway = new Hono();
   gateway.route('/api/aep', makeAepGateway(t.engine, ORIGIN));
 
@@ -399,4 +422,34 @@ export async function definePatResource(t: TestEngine): Promise<void> {
     schema: toWireSchema(def.fields, def.singular),
   });
   if (!res.ok) throw new Error(`personal-access-token definition → ${res.status}`);
+}
+
+/**
+ * Mint a PAT carrying one arbitrary grant, for tests that need a token scoped
+ * differently from the matrix's fixed read/write pair. `targetScope` of `all`
+ * ignores `resource_type`, giving a token with blanket authority.
+ */
+export async function mintPatWithScope(
+  h: ConformanceHarness,
+  patId: string,
+  capability: 'read' | 'write' | 'manage',
+  targetScope: 'all' | 'collection',
+  resourceType = 'book',
+): Promise<string> {
+  const secret = generatePatSecret();
+  insertToken(h.t.engine.db, secret, h.userId, null, patId);
+  const res = await call(h.t.engine, 'POST', '/access-grants', {
+    token: h.t.adminToken,
+    body: {
+      subject_type: 'token',
+      subject_id: patId,
+      capability,
+      effect: 'allow',
+      target_scope: targetScope,
+      ...(targetScope === 'collection' ? { resource_type: resourceType } : {}),
+    },
+  });
+  if (!res.ok) throw new Error(`mintPatWithScope: grant → ${res.status}`);
+  h.t.engine.reloadPermissions();
+  return secret;
 }

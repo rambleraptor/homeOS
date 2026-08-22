@@ -25,6 +25,7 @@ import { call } from '../engine/helpers';
 import {
   definePatResource,
   makeConformanceHarness,
+  mintPatWithScope,
   verdictOf,
   type ConformanceHarness,
 } from './harness';
@@ -108,6 +109,17 @@ describe('minting a token is bounded by the minting credential', () => {
       'a homestead:read OAuth token minted a manage-everything PAT — the MCP ' +
         'read scope is a tool filter, not an authorization boundary',
     ).toBe('deny');
+  });
+
+  test('even a manage-everything PAT cannot mint a token', async () => {
+    // The engine-level ceiling would already stop a *narrow* token here, so this
+    // pins the route's own rule independently: minting is reserved for an
+    // interactive session, and a delegated credential is refused however broadly
+    // it was scoped. Without this, widening the grants on a PAT would quietly
+    // hand it the ability to mint successors.
+    const broad = await mintPatWithScope(h, 'pat-broad', 'manage', 'all');
+    const res = await mintUnrestricted(broad, 'escalated-broad');
+    expect(verdictOf(res.status)).toBe('deny');
   });
 
   test('an ordinary session can still mint a token', async () => {

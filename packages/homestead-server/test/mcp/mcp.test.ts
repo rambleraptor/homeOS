@@ -22,7 +22,7 @@ import { createOAuthTables } from '../../src/auth/oauth/storage';
 import { makeWellKnownRoutes } from '../../src/auth/oauth/metadata';
 import { makeMcpRoute, mcpAudience } from '../../src/routes/mcp';
 import { registerHomesteadTools, type RegisterOptions } from '../../src/mcp/register';
-import { scopeAllowsWrite } from '../../src/mcp/scopes';
+import { scopeAllowsWrite } from '../../src/auth/scopes';
 import { seedUser } from '../engine/helpers';
 import type { AuthIdentity, RequestAuthenticator } from '../../src/auth/authenticator';
 

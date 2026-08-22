@@ -12,7 +12,7 @@
 
 import { Hono } from 'hono';
 import type { AuthServerConfig } from '@rambleraptor/homestead-core/apps/config';
-import { MCP_SCOPES_SUPPORTED } from '../../mcp/scopes';
+import { MCP_SCOPES_SUPPORTED } from '../scopes';
 
 const DEFAULT_SCOPES = MCP_SCOPES_SUPPORTED;
 
