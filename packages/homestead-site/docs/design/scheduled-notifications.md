@@ -437,7 +437,7 @@ is the outcome that keeps a second list from growing back.
 
 Two releases, per `CLAUDE.md`'s retirement rule.
 
-**Release 1 — add and switch over.**
+### 6.1 Release 1 — add and switch over
 
 1. Add `scheduled-notification` + `SCHEDULED_NOTIFICATIONS`, add `url` to
    `notification`, add the `notifications-dispatch` cron.
@@ -461,7 +461,9 @@ Two releases, per `CLAUDE.md`'s retirement rule.
 
 At this point nothing writes `reminder` and nothing reads it for delivery.
 
-**Release 2 — remove.** Drop the `reminder` definition, `RemindersSection`,
+### 6.2 Release 2 — remove
+
+Drop the `reminder` definition, `RemindersSection`,
 `ReminderForm`, `useReminders`/`useCreateReminder`/`useUpdateReminder`/`useDeleteReminder`,
 `materializer.ts`, the slot constants in `utils/reminderDate.ts`, and
 `e2e/reminders-crud.spec.ts`. Removing the definition drops a table that holds
@@ -469,8 +471,80 @@ data, so the release ships a migration declaring the drop
 (`drops: [{ resource: 'reminder' }]`, implying `destructive`) — the engine
 refuses otherwise, which is the guard working as intended.
 
-Net: reminders currently touch 58 files. The replacement is one resource, one
-cron, one server helper, and one tab.
+### 6.3 Inventory
+
+"Reminder" appears in 58 files, but the word covers four separate things and
+only two of them go. The dividing line: **the standalone `reminder` resource and
+its delivery machinery disappear; every per-user opt-in that decides whether you
+hear about something stays.**
+
+**Disappears — the `reminder` noun**
+
+| | |
+|---|---|
+| `events/resources.ts` | the `reminder` definition (the `event` and `event-reminder` defs stay) |
+| `events/components/RemindersSection.tsx` | 307 lines |
+| `events/components/ReminderForm.tsx` | 229 lines |
+| `events/hooks/` | `useReminders`, `useCreateReminder`, `useUpdateReminder`, `useDeleteReminder` |
+| `events/utils/reminderDate.ts` | whole file — form helpers *and* the slot constants |
+| `events/types.ts` | `Reminder`, `ReminderFormData`, `ReminderStatus`, `ReminderVisibility`, `isAppReminder` |
+| `events/index.ts` | drops `Reminder` / `ReminderFormData` / `ReminderStatus` — a package-API change |
+| `events/components/EventsHome.tsx` | the tab machinery and `?tab=reminders`; back to one page |
+| tests | `RemindersSection.test.tsx` (97), `notifyReminders.test.ts` (60), `reminderDate.test.ts`, `e2e/reminders-crud.spec.ts` (70) |
+| `events/e2e/EventsPage.ts`, `e2e/helpers.ts` | the reminder half of the POM |
+
+**Disappears — the delivery machinery**
+
+| | |
+|---|---|
+| `events/crons/notifyReminders.ts` | 200 lines: `windowEnd`, `recipientsFor`, inbox-replay dedup, `MAX_LOOKBACK_DAYS` |
+| `events/crons/notify-morning.ts`, `notify-evening.ts` | the two slot wrappers |
+| `events/crons/materializer.ts` | replaced by `reconcileScheduled` in core |
+| `reminders-notify-morning` / `-evening` | both hook declarations |
+
+**Stays — every opt-in**
+
+`event-reminder` (the resource, `EventReminderSelect`, `useEventReminder`,
+`useEventReminders`, `EventCard`'s control), `ReminderOptInToggle` and the whole
+`user-settings` opt-in surface, `PICKUP_REMINDER_SETTING`,
+`PERK_REMINDER_SETTING`, `usersWithFlag`, and the toggles rendered by
+`UpcomingPickups` / `UpcomingPerks`. These answer "do I want to hear about
+this", which is §5.2's question and not the queue's business.
+
+**Stays — the inbox.** `notification`, `notification-subscription`,
+`NotificationsHome`, the badge, `sendNotificationToUser`, VAPID, and the
+`'reminder'` value in `notification_type` — which the dispatcher keeps
+stamping, so inbox history spanning the change reads consistently.
+
+**Changes rather than disappears — the three producers.** They keep their cron
+ids, their horizons, their `source_key` schemes, and their opt-in resolution.
+Two edits each: `reconcileReminders` → `reconcileScheduled` with per-user plan
+entries instead of `notify_users`, and a literal delivery hour in place of the
+imported slot constant. `home/crons/pickup-reminders.ts` and
+`credit-cards/crons/perk-reminders.ts` currently import `EVENING_HOUR` /
+`MORNING_HOUR` from `../../events/utils/reminderDate` — that cross-app reach
+into a feature app goes away, and 18:00 and 09:00 become ordinary numbers on a
+minute-granularity dispatcher rather than the only two times that exist.
+
+### 6.4 Two consequences worth knowing about
+
+**The `per-record` access model loses its only production user.** `reminder` is
+the sole resource declaring `access: { model: 'per-record' }` — `documents` uses
+`model: 'private'`, everything else is `shared`. The mechanism stays (the
+`per-record` case in `permissions/household.ts`, the `translate.ts` encoding,
+`resolve.ts`, and [`record-visibility.md`](./record-visibility.md)) but nothing
+exercises it end to end once `reminder` is gone; only unit tests and a synthetic
+`'thing'` fixture cover it. **Don't delete it** — it's the answer for the next
+resource that is some-mine-some-ours, and todos is the obvious candidate. Do
+know that it becomes untested-in-production, and that a scheduled notification
+doesn't need it (the parent path does that job).
+
+**One test fixture names a dead resource.**
+`permissions/__tests__/householdFilter.test.ts` builds an inline `reminder`
+definition to assert the per-record grant filter. It keeps compiling — the
+fixture is a literal, not an import — but it should be renamed to whatever the
+next per-record resource is, or to a neutral `thing`, so it stops describing
+something that no longer exists.
 
 ---
 
