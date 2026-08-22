@@ -1,10 +1,11 @@
 /**
  * Unit tests for the `home-pickup-reminders` cron handler.
  *
- * The engine client is mocked with an in-memory reminders collection, so what's
- * under test is the handler's own logic: reading each household member's opt-in,
- * folding a collection day's streams into one reminder due the evening before,
- * and reconciling with what an earlier run wrote.
+ * The engine client is mocked with an in-memory per-user notification queue, so
+ * what's under test is the handler's own logic: reading each household member's
+ * opt-in, folding a collection day's streams into one notification due the
+ * evening before, addressing it to whoever opted in, and reconciling with what
+ * an earlier run wrote.
  */
 
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -19,40 +20,45 @@ const h = vi.hoisted(() => {
     users: [] as Row[],
     optedIn: [] as string[],
     pickups: [] as Row[],
-    reminders: [] as Row[],
+    /** The delivery queue, per user — `/users/{id}/scheduled-notifications`. */
+    queue: {} as Record<string, Row[]>,
     nextId: 1,
   };
   const writes = {
-    created: [] as Row[],
+    created: [] as Array<Row & { userId: string }>,
     updated: [] as Array<{ id: string; patch: Row }>,
     deleted: [] as string[],
   };
-  const remindersCollection = {
-    listAll: async () => state.reminders,
+  const queueFor = (userId: string) => ({
+    listAll: async () => state.queue[userId] ?? [],
     create: async (payload: Row) => {
       const row = { id: `new-${state.nextId++}`, ...payload };
-      state.reminders.push(row);
-      writes.created.push(row);
+      (state.queue[userId] ??= []).push(row);
+      writes.created.push({ ...row, userId });
       return row;
     },
     record: (id: string) => ({
       update: async (patch: Row) => {
         writes.updated.push({ id, patch });
-        const row = state.reminders.find((r) => r.id === id);
+        const row = (state.queue[userId] ?? []).find((r) => r.id === id);
         if (row) Object.assign(row, patch);
         return row;
       },
       delete: async () => {
         writes.deleted.push(id);
-        state.reminders = state.reminders.filter((r) => r.id !== id);
+        state.queue[userId] = (state.queue[userId] ?? []).filter((r) => r.id !== id);
       },
     }),
-  };
+  });
   const fakeHs = {
     collection: (name: string) => {
-      if (name === 'users') return { listAll: async () => state.users };
+      if (name === 'users') {
+        return {
+          listAll: async () => state.users,
+          record: (userId: string) => ({ collection: () => queueFor(userId) }),
+        };
+      }
       if (name === 'garbage-pickups') return { listAll: async () => state.pickups };
-      if (name === 'reminders') return remindersCollection;
       return { listAll: async () => [] };
     },
   };
@@ -92,7 +98,7 @@ beforeEach(() => {
   h.state.users = [{ id: 'u1' }, { id: 'u2' }];
   h.state.optedIn = ['u1'];
   h.state.pickups = [];
-  h.state.reminders = [];
+  h.state.queue = {};
   h.state.nextId = 1;
   h.writes.created = [];
   h.writes.updated = [];
@@ -126,7 +132,7 @@ describe('buildContent', () => {
 });
 
 describe('pickup reminders', () => {
-  test('one collection day becomes one reminder, due the evening before', async () => {
+  test('one collection day becomes one queued notification, the evening before', async () => {
     h.state.pickups = [
       { id: 'p1', pickup_date: '2026-06-16', stream: 'garbage' },
       { id: 'p2', pickup_date: '2026-06-16', stream: 'recyclable' },
@@ -134,15 +140,18 @@ describe('pickup reminders', () => {
 
     const result = await handler(ctx());
 
+    // One opt-in, so one plan entry and one row — under that person, because
+    // a scheduled notification is addressed by the user it's parented under.
     expect(result).toMatchObject({ optedIn: 1, planned: 1, created: 1 });
     expect(h.writes.created[0]).toMatchObject({
+      userId: 'u1',
       title: 'Bins out tonight: Trash and Recycling',
-      due_at: eveningAt(0),
-      type: 'home',
+      message: 'Trash and Recycling are collected tomorrow, Tuesday, June 16.',
+      send_at: eveningAt(0),
+      url: '/home',
+      source_app: 'home',
       source_key: 'pickup:2026-06-16',
-      visibility: 'household',
-      status: 'pending',
-      notify_users: ['u1'],
+      status: 'scheduled',
     });
   });
 
@@ -155,13 +164,18 @@ describe('pickup reminders', () => {
     expect(result).toMatchObject({ planned: 0, created: 0 });
   });
 
-  test('everyone opted in is addressed on the one row', async () => {
+  test('everyone opted in gets their own row', async () => {
     h.state.optedIn = ['u1', 'u2'];
     h.state.pickups = [{ id: 'p1', pickup_date: '2026-06-16', stream: 'garbage' }];
 
-    await handler(ctx());
+    const result = await handler(ctx());
 
-    expect(h.writes.created[0].notify_users).toEqual(['u1', 'u2']);
+    // Fan-out happens here, at schedule time, rather than at delivery: two
+    // people means two rows, each under its own parent.
+    expect(result).toMatchObject({ planned: 2, created: 2 });
+    expect(h.writes.created.map((r) => r.userId).sort()).toEqual(['u1', 'u2']);
+    expect(h.state.queue.u1).toHaveLength(1);
+    expect(h.state.queue.u2).toHaveLength(1);
   });
 
   test('today’s collection is not announced — that evening has gone', async () => {
@@ -209,35 +223,40 @@ describe('pickup reminders', () => {
     const result = await handler(ctx());
 
     expect(result).toMatchObject({ created: 1, withdrawn: 1 });
-    expect(h.state.reminders).toHaveLength(1);
-    expect(h.state.reminders[0]).toMatchObject({
+    expect(h.state.queue.u1).toHaveLength(1);
+    expect(h.state.queue.u1[0]).toMatchObject({
       source_key: 'pickup:2026-06-17',
-      due_at: eveningAt(1),
+      send_at: eveningAt(1),
     });
   });
 
-  test('opting out withdraws the reminders already written', async () => {
+  test('opting out withdraws the rows already written', async () => {
     h.state.pickups = [{ id: 'p1', pickup_date: '2026-06-16', stream: 'garbage' }];
     await handler(ctx());
-    expect(h.state.reminders).toHaveLength(1);
+    expect(h.state.queue.u1).toHaveLength(1);
 
     h.state.optedIn = [];
     const result = await handler(ctx());
 
+    // The reconcile still visits every user, not only those in the plan —
+    // otherwise the last opt-out would leave its rows behind forever.
     expect(result).toMatchObject({ withdrawn: 1 });
-    expect(h.state.reminders).toHaveLength(0);
+    expect(h.state.queue.u1).toHaveLength(0);
   });
 
-  test('a reminder from another app is never touched', async () => {
-    h.state.reminders = [
-      {
-        id: 'e1',
-        title: 'Today: Mum’s birthday',
-        due_at: new Date(2026, 5, 20, 9).toISOString(),
-        type: 'events',
-        source_key: 'ev1:day_of:2026',
-      },
-    ];
+  test('a notification from another app is never touched', async () => {
+    h.state.queue = {
+      u1: [
+        {
+          id: 'e1',
+          title: 'Today: Mum’s birthday',
+          send_at: new Date(2026, 5, 20, 9).toISOString(),
+          status: 'scheduled',
+          source_app: 'events',
+          source_key: 'ev1:day_of:2026',
+        },
+      ],
+    };
     h.state.pickups = [];
 
     const result = await handler(ctx());
@@ -247,15 +266,18 @@ describe('pickup reminders', () => {
   });
 
   test('a long-past bin night is swept', async () => {
-    h.state.reminders = [
-      {
-        id: 'old',
-        title: 'Bins out tonight: Trash',
-        due_at: new Date(2026, 4, 1, 18).toISOString(),
-        type: 'home',
-        source_key: 'pickup:2026-05-02',
-      },
-    ];
+    h.state.queue = {
+      u1: [
+        {
+          id: 'old',
+          title: 'Bins out tonight: Trash',
+          send_at: new Date(2026, 4, 1, 18).toISOString(),
+          status: 'sent',
+          source_app: 'home',
+          source_key: 'pickup:2026-05-02',
+        },
+      ],
+    };
 
     const result = await handler(ctx());
 

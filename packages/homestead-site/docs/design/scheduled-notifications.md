@@ -1,10 +1,13 @@
 # Scheduled notifications — Design
 
-**Status:** Proposed · supersedes most of
+**Status:** Release 1 shipped · supersedes most of
 [`reminders.md`](./reminders.md) · **Audience:** contributors
 
 > **Decided:** losing the checklist is accepted (§5.4) and household fan-out is
 > out of scope for now (§7) — "remind me", not "remind us".
+
+> **What shipped, and the two places the build departed from this document,**
+> are in §6.4. Release 2 — dropping the `reminder` definition — is still ahead.
 
 > One resource, `scheduled-notification`: a notification that hasn't been sent
 > yet. It replaces the `reminder` collection, both delivery crons, the
@@ -526,7 +529,35 @@ imported slot constant. `home/crons/pickup-reminders.ts` and
 into a feature app goes away, and 18:00 and 09:00 become ordinary numbers on a
 minute-granularity dispatcher rather than the only two times that exist.
 
-### 6.4 Two consequences worth knowing about
+### 6.4 What shipped, and where the build departed
+
+Release 1 is in. The resource, `server/scheduled-notifications.ts`, the
+`notifications-dispatch` cron, the Scheduled tab, all three converted producers,
+and the adoption migration all landed; the `reminders-notify-*` crons,
+`notifyReminders.ts`, `materializer.ts` and the reminder write paths are gone.
+Two things came out differently from §6.1, both for reasons the build surfaced.
+
+**The migration adopts only hand-typed reminders.** §6.1 step 4 said to adopt
+every pending reminder. That is wrong, and the reason is `runOnStart`: all three
+producers declare it, so they rebuild their whole horizon within seconds of the
+boot the migration runs on. Because the migration pass is fired off in the
+background by `syncSchema` and the cron scheduler starts immediately after
+(`server.ts`), the two genuinely race — and an adopted row plus a rebuilt row
+for the same occurrence is a duplicate with nothing to distinguish it. So the
+rule became: **if something else knows how to recreate it, let it.** Adopted rows
+carry no `source_app`, which means no reconcile ever sees them and the race
+cannot happen. What's carried over is exactly what nothing else can rebuild.
+
+**`fanOut` is part of the producer API.** §3.1 left fan-out as "the caller's
+job" and left each producer to write the loop. All three wanted the identical
+one, so it's a named export next to `reconcileScheduled` — which also puts the
+"one row means one person" rule somewhere it can be stated once.
+
+Two smaller additions, both foreseen in §2.3 and §4: `notification` gained `url`
+(so an inbox row can link somewhere), and `sendNotificationToUser` now returns
+the inbox row's id, which the dispatcher stores on `notification_id`.
+
+### 6.5 Two consequences worth knowing about
 
 **The `per-record` access model loses its only production user.** `reminder` is
 the sole resource declaring `access: { model: 'per-record' }` — `documents` uses

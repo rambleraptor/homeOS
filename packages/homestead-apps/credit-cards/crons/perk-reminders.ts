@@ -39,10 +39,10 @@ import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { usersWithFlag } from '@rambleraptor/homestead-core/server/user-settings';
 import {
-  reconcileReminders,
-  type PlannedReminder,
-} from '../../events/crons/materializer';
-import { MORNING_HOUR } from '../../events/utils/reminderDate';
+  fanOut,
+  reconcileScheduled,
+  type PlannedNotification,
+} from '@rambleraptor/homestead-core/server/scheduled-notifications';
 import { CREDIT_CARDS, CREDIT_CARD_PERKS, PERK_REDEMPTIONS } from '../resources';
 import { PERK_REMINDER_SETTING } from '../perkReminderSetting';
 import {
@@ -62,6 +62,17 @@ import type {
 
 /** The app id stamped on every reminder this handler raises. */
 export const CREDIT_CARDS_REMINDER_TYPE = 'credit-cards';
+
+/**
+ * Local hour a perk warning goes out. Used to be `MORNING_HOUR`, reached for
+ * across packages into the events app because the delivery cron only fired at
+ * two fixed hours. The dispatcher runs every minute now, so this is just the
+ * hour we want.
+ */
+export const NOTIFY_HOUR = 9;
+
+/** Where tapping a perk warning lands. */
+const CREDIT_CARDS_URL = '/credit-cards';
 
 /**
  * A card's whole digest is skipped when this little is left on the table.
@@ -160,7 +171,7 @@ export function windowOpensAt(period: PerkPeriod, frequency: PerkFrequency): Dat
     end.getFullYear(),
     end.getMonth(),
     end.getDate() - lead,
-    MORNING_HOUR,
+    NOTIFY_HOUR,
     0,
     0,
     0,
@@ -211,7 +222,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
     PERK_REMINDER_SETTING,
   );
 
-  const planned = new Map<string, PlannedReminder>();
+  const planned: PlannedNotification[] = [];
   let perksScanned = 0;
   let requests = 1;
 
@@ -284,18 +295,25 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
 
         const { title, notes } = buildContent(card, closing, period);
         const sourceKey = `perk-window:${card.id}:${key}`;
-        planned.set(sourceKey, {
-          source_key: sourceKey,
-          title,
-          notes,
-          due_at: dueAt.toISOString(),
-          notify_users: optedIn,
-        });
+        planned.push(
+          ...fanOut(
+            {
+              sourceKey,
+              title,
+              message: notes,
+              url: CREDIT_CARDS_URL,
+              sendAt: dueAt.toISOString(),
+              sourceCollection: CREDIT_CARDS,
+              sourceId: card.id,
+            },
+            optedIn,
+          ),
+        );
       }
     }
   }
 
-  const outcome = await reconcileReminders(
+  const outcome = await reconcileScheduled(
     token,
     CREDIT_CARDS_REMINDER_TYPE,
     planned,
@@ -303,13 +321,13 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   );
 
   await log(
-    `optedIn=${optedIn.length} perks=${perksScanned} requests=${requests} planned=${planned.size} created=${outcome.created} updated=${outcome.updated} unchanged=${outcome.unchanged} withdrawn=${outcome.withdrawn} pruned=${outcome.pruned}`,
+    `optedIn=${optedIn.length} perks=${perksScanned} requests=${requests} planned=${planned.length} created=${outcome.created} updated=${outcome.updated} unchanged=${outcome.unchanged} settled=${outcome.settled} withdrawn=${outcome.withdrawn} pruned=${outcome.pruned}`,
   );
   return {
     optedIn: optedIn.length,
     perks: perksScanned,
     requests,
-    planned: planned.size,
+    planned: planned.length,
     ...outcome,
   };
 };

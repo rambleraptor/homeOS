@@ -1,8 +1,11 @@
 /**
  * Notifications App Configuration
  *
- * App for viewing and managing user notifications.
- * Displays event reminders and system notifications.
+ * Two halves of one idea: the **inbox** (what has been delivered) and the
+ * **queue** (what is scheduled to be). The dispatcher cron moves rows from the
+ * second to the first — it is the only thing in Homestead that pushes on a
+ * schedule, which is why it lives here rather than in whichever feature app
+ * happened to want reminders first.
  */
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
@@ -13,6 +16,28 @@ export const notificationsApp: AppConfig = {
   name: 'Notifications',
   description: 'View and manage your notifications',
   resources: notificationsResources,
+  // Handler lives under `crons/`, so vite stubs it out of the browser bundle.
+  crons: [
+    {
+      id: 'notifications-dispatch',
+      title: 'Deliver scheduled notifications',
+      // A minute is the resolution a person can actually ask for ("remind me at
+      // 4:15"), and the handler is a filtered list per user — cheap enough to
+      // run this often at household scale.
+      intervalSeconds: 60,
+      // Catch up on anything that came due while the box was down; the
+      // handler's own grace window decides what is still worth sending.
+      runOnStart: true,
+      load: () => import('./crons/dispatch'),
+    },
+  ],
+  migrations: [
+    {
+      id: 'notifications-adopt-reminders',
+      title: 'Adopt hand-typed reminders into the queue',
+      load: () => import('./migrations/adopt-reminders'),
+    },
+  ],
   web: {
     icon: () => import('lucide-react').then((m) => m.Bell),
     basePath: '/notifications',

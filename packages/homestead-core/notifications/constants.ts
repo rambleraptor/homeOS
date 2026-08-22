@@ -9,3 +9,8 @@
  */
 export const NOTIFICATIONS = 'notifications' as const;
 export const NOTIFICATION_SUBSCRIPTIONS = 'notification-subscriptions' as const;
+/**
+ * The delivery queue: notifications that haven't happened yet. Sibling of
+ * {@link NOTIFICATIONS} (what already went out) under the same user parent.
+ */
+export const SCHEDULED_NOTIFICATIONS = 'scheduled-notifications' as const;

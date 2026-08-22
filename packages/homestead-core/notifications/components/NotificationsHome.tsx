@@ -1,9 +1,12 @@
+import { useSearchParams } from 'react-router-dom';
 import { Bell, Check, Calendar } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { Spinner } from '@rambleraptor/homestead-core/shared/components/Spinner';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
 import { useNotifications } from '../hooks/useNotifications';
+import { useScheduledNotifications } from '../hooks/useScheduledNotifications';
+import { ScheduledSection } from './ScheduledSection';
 import { useMarkNotificationAsRead } from '../hooks/useMarkNotificationAsRead';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Notification } from '../types';
@@ -115,15 +118,81 @@ function NotificationsPanel() {
   );
 }
 
+/**
+ * Two halves of one idea, as two tabs: the **inbox** (what has been delivered)
+ * and the **queue** (what is scheduled to be). They're the same objects a
+ * minute apart — the dispatcher cron moves a row from the second list to the
+ * first — so putting them on one page is what makes "why did I get that?" and
+ * "what's coming?" answerable in the same place.
+ *
+ * The selected tab lives in the URL (`?tab=scheduled`) rather than in state
+ * alone, so a link can point straight at the queue.
+ */
+type NotificationsTab = 'inbox' | 'scheduled';
+
+const TABS: { id: NotificationsTab; label: string }[] = [
+  { id: 'inbox', label: 'Inbox' },
+  { id: 'scheduled', label: 'Scheduled' },
+];
+
+const TAB_PARAM = 'tab';
+
 export function NotificationsHome() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: scheduled } = useScheduledNotifications();
+
+  // Anything unrecognized reads as the default tab, so a stale or hand-edited
+  // link lands somewhere sensible instead of on a blank page.
+  const tab: NotificationsTab =
+    searchParams.get(TAB_PARAM) === 'scheduled' ? 'scheduled' : 'inbox';
+
+  const selectTab = (next: NotificationsTab) => {
+    // Mutate a copy so any other params on the URL survive the switch.
+    const params = new URLSearchParams(searchParams);
+    if (next === 'inbox') params.delete(TAB_PARAM);
+    else params.set(TAB_PARAM, next);
+    setSearchParams(params, { replace: true });
+  };
+
+  const queuedCount = (scheduled ?? []).filter((r) => r.status === 'scheduled').length;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Notification Center"
-        subtitle="View and manage your notifications"
+        subtitle="What you've been told, and what you're about to be"
       />
 
-      <NotificationsPanel />
+      <div
+        className="border-b border-gray-200"
+        role="tablist"
+        data-testid="notifications-tabs"
+      >
+        <nav className="-mb-px flex gap-6">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => selectTab(id)}
+              data-testid={`notifications-tab-${id}`}
+              className={`border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+                tab === id
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {label}
+              {id === 'scheduled' && queuedCount > 0 && (
+                <span className="ml-2 text-xs text-gray-400">{queuedCount}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {tab === 'inbox' ? <NotificationsPanel /> : <ScheduledSection />}
     </div>
   );
 }

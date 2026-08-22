@@ -12,11 +12,12 @@
  *
  * Opt-in per person (`pickup_reminder`, declared in `../app.config.ts`) rather
  * than household-wide: whoever actually wheels the bins out wants this, and
- * nobody else does. The reminder row itself stays household-visible and carries
- * `notify_users`, so the pickup schedule is never anybody's private business —
- * only the interruption is. With nobody opted in, no rows are written at all.
+ * nobody else does. The plan is fanned out to one queued notification per
+ * opted-in person, so the interruption is theirs alone while the pickup
+ * calendar stays what it always was — household data anyone can read. With
+ * nobody opted in, no rows are written at all.
  *
- * Idempotent by `source_key` (`pickup:<date>`); see `reconcileReminders`.
+ * Idempotent by `source_key` (`pickup:<date>`); see `reconcileScheduled`.
  *
  * Server-only: lives under `crons/`, so vite stubs it out of the browser bundle.
  */
@@ -25,17 +26,28 @@ import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { usersWithFlag } from '@rambleraptor/homestead-core/server/user-settings';
 import {
-  reconcileReminders,
-  type PlannedReminder,
-} from '../../events/crons/materializer';
-import { EVENING_HOUR } from '../../events/utils/reminderDate';
+  fanOut,
+  reconcileScheduled,
+  type PlannedNotification,
+} from '@rambleraptor/homestead-core/server/scheduled-notifications';
 import { GARBAGE_PICKUPS } from '../resources';
 import { PICKUP_REMINDER_SETTING } from '../pickupReminderSetting';
 import { parseIsoDate, streamLabel, upcomingPickupDays } from '../utils/pickups';
 import type { GarbagePickup } from '../types';
 
-/** The app id stamped on every reminder this handler raises. */
+/** The app id stamped on every notification this handler schedules. */
 export const HOME_REMINDER_TYPE = 'home';
+
+/**
+ * Local hour the night-before reminder goes out. Used to be `EVENING_HOUR`,
+ * reached for across packages into the events app because the delivery cron
+ * only fired at two fixed hours. The dispatcher runs every minute now, so
+ * "tonight" is just 18:00.
+ */
+export const PICKUP_HOUR = 18;
+
+/** Where tapping a bin reminder lands. */
+const HOME_URL = '/home';
 
 /**
  * How far ahead to materialize. A week covers the weekly cadence twice over, so
@@ -88,7 +100,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
     PICKUP_REMINDER_SETTING,
   );
 
-  const planned = new Map<string, PlannedReminder>();
+  const planned: PlannedNotification[] = [];
   let days = 0;
 
   // With nobody opted in there is nothing to plan — but still reconcile, so
@@ -107,7 +119,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
         collectionDay.getFullYear(),
         collectionDay.getMonth(),
         collectionDay.getDate() - 1,
-        EVENING_HOUR,
+        PICKUP_HOUR,
         0,
         0,
         0,
@@ -122,25 +134,31 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
       const streams = [...new Set(day.pickups.map((pickup) => pickup.stream))];
       const { title, notes } = buildContent(streams, day.date);
       const sourceKey = `pickup:${day.date}`;
-      planned.set(sourceKey, {
-        source_key: sourceKey,
-        title,
-        notes,
-        due_at: dueAt.toISOString(),
-        notify_users: optedIn,
-      });
+      planned.push(
+        ...fanOut(
+          {
+            sourceKey,
+            title,
+            message: notes,
+            url: HOME_URL,
+            sendAt: dueAt.toISOString(),
+            sourceCollection: GARBAGE_PICKUPS,
+          },
+          optedIn,
+        ),
+      );
     }
   }
 
-  const outcome = await reconcileReminders(token, HOME_REMINDER_TYPE, planned, {
+  const outcome = await reconcileScheduled(token, HOME_REMINDER_TYPE, planned, {
     now,
     pruneAfterDays: PRUNE_AFTER_DAYS,
   });
 
   await log(
-    `optedIn=${optedIn.length} days=${days} planned=${planned.size} created=${outcome.created} updated=${outcome.updated} unchanged=${outcome.unchanged} withdrawn=${outcome.withdrawn} pruned=${outcome.pruned}`,
+    `optedIn=${optedIn.length} days=${days} planned=${planned.length} created=${outcome.created} updated=${outcome.updated} unchanged=${outcome.unchanged} settled=${outcome.settled} withdrawn=${outcome.withdrawn} pruned=${outcome.pruned}`,
   );
-  return { optedIn: optedIn.length, days, planned: planned.size, ...outcome };
+  return { optedIn: optedIn.length, days, planned: planned.length, ...outcome };
 };
 
 export default handler;
