@@ -15,7 +15,17 @@ describe('describeLinkedResource', () => {
       id: 'abc123',
       label: 'HSA receipt',
       article: 'an',
-      href: '/hsa',
+      href: '/receipts',
+    });
+  });
+
+  it('describes a charitable receipt, linking to the tab holding it', () => {
+    expect(describeLinkedResource('charitable-receipts/xyz789')).toMatchObject({
+      plural: 'charitable-receipts',
+      id: 'xyz789',
+      label: 'charitable receipt',
+      article: 'a',
+      href: '/receipts?tab=charitable',
     });
   });
 

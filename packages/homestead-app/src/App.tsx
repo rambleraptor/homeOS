@@ -68,6 +68,8 @@ export function App() {
         />
         <Route element={<ShellLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
+          {/* The HSA app became the Receipts app; keep old bookmarks working. */}
+          <Route path="/hsa" element={<Navigate to="/receipts" replace />} />
           <Route path="*" element={<AppRoute />} />
         </Route>
       </Routes>

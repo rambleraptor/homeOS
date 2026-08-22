@@ -155,16 +155,16 @@ export const APP_CATALOG: readonly CatalogApp[] = [
     description: 'Curb pickups and home documents in one place',
   },
   {
-    slug: 'hsa',
-    exportName: 'hsaApp',
-    display: 'HSA Receipts',
-    description: 'Track unreimbursed medical expenses for tax-free HSA withdrawals',
-  },
-  {
     slug: 'people',
     exportName: 'peopleApp',
     display: 'People',
     description: 'Manage contact information and important dates for people you know',
+  },
+  {
+    slug: 'receipts',
+    exportName: 'receiptsApp',
+    display: 'Receipts',
+    description: 'Medical and charitable receipts, kept for tax time',
   },
   {
     slug: 'recipes',

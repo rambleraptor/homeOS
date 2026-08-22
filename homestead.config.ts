@@ -18,8 +18,8 @@ import {
   giftCardsApp,
   groceriesApp,
   homeApp,
-  hsaApp,
   peopleApp,
+  receiptsApp,
   recipesApp,
   todosApp,
 } from '@rambleraptor/homestead-apps';
@@ -200,7 +200,7 @@ const config: HomesteadConfig = {
     recipesApp,
     peopleApp,
     eventsApp,
-    hsaApp,
+    receiptsApp,
     creditCardsApp,
     gamesApp,
   ],

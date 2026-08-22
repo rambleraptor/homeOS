@@ -15,8 +15,8 @@
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import type { PostClassifyHandler } from '../docType';
 import { DOCUMENTS } from '../../resources';
-import { HSA_RECEIPTS } from '../../../hsa/resources';
-import type { HSAReceipt, ReceiptCategory } from '../../../hsa/types';
+import { HSA_RECEIPTS } from '../../../receipts/medical/resources';
+import type { HSAReceipt, ReceiptCategory } from '../../../receipts/medical/types';
 import { PEOPLE } from '../../../people/resources';
 import type { Person } from '../../../people/types';
 import { matchPersonByName } from '../../../people/utils/matchPerson';

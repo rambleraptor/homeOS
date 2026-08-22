@@ -15,7 +15,7 @@ export { gamesApp } from './games';
 export { giftCardsApp } from './gift-cards';
 export { groceriesApp } from './groceries';
 export { homeApp } from './home';
-export { hsaApp } from './hsa';
 export { peopleApp } from './people';
+export { receiptsApp } from './receipts';
 export { recipesApp } from './recipes';
 export { todosApp } from './todos';
