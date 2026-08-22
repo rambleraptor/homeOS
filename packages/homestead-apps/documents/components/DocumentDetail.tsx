@@ -22,7 +22,7 @@ import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { SectionCard } from '@rambleraptor/homestead-core/shared/components/SectionCard';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
-import { getDocType, getDocTypes } from '../doc-types/registry';
+import { getDocType } from '../doc-types/registry';
 import { categoryLabel, categoryTone, documentCategory, OTHER_CATEGORY } from '../categories';
 import { useDocument } from '../hooks/useDocument';
 import { useJustParsed } from '../hooks/useJustParsed';
@@ -31,6 +31,7 @@ import { useSplitDocument } from '../hooks/useSplitDocument';
 import { useDeleteDocument, useUpdateDocument } from '../hooks/useUpdateDocument';
 import { useDownloadDocument } from '../hooks/useDownloadDocument';
 import { ConfidenceMeter } from './ConfidenceMeter';
+import { DocTypeCombobox } from './DocTypeCombobox';
 import { DocumentLabels } from './DocumentLabels';
 import { DocumentOrigin } from './DocumentOrigin';
 import { DocumentMetadata } from './DocumentMetadata';
@@ -230,7 +231,9 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
               </SectionCard>
             )}
 
-            <SectionCard title="Manage">
+            {/* overflow-visible: the type picker's panel opens past the card's
+                edge, and SectionCard clips by default. */}
+            <SectionCard title="Manage" className="overflow-visible">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="secondary"
@@ -244,29 +247,18 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
                 </Button>
 
                 {/* Force a type: skips the AI's guess and extracts that type's
-                    fields directly — for when classification keeps getting it wrong. */}
-                <label htmlFor="document-force-type" className="sr-only">
-                  Classify as a specific document type
-                </label>
-                <select
-                  id="document-force-type"
+                    fields directly — for when classification keeps getting it
+                    wrong. Holds no selection of its own; picking a type is the
+                    action. */}
+                <DocTypeCombobox
                   value=""
-                  onChange={(e) => {
-                    const forced = e.target.value;
-                    if (forced) classify.mutate({ id: documentId, docType: forced });
-                  }}
+                  onSelect={(docType) => classify.mutate({ id: documentId, docType })}
+                  placeholder="Classify as…"
                   disabled={busy}
-                  className="rounded-lg border border-gray-200 bg-surface-white px-3 py-1.5 text-sm text-brand-slate focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30 disabled:opacity-50"
-                  data-testid="document-force-type"
+                  aria-label="Classify as a specific document type"
                   title="Force this document to a specific type, then extract its fields"
-                >
-                  <option value="">Classify as…</option>
-                  {getDocTypes().map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
+                  data-testid="document-force-type"
+                />
 
                 {doc.mime_type === 'application/pdf' && (
                   <Button
