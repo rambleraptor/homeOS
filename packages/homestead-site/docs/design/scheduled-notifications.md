@@ -3,6 +3,9 @@
 **Status:** Proposed · supersedes most of
 [`reminders.md`](./reminders.md) · **Audience:** contributors
 
+> **Decided:** losing the checklist is accepted (§5.4) and household fan-out is
+> out of scope for now (§7) — "remind me", not "remind us".
+
 > One resource, `scheduled-notification`: a notification that hasn't been sent
 > yet. It replaces the `reminder` collection, both delivery crons, the
 > materializer, and the `notify_users` / `visibility` machinery around them.
@@ -287,19 +290,19 @@ Hooks mirror the existing ones (`useScheduledNotifications`,
 `useScheduleNotification`, `useCancelScheduledNotification`), written against
 the plain aepbase client on `/users/{me}/scheduled-notifications`.
 
-**"Remind me" is per-person by default.** `checkUserScope` means the browser
-can only write under the signed-in user, so the plain client covers "remind
-me" and nothing else. Household fan-out is a privileged operation and gets a
-small server route, mirroring `POST /api/notifications/send-test`:
+**"Remind me", not "remind us".** `checkUserScope` means the browser can only
+write under the signed-in user, so the plain client covers scheduling for
+yourself and nothing else. That is the whole user-facing scope: no new server
+route, no `recipients` parameter, no admin token anywhere near the SPA. §7
+records the escape hatch if that changes.
 
-```
-POST /api/notifications/schedule
-{ recipients: 'household' | string[], title, message, url?, send_at }
-```
-
-It authenticates the caller, then writes one row per recipient with an admin
-token. ~40 lines, and it's the only way "remind us both to leave at 6" works
-without weakening the scoping rule.
+Household delivery is unaffected, because it was never a browser concern.
+Bin night still reaches everyone who opted in, and an event still reaches
+everyone with an `event-reminder` — those are producers running under the
+scheduler's admin token, fanning out into per-user rows server-side (§3.1).
+The only thing that goes away is a person typing a reminder *at* somebody else,
+and the honest read is that the household reminders worth having are the ones
+an app already knows how to derive.
 
 ### 3.3 Chat: free
 
@@ -415,14 +418,18 @@ hooks, both delivery crons, and `materializer.ts` all go. `event-reminder`,
 the `pickup_reminder` flag, the perk reminder settings, and the whole
 `notification` inbox stay.
 
-**What is genuinely lost:** the checklist. `status: 'pending' | 'done'`, the
-"here's what's outstanding" view, ticking a box. A scheduled notification has no
-completion state because a notification isn't a task — it fires and it's over.
+**What is given up, deliberately:** the checklist. `status: 'pending' | 'done'`,
+the "here's what's outstanding" view, ticking a box. A scheduled notification
+has no completion state because a notification isn't a task — it fires and it's
+over. This is an accepted loss, not an oversight: it is the half of `reminder`
+that never worked (§1), and keeping it is what forces the resource back into
+being two nouns.
 
-If that turns out to be wanted, the answer is `todo.due_at` plus a producer that
-schedules a notification per dated todo, not a second list living beside the
-todos app. `reminders.md` §7 flagged the todo boundary as "a real risk"; this is
-that risk resolving in todos' favour.
+There is no plan to restore it here. If a dated checklist is ever wanted, it is
+`todo.due_at` plus a producer that schedules a notification per dated todo —
+one list, in the app that already owns lists. `reminders.md` §7 flagged the todo
+boundary as "a real risk"; this is that risk resolving in todos' favour, which
+is the outcome that keeps a second list from growing back.
 
 ---
 
@@ -445,6 +452,10 @@ Two releases, per `CLAUDE.md`'s retirement rule.
    else every user — carrying `source_app: reminder.type`,
    `source_key: reminder.source_key`, `send_at: due_at`. Idempotent on
    `(user, source_app, source_key)`; skip rows already adopted.
+   This is the one place a hand-typed household reminder still fans out to
+   everybody — a migration runs under an admin token, so existing rows carry
+   over intact. It doesn't contradict §3.2: what stops is *creating* new ones
+   that way, not honouring the ones already there.
 5. Delete `reminders-notify-morning` / `-evening` and their handlers. Make the
    Reminders tab read-only with a pointer to `/notifications?tab=scheduled`.
 
@@ -477,8 +488,21 @@ cron, one server helper, and one tab.
 - **A digest.** "Everything due today in one push" is appealing and is a
   dispatcher-level feature (group a tick's due rows per user before sending),
   not a schema one. It can be added later without touching the resource.
-- **Cross-user scheduling from the browser without the route.** `checkUserScope`
-  stays as it is; §3.2's route is the one sanctioned fan-out path.
+- **Household fan-out from the UI.** Scheduling for someone else is out of
+  scope: `checkUserScope` stays as it is, and the SPA writes only under the
+  signed-in user. Producers still fan out server-side, so nothing about bin
+  night or event reminders depends on this. If "remind us both to leave at 6"
+  is ever wanted, the shape is settled and small — a route mirroring
+  `POST /api/notifications/send-test`:
+
+  ```
+  POST /api/notifications/schedule
+  { recipients: 'household' | string[], title, message, url?, send_at }
+  ```
+
+  authenticating the caller and writing one row per recipient with an admin
+  token, ~40 lines. It is the only sanctioned fan-out path; widening
+  `checkUserScope` instead is not on the table.
 - **`ReminderSource` / `reminder-subscription` / `lead_days`.** The unbuilt half
   of `reminders.md`. Producers already own their date math; a scanner extension
   point buys nothing once the queue is the shared surface. `lead_days` remains
