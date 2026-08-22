@@ -112,7 +112,9 @@ export function makeMcpRoute(
         });
         return forbidden(`no Homestead user for ${identity.email}`);
       }
-      const minted = mintTokenForUser(engine.db, found.user.id);
+      // The scope rides on the minted token, not just on the tool filter below:
+      // the token is a valid bearer at every other door too.
+      const minted = mintTokenForUser(engine.db, found.user.id, identity.scope);
       return { token: minted.token, scope: identity.scope ?? null, release: minted.revoke };
     }
     return unauthorizedResponse(cfg.issuerUrl, '/api/mcp');

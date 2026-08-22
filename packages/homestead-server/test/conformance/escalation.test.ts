@@ -21,8 +21,16 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { Hono } from 'hono';
 import { call } from '../engine/helpers';
+import { makeMcpRoute } from '../../src/routes/mcp';
+import { MCP_SCOPE_READ } from '../../src/auth/scopes';
+import { mintTokenForUser } from '../../src/bootstrap';
+import { getAccessTokenBinding } from '../../src/auth/storage';
+import type { RequestAuthenticator } from '../../src/auth/authenticator';
 import {
+  AUTH_CFG,
+  BOOK_DEF,
   definePatResource,
   makeConformanceHarness,
   mintPatWithScope,
@@ -127,5 +135,81 @@ describe('minting a token is bounded by the minting credential', () => {
     // interactively is exactly who is supposed to be creating tokens.
     const res = await mintUnrestricted(h.credentials.session!.token, 'legitimate');
     expect(res.status).toBe(201);
+  });
+});
+
+describe('an externally-authenticated MCP caller', () => {
+  /**
+   * An authenticator that resolves every request to the harness user with a
+   * fixed scope. Stands in for a gateway provider (Cloudflare Access and
+   * friends) that reports a *scoped* identity — none in the tree does today,
+   * which is exactly why this needs a test: the route mints a fresh token for
+   * such a caller, and a token minted without that scope would be unattenuated
+   * at every door while the tool list pretended otherwise.
+   */
+  function scopedAuthenticator(email: string, scope: string): RequestAuthenticator {
+    return {
+      name: 'test-scoped-gateway',
+      authenticate: async () => ({ email, scope }),
+    };
+  }
+
+  test('a scoped identity maps to a token the engine holds to that scope', async () => {
+    // The token the route would mint for such a caller. Asserting on it
+    // directly, rather than through a tools/call, is deliberate: a read scope
+    // leaves `create_book` unregistered, so an MCP write comes back as an error
+    // whether or not the credential itself is bounded. The question here is
+    // what the credential can do at the door MCP *doesn't* guard.
+    const minted = mintTokenForUser(h.t.engine.db, h.userId, MCP_SCOPE_READ);
+    try {
+      const read = await call(h.t.engine, 'GET', '/books', { token: minted.token });
+      expect(verdictOf(read.status)).toBe('allow');
+
+      const write = await call(h.t.engine, 'POST', '/books', {
+        token: minted.token,
+        body: { title: 'nope' },
+      });
+      expect(
+        verdictOf(write.status),
+        'a token minted for a read-scoped external identity could still write — ' +
+          'the identity\u2019s scope is not reaching the minted credential',
+      ).toBe('deny');
+    } finally {
+      minted.revoke();
+    }
+  });
+
+  test('revoking a scoped mint leaves no binding behind', async () => {
+    const minted = mintTokenForUser(h.t.engine.db, h.userId, MCP_SCOPE_READ);
+    expect(getAccessTokenBinding(h.t.engine.db, minted.token)?.scope).toBe(MCP_SCOPE_READ);
+    minted.revoke();
+    expect(getAccessTokenBinding(h.t.engine.db, minted.token)).toBeNull();
+  });
+
+  test('the route accepts a scoped identity and serves its in-scope tools', async () => {
+    const app = new Hono();
+    app.route(
+      '/api/mcp',
+      makeMcpRoute(h.t.engine, AUTH_CFG, () => [BOOK_DEF], {
+        authenticators: [scopedAuthenticator('member@example.com', MCP_SCOPE_READ)],
+      }),
+    );
+    const res = await app.request('/api/mcp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: { name: 'read_book', arguments: {} },
+      }),
+    });
+    expect(res.status).toBe(200);
+    // Proves the identity mapped to a real user and the minted token worked —
+    // without which the scope assertions above would be vacuous.
+    expect(await res.text()).not.toContain('isError');
   });
 });
