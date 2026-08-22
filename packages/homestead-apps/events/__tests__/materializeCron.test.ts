@@ -171,7 +171,7 @@ describe('events materializer', () => {
     expect(h.writes.created[0]).toMatchObject({ source_key: 'e1:day_of:2026' });
   });
 
-  test('one reminder carries everyone who opted in for that lead', async () => {
+  test('everyone who opted in for a lead gets their own row', async () => {
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 15 }];
     h.state.prefsByUser = {
       u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }],

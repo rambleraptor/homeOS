@@ -24,9 +24,10 @@ export const creditCardsApp: AppConfig = {
       default: false,
     },
   },
-  // Turns closing perk windows into reminders the morning cron delivers. Runs
-  // before the household is up, and catches up at boot. Handler lives under
-  // `crons/`, so it's stubbed out of the browser bundle.
+  // Turns closing perk windows into notifications queued for 09:00; the
+  // notifications app's dispatcher delivers them. Runs before the household is
+  // up, and catches up at boot. Handler lives under `crons/`, so it's stubbed
+  // out of the browser bundle.
   crons: [
     {
       id: 'credit-cards-perk-reminders',

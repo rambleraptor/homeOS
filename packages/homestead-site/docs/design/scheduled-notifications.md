@@ -459,20 +459,28 @@ Two releases, per `CLAUDE.md`'s retirement rule.
    everybody — a migration runs under an admin token, so existing rows carry
    over intact. It doesn't contradict §3.2: what stops is *creating* new ones
    that way, not honouring the ones already there.
-5. Delete `reminders-notify-morning` / `-evening` and their handlers. Make the
-   Reminders tab read-only with a pointer to `/notifications?tab=scheduled`.
+5. Delete `reminders-notify-morning` / `-evening` and their handlers, and
+   **remove the Reminders UI entirely** — the tab, the section, the form, the
+   hooks, `reminderDate.ts`, `materializer.ts`, and the e2e coverage for all of
+   it. The Events page goes back to one page.
 
-At this point nothing writes `reminder` and nothing reads it for delivery.
+At this point nothing writes `reminder`, nothing reads it for delivery, and
+nothing renders it. The definition alone survives, so the adoption migration
+has a collection to read.
 
 ### 6.2 Release 2 — remove
 
-Drop the `reminder` definition, `RemindersSection`,
-`ReminderForm`, `useReminders`/`useCreateReminder`/`useUpdateReminder`/`useDeleteReminder`,
-`materializer.ts`, the slot constants in `utils/reminderDate.ts`, and
-`e2e/reminders-crud.spec.ts`. Removing the definition drops a table that holds
-data, so the release ships a migration declaring the drop
-(`drops: [{ resource: 'reminder' }]`, implying `destructive`) — the engine
-refuses otherwise, which is the guard working as intended.
+All that's left is the definition itself, in `events/resources.ts`, marked
+`RETIRED` and frozen. Removing it drops a table that holds data, so the release
+ships a migration declaring the drop (`drops: [{ resource: 'reminder' }]`,
+implying `destructive`).
+
+Note that the engine's column guard does **not** protect this: it refuses to
+drop a *column* that still holds data, but removing a whole definition takes the
+table with it. The only thing standing between the old rows and deletion is
+running `notifications-adopt-reminders` first — so Release 2 waits until that
+migration has run everywhere it needs to, which the `_homestead_migrations`
+ledger records.
 
 ### 6.3 Inventory
 
@@ -556,6 +564,16 @@ one, so it's a named export next to `reconcileScheduled` — which also puts the
 Two smaller additions, both foreseen in §2.3 and §4: `notification` gained `url`
 (so an inbox row can link somewhere), and `sendNotificationToUser` now returns
 the inbox row's id, which the dispatcher stores on `notification_id`.
+
+**The Reminders UI is gone, not read-only.** §6.1 originally kept a read-only
+list through Release 1, on the reasoning that the adoption migration runs once
+and anything typed afterwards would be stranded. Closing the write paths does
+solve that, and a read-only list has some transitional value — but it also
+leaves a page whose only job is to apologise for itself. The whole surface went
+instead: the tab, the section, the form, the four hooks, `reminderDate.ts`, the
+orphaned `materializer.ts`, and the e2e spec and POM methods. `EventsHome` is a
+single page again. What survives is the definition, so the migration has
+something to read, and §6.2 is now only the drop.
 
 ### 6.5 Two consequences worth knowing about
 
