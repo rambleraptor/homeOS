@@ -27,6 +27,10 @@ import { makeMcpRoute } from '../../src/routes/mcp';
 import { MCP_SCOPE_READ } from '../../src/auth/scopes';
 import { mintTokenForUser } from '../../src/bootstrap';
 import { getAccessTokenBinding } from '../../src/auth/storage';
+import { dispatchCustomMethod } from '@rambleraptor/homestead-core/resources/custom-methods/dispatcher';
+import { authenticate } from '@rambleraptor/homestead-core/server/aepbase';
+import { serverClient } from '@rambleraptor/homestead-core/server/client';
+import type { CustomMethodContext } from '@rambleraptor/homestead-core/resources/types';
 import type { RequestAuthenticator } from '../../src/auth/authenticator';
 import {
   AUTH_CFG,
@@ -34,8 +38,10 @@ import {
   definePatResource,
   makeConformanceHarness,
   mintPatWithScope,
+  verdictFromError,
   verdictOf,
   type ConformanceHarness,
+  type Verdict,
 } from './harness';
 
 let h: ConformanceHarness;
@@ -211,5 +217,70 @@ describe('an externally-authenticated MCP caller', () => {
     // Proves the identity mapped to a real user and the minted token worked —
     // without which the scope assertions above would be vacuous.
     expect(await res.text()).not.toContain('isError');
+  });
+});
+
+describe('the custom-method door', () => {
+  /**
+   * AEP-136 custom methods are dispatched after an authentication check and
+   * nothing else — the dispatcher has no notion of authorization, so a handler's
+   * authority is whatever the token it was handed can do. That makes the ceiling
+   * transitive rather than enforced *here*, which holds only while handlers do
+   * their writes with the caller's own token.
+   *
+   * This pins that: a handler faithfully using `serverClient(ctx.auth.token)` is
+   * bounded by the credential, so a read-scoped token cannot write through a
+   * custom method. It does *not* pin the general case — a handler that mints its
+   * own admin token still escapes, and no test can catch that from out here.
+   */
+  async function invokeWriter(token: string): Promise<Verdict> {
+    let handlerVerdict: Verdict | undefined;
+    const res = await dispatchCustomMethod({
+      request: new Request('http://localhost:8090/api/aep/books:stock', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      }),
+      path: '/books:stock',
+      resolveMethod: (plural, verb) =>
+        plural === 'books' && verb === 'stock'
+          ? {
+              target: 'collection' as const,
+              description: 'Add a book to the shelf.',
+              request: { type: 'object', properties: {} },
+              load: async () => ({
+                default: async (ctx: CustomMethodContext) => {
+                  try {
+                    await serverClient(ctx.auth.token)
+                      .collection('books')
+                      .create({ title: 'via custom method' });
+                    handlerVerdict = 'allow';
+                  } catch (err) {
+                    // HomesteadError surfaces the engine's code, not `.status`.
+                    handlerVerdict = verdictFromError((err as Error).message);
+                  }
+                  return Response.json({ ok: handlerVerdict === 'allow' });
+                },
+              }),
+            }
+          : undefined,
+      authenticate,
+      passthrough: async () => new Response('not dispatched', { status: 500 }),
+    });
+    expect(res.status).toBe(200); // the method itself dispatched
+    if (!handlerVerdict) throw new Error('handler never ran');
+    return handlerVerdict;
+  }
+
+  test('a write-scoped credential writes through a custom method', async () => {
+    expect(await invokeWriter(h.credentials['oauth-write']!.token)).toBe('allow');
+  });
+
+  test('a read-scoped credential is refused inside the handler', async () => {
+    expect(
+      await invokeWriter(h.credentials['oauth-read']!.token),
+      'a read-scoped token wrote through a custom method — the credential ' +
+        'ceiling is not reaching writes made with the forwarded token',
+    ).toBe('deny');
   });
 });
