@@ -19,6 +19,7 @@
  */
 
 import { getDocType } from './doc-types/registry';
+import type { DocType } from './doc-types/docType';
 import type { Document } from './types';
 
 /** Bucket for a document whose type declares no category (or has no type). */
@@ -92,4 +93,41 @@ export function documentCategory(document: Document): string {
   const id = document.metadata?.doc_type;
   const type = id ? getDocType(id) : undefined;
   return type?.category ?? OTHER_CATEGORY;
+}
+
+/** A category and the doc types declared under it, in declaration order. */
+export interface DocTypeGroup {
+  category: string;
+  label: string;
+  types: DocType[];
+}
+
+/**
+ * Group doc types by their declared category, keeping each category's types in
+ * declaration order. Categorised groups sort alphabetically by label; the
+ * uncategorised {@link OTHER_CATEGORY} bucket always sorts last.
+ *
+ * Shared by every surface that presents the catalogue — the supported-types
+ * page and the type picker — so a document type appears under the same heading
+ * in the same place wherever it is offered.
+ */
+export function groupDocTypesByCategory(types: DocType[]): DocTypeGroup[] {
+  const byCategory = new Map<string, DocType[]>();
+  for (const type of types) {
+    const category = type.category ?? OTHER_CATEGORY;
+    const group = byCategory.get(category);
+    if (group) group.push(type);
+    else byCategory.set(category, [type]);
+  }
+  return [...byCategory.entries()]
+    .map(([category, groupTypes]) => ({
+      category,
+      label: categoryLabel(category),
+      types: groupTypes,
+    }))
+    .sort((a, b) => {
+      if (a.category === OTHER_CATEGORY) return 1;
+      if (b.category === OTHER_CATEGORY) return -1;
+      return a.label.localeCompare(b.label);
+    });
 }

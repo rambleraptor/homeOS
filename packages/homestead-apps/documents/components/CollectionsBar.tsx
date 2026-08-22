@@ -2,12 +2,21 @@
  * The folder-like row of collections at the top of the documents page. Chips
  * filter the list; a manager can create, rename, share, and delete collections
  * from here. Membership itself is edited per-document (see DocumentEditForm).
+ *
+ * The selected chip carries its own overflow menu rather than revealing a row
+ * of text links beneath the bar. Those links pushed the whole page down the
+ * moment a folder was picked — a layout shift caused by *selecting* something,
+ * which reads as the page breaking rather than responding — and three bare
+ * links in muted grey didn't look like the destructive actions two of them are.
+ * A menu on the chip keeps the actions where their subject is, and keeps the
+ * bar's height fixed.
  */
 
-import { useMemo, useState } from 'react';
-import { FolderPlus, Pencil, Share2, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { FolderPlus, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
 import { useCan } from '@rambleraptor/homestead-core/permissions/useCan';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { useDismissOnOutside } from '@rambleraptor/homestead-core/shared/hooks/useDismissOnOutside';
 import { useCollections, useDeleteCollection } from '../hooks/useCollections';
 import type { Collection, Document } from '../types';
 import { CollectionFormDialog } from './CollectionFormDialog';
@@ -23,6 +32,17 @@ interface CollectionsBarProps {
   onSelect: (selection: CollectionSelection) => void;
 }
 
+/** The pill shell — worn by a plain chip and by the selected chip's group alike. */
+function chipShell(isActive: boolean): string {
+  return `inline-flex items-center rounded-full border text-sm transition-colors ${
+    isActive
+      ? 'border-accent-terracotta bg-accent-terracotta text-white'
+      : 'border-gray-200 bg-surface-white text-brand-slate hover:bg-bg-pearl'
+  }`;
+}
+
+const CHIP_BUTTON = 'inline-flex items-center gap-1.5 px-3 py-1';
+
 export function CollectionsBar({ documents, selected, onSelect }: CollectionsBarProps) {
   const { data: collections } = useCollections();
   const can = useCan();
@@ -33,6 +53,10 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
   const [editing, setEditing] = useState<Collection | null>(null);
   const [sharing, setSharing] = useState<Collection | null>(null);
   const [deleting, setDeleting] = useState<Collection | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLSpanElement>(null);
+
+  useDismissOnOutside(menuRef, menuOpen, () => setMenuOpen(false));
 
   const counts = useMemo(() => {
     const byId = new Map<string, number>();
@@ -48,12 +72,10 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
   const list = collections ?? [];
   const activeCollection = list.find((c) => c.id === selected) ?? null;
 
-  const chipClass = (isActive: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors ${
-      isActive
-        ? 'border-accent-terracotta bg-accent-terracotta text-white'
-        : 'border-gray-200 bg-surface-white text-brand-slate hover:bg-bg-pearl'
-    }`;
+  const select = (selection: CollectionSelection) => {
+    setMenuOpen(false);
+    onSelect(selection);
+  };
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -62,13 +84,16 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
     setDeleting(null);
   };
 
+  const menuItem =
+    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-brand-slate transition-colors hover:bg-bg-pearl';
+
   return (
     <div className="space-y-2" data-testid="collections-bar">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          className={chipClass(selected === null)}
-          onClick={() => onSelect(null)}
+          className={`${chipShell(selected === null)} ${CHIP_BUTTON}`}
+          onClick={() => select(null)}
           data-testid="collection-chip-all"
         >
           All documents
@@ -76,12 +101,11 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
 
         {list.map((c) => {
           const isActive = selected === c.id;
-          return (
+          const chip = (
             <button
-              key={c.id}
               type="button"
-              className={chipClass(isActive)}
-              onClick={() => onSelect(c.id)}
+              className={CHIP_BUTTON}
+              onClick={() => select(c.id)}
               data-testid={`collection-chip-${c.id}`}
             >
               <span
@@ -94,13 +118,91 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
               </span>
             </button>
           );
+
+          // Only the selected chip carries the menu: the actions all act on the
+          // collection in view, and a ⋯ on every chip would be nine of them.
+          if (!isActive) {
+            return (
+              <span key={c.id} className={chipShell(false)}>
+                {chip}
+              </span>
+            );
+          }
+
+          return (
+            <span key={c.id} ref={menuRef} className={`relative ${chipShell(true)}`}>
+              {chip}
+              <span className="h-4 w-px bg-white/30" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label={`Actions for ${c.name}`}
+                data-testid="collection-menu"
+                className="rounded-full px-2 py-1 transition-colors hover:bg-white/20"
+              >
+                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+              </button>
+
+              {menuOpen && (
+                <div
+                  role="menu"
+                  data-testid="collection-menu-items"
+                  className="absolute right-0 top-full z-10 mt-1 w-44 rounded-xl border border-gray-200 bg-surface-white p-1 shadow-md"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setEditing(c);
+                    }}
+                    data-testid="collection-rename"
+                  >
+                    <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    Rename
+                  </button>
+                  {canManageDocuments && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={menuItem}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setSharing(c);
+                      }}
+                      data-testid="collection-share"
+                    >
+                      <Share2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      Share
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${menuItem} text-red-600 hover:bg-red-50`}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleting(c);
+                    }}
+                    data-testid="collection-delete"
+                  >
+                    <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    Delete
+                  </button>
+                </div>
+              )}
+            </span>
+          );
         })}
 
         {counts.unfiled > 0 && (
           <button
             type="button"
-            className={chipClass(selected === UNFILED)}
-            onClick={() => onSelect(UNFILED)}
+            className={`${chipShell(selected === UNFILED)} ${CHIP_BUTTON}`}
+            onClick={() => select(UNFILED)}
             data-testid="collection-chip-unfiled"
           >
             Unfiled
@@ -113,7 +215,7 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-300 px-3 py-1 text-sm text-gray-500 hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-gray-300 px-3 py-1 text-sm text-text-muted transition-colors hover:bg-bg-pearl"
           data-testid="collection-new"
         >
           <FolderPlus className="h-4 w-4" />
@@ -121,39 +223,10 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
         </button>
       </div>
 
-      {/* Actions for the selected collection */}
-      {activeCollection && (
-        <div className="flex items-center gap-4 text-sm text-gray-500" data-testid="collection-actions">
-          {activeCollection.description && (
-            <span className="text-gray-400">{activeCollection.description}</span>
-          )}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 hover:text-gray-800"
-            onClick={() => setEditing(activeCollection)}
-            data-testid="collection-rename"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Rename
-          </button>
-          {canManageDocuments && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 hover:text-gray-800"
-              onClick={() => setSharing(activeCollection)}
-              data-testid="collection-share"
-            >
-              <Share2 className="h-3.5 w-3.5" /> Share
-            </button>
-          )}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 hover:text-red-600"
-            onClick={() => setDeleting(activeCollection)}
-            data-testid="collection-delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Delete
-          </button>
-        </div>
+      {activeCollection?.description && (
+        <p className="text-sm text-text-muted" data-testid="collection-description">
+          {activeCollection.description}
+        </p>
       )}
 
       {creating && (

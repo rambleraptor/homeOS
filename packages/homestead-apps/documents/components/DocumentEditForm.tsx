@@ -14,9 +14,10 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { TagInput } from '@rambleraptor/homestead-core/shared/components/TagInput';
-import { getDocTypes, getDocType } from '../doc-types/registry';
+import { getDocType } from '../doc-types/registry';
 import { UNKNOWN_DOC_TYPE, type DocField } from '../doc-types/docType';
 import { useCollections, toggleMembership } from '../hooks/useCollections';
+import { DocTypeCombobox } from './DocTypeCombobox';
 import { usePeople } from '../../people/hooks/usePeople';
 import type { Document, DocumentMetadata } from '../types';
 
@@ -57,7 +58,6 @@ export function DocumentEditForm({
   onCancel,
   onSubmit,
 }: DocumentEditFormProps) {
-  const docTypes = getDocTypes();
   const { data: collections } = useCollections();
   const { data: people } = usePeople();
   const [title, setTitle] = useState(document.title ?? '');
@@ -129,7 +129,7 @@ export function DocumentEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5" data-testid="document-edit-form">
       <div>
-        <label htmlFor="doc-title" className="block text-xs font-medium text-gray-700">
+        <label htmlFor="doc-title" className="block text-xs font-medium text-brand-slate">
           Title
         </label>
         <input
@@ -137,13 +137,13 @@ export function DocumentEditForm({
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
+          className="mt-1 block w-full rounded-lg border border-gray-200 bg-surface-white px-3 py-2 text-sm text-brand-slate focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
           data-testid="document-edit-title"
         />
       </div>
 
       <div>
-        <label htmlFor="doc-tags" className="block text-xs font-medium text-gray-700">
+        <label htmlFor="doc-tags" className="block text-xs font-medium text-brand-slate">
           Tags
         </label>
         <div className="mt-1">
@@ -160,17 +160,17 @@ export function DocumentEditForm({
 
       {collections && collections.length > 0 && (
         <div data-testid="document-edit-collections">
-          <span className="block text-xs font-medium text-gray-700">Collections</span>
+          <span className="block text-xs font-medium text-brand-slate">Collections</span>
           <div className="mt-1 flex flex-wrap gap-2">
             {collections.map((c) => {
               const checked = memberOf.includes(c.id);
               return (
                 <label
                   key={c.id}
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors focus-within:ring-2 focus-within:ring-accent-terracotta/40 ${
                     checked
                       ? 'border-accent-terracotta bg-accent-terracotta text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      : 'border-gray-200 bg-surface-white text-brand-slate hover:bg-bg-pearl'
                   }`}
                 >
                   <input
@@ -196,17 +196,17 @@ export function DocumentEditForm({
 
       {people && people.length > 0 && (
         <div data-testid="document-edit-people">
-          <span className="block text-xs font-medium text-gray-700">People</span>
+          <span className="block text-xs font-medium text-brand-slate">People</span>
           <div className="mt-1 flex flex-wrap gap-2">
             {people.map((person) => {
               const checked = linkedPeople.includes(person.id);
               return (
                 <label
                   key={person.id}
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors focus-within:ring-2 focus-within:ring-accent-terracotta/40 ${
                     checked
                       ? 'border-accent-terracotta bg-accent-terracotta text-white'
-                      : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      : 'border-gray-200 bg-surface-white text-brand-slate hover:bg-bg-pearl'
                   }`}
                 >
                   <input
@@ -229,23 +229,20 @@ export function DocumentEditForm({
       )}
 
       <div>
-        <label htmlFor="doc-type" className="block text-xs font-medium text-gray-700">
+        <label htmlFor="doc-type" className="block text-xs font-medium text-brand-slate">
           Document type
         </label>
-        <select
-          id="doc-type"
-          value={docTypeId}
-          onChange={(e) => handleTypeChange(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
-          data-testid="document-edit-type"
-        >
-          {docTypes.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-          <option value={UNKNOWN_DOC_TYPE}>No matching type</option>
-        </select>
+        <div className="mt-1">
+          <DocTypeCombobox
+            id="doc-type"
+            value={docTypeId}
+            onSelect={handleTypeChange}
+            placeholder="No matching type"
+            includeUnmatched
+            block
+            data-testid="document-edit-type"
+          />
+        </div>
       </div>
 
       {selectedType && (
@@ -256,7 +253,7 @@ export function DocumentEditForm({
             <div key={name} data-testid={`document-edit-field-${name}`}>
               <label
                 htmlFor={`doc-field-${name}`}
-                className="block text-xs font-medium text-gray-700"
+                className="block text-xs font-medium text-brand-slate"
               >
                 {field.label}
               </label>
@@ -268,7 +265,7 @@ export function DocumentEditForm({
                 onChange={(e) =>
                   setValues((prev) => ({ ...prev, [name]: e.target.value }))
                 }
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
+                className="mt-1 block w-full rounded-lg border border-gray-200 bg-surface-white px-3 py-2 text-sm text-brand-slate focus:border-accent-terracotta focus:outline-none focus:ring-2 focus:ring-accent-terracotta/30"
               />
             </div>
           ))}
@@ -279,7 +276,7 @@ export function DocumentEditForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="inline-flex items-center gap-2 rounded-md bg-accent-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-accent-terracotta-hover disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-accent-terracotta px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-terracotta-hover disabled:opacity-50"
           data-testid="document-edit-save"
         >
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -289,7 +286,7 @@ export function DocumentEditForm({
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+          className="text-sm text-text-muted transition-colors hover:text-brand-slate disabled:opacity-50"
           data-testid="document-edit-cancel"
         >
           Cancel

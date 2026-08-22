@@ -5,7 +5,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, AlertCircle, FileText, Inbox } from 'lucide-react';
+import { Loader2, AlertCircle, FileText } from 'lucide-react';
 import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
@@ -27,6 +27,7 @@ import { DocumentListItem } from './DocumentListItem';
 import { DocumentFilters } from './DocumentFilters';
 import { DocumentDropzone } from './DocumentDropzone';
 import { DuplicateUploadWarning } from './DuplicateUploadWarning';
+import { DocumentsEmptyState, type EmptyReason } from './DocumentsEmptyState';
 import { CollectionsBar, UNFILED, type CollectionSelection } from './CollectionsBar';
 import type { Document } from '../types';
 import {
@@ -141,11 +142,27 @@ export function DocumentsHome() {
     [visibleDocuments, sort],
   );
 
-  // A small "42 documents · 3 still reading" summary over the list.
+  // A small "42 documents · 3 still reading" summary over the list. Counted off
+  // the same rows the number beside it counts — the visible ones — so the two
+  // halves of one sentence can't disagree ("4 documents · 7 still reading" was
+  // reachable when this counted the whole folder and the count beside it
+  // counted what survived the filters).
   const stillReading = useMemo(
-    () => collectionScoped.filter((d) => (d.parse_status ?? 'pending') === 'pending').length,
-    [collectionScoped],
+    () => sortedDocuments.filter((d) => (d.parse_status ?? 'pending') === 'pending').length,
+    [sortedDocuments],
   );
+
+  // Why the list below is empty, when it is. Filters win over folder scope:
+  // they're what the reader just changed, and clearing them is the fix. With
+  // neither a filter nor a folder in play the list can't be empty — every
+  // document is in scope — so that branch never renders.
+  const emptyReason: EmptyReason = hasActiveFilters(filters)
+    ? 'filters'
+    : collection === UNFILED
+      ? 'unfiled'
+      : inCollection
+        ? 'collection'
+        : 'filters';
 
   // Duplicates among the last batch. Recomputes as the list polls, so a match
   // surfaces as soon as the server-stamped hash lands on the uploaded record.
@@ -365,21 +382,7 @@ export function DocumentsHome() {
       )}
 
       {documents && documents.length === 0 && (
-        <div
-          className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-surface-white py-14 text-center"
-          data-testid="documents-empty"
-        >
-          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-bg-pearl text-text-muted">
-            <Inbox className="h-6 w-6" />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-brand-navy">No documents yet</p>
-            <p className="mt-1 text-sm text-text-muted">
-              Drop a PDF or photo above — tax forms, receipts, insurance cards — and
-              we&rsquo;ll read and file it for you.
-            </p>
-          </div>
-        </div>
+        <DocumentsEmptyState reason="library" />
       )}
 
       {documents && documents.length > 0 && (
@@ -434,14 +437,12 @@ export function DocumentsHome() {
               ))}
             </div>
           ) : (
-            <p
-              className="py-12 text-center text-sm text-text-muted"
-              data-testid="documents-no-matches"
-            >
-              {hasActiveFilters(filters)
-                ? 'No documents match your filters.'
-                : 'No documents to show.'}
-            </p>
+            <DocumentsEmptyState
+              reason={emptyReason}
+              collectionName={activeCollectionName}
+              onClearFilters={() => setFilters({ ...EMPTY_FILTERS })}
+              onShowAll={() => setCollection(null)}
+            />
           )}
         </div>
       )}

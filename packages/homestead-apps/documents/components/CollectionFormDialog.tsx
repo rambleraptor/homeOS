@@ -90,7 +90,7 @@ export function CollectionFormDialog({
     >
       <form onSubmit={form.handleSubmit} className="space-y-4" data-testid="collection-form">
         <div>
-          <label htmlFor="collection-name" className="block text-xs font-medium text-gray-700">
+          <label htmlFor="collection-name" className="block text-xs font-medium text-brand-slate">
             Name
           </label>
           <input
@@ -103,7 +103,7 @@ export function CollectionFormDialog({
         </div>
 
         <div>
-          <label htmlFor="collection-description" className="block text-xs font-medium text-gray-700">
+          <label htmlFor="collection-description" className="block text-xs font-medium text-brand-slate">
             Description <span className="text-gray-400">(optional)</span>
           </label>
           <input
@@ -115,7 +115,7 @@ export function CollectionFormDialog({
         </div>
 
         <div>
-          <span className="block text-xs font-medium text-gray-700">Colour</span>
+          <span className="block text-xs font-medium text-brand-slate">Colour</span>
           <div className="mt-2 flex flex-wrap gap-2">
             {COLLECTION_COLORS.map((c) => (
               <button

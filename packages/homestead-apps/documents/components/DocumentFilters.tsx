@@ -105,7 +105,7 @@ export function DocumentFilters({
           type="button"
           onClick={() => onChange({ ...EMPTY_FILTERS })}
           data-testid="document-filters-clear"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="inline-flex items-center gap-1 text-sm text-text-muted transition-colors hover:text-brand-slate"
         >
           <X className="h-4 w-4" />
           Clear
