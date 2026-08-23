@@ -153,4 +153,99 @@ describe('syncUserSettingsSchema', () => {
       }),
     ).rejects.toThrow(/500/);
   });
+
+  describe('authorized drops', () => {
+    /**
+     * The generated schema's columns come from declared user settings, so removing a
+     * declaration *is* a column drop — and the engine refuses a populated one
+     * unless the PATCH says otherwise. Without this header the whole PATCH
+     * throws before any DDL, so nothing in it applies (including columns other
+     * apps added in the same boot) and the resource's schema silently freezes.
+     */
+    it('sends the header when a drop is authorized', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ schema: { type: 'object', properties: {} } }), {
+          status: 200,
+        }),
+      );
+      fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+      await syncUserSettingsSchema({
+        aepbaseUrl: BASE,
+        token: TOKEN,
+        defs,
+        logger: SILENT_LOGGER,
+        authorizedDrops: new Set(['credit_cards__perk_reminder', 'other__gone']),
+      });
+
+      const [, patchInit] = fetchMock.mock.calls[1];
+      expect(patchInit.method).toBe('PATCH');
+      expect(patchInit.headers['X-Homestead-Authorized-Drops']).toBe(
+        'credit_cards__perk_reminder,other__gone',
+      );
+    });
+
+    it('omits the header when nothing is authorized', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ schema: { type: 'object', properties: {} } }), {
+          status: 200,
+        }),
+      );
+      fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+      await syncUserSettingsSchema({
+        aepbaseUrl: BASE,
+        token: TOKEN,
+        defs,
+        logger: SILENT_LOGGER,
+      });
+
+      // Absent means "refuse a populated drop", which is the safe default.
+      const [, patchInit] = fetchMock.mock.calls[1];
+      expect(patchInit.headers).not.toHaveProperty('X-Homestead-Authorized-Drops');
+    });
+
+    it('omits the header for an empty set', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ schema: { type: 'object', properties: {} } }), {
+          status: 200,
+        }),
+      );
+      fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+      await syncUserSettingsSchema({
+        aepbaseUrl: BASE,
+        token: TOKEN,
+        defs,
+        logger: SILENT_LOGGER,
+        authorizedDrops: new Set<string>(),
+      });
+
+      const [, patchInit] = fetchMock.mock.calls[1];
+      expect(patchInit.headers).not.toHaveProperty('X-Homestead-Authorized-Drops');
+    });
+
+    it('still carries the auth and content-type headers alongside it', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ schema: { type: 'object', properties: {} } }), {
+          status: 200,
+        }),
+      );
+      fetchMock.mockResolvedValueOnce(new Response('{}', { status: 200 }));
+
+      await syncUserSettingsSchema({
+        aepbaseUrl: BASE,
+        token: TOKEN,
+        defs,
+        logger: SILENT_LOGGER,
+        authorizedDrops: new Set(['credit_cards__perk_reminder']),
+      });
+
+      const [, patchInit] = fetchMock.mock.calls[1];
+      expect(patchInit.headers).toMatchObject({
+        Authorization: `Bearer ${TOKEN}`,
+        'Content-Type': 'application/merge-patch+json',
+      });
+    });
+  });
 });

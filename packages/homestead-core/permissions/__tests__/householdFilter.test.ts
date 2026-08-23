@@ -70,8 +70,8 @@ describe('householdCollections', () => {
   it('emits a filtered grant for a per-record collection', () => {
     const cols = householdCollections([
       base({
-        singular: 'reminder',
-        plural: 'reminders',
+        singular: 'thing',
+        plural: 'things',
         access: {
           model: 'per-record',
           field: 'visibility',
@@ -80,8 +80,8 @@ describe('householdCollections', () => {
         },
       }),
     ]);
-    expect(find(cols, 'reminder')).toEqual({
-      resource_type: 'reminder',
+    expect(find(cols, 'thing')).toEqual({
+      resource_type: 'thing',
       filter: "visibility == 'household'",
     });
   });
