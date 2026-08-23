@@ -23,10 +23,18 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
+import { basename, join, resolve, sep } from 'node:path';
 import { loadProject } from './project.ts';
-import { resolveKeyLocation, type KeyLocation } from './key.ts';
+import { keyFingerprint, resolveKeyLocation, type KeyLocation } from './key.ts';
 import { findRuntime, resolveServerModule } from './runtime.ts';
+import {
+  hashEntries,
+  MANIFEST_FORMAT,
+  MANIFEST_NAME,
+  writeManifest,
+  type BackupManifest,
+} from './manifest.ts';
+import { HOMESTEAD_VERSION } from './version.ts';
 
 /** True if `child` is the same path as, or nested inside, `parent`. */
 export function isInside(parent: string, child: string): boolean {
@@ -117,6 +125,35 @@ export interface BackupOptions {
   dataDir?: string;
   out?: string;
   stamp?: string;
+  /** Archive creation time; injectable so tests get a stable manifest. */
+  now?: Date;
+}
+
+/**
+ * Describe the archive being written: what produced it, what is in it, and
+ * which master key its encrypted bytes belong to.
+ */
+export function buildManifest(args: {
+  dataDirName: string;
+  key: KeyLocation;
+  databases: string[];
+  files: BackupManifest['files'];
+  now: Date;
+}): BackupManifest {
+  const enabled = encryptionState(args.key) === 'on';
+  return {
+    format: MANIFEST_FORMAT,
+    created_at: args.now.toISOString(),
+    homestead_version: HOMESTEAD_VERSION,
+    data_dir_name: args.dataDirName,
+    encryption: enabled
+      ? { enabled: true, key_id: keyFingerprint(args.key.value!) }
+      : { enabled: false },
+    databases: args.databases,
+    // One globally sorted list, so a manifest reads (and diffs) predictably
+    // regardless of which group a file came from.
+    files: [...args.files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)),
+  };
 }
 
 /**
@@ -172,10 +209,31 @@ export function backupCmd(
       console.error(`${dataDir} is empty — nothing to back up`);
       return 1;
     }
+    if (others.includes(MANIFEST_NAME)) {
+      // Both would land at the archive root under the same name, and the data
+      // dir's copy — extracted last — would shadow the real manifest.
+      console.error(
+        `${join(dataDir, MANIFEST_NAME)} collides with the archive's own manifest.\n` +
+          'Rename or move that file, then retry.',
+      );
+      return 1;
+    }
 
-    // Two -C groups: the snapshotted databases, then the rest of the data dir.
-    // Both land at the archive root, so the archive is a drop-in data dir.
-    const args = ['-czf', out];
+    writeManifest(
+      join(staging, MANIFEST_NAME),
+      buildManifest({
+        dataDirName: basename(dataDir),
+        key,
+        databases,
+        files: [...hashEntries(snapshotDir, databases), ...hashEntries(dataDir, others)],
+        now: opts.now ?? new Date(),
+      }),
+    );
+
+    // Three -C groups: the manifest, the snapshotted databases, then the rest
+    // of the data dir. All land at the archive root, so extracting the archive
+    // (minus the manifest) reproduces a data dir.
+    const args = ['-czf', out, '-C', staging, MANIFEST_NAME];
     if (databases.length > 0) args.push('-C', snapshotDir, ...databases);
     if (others.length > 0) args.push('-C', dataDir, ...others);
 

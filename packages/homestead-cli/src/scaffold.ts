@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { HOMESTEAD_VERSION } from './version.ts';
 
 /** AI providers the scaffolder can wire into homestead.config.ts. */
 export type AiProvider = 'anthropic' | 'openai' | 'google';
@@ -258,11 +259,8 @@ export function scaffold(dir: string, opts: ScaffoldOptions = {}): string {
   return root;
 }
 
-/**
- * Version range for the scaffolded homestead packages. Tracks the published
- * homestead release line; bump the minor here when cutting a new release.
- */
-const HOMESTEAD_VERSION_RANGE = '^0.2.0';
+/** Version range for the scaffolded homestead packages. */
+const HOMESTEAD_VERSION_RANGE = `^${HOMESTEAD_VERSION}`;
 
 function packageJson(root: string): string {
   // npm package-name rules: lowercase, no spaces; fall back when the

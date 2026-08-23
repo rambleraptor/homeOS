@@ -106,6 +106,7 @@ time each record is written; there is no bulk re-encrypt of old data.
 homestead key generate      # write ~/.homestead/master.key (0600), refuse to clobber
 homestead key show          # print the resolved key, to copy into a password manager
 homestead backup            # archive the data dir (consistent db snapshot); refuses to include the key
+homestead restore --verify  # check an archive end to end, including that this key matches it
 homestead doctor            # checks key presence, location, and permissions
 ```
 

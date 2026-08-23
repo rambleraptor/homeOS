@@ -18,7 +18,7 @@ import {
   partitionDataDir,
   summaryLines,
 } from './backup.ts';
-import { resolveKeyLocation } from './key.ts';
+import { keyFingerprint, resolveKeyLocation } from './key.ts';
 
 let dir: string;
 const savedEnv = { ...process.env };
@@ -205,6 +205,52 @@ describe('backupCmd', () => {
     expect(readFileSync(join(restored, 'files', 'gift-cards', 'front_image'), 'utf8')).toBe(
       'blob bytes',
     );
+  });
+
+  test('refuses when the data dir holds a file named like the manifest', () => {
+    const dataDir = join(dir, 'data');
+    seedDataDir(dataDir);
+    writeFileSync(join(dataDir, 'homestead-backup.json'), '{}');
+    const out = join(dir, 'backup.tar.gz');
+
+    expect(backupCmd({ dataDir, out }, fakeSnapshot)).toBe(1);
+    expect(logged.join('\n')).toContain('collides with');
+    expect(existsSync(out)).toBe(false);
+  });
+
+  test('writes a manifest describing the archive', () => {
+    const dataDir = join(dir, 'data');
+    seedDataDir(dataDir);
+    const out = join(dir, 'backup.tar.gz');
+    expect(backupCmd({ dataDir, out, now: new Date('2026-01-01T00:00:00Z') }, fakeSnapshot)).toBe(0);
+
+    const read = spawnSync('tar', ['-xzOf', out, 'homestead-backup.json'], { encoding: 'utf8' });
+    expect(read.status).toBe(0);
+    const manifest = JSON.parse(read.stdout);
+    expect(manifest.created_at).toBe('2026-01-01T00:00:00.000Z');
+    expect(manifest.data_dir_name).toBe('data');
+    expect(manifest.databases).toEqual(['aepbase.db', 'vectors.db']);
+    expect(manifest.encryption).toEqual({ enabled: false });
+    expect(manifest.files.map((f: { path: string }) => f.path)).toEqual([
+      'aepbase.db',
+      'files/gift-cards/front_image',
+      'vectors.db',
+    ]);
+  });
+
+  test('records the master key fingerprint, never the key', () => {
+    const key = Buffer.alloc(32, 7).toString('base64');
+    process.env.HOMESTEAD_MASTER_KEY = key;
+    const dataDir = join(dir, 'data');
+    seedDataDir(dataDir);
+    const out = join(dir, 'backup.tar.gz');
+    expect(backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
+
+    const read = spawnSync('tar', ['-xzOf', out, 'homestead-backup.json'], { encoding: 'utf8' });
+    const manifest = JSON.parse(read.stdout);
+    expect(manifest.encryption.enabled).toBe(true);
+    expect(manifest.encryption.key_id).toBe(keyFingerprint(key));
+    expect(read.stdout).not.toContain(key);
   });
 
   test('fails without writing an archive when the snapshot fails', () => {
