@@ -6,35 +6,25 @@
 
 import type { AppConfig } from '@rambleraptor/homestead-core/apps/types';
 import { creditCardsResources } from './resources';
-import { PERK_REMINDER_SETTING } from './perkReminderSetting';
 
 export const creditCardsApp: AppConfig = {
   id: 'credit-cards',
   name: 'Credit Cards',
   description: 'Track credit card perks and maximize rewards',
   resources: creditCardsResources,
-  userSettings: {
-    // Opt-in per person: the perks are the household's, but only whoever
-    // actually goes and uses them wants the nudge.
-    [PERK_REMINDER_SETTING]: {
-      type: 'boolean',
-      label: 'Remind me before a perk window closes',
-      description:
-        'Get a reminder when a credit you have not used is about to expire — a few days ahead for monthly perks, a month ahead for annual ones.',
-      default: false,
-    },
-  },
-  // Turns closing perk windows into notifications queued for 09:00; the
-  // notifications app's dispatcher delivers them. Runs before the household is
-  // up, and catches up at boot. Handler lives under `crons/`, so it's stubbed
-  // out of the browser bundle.
-  crons: [
+  // Perk-window reminders were withdrawn: a monthly perk closes twelve times a
+  // year, and even digested per card and floored by value it was more
+  // interruption than the app earned. The perks list and its dashboard widget
+  // still show what's closing — you look at them when you want to know, which
+  // is the right posture for this app.
+  //
+  // `credit-cards-drop-perk-reminders` clears up after it: the queued
+  // notifications, which nothing reconciles any more, and the per-user opt-in.
+  migrations: [
     {
-      id: 'credit-cards-perk-reminders',
-      title: 'Closing perk windows',
-      dailyAtHour: 3,
-      runOnStart: true,
-      load: () => import('./crons/perk-reminders'),
+      id: 'credit-cards-drop-perk-reminders',
+      title: 'Withdraw perk-window reminders',
+      load: () => import('./migrations/drop-perk-reminders'),
     },
   ],
   web: {
