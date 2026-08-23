@@ -6,13 +6,11 @@
  */
 
 import { Clock, Check } from 'lucide-react';
-import { ReminderOptInToggle } from '@rambleraptor/homestead-core/user-settings';
 import {
   URGENT_WINDOW_DAYS,
   formatPeriod,
   getPeriodDeadline,
 } from '../utils/periodUtils';
-import { PERK_REMINDER_SETTING } from '../perkReminderSetting';
 import type { UpcomingPerk } from '../types';
 
 interface UpcomingPerksProps {
@@ -51,20 +49,9 @@ export function UpcomingPerks({
           <Clock className="w-5 h-5 text-amber-500" />
           <h2 className="text-lg font-bold text-gray-900">Upcoming Perks</h2>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">
-            {unredeemed.length} unredeemed · {redeemedCount} done
-          </span>
-          <ReminderOptInToggle
-            appId="credit-cards"
-            settingKey={PERK_REMINDER_SETTING}
-            offLabel="Remind me"
-            onLabel="Reminding me"
-            offTitle="Get a reminder before an unused credit expires"
-            onTitle="You get a reminder before an unused credit expires"
-            data-testid="perk-reminder-toggle"
-          />
-        </div>
+        <span className="text-sm text-gray-500">
+          {unredeemed.length} unredeemed · {redeemedCount} done
+        </span>
       </div>
 
       <div className="space-y-2">

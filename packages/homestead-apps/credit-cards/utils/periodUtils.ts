@@ -16,27 +16,10 @@ const MONTHS_PER_PERIOD: Record<PerkFrequency, number> = {
 /**
  * Days before a period closes at which an unredeemed perk counts as urgent.
  *
- * The perks list and the dashboard widget both highlight on this, and the
- * quarterly reminder lead below is anchored to it. It was hard-coded three
- * separate times before; keep it defined once.
+ * The perks list and the dashboard widget both highlight on this. It was
+ * hard-coded three separate times before; keep it defined once.
  */
 export const URGENT_WINDOW_DAYS = 7;
-
-/**
- * How many days of warning a closing perk window earns, by frequency.
- *
- * Not one number, because volume is the real risk with this source: a monthly
- * perk's window closes twelve times a year, so three cards with four monthly
- * perks each is ~144 chances to interrupt someone. A short lead on a frequent
- * perk and a long one on a rare perk keeps the total sane while still giving
- * real notice on the windows that are actually worth money.
- */
-export const PERK_REMINDER_LEAD_DAYS: Record<PerkFrequency, number> = {
-  monthly: 4,
-  quarterly: URGENT_WINDOW_DAYS,
-  semi_annual: 14,
-  annual: 30,
-};
 
 export function getCurrentPeriod(
   frequency: PerkFrequency,
