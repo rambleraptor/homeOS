@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Bell, Check, Calendar } from 'lucide-react';
 import { Card } from '@rambleraptor/homestead-core/shared/components/Card';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
@@ -10,6 +10,21 @@ import { ScheduledSection } from './ScheduledSection';
 import { useMarkNotificationAsRead } from '../hooks/useMarkNotificationAsRead';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
 import type { Notification } from '../types';
+
+/**
+ * Where tapping a notification lands.
+ *
+ * `url` is what the push payload already carried — the dispatcher now copies it
+ * onto the inbox row too, so the row in the list goes to the same place the
+ * pop-up would have. Only in-app paths are linked: anything not starting with a
+ * single `/` is ignored rather than rendered as an anchor, so a malformed or
+ * off-site value can't turn an inbox row into an outbound link. (`//host` is a
+ * protocol-relative URL, hence the second check.)
+ */
+function internalPath(url: string | undefined): string | null {
+  if (!url || !url.startsWith('/') || url.startsWith('//')) return null;
+  return url;
+}
 
 function NotificationsPanel() {
   const { data: notifications, isLoading } = useNotifications();
@@ -77,7 +92,17 @@ function NotificationsPanel() {
                     {getNotificationIcon(notification)}
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900">
-                        {notification.title}
+                        {internalPath(notification.url) ? (
+                          <Link
+                            to={internalPath(notification.url) as string}
+                            className="hover:text-brand-navy hover:underline"
+                            data-testid={`notification-link-${notification.id}`}
+                          >
+                            {notification.title}
+                          </Link>
+                        ) : (
+                          notification.title
+                        )}
                       </h3>
                       <p className="text-sm text-gray-600 mt-1">
                         {notification.message}

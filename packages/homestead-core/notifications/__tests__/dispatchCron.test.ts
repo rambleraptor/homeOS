@@ -83,7 +83,7 @@ vi.mock('@rambleraptor/homestead-core/server/notifications', () => ({
   },
 }));
 
-import handler, { LATE_GRACE_HOURS, MAX_ATTEMPTS } from '../crons/dispatch';
+import handler, { LATE_GRACE_HOURS, MAX_ATTEMPTS, backoffMs } from '../crons/dispatch';
 
 /** Fixed clock: 2026-06-15 18:00 UTC. */
 const NOW = new Date('2026-06-15T18:00:00.000Z');
@@ -208,7 +208,9 @@ describe('notifications dispatch', () => {
   });
 
   test('retries are bounded — a row that keeps failing is given up on', async () => {
-    h.state.queue = { u1: [queued({ attempts: MAX_ATTEMPTS - 1 })] };
+    h.state.queue = {
+      u1: [queued({ attempts: MAX_ATTEMPTS - 1, update_time: at(-1) })],
+    };
     h.sendResults.push({ ok: false, body: { error: 'still broken' } });
 
     const result = await handler(ctx());
@@ -217,6 +219,74 @@ describe('notifications dispatch', () => {
     expect(h.writes.updated[0].patch).toMatchObject({
       status: 'failed',
       attempts: MAX_ATTEMPTS,
+    });
+  });
+
+  describe('backoff', () => {
+    test('grows then caps, so a failing row does not burn its budget', () => {
+      // A 60s tick retrying every tick would spend ten attempts in ten minutes,
+      // which is the same bug the larger budget was meant to fix.
+      expect(backoffMs(1)).toBe(60_000);
+      expect(backoffMs(2)).toBe(120_000);
+      expect(backoffMs(3)).toBe(240_000);
+      expect(backoffMs(4)).toBe(480_000);
+      expect(backoffMs(5)).toBe(900_000);
+      expect(backoffMs(9)).toBe(900_000);
+      expect(backoffMs(0)).toBe(0);
+    });
+
+    test('a recently-failed row is left alone until its backoff elapses', async () => {
+      // One prior failure 30 seconds ago; the first backoff is a minute.
+      h.state.queue = { u1: [queued({ attempts: 1, update_time: at(-0.5 / 60) })] };
+
+      const result = await handler(ctx());
+
+      expect(result).toMatchObject({ deferred: 1, sent: 0, retried: 0 });
+      expect(h.sends).toHaveLength(0);
+    });
+
+    test('it is tried again once the backoff has passed', async () => {
+      h.state.queue = { u1: [queued({ attempts: 1, update_time: at(-1) })] };
+
+      const result = await handler(ctx());
+
+      expect(result).toMatchObject({ deferred: 0, sent: 1 });
+      expect(h.writes.updated[0].patch).toMatchObject({ status: 'sent', attempts: 2 });
+    });
+
+    test('an outage longer than the old two-minute budget now survives', async () => {
+      // Five prior failures, last one 20 minutes ago — well past the 15m cap.
+      h.state.queue = { u1: [queued({ attempts: 5, update_time: at(-1 / 3) })] };
+
+      const result = await handler(ctx());
+
+      expect(result).toMatchObject({ sent: 1, failed: 0 });
+    });
+
+    test('too late to send beats still backing off', async () => {
+      // Stale enough to be missed, and mid-backoff. Marking it missed stops the
+      // retries; deferring first would leave it spinning until the budget ran out.
+      h.state.queue = {
+        u1: [
+          queued({
+            send_at: at(-(LATE_GRACE_HOURS + 1)),
+            attempts: 1,
+            update_time: at(-0.1 / 60),
+          }),
+        ],
+      };
+
+      const result = await handler(ctx());
+
+      expect(result).toMatchObject({ missed: 1, deferred: 0 });
+    });
+
+    test('a row with no update_time is attempted rather than stuck', async () => {
+      h.state.queue = { u1: [queued({ attempts: 2 })] };
+
+      const result = await handler(ctx());
+
+      expect(result).toMatchObject({ sent: 1, deferred: 0 });
     });
   });
 

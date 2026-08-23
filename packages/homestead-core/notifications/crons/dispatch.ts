@@ -50,11 +50,42 @@ import type { ScheduledNotification } from '../types';
 export const LATE_GRACE_HOURS = 12;
 
 /**
- * Attempts before a row is given up on. A push failure is usually transient
- * (VAPID misconfigured, the engine briefly unreachable), so the row stays
- * `scheduled` and the next tick retries — a minute later, not a day.
+ * Attempts before a row is given up on.
+ *
+ * Worth knowing what a failure here actually means: `sendNotificationToUser`
+ * returns ok whenever it managed to write the inbox row, and it cleans up dead
+ * subscriptions (404/410) itself. So a non-ok response is never "one device
+ * rejected it" — it is VAPID unconfigured, the engine unreachable, or the inbox
+ * write failing. The notification did not happen at all, and every one of those
+ * is the kind of thing an operator fixes minutes later.
+ *
+ * Ten attempts on the backoff below is a little under two hours of trying,
+ * which covers a restart, a deploy, or a misconfiguration someone notices and
+ * corrects. It used to be three attempts on a 60-second tick — about two
+ * minutes — so any outage longer than a coffee break permanently killed every
+ * notification due inside it.
+ *
+ * There is a natural ceiling regardless: {@link LATE_GRACE_HOURS} is checked
+ * first, so a row stops being retried once it is too late to be worth sending.
  */
-export const MAX_ATTEMPTS = 3;
+export const MAX_ATTEMPTS = 10;
+
+/** Longest gap between attempts. Reached at the fifth. */
+const BACKOFF_CAP_MS = 15 * 60_000;
+
+/**
+ * How long to wait after `attempts` failures before trying again: 1, 2, 4, 8
+ * minutes, then every 15. Without this the 60-second tick would retry a failing
+ * row every minute and burn the whole budget in ten, which is the same bug in
+ * a longer coat.
+ *
+ * The delay is measured from the row's `update_time` — the failure wrote it —
+ * so no extra field is needed to remember when we last tried.
+ */
+export function backoffMs(attempts: number): number {
+  if (attempts <= 0) return 0;
+  return Math.min(60_000 * 2 ** (attempts - 1), BACKOFF_CAP_MS);
+}
 
 /** Fallback click-through when a row doesn't name one. */
 const DEFAULT_URL = '/notifications';
@@ -66,7 +97,10 @@ interface DispatchOutcome {
   due: number;
   sent: number;
   missed: number;
+  /** Failed this tick and left `scheduled` for another go. */
   retried: number;
+  /** Skipped this tick because a previous failure is still backing off. */
+  deferred: number;
   failed: number;
 }
 
@@ -83,6 +117,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
     sent: 0,
     missed: 0,
     retried: 0,
+    deferred: 0,
     failed: 0,
   };
 
@@ -118,7 +153,15 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
         continue;
       }
 
-      const attempts = (row.attempts ?? 0) + 1;
+      // Checked after `missed`, so a row too late to send stops retrying rather
+      // than sitting in backoff until its budget runs out.
+      const priorAttempts = row.attempts ?? 0;
+      if (priorAttempts > 0 && inBackoff(row, priorAttempts, now)) {
+        outcome.deferred++;
+        continue;
+      }
+
+      const attempts = priorAttempts + 1;
       let response: Response;
       try {
         response = await sendNotificationToUser(token, user.id, {
@@ -160,14 +203,32 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   if (outcome.due > 0) {
     await log(
       `due=${outcome.due} sent=${outcome.sent} missed=${outcome.missed} ` +
-        `retried=${outcome.retried} failed=${outcome.failed}`,
+        `retried=${outcome.retried} deferred=${outcome.deferred} ` +
+        `failed=${outcome.failed}`,
     );
   }
   return { ...outcome };
 };
 
 /**
- * Record a failed attempt. Stays `scheduled` (so the next tick retries) until
+ * True while a previously-failed row is still waiting out its backoff.
+ *
+ * An unparseable or absent `update_time` means we can't tell how long it has
+ * been — attempt it rather than deferring forever, since the attempt budget
+ * still bounds the damage.
+ */
+function inBackoff(
+  row: ScheduledNotification,
+  attempts: number,
+  now: Date,
+): boolean {
+  const lastTried = Date.parse(row.update_time ?? '');
+  if (Number.isNaN(lastTried)) return false;
+  return now.getTime() < lastTried + backoffMs(attempts);
+}
+
+/**
+ * Record a failed attempt. Stays `scheduled` (so a later tick retries) until
  * the budget is spent, then goes `failed` so it stops being picked up and
  * starts being visible as a problem.
  */

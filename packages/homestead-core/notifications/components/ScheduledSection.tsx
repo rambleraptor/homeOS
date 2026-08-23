@@ -20,7 +20,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Ban, CalendarClock, Edit, Plus } from 'lucide-react';
+import { AlertTriangle, Ban, CalendarClock, Edit, Plus } from 'lucide-react';
 import { getAppById } from '@rambleraptor/homestead-core/apps/registry';
 import { Badge } from '@rambleraptor/homestead-core/shared/components/Badge';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
@@ -63,6 +63,29 @@ function isSettled(row: ScheduledNotification): boolean {
   return row.status !== 'scheduled';
 }
 
+/**
+ * A row that should have reached you and didn't.
+ *
+ * `missed` means the instance was down past the grace window when it came due;
+ * `failed` means delivery kept erroring until the attempt budget ran out. The
+ * dispatcher marks both precisely so they aren't silent — which only works if
+ * something says so. `sent` and `canceled` are settled *and* fine, so they stay
+ * folded away.
+ */
+function isUndelivered(row: ScheduledNotification): boolean {
+  return row.status === 'missed' || row.status === 'failed';
+}
+
+/** Plain-language reason, for the alert and each row's line. */
+function undeliveredReason(row: ScheduledNotification): string {
+  return row.status === 'missed'
+    ? 'Not sent — this instance was offline when it came due.'
+    : 'Delivery failed. It is saved here but was never pushed.';
+}
+
+/** How many undelivered rows the alert names before summarising the rest. */
+const MAX_UNDELIVERED_SHOWN = 3;
+
 export function ScheduledSection() {
   const { data: rows, isLoading } = useScheduledNotifications();
   const schedule = useScheduleNotification();
@@ -75,13 +98,14 @@ export function ScheduledSection() {
   const [confirm, setConfirm] = useState<ScheduledNotification | null>(null);
   const [showSettled, setShowSettled] = useState(false);
 
-  const { queued, settled } = useMemo(() => {
+  const { queued, settled, undelivered } = useMemo(() => {
     const all = rows ?? [];
+    const newestFirst = (a: ScheduledNotification, b: ScheduledNotification) =>
+      (b.send_at || '').localeCompare(a.send_at || '');
     return {
       queued: all.filter((row) => !isSettled(row)),
-      settled: all
-        .filter(isSettled)
-        .sort((a, b) => (b.send_at || '').localeCompare(a.send_at || '')),
+      settled: all.filter(isSettled).sort(newestFirst),
+      undelivered: all.filter(isUndelivered).sort(newestFirst),
     };
   }, [rows]);
 
@@ -156,6 +180,35 @@ export function ScheduledSection() {
         </div>
       }
     >
+      {undelivered.length > 0 && (
+        <div
+          className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          data-testid="scheduled-undelivered"
+          role="status"
+        >
+          <p className="flex items-center gap-2 font-medium">
+            <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            {undelivered.length === 1
+              ? "1 reminder didn't reach you"
+              : `${undelivered.length} reminders didn't reach you`}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {undelivered.slice(0, MAX_UNDELIVERED_SHOWN).map((row) => (
+              <li key={row.id} data-testid={`scheduled-undelivered-${row.id}`}>
+                <span className="font-medium">{row.title}</span>
+                {' — '}
+                {dayLabel(row.send_at)}. {undeliveredReason(row)}
+              </li>
+            ))}
+          </ul>
+          {undelivered.length > MAX_UNDELIVERED_SHOWN && (
+            <p className="mt-1">
+              …and {undelivered.length - MAX_UNDELIVERED_SHOWN} more, under Past.
+            </p>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
           <Spinner size="lg" />
@@ -265,7 +318,9 @@ export function ScheduledSection() {
               >
                 <span className="truncate">{row.title}</span>
                 <span className="shrink-0 flex items-center gap-2">
-                  <Badge variant="neutral">{row.status}</Badge>
+                  <Badge variant={isUndelivered(row) ? 'warning' : 'neutral'}>
+                    {row.status}
+                  </Badge>
                   <span>{dayLabel(row.send_at)}</span>
                 </span>
               </li>
