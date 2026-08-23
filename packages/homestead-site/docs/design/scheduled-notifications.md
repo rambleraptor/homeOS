@@ -620,18 +620,36 @@ its still-`scheduled` rows. Deleted, not cancelled — cancelling exists so a
 materializer can't resurrect a row, and there is no materializer left. Rows that
 already fired stay as the record of what was sent.
 
-**The opt-in blocks its own removal.** Dropping a `userSettings` entry removes a
-flattened column (`credit_cards__perk_reminder`) from `user-preference`, and the
-engine refuses to drop a column that still holds values. The `drops:` escape
-hatch does **not** help here: `collectAuthorizedDrops()` is passed only to
-`syncResourceDefinitions`, and `syncUserSettingsSchema` sends no
-`X-Homestead-Authorized-Drops` header — so a declared drop is invisible to it.
-The only way through is an empty column. Migrations run *before* the
-user-settings sync inside `syncSchema`, so clearing the values in the migration
-lands the drop on the same boot; without it the sync errors, gets logged and
-swallowed, and the schema quietly never converges.
+**The opt-in may block its own removal.** Dropping a `userSettings` entry
+removes a flattened column (`credit_cards__perk_reminder`) from
+`user-preference`. Whether that is a non-event or a lasting problem depends on
+something you can't see from the code:
 
-Worth knowing for the next `userSettings` removal, which will hit the same wall.
+- **Nobody ever toggled it on** → the column is empty, and an empty column drops
+  without ceremony (`columnHasValues` in `engine/db.ts` is a `WHERE … IS NOT
+  NULL LIMIT 1`). Nothing to do. This is the likely case for a setting that
+  defaults to `false`.
+- **Somebody did** → `updateResourceSchema` throws
+  (`engine/registry.ts`), `syncSchema` catches and logs it, and boot carries on.
+  The column lingering is harmless in itself. What is not harmless is that the
+  PATCH carries the **whole** `user-preference` schema and the throw happens
+  before any DDL, so nothing in it applies — including fields for settings other
+  apps add later. One un-droppable column freezes the whole resource's schema,
+  silently, on every subsequent boot.
+
+The `drops:` escape hatch does **not** help: `collectAuthorizedDrops()` is
+passed only to `syncResourceDefinitions`, and `syncUserSettingsSchema` sends no
+`X-Homestead-Authorized-Drops` header, so a declared drop is invisible to it.
+The only way through is an empty column.
+
+Hence the clearing loop, which is really about determinism rather than repair:
+migrations run *before* the user-settings sync inside `syncSchema`, so nulling
+the values there makes the drop land on the same boot **whether or not anyone
+opted in**, instead of the outcome depending on a household's history.
+
+The real fix is to thread `authorizedDrops` into `syncUserSettingsSchema` so a
+`userSettings` removal works like a resource-field removal. Until someone does,
+every `userSettings` removal needs its own clearing loop.
 
 ## 7. Deliberately not doing
 
