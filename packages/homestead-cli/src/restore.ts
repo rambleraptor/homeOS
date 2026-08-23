@@ -13,17 +13,22 @@
  * wrong archive is reversible.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import {
+  closeSync,
+  createReadStream,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
+  readSync,
   renameSync,
   rmSync,
   unlinkSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { pipeline } from 'node:stream/promises';
 import { dirname, join, resolve } from 'node:path';
 import { loadProject } from './project.ts';
 import { keyFingerprint, resolveKeyLocation, type KeyLocation } from './key.ts';
@@ -34,6 +39,17 @@ import {
   verifyExtracted,
   type BackupManifest,
 } from './manifest.ts';
+import {
+  ArchiveDecryptError,
+  DecryptBody,
+  hasArchiveMagic,
+  openHeader,
+  readHeader,
+  recipientFingerprint,
+  recipientForIdentity,
+  type ArchiveMeta,
+} from './archive-crypto.ts';
+import { defaultIdentityPath, resolveIdentity } from './backup-key.ts';
 
 export interface RestoreOptions {
   from?: string;
@@ -41,6 +57,8 @@ export interface RestoreOptions {
   verify?: boolean;
   force?: boolean;
   allowKeyMismatch?: boolean;
+  /** Backup identity for an encrypted archive: the key itself, or a path. */
+  identity?: string;
   stamp?: string;
 }
 
@@ -87,10 +105,10 @@ export function checkKey(manifest: BackupManifest, key: KeyLocation): KeyVerdict
  */
 export type DatabaseVerifier = (dir: string) => boolean;
 
-export function restoreCmd(
+export async function restoreCmd(
   opts: RestoreOptions,
   verifyDbs: DatabaseVerifier = verifyDatabasesViaServer,
-): number {
+): Promise<number> {
   if (!opts.from) {
     console.error('usage: homestead restore --from=ARCHIVE [--data-dir=PATH] [--verify]');
     return 1;
@@ -122,13 +140,14 @@ export function restoreCmd(
   mkdirSync(stagingParent, { recursive: true });
   const staging = mkdtempSync(join(stagingParent, '.homestead-restore-'));
   try {
-    const extract = spawnSync('tar', ['-xzf', archive, '-C', staging], { stdio: 'inherit' });
-    if (extract.error || extract.status !== 0) {
-      console.error(
-        `could not extract ${archive}: ${
-          extract.error ? extract.error.message : `tar exit ${extract.status}`
-        }`,
-      );
+    const opened = openEncryption(archive, opts);
+    if ('error' in opened) {
+      console.error(opened.error);
+      return 1;
+    }
+    const extractError = await extractArchive(archive, staging, opened);
+    if (extractError) {
+      console.error(extractError);
       return 1;
     }
 
@@ -217,6 +236,150 @@ export function restoreCmd(
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }
+}
+
+/**
+ * Largest header the format can express: the metadata length is a uint16, so
+ * reading this much always captures a complete header, however verbose its
+ * metadata. Sized from the format rather than guessed, so a large-but-valid
+ * header can never be misreported as truncated.
+ */
+const MAX_HEADER_LEN = 8 + 1 + 2 + 0xffff + 32 + 12 + 32 + 16;
+
+/** Read the first `n` bytes of a file, for sniffing the archive header. */
+function readPrefix(path: string, n: number): Buffer {
+  const fd = openSync(path, 'r');
+  try {
+    const buf = Buffer.alloc(n);
+    return buf.subarray(0, readSync(fd, buf, 0, n, 0));
+  } finally {
+    closeSync(fd);
+  }
+}
+
+type OpenedArchive =
+  | { encrypted: false }
+  | { encrypted: true; meta: ArchiveMeta; dek: Buffer; headerLen: number };
+
+/**
+ * Work out whether the archive is encrypted and, if so, recover its data key.
+ *
+ * Detection is by magic rather than filename, so a renamed archive still
+ * restores. Every failure here is one an operator meets at the worst possible
+ * moment, so each names the key the archive wants and where to put it.
+ */
+export function openEncryption(
+  archive: string,
+  opts: RestoreOptions,
+): OpenedArchive | { error: string } {
+  const prefix = readPrefix(archive, MAX_HEADER_LEN);
+  if (!hasArchiveMagic(prefix)) return { encrypted: false };
+
+  let meta: ArchiveMeta;
+  try {
+    meta = readHeader(prefix).meta;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+  const wants = recipientFingerprint(meta.recipient);
+
+  const identity = resolveIdentity(opts);
+  if (!identity.value) {
+    const where = identity.path ? `\nNo identity found at ${identity.path}.` : '';
+    return {
+      error:
+        `this archive is encrypted to backup key ${wants}, and opening it needs the\n` +
+        `matching backup identity — normally kept off this machine.${where}\n\n` +
+        'Supply it with --identity=<key-or-path>, or HOMESTEAD_BACKUP_IDENTITY, or put\n' +
+        `it at ${defaultIdentityPath()}.`,
+    };
+  }
+
+  let has: string;
+  try {
+    has = recipientForIdentity(identity.value);
+  } catch (err) {
+    return {
+      error: `the backup identity is not usable: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
+  }
+  if (has !== meta.recipient) {
+    return {
+      error:
+        `this archive is encrypted to backup key ${wants}, but the identity supplied is\n` +
+        `for backup key ${recipientFingerprint(has)}. Find the identity that was printed\n` +
+        "when this archive's recipient was generated.",
+    };
+  }
+
+  try {
+    const { dek, headerLen } = openHeader(prefix, identity.value);
+    return { encrypted: true, meta, dek, headerLen };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Extract into `staging`, decrypting on the way when the archive is encrypted.
+ * Returns an error message, or null on success. Nothing is decrypted to disk
+ * first — the plaintext exists only in the pipe to tar.
+ */
+async function extractArchive(
+  archive: string,
+  staging: string,
+  opened: OpenedArchive,
+): Promise<string | null> {
+  if (!opened.encrypted) {
+    const extract = spawnSync('tar', ['-xzf', archive, '-C', staging], { stdio: 'inherit' });
+    if (extract.error || extract.status !== 0) {
+      return `could not extract ${archive}: ${
+        extract.error ? extract.error.message : `tar exit ${extract.status}`
+      }`;
+    }
+    return null;
+  }
+
+  console.log(`archive is encrypted to backup key ${recipientFingerprint(opened.meta.recipient)}`);
+  // tar's stderr is buffered rather than inherited: when decryption fails
+  // mid-stream, tar sees a severed pipe and complains loudly about a corrupt
+  // gzip. That noise would bury the message that actually tells the operator
+  // what went wrong, so it is only surfaced when tar itself is the problem.
+  const tar = spawn('tar', ['-xzf', '-', '-C', staging], { stdio: ['pipe', 'inherit', 'pipe'] });
+  let tarErr = '';
+  tar.stderr!.on('data', (chunk: Buffer) => {
+    tarErr += chunk.toString();
+  });
+  const exited = new Promise<string | null>((done) => {
+    tar.once('error', (err) => done(`could not run tar: ${err.message}`));
+    tar.once('exit', (code, signal) =>
+      done(
+        code === 0
+          ? null
+          : `tar failed: ${signal ? `signal ${signal}` : `exit ${code}`}${
+              tarErr.trim() ? `\n${tarErr.trim()}` : ''
+            }`,
+      ),
+    );
+  });
+
+  try {
+    await pipeline(
+      createReadStream(archive, { start: opened.headerLen }),
+      new DecryptBody(opened.dek),
+      tar.stdin!,
+    );
+  } catch (err) {
+    if (err instanceof ArchiveDecryptError) {
+      tar.kill();
+      await exited;
+      return `${archive} could not be decrypted: ${err.message}`;
+    }
+    return (await exited) ?? `could not extract ${archive}: ${(err as Error).message}`;
+  }
+  return exited;
 }
 
 /**

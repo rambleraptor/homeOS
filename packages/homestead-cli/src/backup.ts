@@ -20,9 +20,18 @@
  * the key file lives inside the data dir.
  */
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
+import { pipeline } from 'node:stream/promises';
 import { basename, join, resolve, sep } from 'node:path';
 import { loadProject } from './project.ts';
 import { keyFingerprint, resolveKeyLocation, type KeyLocation } from './key.ts';
@@ -35,6 +44,13 @@ import {
   type BackupManifest,
 } from './manifest.ts';
 import { HOMESTEAD_VERSION } from './version.ts';
+import {
+  ARCHIVE_FORMAT_VERSION,
+  EncryptBody,
+  recipientFingerprint,
+  sealHeader,
+} from './archive-crypto.ts';
+import { resolveRecipient } from './backup-key.ts';
 
 /** True if `child` is the same path as, or nested inside, `parent`. */
 export function isInside(parent: string, child: string): boolean {
@@ -88,23 +104,56 @@ function humanBytes(bytes: number): string {
  * The post-backup summary. Split out from the command so the wording is
  * testable — getting this wrong is how an operator ends up treating a
  * plaintext copy of their household as safe to hand around.
+ *
+ * Two independent things decide the wording: whether the archive as a whole is
+ * encrypted to a backup key, and whether encryption at rest was on for the
+ * data that went into it.
  */
-export function summaryLines(state: EncryptionState, key: KeyLocation): string[] {
+export function summaryLines(args: {
+  state: EncryptionState;
+  key: KeyLocation;
+  recipient?: string;
+}): string[] {
+  const { state, key, recipient } = args;
+  if (recipient) {
+    const lines = [
+      `  This archive is encrypted to backup key ${recipientFingerprint(recipient)}.`,
+      '  It is ciphertext end to end — safe to store anywhere, including a disk or',
+      '  a bucket you do not control. This machine cannot read it back; only the',
+      '  matching backup identity can.',
+      '',
+    ];
+    if (state === 'on') {
+      lines.push(
+        '  Restoring it needs BOTH secrets:',
+        '    the backup identity — opens the archive',
+        '    the master key      — reads the encrypted files inside it',
+        '  Keep them somewhere separate from the archive, and from each other.',
+      );
+    } else {
+      lines.push(
+        '  Encryption at rest is off, so once the archive is opened its contents are',
+        '  plaintext: the backup identity is the only thing protecting them. Keep it',
+        '  somewhere separate from the archive.',
+      );
+    }
+    return lines;
+  }
+
   if (state === 'off') {
     return [
-      '  ⚠  Encryption at rest is OFF — this archive is PLAINTEXT.',
+      '  ⚠  This archive is PLAINTEXT — nothing about it is encrypted.',
       '     It holds your whole household database and every uploaded file.',
       "     Store it the way you'd store the data directory itself: somewhere",
       '     private, not a shared drive or a bucket you treat as public.',
       '',
-      '     `homestead key generate` turns encryption on for file bytes and',
-      '     extracted text from that point forward (it does not re-encrypt',
-      '     data already written).',
+      '     `homestead backup-key generate` encrypts future archives outright,',
+      '     so they are safe to store anywhere.',
     ];
   }
   const keyHint =
     key.source === 'env'
-      ? 'it lives only in this instance\'s environment (HOMESTEAD_MASTER_KEY)'
+      ? "it lives only in this instance's environment (HOMESTEAD_MASTER_KEY)"
       : `it lives at ${key.path}`;
   return [
     '  Encryption at rest is ON, so in this archive:',
@@ -114,6 +163,7 @@ export function summaryLines(state: EncryptionState, key: KeyLocation): string[]
     '               hashes, tokens)',
     '',
     '  Treat it as sensitive — it is not safe to store just anywhere.',
+    '  `homestead backup-key generate` encrypts the whole archive, which is.',
     '',
     `  Your master key is NOT in the archive — ${keyHint}.`,
     '  Keep a copy somewhere separate (`homestead key show` prints it);',
@@ -125,6 +175,9 @@ export interface BackupOptions {
   dataDir?: string;
   out?: string;
   stamp?: string;
+  /** Backup key to encrypt the archive to; overrides the configured one. */
+  recipient?: string;
+  recipientFile?: string;
   /** Archive creation time; injectable so tests get a stable manifest. */
   now?: Date;
 }
@@ -164,10 +217,10 @@ export function buildManifest(args: {
  */
 export type Snapshotter = (dataDir: string, outDir: string) => string[] | null;
 
-export function backupCmd(
+export async function backupCmd(
   opts: BackupOptions,
   snapshot: Snapshotter = snapshotViaServer,
-): number {
+): Promise<number> {
   let dataDir: string;
   if (opts.dataDir) {
     dataDir = resolve(opts.dataDir);
@@ -196,7 +249,30 @@ export function backupCmd(
     return 1;
   }
 
-  const out = resolve(opts.out ?? `homestead-backup-${opts.stamp ?? 'latest'}.tar.gz`);
+  // A configured backup key turns archive encryption on by itself, the way a
+  // master key turns encryption at rest on — one less flag to remember on the
+  // command an operator runs least often.
+  const recipientLoc = resolveRecipient(opts);
+  if (recipientLoc.source !== 'none' && !recipientLoc.value) {
+    console.error(`no backup recipient at ${recipientLoc.path} — nothing to encrypt to`);
+    return 1;
+  }
+  const recipient = recipientLoc.value;
+  if (recipient) {
+    try {
+      recipientFingerprint(recipient);
+    } catch (err) {
+      console.error(
+        `${recipientLoc.path ?? 'the configured backup recipient'} is not usable: ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+      return 1;
+    }
+  }
+
+  const suffix = recipient ? '.tar.gz.enc' : '.tar.gz';
+  const out = resolve(opts.out ?? `homestead-backup-${opts.stamp ?? 'latest'}${suffix}`);
+  const now = opts.now ?? new Date();
   const staging = mkdtempSync(join(tmpdir(), 'homestead-backup-'));
   try {
     const snapshotDir = join(staging, 'db');
@@ -226,23 +302,33 @@ export function backupCmd(
         key,
         databases,
         files: [...hashEntries(snapshotDir, databases), ...hashEntries(dataDir, others)],
-        now: opts.now ?? new Date(),
+        now,
       }),
     );
 
     // Three -C groups: the manifest, the snapshotted databases, then the rest
     // of the data dir. All land at the archive root, so extracting the archive
     // (minus the manifest) reproduces a data dir.
-    const args = ['-czf', out, '-C', staging, MANIFEST_NAME];
-    if (databases.length > 0) args.push('-C', snapshotDir, ...databases);
-    if (others.length > 0) args.push('-C', dataDir, ...others);
+    const groups = ['-C', staging, MANIFEST_NAME];
+    if (databases.length > 0) groups.push('-C', snapshotDir, ...databases);
+    if (others.length > 0) groups.push('-C', dataDir, ...others);
 
-    const result = spawnSync('tar', args, { stdio: 'inherit' });
-    if (result.error || result.status !== 0) {
-      console.error(
-        `tar failed: ${result.error ? result.error.message : `exit ${result.status}`}`,
-      );
-      return 1;
+    if (recipient) {
+      const failure = await writeEncryptedArchive(groups, out, recipient, now);
+      if (failure) {
+        // Never leave a half-written archive that looks restorable.
+        rmSync(out, { force: true });
+        console.error(failure);
+        return 1;
+      }
+    } else {
+      const result = spawnSync('tar', ['-czf', out, ...groups], { stdio: 'inherit' });
+      if (result.error || result.status !== 0) {
+        console.error(
+          `tar failed: ${result.error ? result.error.message : `exit ${result.status}`}`,
+        );
+        return 1;
+      }
     }
   } finally {
     rmSync(staging, { recursive: true, force: true });
@@ -250,8 +336,50 @@ export function backupCmd(
 
   console.log(`wrote ${out} (${humanBytes(statSync(out).size)})`);
   console.log('');
-  for (const line of summaryLines(encryptionState(key), key)) console.log(line);
+  for (const line of summaryLines({ state: encryptionState(key), key, recipient })) {
+    console.log(line);
+  }
   return 0;
+}
+
+/**
+ * Stream `tar` straight through encryption into the output file.
+ *
+ * Streaming rather than tar-then-encrypt is the point: a plaintext archive is
+ * never written to disk (where it would outlive the command in free space),
+ * and an archive far larger than memory still works. Returns an error message,
+ * or null on success.
+ */
+async function writeEncryptedArchive(
+  groups: string[],
+  out: string,
+  recipient: string,
+  now: Date,
+): Promise<string | null> {
+  const { header, dek } = sealHeader(recipient, {
+    format: ARCHIVE_FORMAT_VERSION,
+    created_at: now.toISOString(),
+    homestead_version: HOMESTEAD_VERSION,
+    recipient,
+  });
+
+  const tar = spawn('tar', ['-czf', '-', ...groups], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const exited = new Promise<string | null>((done) => {
+    tar.once('error', (err) => done(`could not run tar: ${err.message}`));
+    tar.once('exit', (code, signal) =>
+      done(code === 0 ? null : `tar failed: ${signal ? `signal ${signal}` : `exit ${code}`}`),
+    );
+  });
+
+  const sink = createWriteStream(out);
+  sink.write(header);
+  try {
+    await pipeline(tar.stdout!, new EncryptBody(dek), sink);
+  } catch (err) {
+    // Surface tar's own failure in preference to the broken-pipe it causes.
+    return (await exited) ?? `could not write ${out}: ${(err as Error).message}`;
+  }
+  return exited;
 }
 
 /**

@@ -5,9 +5,10 @@ every uploaded file. `homestead backup` archives it; `homestead restore` puts
 it back, or checks that it could.
 
 ```bash
-homestead backup                                   # → homestead-backup-<timestamp>.tar.gz
-homestead restore --from=homestead-backup-….tar.gz --verify
-homestead restore --from=homestead-backup-….tar.gz --force
+homestead backup-key generate                      # once: mint the key that encrypts archives
+homestead backup                                   # → homestead-backup-<timestamp>.tar.gz.enc
+homestead restore --from=…  --verify --identity=…  # prove it can be restored
+homestead restore --from=…  --force  --identity=…  # actually restore it
 ```
 
 ## Taking a backup
@@ -35,10 +36,55 @@ vectors.db                 # consistent snapshot
 files/…                    # uploaded file bytes
 ```
 
-## How sensitive is the archive?
+## Encrypting the archive
 
-More than you might expect, and `homestead backup` tells you which case you
-are in when it finishes.
+Run this once:
+
+```bash
+homestead backup-key generate
+```
+
+It prints a **backup identity** — the secret — and writes only the matching
+**recipient** (the public half) to `~/.homestead/backup-recipient.pub`. From
+then on every `homestead backup` encrypts the whole archive to that recipient,
+with no extra flag.
+
+The lopsidedness is the point. The machine taking backups holds only the public
+key, so **it cannot read back anything it has written**. Steal the box and you
+get ciphertext. Run backups from cron with no human present and there is still
+no secret on disk to steal. Only the identity opens an archive, and the identity
+is meant to live somewhere else entirely — a password manager, a secrets store,
+a piece of paper in a drawer.
+
+That cuts the other way too, and there is no softening it: **nothing on the
+machine can regenerate the identity.** Lose it and every archive encrypted to it
+is unreadable, permanently. Store it the moment it is printed, and prove the
+pair works before you rely on it:
+
+```bash
+homestead backup
+homestead restore --from=<archive> --verify --identity=<the identity>
+```
+
+If you want same-box restores without fetching the key, `backup-key generate
+--out=PATH` also writes the identity to disk at `0600` — but understand you
+have traded away the main benefit: a thief who takes the box can now read its
+archives.
+
+An encrypted archive is genuinely safe to store anywhere: a cloud bucket, a NAS,
+a friend's disk. It carries a small plaintext header saying when it was written,
+by which homestead release, and which backup key opens it — enough to sort a
+shelf of archives without any key present. Everything else, including the file
+listing and the manifest, is inside the encryption.
+
+Restoring one may need **two** secrets: the backup identity to open the archive,
+and (if encryption at rest is on) the master key to read the file bytes inside
+it. They protect different things and should be stored separately.
+
+## How sensitive is an unencrypted archive?
+
+Without a backup key, more than you might expect — and `homestead backup` tells
+you which case you are in when it finishes.
 
 **With no master key**, encryption at rest is off and the archive is entirely
 plaintext — your whole household database and every uploaded file. Store it
@@ -52,9 +98,10 @@ archive is safer, but it is not safe to store just anywhere. See
 [SECURITY.md](https://github.com/rambleraptor/homestead/blob/main/SECURITY.md)
 for exactly what is and isn't encrypted.
 
-The master key is never in the archive. `homestead backup` refuses to run if
-your key file sits inside the data directory, because that would put the key
-and the data it protects in the same tarball.
+Neither key is ever in the archive. `homestead backup` refuses to run if your
+master key file sits inside the data directory, because that would put the key
+and the data it protects in the same tarball, and the backup identity is never
+written to disk at all unless you ask for it.
 
 Because the default archive lands in the directory you run the command from —
 usually your project, usually a git checkout — `homestead init` scaffolds a
@@ -104,13 +151,19 @@ homestead restore --from=/mnt/nas/homestead-2026-08-23.tar.gz --verify
 ```
 
 ```
+archive is encrypted to backup key 1e4c207769dae3ca
 archive written 2026-08-23T22:34:16.615Z by homestead 0.2.0
   3 files match their checksums
   2 databases pass their integrity check
   master key matches the one this archive was written under
 
-/mnt/nas/homestead-2026-08-23.tar.gz is intact and restorable.
+/mnt/nas/homestead-2026-08-23.tar.gz.enc is intact and restorable.
 ```
+
+For an encrypted archive this is the check that matters most: it proves the
+identity you kept actually opens the archives you have been writing. A backup
+key that turns out not to match is the kind of thing you want to find out about
+now, not during a restore.
 
 Worth running against your newest archive on a schedule — it is the only thing
 that turns "I have backups" into "I have backups that work".
@@ -144,6 +197,7 @@ Start the server afterwards; the schema sync runs on boot as usual.
 | `--verify` | Run the checks and restore nothing. |
 | `--force` | Replace a non-empty data directory (renamed aside, not deleted). |
 | `--allow-key-mismatch` | Restore even though the archive names a different master key. Only when you know why they differ. |
+| `--identity=KEY\|PATH` | The backup identity that opens an encrypted archive. Also read from `HOMESTEAD_BACKUP_IDENTITY`, or `~/.homestead/backup.key`. |
 
 ### When a check fails
 
@@ -158,6 +212,38 @@ Start the server afterwards; the schema sync runs on boot as usual.
   you expect the difference (its encrypted files will stay unreadable).
 - **"has no homestead-backup.json"** — not a `homestead backup` archive, or one
   from before manifests. Extract it by hand if you trust it.
+- **"encrypted to backup key …, and opening it needs the matching backup
+  identity"** — the archive is encrypted and no identity was supplied. Fetch it
+  from wherever you stored it and pass `--identity`.
+- **"but the identity supplied is for backup key …"** — that identity belongs to
+  a different backup key. The message names both fingerprints; find the identity
+  printed when this archive's recipient was generated.
+- **"could not be decrypted"** — the archive has been altered or truncated in
+  storage or transfer. Every 64 KiB chunk is authenticated, and the last chunk is
+  marked as such, so a cut-off archive is detected rather than restored as a
+  partial data directory.
+
+## How the encryption works
+
+Worth knowing if you are evaluating whether to trust it.
+
+Each archive gets a fresh random data key. That key is wrapped for the recipient
+using X25519 key agreement against a one-time ephemeral keypair, with HKDF-SHA256
+deriving the wrapping key — so an archive reveals nothing about any other
+archive, and the recipient's public key is all the writing machine ever needs.
+The whole plaintext header is bound into the wrap, so editing the recorded date
+or recipient invalidates the archive.
+
+The body is not one big encrypted blob. It is 64 KiB chunks, each sealed with
+AES-256-GCM under a nonce carrying the chunk's position and a flag marking the
+final chunk. That matters for two reasons: every chunk is authenticated *before*
+it is handed to `tar`, so tampered data never reaches the extractor; and because
+only the last chunk carries the final flag, truncating an archive fails to
+authenticate instead of quietly restoring whatever survived.
+
+Backup streams `tar` straight through encryption into the output file, and
+restore streams the other way into `tar`. A plaintext copy of the archive is
+never written to disk, and archives far larger than memory work fine.
 
 ## What isn't backed up
 

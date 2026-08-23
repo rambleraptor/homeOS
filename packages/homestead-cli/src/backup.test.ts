@@ -19,6 +19,8 @@ import {
   summaryLines,
 } from './backup.ts';
 import { keyFingerprint, resolveKeyLocation } from './key.ts';
+import { generateBackupKeypair, recipientFingerprint } from './archive-crypto.ts';
+import { __setDefaultBackupKeyPathsForTests } from './backup-key.ts';
 
 let dir: string;
 const savedEnv = { ...process.env };
@@ -27,7 +29,16 @@ let logged: string[];
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'hs-backup-'));
   delete process.env.HOMESTEAD_MASTER_KEY;
-  delete process.env.HOMESTEAD_MASTER_KEY_FILE;
+  // Point at a path inside the temp dir rather than leaving the lookup to fall
+  // through to ~/.homestead/master.key — otherwise these tests would behave
+  // differently on a machine that happens to have encryption at rest set up.
+  process.env.HOMESTEAD_MASTER_KEY_FILE = join(dir, 'absent-master.key');
+  delete process.env.HOMESTEAD_BACKUP_IDENTITY;
+  delete process.env.HOMESTEAD_BACKUP_RECIPIENT;
+  __setDefaultBackupKeyPathsForTests({
+    recipient: join(dir, 'absent-recipient.pub'),
+    identity: join(dir, 'absent-backup.key'),
+  });
   logged = [];
   vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => {
     logged.push(args.map(String).join(' '));
@@ -38,25 +49,26 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __setDefaultBackupKeyPathsForTests(undefined);
   rmSync(dir, { recursive: true, force: true });
   process.env = { ...savedEnv };
   vi.restoreAllMocks();
 });
 
 describe('isInside', () => {
-  test('matches the dir itself and anything nested', () => {
+  test('matches the dir itself and anything nested', async () => {
     expect(isInside('/data', '/data')).toBe(true);
     expect(isInside('/data', '/data/files/x')).toBe(true);
   });
 
-  test('does not match a sibling with a shared prefix', () => {
+  test('does not match a sibling with a shared prefix', async () => {
     expect(isInside('/data', '/data-other/key')).toBe(false);
     expect(isInside('/data', '/elsewhere')).toBe(false);
   });
 });
 
 describe('partitionDataDir', () => {
-  test('separates live database artifacts from everything else', () => {
+  test('separates live database artifacts from everything else', async () => {
     const { dbArtifacts, others } = partitionDataDir([
       'aepbase.db',
       'aepbase.db-wal',
@@ -79,41 +91,67 @@ describe('partitionDataDir', () => {
 });
 
 describe('encryptionState', () => {
-  test('is off with no key configured', () => {
+  test('is off with no key configured', async () => {
     expect(encryptionState({ source: 'none' })).toBe('off');
   });
 
-  test('is off when a key file is configured but missing on disk', () => {
+  test('is off when a key file is configured but missing on disk', async () => {
     expect(encryptionState({ source: 'file', path: '/nope/master.key' })).toBe('off');
   });
 
-  test('is on with a resolvable key', () => {
+  test('is on with a resolvable key', async () => {
     expect(encryptionState({ source: 'env', value: 'a2V5' })).toBe('on');
   });
 });
 
 describe('summaryLines', () => {
-  test('warns that the archive is plaintext when encryption is off', () => {
-    const text = summaryLines('off', { source: 'none' }).join('\n');
-    expect(text).toContain('PLAINTEXT');
-    expect(text).toContain('Encryption at rest is OFF');
-    // The old wording promised the archive was safe anywhere; it never was.
-    expect(text).not.toContain('safe to store anywhere');
+  test('warns that the archive is plaintext when nothing is encrypted', async () => {
+    const text = summaryLines({ state: 'off', key: { source: 'none' } }).join('\n');
+    expect(text).toContain('This archive is PLAINTEXT');
+    // The claim that mattered: the archive itself must never be described as
+    // protected when it isn't. (Advice on how to get there is fine.)
+    expect(text).not.toMatch(/This archive is encrypted/);
   });
 
-  test('scopes the claim to what is actually encrypted when a key is set', () => {
-    const text = summaryLines('on', { source: 'file', path: '/keys/master.key', value: 'k' }).join(
-      '\n',
-    );
+  test('scopes the claim to what is encrypted when only a master key is set', async () => {
+    const text = summaryLines({
+      state: 'on',
+      key: { source: 'file', path: '/keys/master.key', value: 'k' },
+    }).join('\n');
     expect(text).toContain('encrypted');
     expect(text).toContain('PLAINTEXT');
     expect(text).toContain('vectors.db');
     expect(text).toContain('/keys/master.key');
-    expect(text).not.toContain('safe to store anywhere');
+    expect(text).not.toMatch(/This archive is encrypted/);
   });
 
-  test('does not point at a key file when the key is only in the environment', () => {
-    const text = summaryLines('on', { source: 'env', value: 'k' }).join('\n');
+  test('claims end-to-end safety only when encrypted to a backup key', async () => {
+    const { recipient } = generateBackupKeypair();
+    const text = summaryLines({ state: 'off', key: { source: 'none' }, recipient }).join('\n');
+
+    expect(text).toContain('This archive is encrypted to backup key');
+    expect(text).toContain(recipientFingerprint(recipient));
+    expect(text).toContain('safe to store anywhere');
+    expect(text).toContain('This machine cannot read it back');
+    // With no master key the contents are plaintext once opened — say so.
+    expect(text).toContain('plaintext');
+  });
+
+  test('names both secrets when archive and at-rest encryption are both on', async () => {
+    const { recipient } = generateBackupKeypair();
+    const text = summaryLines({
+      state: 'on',
+      key: { source: 'file', path: '/keys/master.key', value: 'k' },
+      recipient,
+    }).join('\n');
+
+    expect(text).toContain('BOTH secrets');
+    expect(text).toContain('the backup identity');
+    expect(text).toContain('the master key');
+  });
+
+  test('does not point at a key file when the key is only in the environment', async () => {
+    const text = summaryLines({ state: 'on', key: { source: 'env', value: 'k' } }).join('\n');
     expect(text).toContain('HOMESTEAD_MASTER_KEY');
   });
 });
@@ -157,29 +195,29 @@ function archiveEntries(archive: string): string[] {
 }
 
 describe('backupCmd', () => {
-  test('refuses when the data dir is missing', () => {
-    expect(backupCmd({ dataDir: join(dir, 'nope'), out: join(dir, 'b.tar.gz') })).toBe(1);
+  test('refuses when the data dir is missing', async () => {
+    expect(await backupCmd({ dataDir: join(dir, 'nope'), out: join(dir, 'b.tar.gz') })).toBe(1);
     expect(logged.join('\n')).toContain('nothing to back up');
   });
 
-  test('refuses when the master key sits inside the data dir', () => {
+  test('refuses when the master key sits inside the data dir', async () => {
     const dataDir = join(dir, 'data');
     mkdirSync(dataDir);
     const keyPath = join(dataDir, 'master.key');
     writeFileSync(keyPath, 'a2V5\n');
     process.env.HOMESTEAD_MASTER_KEY_FILE = keyPath;
 
-    expect(backupCmd({ dataDir, out: join(dir, 'b.tar.gz') })).toBe(1);
+    expect(await backupCmd({ dataDir, out: join(dir, 'b.tar.gz') })).toBe(1);
     expect(logged.join('\n')).toContain('is inside the data dir');
     expect(existsSync(join(dir, 'b.tar.gz'))).toBe(false);
   });
 
-  test('archives the snapshot and the files tree, never the WAL sidecars', () => {
+  test('archives the snapshot and the files tree, never the WAL sidecars', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     const out = join(dir, 'backup.tar.gz');
 
-    expect(backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
+    expect(await backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
 
     const entries = archiveEntries(out);
     expect(entries).toContain('aepbase.db');
@@ -191,11 +229,11 @@ describe('backupCmd', () => {
     expect(entries.some((e) => e.includes('.db-shm'))).toBe(false);
   });
 
-  test('archives the snapshot bytes, not the live database file', () => {
+  test('archives the snapshot bytes, not the live database file', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     const out = join(dir, 'backup.tar.gz');
-    expect(backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
+    expect(await backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
 
     const restored = join(dir, 'restored');
     mkdirSync(restored);
@@ -207,22 +245,22 @@ describe('backupCmd', () => {
     );
   });
 
-  test('refuses when the data dir holds a file named like the manifest', () => {
+  test('refuses when the data dir holds a file named like the manifest', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     writeFileSync(join(dataDir, 'homestead-backup.json'), '{}');
     const out = join(dir, 'backup.tar.gz');
 
-    expect(backupCmd({ dataDir, out }, fakeSnapshot)).toBe(1);
+    expect(await backupCmd({ dataDir, out }, fakeSnapshot)).toBe(1);
     expect(logged.join('\n')).toContain('collides with');
     expect(existsSync(out)).toBe(false);
   });
 
-  test('writes a manifest describing the archive', () => {
+  test('writes a manifest describing the archive', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     const out = join(dir, 'backup.tar.gz');
-    expect(backupCmd({ dataDir, out, now: new Date('2026-01-01T00:00:00Z') }, fakeSnapshot)).toBe(0);
+    expect(await backupCmd({ dataDir, out, now: new Date('2026-01-01T00:00:00Z') }, fakeSnapshot)).toBe(0);
 
     const read = spawnSync('tar', ['-xzOf', out, 'homestead-backup.json'], { encoding: 'utf8' });
     expect(read.status).toBe(0);
@@ -238,13 +276,13 @@ describe('backupCmd', () => {
     ]);
   });
 
-  test('records the master key fingerprint, never the key', () => {
+  test('records the master key fingerprint, never the key', async () => {
     const key = Buffer.alloc(32, 7).toString('base64');
     process.env.HOMESTEAD_MASTER_KEY = key;
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     const out = join(dir, 'backup.tar.gz');
-    expect(backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
+    expect(await backupCmd({ dataDir, out }, fakeSnapshot)).toBe(0);
 
     const read = spawnSync('tar', ['-xzOf', out, 'homestead-backup.json'], { encoding: 'utf8' });
     const manifest = JSON.parse(read.stdout);
@@ -253,30 +291,30 @@ describe('backupCmd', () => {
     expect(read.stdout).not.toContain(key);
   });
 
-  test('fails without writing an archive when the snapshot fails', () => {
+  test('fails without writing an archive when the snapshot fails', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     const out = join(dir, 'backup.tar.gz');
 
-    expect(backupCmd({ dataDir, out }, () => null)).toBe(1);
+    expect(await backupCmd({ dataDir, out }, () => null)).toBe(1);
     expect(existsSync(out)).toBe(false);
   });
 
-  test('reports plaintext when no master key is configured', () => {
+  test('reports plaintext when no master key is configured', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
-    expect(resolveKeyLocation().source).toBe('none');
+    expect(encryptionState(resolveKeyLocation())).toBe('off');
 
-    expect(backupCmd({ dataDir, out: join(dir, 'backup.tar.gz') }, fakeSnapshot)).toBe(0);
-    expect(logged.join('\n')).toContain('Encryption at rest is OFF');
+    expect(await backupCmd({ dataDir, out: join(dir, 'backup.tar.gz') }, fakeSnapshot)).toBe(0);
+    expect(logged.join('\n')).toContain('This archive is PLAINTEXT');
   });
 
-  test('scopes the claim when a master key is configured', () => {
+  test('scopes the claim when a master key is configured', async () => {
     const dataDir = join(dir, 'data');
     seedDataDir(dataDir);
     process.env.HOMESTEAD_MASTER_KEY = Buffer.alloc(32, 7).toString('base64');
 
-    expect(backupCmd({ dataDir, out: join(dir, 'backup.tar.gz') }, fakeSnapshot)).toBe(0);
+    expect(await backupCmd({ dataDir, out: join(dir, 'backup.tar.gz') }, fakeSnapshot)).toBe(0);
     const text = logged.join('\n');
     expect(text).toContain('Encryption at rest is ON');
     expect(text).not.toContain('safe to store anywhere');

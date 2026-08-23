@@ -107,6 +107,7 @@ homestead key generate      # write ~/.homestead/master.key (0600), refuse to cl
 homestead key show          # print the resolved key, to copy into a password manager
 homestead backup            # archive the data dir (consistent db snapshot); refuses to include the key
 homestead restore --verify  # check an archive end to end, including that this key matches it
+homestead backup-key generate  # mint the keypair that encrypts archives outright (see below)
 homestead doctor            # checks key presence, location, and permissions
 ```
 
@@ -115,6 +116,27 @@ service user's home (`~/.homestead/master.key`). If the service runs as a
 different user, or you keep the key elsewhere, point at it explicitly by adding
 `HOMESTEAD_MASTER_KEY_FILE=/path/to/master.key` to the unit's `.env`
 (the generated service already loads it via `EnvironmentFile`).
+
+## Encrypted backup archives
+
+Encryption at rest is partial by design, so a backup archive still exposes
+structured fields. `homestead backup-key generate` closes that gap for archives
+specifically, by encrypting the whole archive to a public backup key.
+
+It is deliberately asymmetric: the machine taking backups holds only the public
+recipient, so it cannot decrypt what it writes. A stolen box — or an unattended
+scheduled backup, which would otherwise need a secret sitting beside the data —
+yields ciphertext. The private identity is printed once, never written to disk
+unless explicitly requested, and is needed only to restore.
+
+This does not change the at-rest picture on the running server; it changes what
+a copied archive is worth. And it adds a second unrecoverable secret: losing the
+backup identity makes every archive encrypted to it unreadable. Store it
+somewhere separate from the master key, and verify the pair with `homestead
+restore --verify --identity=…` before relying on it.
+
+See [the backups guide](packages/homestead-site/docs/guides/backups.md) for the
+format and the operational details.
 
 ## Related hardening
 
