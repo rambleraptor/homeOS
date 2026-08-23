@@ -37,6 +37,16 @@ export const notificationsApp: AppConfig = {
       title: 'Adopt hand-typed reminders into the queue',
       load: () => import('./migrations/adopt-reminders'),
     },
+    // Must stay *after* the adoption above: migrations run in array order
+    // within an app, and this deletes the collection that one reads. Filed here
+    // rather than in events (which owned the resource) for exactly that reason —
+    // events registers first, so there it would run too early.
+    {
+      id: 'notifications-drop-reminders-collection',
+      title: 'Drop the retired reminder collection',
+      destructive: true,
+      load: () => import('./migrations/drop-reminders-collection'),
+    },
   ],
   web: {
     icon: () => import('lucide-react').then((m) => m.Bell),

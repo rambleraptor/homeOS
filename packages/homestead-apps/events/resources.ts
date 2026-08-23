@@ -2,7 +2,6 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
 
 export const EVENTS = 'events' as const;
 export const EVENT_REMINDERS = 'event-reminders' as const;
-export const REMINDERS = 'reminders' as const;
 
 export const eventsResources: ResourceDefinition[] = [
   {
@@ -71,102 +70,6 @@ export const eventsResources: ResourceDefinition[] = [
         required: true,
         description:
           'when to notify: day_of (morning of), week_before (7 days ahead), or both',
-      },
-    },
-  },
-  {
-    // RETIRED — kept only so `notifications-adopt-reminders` has a collection to
-    // read. Nothing writes it, nothing renders it, and nothing delivers from it.
-    //
-    // A reminder is a `scheduled-notification` now: one row per recipient under
-    // the user it addresses, delivered by the notifications app's dispatcher.
-    // See packages/homestead-site/docs/design/scheduled-notifications.md.
-    //
-    // **Do not remove this definition until the adoption migration has run
-    // everywhere it needs to.** Removing it drops the table, and the engine's
-    // column guard won't help — dropping the whole definition takes the data
-    // with it, and the migration reads that data. When it goes, it goes with a
-    // migration declaring the drop (implying `destructive`), per CLAUDE.md's
-    // two-release rule. Everything below is frozen as it was; it exists to be
-    // read once and then deleted.
-    singular: 'reminder',
-    plural: REMINDERS,
-    description:
-      'Retired. Superseded by scheduled-notification; retained until the adoption migration has run.',
-    user_settable_create: true,
-    // Some reminders are the household's ("bins out tonight"), some are one
-    // person's ("buy her birthday present"). Rather than fork into two
-    // resources the way todos did, each row carries its own visibility and the
-    // household role's grant is filtered to the shared value. See
-    // packages/homestead-site/docs/design/record-visibility.md.
-    access: {
-      model: 'per-record',
-      field: 'visibility',
-      sharedValue: 'household',
-      privateValue: 'private',
-    },
-    fields: {
-      title: { type: 'string', required: true },
-      notes: { type: 'string' },
-      due_at: {
-        type: 'string',
-        format: 'date-time',
-        required: true,
-        description: 'when the reminder is due, as an RFC3339 instant',
-      },
-      status: {
-        type: 'string',
-        // Only the two states the UI can actually produce. The design sketched
-        // a third (`dismissed`) with no control behind it; a vocabulary nothing
-        // emits is the mistake `notification_type.day_before` already made here,
-        // and adding an enum value later is a safe PATCH.
-        enum: ['pending', 'done'],
-        default: 'pending',
-        description: 'pending until someone marks it done',
-      },
-      visibility: {
-        type: 'string',
-        enum: ['private', 'household'],
-        default: 'household',
-        // Decided when the reminder is created and never after: a mutable
-        // discriminator would let anyone with write access hide a household
-        // row from the household. To change it, delete and recreate.
-        immutable: true,
-        description: 'who can see this: just its owner, or the whole household',
-      },
-      created_by: { type: 'string', reference: { resource: 'user' } },
-      // Set only on a reminder an app raised on the household's behalf: the id
-      // of that app (`events`, `home`, …). Absent means a person typed it in.
-      // The reminders tab hides typed rows by default — an app that materializes
-      // one reminder per pickup day would otherwise bury the handful someone
-      // actually wrote — and the notify cron uses it to pick the app's basePath
-      // for the notification's click-through.
-      type: {
-        type: 'string',
-        description:
-          'id of the app that raised this reminder; unset for one a person created',
-      },
-      // The creating app's idempotency key for this reminder, unique within the
-      // app (`<event id>:<lead>:<year>`, `pickup:<date>`, …). A materializer
-      // runs daily over an overlapping horizon, so it needs to recognise the
-      // rows it already wrote; the key is opaque to everything else. Deliberately
-      // not a `reference` — a key is often a record id, but it's just as often a
-      // date or a compound of both.
-      source_key: {
-        type: 'string',
-        description:
-          'stable per-app key identifying what this reminder was raised from',
-      },
-      // Who gets notified. Empty means everyone who can see the reminder: its
-      // owner for a private row, the whole household for a shared one. Apps that
-      // materialize from a per-user preference (event reminders) narrow it to
-      // the people who actually opted in, without making the row itself private —
-      // a private row created by a cron would be owned by the cron, not by them.
-      notify_users: {
-        type: 'array',
-        description:
-          'users to notify; empty means everyone who can see the reminder',
-        items: { type: 'string', reference: { resource: 'user' } },
       },
     },
   },

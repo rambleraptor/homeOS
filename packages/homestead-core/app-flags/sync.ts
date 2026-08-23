@@ -37,6 +37,18 @@ export interface SyncOptions {
   defs: AppFlagDefs;
   /** Optional logger; defaults to console. */
   logger?: Pick<Console, 'info' | 'warn' | 'error'>;
+  /**
+   * Column names this sync may drop even when they still hold data.
+   *
+   * The engine refuses a populated column drop by default, so an app removing
+   * a flag would otherwise wedge here: the PATCH carries the whole schema
+   * and throws before any DDL, so *nothing* in it applies — including fields
+   * other apps added in the same boot. One un-droppable column freezes the
+   * resource. Filled from migrations that declare a matching `drops` entry
+   * against `app-flag`, exactly as the resource sync does.
+   */
+  authorizedDrops?: ReadonlySet<string>;
+
 }
 
 export interface SyncResult {
@@ -46,7 +58,7 @@ export interface SyncResult {
 export async function syncAppFlagsSchema(
   options: SyncOptions,
 ): Promise<SyncResult> {
-  const { aepbaseUrl, token, defs, logger = console } = options;
+  const { aepbaseUrl, token, defs, logger = console, authorizedDrops } = options;
   const schema = buildResourceSchema(defs);
 
   const desired: AepResourceDefinition = {
@@ -73,7 +85,7 @@ export async function syncAppFlagsSchema(
     return { action: 'noop' };
   }
 
-  await patchDefinition(aepbaseUrl, token, { schema });
+  await patchDefinition(aepbaseUrl, token, { schema }, authorizedDrops);
   logger.info(
     `[app-flags] updated resource definition to ${Object.keys(schema.properties).length} field(s)`,
   );
@@ -126,17 +138,20 @@ async function patchDefinition(
   aepbaseUrl: string,
   token: string,
   body: Partial<AepResourceDefinition>,
+  authorizedDrops?: ReadonlySet<string>,
 ): Promise<void> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/merge-patch+json',
+  };
+  // Same wire contract as the resource sync: absent means "refuse a populated
+  // drop", which is the safe default for a bare PATCH.
+  if (authorizedDrops && authorizedDrops.size > 0) {
+    headers['X-Homestead-Authorized-Drops'] = [...authorizedDrops].join(',');
+  }
   const res = await fetch(
     `${aepbaseUrl}/${DEFINITIONS_PATH}/${RESOURCE_SINGULAR}`,
-    {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/merge-patch+json',
-      },
-      body: JSON.stringify(body),
-    },
+    { method: 'PATCH', headers, body: JSON.stringify(body) },
   );
   if (!res.ok) {
     const text = await res.text();

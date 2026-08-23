@@ -35,9 +35,16 @@ import { runMigrations } from './migrations';
 const log = createLogger('schema-sync');
 
 /**
- * Fold every migration's `drops` into a `resource → {fields}` map the resource
- * sync hands to the engine, so a populated column named by a `drops` entry is
- * allowed to drop while every other populated column is refused.
+ * Fold every migration's `drops` into a `resource → {fields}` map the syncs hand
+ * to the engine, so a populated column named by a `drops` entry is allowed to
+ * drop while every other populated column is refused.
+ *
+ * All three syncs draw from this, not just the resource one: `app-flag` and
+ * `user-preference` have generated schemas whose columns come from declared
+ * flags and user settings, so removing a declaration is a column drop like any
+ * other and needs the same authorization route. Name them by their `singular`
+ * in a migration's `drops` — `{ resource: 'user-preference', field:
+ * 'credit_cards__perk_reminder' }`.
  */
 function collectAuthorizedDrops(): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
@@ -61,6 +68,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
   }
 
   const token = admin.token;
+  const authorizedDrops = collectAuthorizedDrops();
   try {
     // Hoisted: the permissions seeder derives the household roles' covered
     // collections from the same declared set the schema sync applies.
@@ -76,7 +84,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         aepbaseUrl,
         token,
         defs,
-        authorizedDrops: collectAuthorizedDrops(),
+        authorizedDrops,
       });
       if (!result.created.length && !result.updated.length) {
         log.child('resources').info('schema already in sync', {
@@ -143,6 +151,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         aepbaseUrl,
         token,
         defs: getAllAppFlagDefs() as never,
+        authorizedDrops: authorizedDrops.get('app-flag'),
       });
       if (result.action === 'noop') log.child('app-flags').info('schema already in sync');
     } catch (error) {
@@ -154,6 +163,7 @@ export async function syncSchema(db: Database, aepbaseUrl: string): Promise<void
         aepbaseUrl,
         token,
         defs: getAllUserSettingDefs() as never,
+        authorizedDrops: authorizedDrops.get('user-preference'),
       });
       if (result.action === 'noop') log.child('user-settings').info('schema already in sync');
     } catch (error) {

@@ -24,6 +24,11 @@ export const creditCardsApp: AppConfig = {
     {
       id: 'credit-cards-drop-perk-reminders',
       title: 'Withdraw perk-window reminders',
+      // The handler empties this column, which is what lets the user-settings
+      // sync drop it. Declaring the drop as well makes the sync succeed even if
+      // the handler only got partway — the two are belt and braces, not
+      // alternatives.
+      drops: [{ resource: 'user-preference', field: 'credit_cards__perk_reminder' }],
       load: () => import('./migrations/drop-perk-reminders'),
     },
   ],

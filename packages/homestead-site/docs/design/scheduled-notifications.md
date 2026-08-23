@@ -470,17 +470,31 @@ has a collection to read.
 
 ### 6.2 Release 2 — remove
 
-All that's left is the definition itself, in `events/resources.ts`, marked
-`RETIRED` and frozen. Removing it drops a table that holds data, so the release
-ships a migration declaring the drop (`drops: [{ resource: 'reminder' }]`,
-implying `destructive`).
+Shipped. Two corrections to what this section used to say, because both were
+wrong in ways that changed the work:
 
-Note that the engine's column guard does **not** protect this: it refuses to
-drop a *column* that still holds data, but removing a whole definition takes the
-table with it. The only thing standing between the old rows and deletion is
-running `notifications-adopt-reminders` first — so Release 2 waits until that
-migration has run everywhere it needs to, which the `_homestead_migrations`
-ledger records.
+**Removing the definition does not delete anything.** `syncResourceDefinitions`
+only creates, patches, and no-ops — it has no delete path. Taking `reminder` out
+of `events/resources.ts` merely stops managing it; the table and every row in it
+would sit in the database indefinitely.
+
+**`drops` is the wrong tool.** It authorizes dropping a *column* inside a
+still-declared resource (`{ resource, field }`); there is no resource-level
+equivalent, and `drops: [{ resource: 'reminder' }]` isn't even a valid entry.
+
+The only way to remove a collection is to delete its definition through the
+engine — `DELETE /aep-resource-definitions/reminder`, which routes to
+`removeResource` → `dropResourceTable`. So the release removes the definition
+*and* ships `notifications-drop-reminders-collection`, a `destructive: true`
+migration that makes that call.
+
+That migration lives in the **notifications** app, not events, and the reason is
+ordering. Migrations run in app-registration order and, within an app, in array
+order — so declaring it immediately after `notifications-adopt-reminders`
+guarantees the adoption reads the collection before this deletes it. Filed under
+events it would run *earlier* (events registers before the core apps), and a
+single instance upgrading across both releases at once would lose every
+hand-typed reminder to a `DROP TABLE` with no undo.
 
 ### 6.3 Inventory
 
@@ -647,9 +661,17 @@ migrations run *before* the user-settings sync inside `syncSchema`, so nulling
 the values there makes the drop land on the same boot **whether or not anyone
 opted in**, instead of the outcome depending on a household's history.
 
-The real fix is to thread `authorizedDrops` into `syncUserSettingsSchema` so a
-`userSettings` removal works like a resource-field removal. Until someone does,
-every `userSettings` removal needs its own clearing loop.
+**Since fixed.** `authorizedDrops` is now threaded into both generated-schema
+syncers — `syncUserSettingsSchema` and `syncAppFlagsSchema`, which had the same
+gap — so a `userSettings` or flag removal authorizes its own column drop exactly
+as a resource-field removal does. Name the resource by its `singular` in the
+migration's `drops`: `{ resource: 'user-preference', field:
+'credit_cards__perk_reminder' }`, or `{ resource: 'app-flag', … }`.
+
+`credit-cards-drop-perk-reminders` keeps its clearing loop *and* declares the
+drop. They're belt and braces rather than alternatives: the loop empties the
+column, and the declaration means the sync still succeeds if the loop only got
+partway.
 
 ## 7. Deliberately not doing
 
