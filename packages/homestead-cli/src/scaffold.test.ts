@@ -21,7 +21,12 @@ test('scaffold writes a project the launcher can resolve', () => {
     const root = scaffold(dir);
     expect(existsSync(join(root, 'homestead.config.ts'))).toBe(true);
     expect(existsSync(join(root, 'apps', 'README.md'))).toBe(true);
-    expect(readFileSync(join(root, '.gitignore'), 'utf8')).toContain('node_modules/');
+    const gitignore = readFileSync(join(root, '.gitignore'), 'utf8');
+    expect(gitignore).toContain('node_modules/');
+    // A backup archive holds everything data/ does, so it must not be
+    // committable by an absent-minded `git add .`.
+    expect(gitignore).toContain('homestead-backup-*.tar.gz');
+    expect(gitignore).toContain('*.pre-restore-*');
 
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
       name: string;

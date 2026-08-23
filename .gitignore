@@ -60,3 +60,8 @@ packages/homestead-cli/.build/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Backup archives and the data dir a restore renames aside — real instance
+# data, from running `homestead backup` / `homestead restore` in a checkout.
+homestead-backup-*.tar.gz
+*.pre-restore-*

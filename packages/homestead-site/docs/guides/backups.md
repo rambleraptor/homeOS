@@ -56,6 +56,19 @@ The master key is never in the archive. `homestead backup` refuses to run if
 your key file sits inside the data directory, because that would put the key
 and the data it protects in the same tarball.
 
+Because the default archive lands in the directory you run the command from —
+usually your project, usually a git checkout — `homestead init` scaffolds a
+`.gitignore` that covers it:
+
+```
+homestead-backup-*.tar.gz
+*.pre-restore-*
+```
+
+If your project predates those lines, add them. Otherwise a stray `git add .`
+commits your whole household to a repo, and rewriting that history afterwards
+is a bad afternoon.
+
 **Back the key up separately** — a password manager or a secrets store.
 `homestead key show` prints it. Without it, the encrypted files in an archive
 cannot be read, and there is no recovery path.

@@ -521,6 +521,11 @@ export function ${n.pascal}Home() {
 const GITIGNORE = `# Local server data (sqlite db + uploaded files)
 data/
 
+# Backup archives, and the data dir a restore renames aside. Both hold the
+# same household data as data/ — committing one would publish the lot.
+homestead-backup-*.tar.gz
+*.pre-restore-*
+
 # Dependencies
 node_modules/
 
