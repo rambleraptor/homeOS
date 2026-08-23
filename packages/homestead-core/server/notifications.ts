@@ -173,18 +173,25 @@ export async function sendNotificationToUser(
   // how many devices it reached, or whether any did. The inbox is the durable
   // record of what was sent; web push is best-effort delivery layered on top,
   // so a user with no (or only stale) subscriptions still sees the message.
+  let notificationId: string | undefined;
   try {
-    await userRecord.collection('notifications').create({
-      user_id: userId,
-      title: options.title,
-      message: options.body,
-      notification_type: options.notificationType ?? 'system',
-      scheduled_for: options.scheduledFor,
-      source_collection: options.sourceCollection,
-      source_id: options.sourceId,
-      read: false,
-      sent_at: new Date().toISOString(),
-    });
+    const created = await userRecord
+      .collection<{ id: string }>('notifications')
+      .create({
+        user_id: userId,
+        title: options.title,
+        message: options.body,
+        notification_type: options.notificationType ?? 'system',
+        scheduled_for: options.scheduledFor,
+        source_collection: options.sourceCollection,
+        source_id: options.sourceId,
+        // Until now the click-through existed only in the transient push
+        // payload, so an inbox row couldn't link anywhere.
+        url: options.url,
+        read: false,
+        sent_at: new Date().toISOString(),
+      });
+    notificationId = created.id;
   } catch (error) {
     console.error('Failed to record notification in inbox:', error);
     return Response.json(
@@ -209,6 +216,9 @@ export async function sendNotificationToUser(
     message,
     sent: sentCount,
     failed: failedCount,
+    // The inbox row this send wrote. The dispatcher stores it on the scheduled
+    // row so a queue entry points at what it turned into.
+    notificationId,
     timestamp: new Date().toISOString(),
   });
 }

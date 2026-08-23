@@ -75,29 +75,24 @@ export const eventsResources: ResourceDefinition[] = [
     },
   },
   {
-    // A standalone reminder: a titled thing with a due instant, owned by the
-    // household. Unrelated to `event-reminder` above, which is one user's
-    // notification preference *for an event* — this is the thing itself, with
-    // nowhere else in Homestead to live (an event recurs yearly; a todo has no
-    // date at all).
+    // RETIRED — kept only so `notifications-adopt-reminders` has a collection to
+    // read. Nothing writes it, nothing renders it, and nothing delivers from it.
     //
-    // This is also the household's one notification surface for anything with a
-    // due time: an app that wants to tell someone about a record it owns
-    // materializes a reminder (stamped `type` + `source_key`) instead of pushing
-    // its own notification, and the two reminder crons deliver it. See the
-    // events materializer (`crons/materialize.ts`) for the reference shape.
+    // A reminder is a `scheduled-notification` now: one row per recipient under
+    // the user it addresses, delivered by the notifications app's dispatcher.
+    // See packages/homestead-site/docs/design/scheduled-notifications.md.
     //
-    // Still no `recurrence` field: the design's open question is whether
-    // recurrence counts from a fixed date or from the last completion (home
-    // maintenance needs the latter), and shipping the wrong enum first would
-    // cost a migration. Recurring *app* reminders don't need it — the owning app
-    // re-materializes each occurrence from whatever it already recurs on (a
-    // yearly event, a pickup calendar), which is a truer source than a rule
-    // copied onto the reminder.
+    // **Do not remove this definition until the adoption migration has run
+    // everywhere it needs to.** Removing it drops the table, and the engine's
+    // column guard won't help — dropping the whole definition takes the data
+    // with it, and the migration reads that data. When it goes, it goes with a
+    // migration declaring the drop (implying `destructive`), per CLAUDE.md's
+    // two-release rule. Everything below is frozen as it was; it exists to be
+    // read once and then deleted.
     singular: 'reminder',
     plural: REMINDERS,
     description:
-      'A standalone reminder: something to be told about at a specific time. Not tied to an event.',
+      'Retired. Superseded by scheduled-notification; retained until the adoption migration has run.',
     user_settable_create: true,
     // Some reminders are the household's ("bins out tonight"), some are one
     // person's ("buy her birthday present"). Rather than fork into two

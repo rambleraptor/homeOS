@@ -1,7 +1,9 @@
 # Reminders — Design
 
-**Status:** Partly shipped (see §0) · the extension point is still proposed ·
-**Audience:** contributors
+**Status:** Partly shipped (see §0) · superseded by
+[`scheduled-notifications.md`](./scheduled-notifications.md), which argues the
+`reminder` resource is three things wearing one noun and replaces it with a
+user-parented delivery queue · **Audience:** contributors
 
 > This is a design and decision record, not a guide. It answers two questions:
 > what a Reminders app in Homestead should be, and how it should reach across

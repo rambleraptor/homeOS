@@ -1,11 +1,11 @@
 /**
  * Unit tests for the `events-materialize-reminders` cron handler.
  *
- * The engine client is mocked with an in-memory reminders collection that
- * records writes, so what's under test is the handler's real logic: expanding
- * each user's per-event lead into due instants, addressing the reminder to the
- * people who opted in, and reconciling against what a previous run already
- * wrote (including withdrawing a reminder nobody wants any more).
+ * The engine client is mocked with an in-memory per-user notification queue
+ * that records writes, so what's under test is the handler's real logic:
+ * expanding each user's per-event lead into send instants, fanning the plan out
+ * to one row per person who opted in, and reconciling against what a previous
+ * run already wrote (including withdrawing one nobody wants any more).
  */
 
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -20,49 +20,52 @@ const h = vi.hoisted(() => {
     events: [] as Row[],
     users: [] as Row[],
     prefsByUser: {} as Record<string, Row[]>,
-    reminders: [] as Row[],
+    /** The delivery queue, per user — `/users/{id}/scheduled-notifications`. */
+    queue: {} as Record<string, Row[]>,
     nextId: 1,
   };
   const writes = {
-    created: [] as Row[],
+    created: [] as Array<Row & { userId: string }>,
     updated: [] as Array<{ id: string; patch: Row }>,
     deleted: [] as string[],
   };
-  const remindersCollection = {
-    listAll: async () => state.reminders,
+  const queueFor = (userId: string) => ({
+    listAll: async () => state.queue[userId] ?? [],
     create: async (payload: Row) => {
       const row = { id: `new-${state.nextId++}`, ...payload };
-      state.reminders.push(row);
-      writes.created.push(row);
+      (state.queue[userId] ??= []).push(row);
+      writes.created.push({ ...row, userId });
       return row;
     },
     record: (id: string) => ({
       update: async (patch: Row) => {
         writes.updated.push({ id, patch });
-        const row = state.reminders.find((r) => r.id === id);
+        const row = (state.queue[userId] ?? []).find((r) => r.id === id);
         if (row) Object.assign(row, patch);
         return row;
       },
       delete: async () => {
         writes.deleted.push(id);
-        state.reminders = state.reminders.filter((r) => r.id !== id);
+        state.queue[userId] = (state.queue[userId] ?? []).filter((r) => r.id !== id);
       },
     }),
-  };
+  });
   const fakeHs = {
     collection: (name: string) => {
       if (name === 'users') {
         return {
           listAll: async () => state.users,
           record: (userId: string) => ({
-            collection: () => ({
-              listAll: async () => state.prefsByUser[userId] ?? [],
-            }),
+            // The handler reads `event-reminders` under a user; the reconcile
+            // reads and writes `scheduled-notifications` under the same parent.
+            collection: (child: string) =>
+              child === 'event-reminders'
+                ? { listAll: async () => state.prefsByUser[userId] ?? [] }
+                : queueFor(userId),
           }),
         };
       }
       if (name === 'events') return { listAll: async () => state.events };
-      if (name === 'reminders') return remindersCollection;
       return { listAll: async () => [] };
     },
   };
@@ -99,7 +102,7 @@ beforeEach(() => {
   h.state.events = [];
   h.state.users = [{ id: 'u1' }, { id: 'u2' }];
   h.state.prefsByUser = {};
-  h.state.reminders = [];
+  h.state.queue = {};
   h.state.nextId = 1;
   h.writes.created = [];
   h.writes.updated = [];
@@ -107,7 +110,7 @@ beforeEach(() => {
 });
 
 describe('events materializer', () => {
-  test('a day-of opt-in becomes a reminder due that morning', async () => {
+  test('a day-of opt-in becomes a notification queued for that morning', async () => {
     // June 22 — a week out, so day_of is outside the horizon; use June 15.
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 15 }];
     h.state.prefsByUser = { u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }] };
@@ -116,13 +119,13 @@ describe('events materializer', () => {
 
     expect(result).toMatchObject({ planned: 1, created: 1 });
     expect(h.writes.created[0]).toMatchObject({
+      userId: 'u1',
       title: 'Today: Mum’s birthday',
-      due_at: morningAt(0),
-      type: 'events',
+      send_at: morningAt(0),
+      url: '/events',
+      source_app: 'events',
       source_key: 'e1:day_of:2026',
-      visibility: 'household',
-      status: 'pending',
-      notify_users: ['u1'],
+      status: 'scheduled',
     });
   });
 
@@ -138,12 +141,12 @@ describe('events materializer', () => {
     expect(h.writes.created).toHaveLength(1);
     expect(h.writes.created[0]).toMatchObject({
       title: 'Next week: Mum’s birthday',
-      due_at: morningAt(0),
+      send_at: morningAt(0),
       source_key: 'e1:week_before:2026',
     });
   });
 
-  test('`both` expands into two reminders when both moments are in range', async () => {
+  test('`both` expands into two notifications when both moments are in range', async () => {
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 22 }];
     h.state.prefsByUser = { u1: [{ id: 'p1', event_id: 'e1', lead: 'both' }] };
 
@@ -168,7 +171,7 @@ describe('events materializer', () => {
     expect(h.writes.created[0]).toMatchObject({ source_key: 'e1:day_of:2026' });
   });
 
-  test('one reminder carries everyone who opted in for that lead', async () => {
+  test('everyone who opted in for a lead gets their own row', async () => {
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 15 }];
     h.state.prefsByUser = {
       u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }],
@@ -177,8 +180,11 @@ describe('events materializer', () => {
 
     const result = await handler(ctx());
 
-    expect(result).toMatchObject({ created: 1 });
-    expect(h.writes.created[0].notify_users).toEqual(['u1', 'u2']);
+    // Two people wanting the same moment is two rows now, not one row naming
+    // two people — the fan-out happens here rather than at delivery.
+    expect(result).toMatchObject({ planned: 2, created: 2 });
+    expect(h.writes.created.map((r) => r.userId).sort()).toEqual(['u1', 'u2']);
+    expect(h.writes.created.every((r) => r.source_key === 'e1:day_of:2026')).toBe(true);
   });
 
   test('an event nobody opted into produces nothing', async () => {
@@ -213,7 +219,7 @@ describe('events materializer', () => {
     expect(h.writes.created).toHaveLength(0);
   });
 
-  test('a renamed event repoints the reminder it already wrote', async () => {
+  test('a renamed event repoints the notification it already wrote', async () => {
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 15 }];
     h.state.prefsByUser = { u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }] };
     await handler(ctx());
@@ -227,23 +233,26 @@ describe('events materializer', () => {
     });
   });
 
-  test('a new opt-in is added to the existing reminder', async () => {
+  test('a new opt-in gets their own row, leaving the existing one alone', async () => {
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 16 }];
     h.state.prefsByUser = { u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }] };
     await handler(ctx());
+    h.writes.created = [];
 
     h.state.prefsByUser.u2 = [{ id: 'p2', event_id: 'e1', lead: 'day_of' }];
     const result = await handler(ctx());
 
-    expect(result).toMatchObject({ updated: 1 });
-    expect(h.writes.updated[0].patch.notify_users).toEqual(['u1', 'u2']);
+    // Under the old household row this was a patch to `notify_users`, which
+    // meant touching a row that had nothing to do with the new person.
+    expect(result).toMatchObject({ created: 1, unchanged: 1, updated: 0 });
+    expect(h.writes.created[0]).toMatchObject({ userId: 'u2' });
   });
 
-  test('the last opt-out withdraws a future reminder', async () => {
+  test('the last opt-out withdraws a future notification', async () => {
     h.state.events = [{ id: 'e1', name: 'Mum’s birthday', month: 6, day: 16 }];
     h.state.prefsByUser = { u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }] };
     await handler(ctx());
-    const written = h.state.reminders[0].id as string;
+    const written = h.state.queue.u1[0].id as string;
 
     h.state.prefsByUser = {};
     const result = await handler(ctx());
@@ -252,40 +261,47 @@ describe('events materializer', () => {
     expect(h.writes.deleted).toEqual([written]);
   });
 
-  test('a reminder whose moment has passed is left alone, then swept', async () => {
-    h.state.reminders = [
-      {
-        id: 'old',
-        title: 'Today: Mum’s birthday',
-        due_at: new Date(2026, 5, 14, 9).toISOString(),
-        type: 'events',
-        source_key: 'e1:day_of:2026',
-      },
-    ];
+  test('a notification whose moment has passed is left alone, then swept', async () => {
+    h.state.queue = {
+      u1: [
+        {
+          id: 'old',
+          title: 'Today: Mum’s birthday',
+          send_at: new Date(2026, 5, 14, 9).toISOString(),
+          status: 'sent',
+          source_app: 'events',
+          source_key: 'e1:day_of:2026',
+        },
+      ],
+    };
 
     const first = await handler(ctx());
     expect(first).toMatchObject({ withdrawn: 0, pruned: 0 });
 
-    h.state.reminders[0].due_at = new Date(2026, 3, 1, 9).toISOString();
+    h.state.queue.u1[0].send_at = new Date(2026, 3, 1, 9).toISOString();
     const later = await handler(ctx());
     expect(later).toMatchObject({ pruned: 1 });
   });
 
-  test('a reminder someone typed in is never touched', async () => {
-    h.state.reminders = [
-      {
-        id: 'mine',
-        title: 'Call the plumber',
-        due_at: new Date(2026, 5, 20, 9).toISOString(),
-      },
-      {
-        id: 'theirs',
-        title: 'Bins out tonight: Trash',
-        due_at: new Date(2026, 5, 20, 18).toISOString(),
-        type: 'home',
-        source_key: 'pickup:2026-06-21',
-      },
-    ];
+  test('a notification someone scheduled themselves is never touched', async () => {
+    h.state.queue = {
+      u1: [
+        {
+          id: 'mine',
+          title: 'Call the plumber',
+          send_at: new Date(2026, 5, 20, 9).toISOString(),
+          status: 'scheduled',
+        },
+        {
+          id: 'theirs',
+          title: 'Bins out tonight: Trash',
+          send_at: new Date(2026, 5, 20, 18).toISOString(),
+          status: 'scheduled',
+          source_app: 'home',
+          source_key: 'pickup:2026-06-21',
+        },
+      ],
+    };
 
     const result = await handler(ctx());
 
@@ -308,7 +324,7 @@ describe('events materializer', () => {
     ];
     h.state.prefsByUser = { u1: [{ id: 'p1', event_id: 'e1', lead: 'day_of' }] };
     await handler(ctx());
-    expect(h.writes.created[0].notes).toBe(
+    expect(h.writes.created[0].message).toBe(
       'Mum’s birthday is today (June 15). Turning 56.',
     );
   });
@@ -319,7 +335,7 @@ describe('events materializer', () => {
     await handler(ctx());
 
     const occurrence = nextOccurrence({ month: 6, day: 15 });
-    expect(new Date(h.writes.created[0].due_at as string).getDate()).toBe(
+    expect(new Date(h.writes.created[0].send_at as string).getDate()).toBe(
       occurrence.getDate(),
     );
   });

@@ -5,9 +5,10 @@ import type { ResourceDefinition } from '@rambleraptor/homestead-core/resources/
 import {
   NOTIFICATIONS,
   NOTIFICATION_SUBSCRIPTIONS,
+  SCHEDULED_NOTIFICATIONS,
 } from '@rambleraptor/homestead-core/notifications/constants';
 
-export { NOTIFICATIONS, NOTIFICATION_SUBSCRIPTIONS };
+export { NOTIFICATIONS, NOTIFICATION_SUBSCRIPTIONS, SCHEDULED_NOTIFICATIONS };
 
 export const notificationsResources: ResourceDefinition[] = [
   {
@@ -29,6 +30,10 @@ export const notificationsResources: ResourceDefinition[] = [
         required: true,
       },
       scheduled_for: { type: 'string', format: 'date-time' },
+      // Where tapping this notification lands. Previously the click-through
+      // existed only in the transient push payload, so an inbox row couldn't
+      // link anywhere; the dispatcher copies it across from the scheduled row.
+      url: { type: 'string', description: 'path opened when the notification is tapped' },
       sent_at: { type: 'string', format: 'date-time' },
       read: { type: 'boolean' },
       read_at: { type: 'string', format: 'date-time' },
@@ -109,6 +114,89 @@ export const notificationsResources: ResourceDefinition[] = [
         },
         load: () => import('./methods/send-notification'),
       },
+    },
+  },
+  {
+    // A notification that hasn't happened yet.
+    //
+    // Parented under `user` like its two siblings, and that is the whole design
+    // rather than a filing decision. One row addresses exactly one person, so
+    // fan-out happens when something is *scheduled* rather than when it is
+    // delivered: three people opted into bin night means three rows. That single
+    // choice removes everything the `reminder` resource needed to carry —
+    // an audience field, a visibility discriminator, a per-record access model,
+    // and a dedup pass that reconstructed "did we already tell Alice?" by
+    // reading her inbox back. Here the parent path is the addressee,
+    // `checkUserScope` is the privacy rule, and `status` is the ledger.
+    //
+    // It also fixes something the old shape couldn't: a cron-created row can't
+    // be *owned* by a user (the engine stamps the caller, which is the
+    // scheduler), but a row's parent path is whatever the scheduler writes it
+    // to. The scheduler putting a row under /users/alice is unambiguous.
+    //
+    // See packages/homestead-site/docs/design/scheduled-notifications.md.
+    singular: 'scheduled-notification',
+    plural: SCHEDULED_NOTIFICATIONS,
+    description:
+      'A notification queued for delivery to this user at a future instant.',
+    user_settable_create: true,
+    parents: ['user'],
+    fields: {
+      // What gets delivered — mirrors `notification`, because that is what this
+      // becomes.
+      title: { type: 'string', required: true },
+      message: { type: 'string', required: true },
+      url: { type: 'string', description: 'path opened when the notification is tapped' },
+
+      // When. Always written with `toISOString()`: the dispatcher selects due
+      // rows with `send_at <= <now>`, which compiles to a SQL string compare,
+      // and only normalized UTC sorts lexicographically. A local-offset RFC3339
+      // string would compare wrong. `scheduleNotification` enforces this.
+      send_at: {
+        type: 'string',
+        format: 'date-time',
+        required: true,
+        description: 'RFC3339 UTC instant to deliver at',
+      },
+
+      // State. The row is its own delivery ledger, which is why cancelling is a
+      // status and not a delete: a materializer would recreate a deleted row on
+      // its next run, so the row has to survive as its own tombstone.
+      status: {
+        type: 'string',
+        enum: ['scheduled', 'sent', 'canceled', 'missed', 'failed'],
+        default: 'scheduled',
+        description:
+          'scheduled until delivered; canceled by a person; missed when found too stale to send; failed after the retry budget',
+      },
+      sent_at: { type: 'string', format: 'date-time' },
+      attempts: {
+        type: 'number',
+        description: 'delivery attempts so far; at the cap the row goes failed',
+      },
+      last_error: { type: 'string' },
+      notification_id: {
+        type: 'string',
+        reference: { resource: 'notification' },
+        description: 'the inbox row this produced, under the same user',
+      },
+
+      // Provenance. `source_app` unset means a person typed it in, which is the
+      // distinction the Scheduled tab uses to decide whether a row is editable:
+      // an app's rows are reconciled from the source record on every run, so an
+      // edit would be silently reverted.
+      source_app: {
+        type: 'string',
+        description:
+          'id of the app that scheduled this (events, home, …); unset when a person did',
+      },
+      source_key: {
+        type: 'string',
+        description:
+          "the scheduling app's stable idempotency key; opaque to everything else",
+      },
+      source_collection: { type: 'string' },
+      source_id: { type: 'string' },
     },
   },
 ];

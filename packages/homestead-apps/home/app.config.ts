@@ -28,7 +28,8 @@ export const homeApp: AppConfig = {
       default: false,
     },
   },
-  // Turns the pickup calendar into reminders the evening reminder cron delivers.
+  // Turns the pickup calendar into notifications queued for 18:00 the evening
+  // before each collection; the notifications app's dispatcher delivers them.
   // Runs before the household is awake, and catches up at boot so a restart
   // can't lose tonight's bin reminder. Handler lives under `crons/`, so it's
   // stubbed out of the browser bundle.

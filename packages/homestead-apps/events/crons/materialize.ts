@@ -8,39 +8,55 @@
  * time of day to interrupt someone.
  *
  * It no longer sends anything. Once a day it **materializes** the event
- * reminders that are coming up into ordinary `reminder` records — stamped
- * `type: 'events'` so the reminders tab keeps them out of the way — and the two
- * reminder crons deliver them like any other reminder. One pipeline, one
- * schedule, one inbox convention.
+ * reminders that are coming up into scheduled notifications — stamped
+ * `source_app: 'events'` — and the dispatcher delivers them like anything else
+ * in the queue. One pipeline, one schedule, one inbox convention.
  *
- * **Reconciliation, not fire-and-forget.** Each run recomputes the reminders the
- * current events and preferences imply for the next {@link HORIZON_DAYS} days,
- * keyed by `source_key` (`<event id>:<lead>:<occurrence year>`), and makes the
- * stored rows match: create what's missing, patch what drifted (an event
- * renamed, someone opting in or out), delete a future row nothing implies any
- * more. Rows whose moment has passed are left alone — they're the record of what
- * was announced — until {@link PRUNE_AFTER_DAYS} sweeps them.
+ * **Reconciliation, not fire-and-forget.** Each run recomputes what the current
+ * events and preferences imply for the next {@link HORIZON_DAYS} days, keyed by
+ * `source_key` (`<event id>:<lead>:<occurrence year>`), and makes the stored
+ * rows match: create what's missing, patch what drifted (an event renamed,
+ * someone opting in or out), withdraw a future row nothing implies any more.
+ * Rows already delivered — or cancelled by the person they were for — are left
+ * alone until {@link PRUNE_AFTER_DAYS} sweeps them. Because the year is in the
+ * key, next year's occurrence is a different row rather than a re-announce of
+ * this year's.
  *
- * **Recipients.** An event reminder is per-user (one household member wants a
- * week's warning, another wants nothing), but a reminder row created by a cron
- * cannot be *owned* by a user — the engine stamps the caller as owner, and the
- * caller here is the scheduler. So the row stays household-visible and carries
- * `notify_users`: the people who actually opted in. See `notifyReminders.ts`.
+ * **Recipients.** An event reminder is per-user — one household member wants a
+ * week's warning, another wants nothing — so the plan is fanned out to one row
+ * per opted-in person. A scheduled notification is addressed by the user it is
+ * parented under, which is why this works now and didn't before: the old
+ * `reminder` rows were household-level and needed a `notify_users` field,
+ * because a row a cron creates can't be *owned* by the person it's for.
  *
  * Server-only: lives under `crons/`, so vite stubs it out of the browser bundle.
  */
 
 import type { CronHandler } from '@rambleraptor/homestead-core/apps/types';
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
+import {
+  fanOut,
+  reconcileScheduled,
+  type PlannedNotification,
+} from '@rambleraptor/homestead-core/server/scheduled-notifications';
 import { EVENTS, EVENT_REMINDERS } from '../resources';
 import { eventAgeLabel, hasEventDate, nextOccurrence } from '../utils/eventDate';
-import { MORNING_HOUR } from '../utils/reminderDate';
 import { bareId } from '../utils/referenceId';
-import { reconcileReminders, type PlannedReminder } from './materializer';
 import type { Event, EventReminder, ReminderLead } from '../types';
 
-/** The app id stamped on every reminder this handler raises. */
+/** The app id stamped on every notification this handler schedules. */
 export const EVENTS_REMINDER_TYPE = 'events';
+
+/**
+ * Local hour an event reminder is delivered at. Used to be `MORNING_HOUR`,
+ * imported from the events app's reminder utils because the delivery cron only
+ * fired at two fixed hours and everything had to be rounded to one of them.
+ * The dispatcher runs every minute now, so this is just the hour we want.
+ */
+export const NOTIFY_HOUR = 9;
+
+/** Where tapping an event reminder lands. */
+const EVENTS_URL = '/events';
 
 /**
  * How far ahead to materialize. A week-before reminder is due 7 days before its
@@ -134,7 +150,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
     }
   }
 
-  const planned = new Map<string, PlannedReminder>();
+  const planned: PlannedNotification[] = [];
   for (const event of events) {
     if (!hasEventDate(event)) continue;
     const occurrence = nextOccurrence(event);
@@ -147,7 +163,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
         day.getFullYear(),
         day.getMonth(),
         day.getDate(),
-        MORNING_HOUR,
+        NOTIFY_HOUR,
         0,
         0,
         0,
@@ -157,25 +173,32 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
 
       const { title, notes } = buildContent(event, lead, occurrence);
       const sourceKey = `${event.id}:${lead}:${occurrence.getFullYear()}`;
-      planned.set(sourceKey, {
-        source_key: sourceKey,
-        title,
-        notes,
-        due_at: dueAt.toISOString(),
-        notify_users: [...recipients],
-      });
+      planned.push(
+        ...fanOut(
+          {
+            sourceKey,
+            title,
+            message: notes,
+            url: EVENTS_URL,
+            sendAt: dueAt.toISOString(),
+            sourceCollection: EVENTS,
+            sourceId: event.id,
+          },
+          [...recipients],
+        ),
+      );
     }
   }
 
-  const outcome = await reconcileReminders(token, EVENTS_REMINDER_TYPE, planned, {
+  const outcome = await reconcileScheduled(token, EVENTS_REMINDER_TYPE, planned, {
     now,
     pruneAfterDays: PRUNE_AFTER_DAYS,
   });
 
   await log(
-    `events=${events.length} planned=${planned.size} created=${outcome.created} updated=${outcome.updated} unchanged=${outcome.unchanged} withdrawn=${outcome.withdrawn} pruned=${outcome.pruned}`,
+    `events=${events.length} planned=${planned.length} created=${outcome.created} updated=${outcome.updated} unchanged=${outcome.unchanged} settled=${outcome.settled} withdrawn=${outcome.withdrawn} pruned=${outcome.pruned}`,
   );
-  return { events: events.length, planned: planned.size, ...outcome };
+  return { events: events.length, planned: planned.length, ...outcome };
 };
 
 export default handler;

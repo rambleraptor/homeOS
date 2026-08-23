@@ -15,26 +15,12 @@ export const eventsApp: AppConfig = {
   resources: eventsResources,
   // Handlers live under `crons/` so they're stubbed out of the browser bundle.
   crons: [
-    // Reminder delivery, twice a day. Everything with a due time — a reminder
-    // someone typed in, an event a household member asked to be warned about, a
-    // bin that goes out tomorrow — is announced by one of these two firings, so
-    // Homestead interrupts anybody at exactly two moments a day. Each run covers
-    // up to the next one; see `crons/notifyReminders.ts`.
-    {
-      id: 'reminders-notify-morning',
-      title: 'Morning reminders',
-      dailyAtHour: 9,
-      load: () => import('./crons/notify-morning'),
-    },
-    {
-      id: 'reminders-notify-evening',
-      title: 'Evening reminders',
-      dailyAtHour: 18,
-      load: () => import('./crons/notify-evening'),
-    },
-    // Turn the events people asked to be reminded about into reminder records,
-    // early enough that the morning firing finds them. Reconciles rather than
-    // appends, and catches up at boot if the box was down at 01:00.
+    // Turn the events people asked to be reminded about into scheduled
+    // notifications. Delivery itself belongs to the notifications app's
+    // dispatcher — this app raises things, it doesn't send them. Runs at 01:00
+    // so the day's reminders are queued well before their 09:00 send time.
+    // Reconciles rather than appends, and catches up at boot if the box was
+    // down at 01:00.
     {
       id: 'events-materialize-reminders',
       title: 'Event reminders',

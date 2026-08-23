@@ -526,6 +526,7 @@ fields: {
 | `run`                       | `action`      | `/actions/{id}/runs/{id}`                                   |
 | `log`                       | `recipe`      | `/recipes/{id}/logs/{id}`                                   |
 | `notification`              | `user`        | `/users/{id}/notifications/{id}`                            |
+| `scheduled-notification`    | `user`        | `/users/{id}/scheduled-notifications/{id}`                  |
 | `notification-subscription` | `user`        | `/users/{id}/notification-subscriptions/{id}`               |
 | `user-preference`           | `user`        | `/users/{id}/preferences/{id}` (note the prefix strip)      |
 

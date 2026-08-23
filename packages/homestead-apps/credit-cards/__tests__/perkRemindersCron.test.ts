@@ -2,10 +2,11 @@
  * Unit tests for the `credit-cards-perk-reminders` cron handler.
  *
  * The engine client is mocked with an in-memory three-level store (cards →
- * perks → redemptions) plus a reminders collection that records writes, so what
- * is under test is the handler's real logic: computing a window it has no stored
- * date for, deciding what counts as unredeemed, grouping a card's closing perks
- * into one digest, and — the one that matters most here — not nagging daily.
+ * perks → redemptions) plus a per-user notification queue that records writes,
+ * so what is under test is the handler's real logic: computing a window it has
+ * no stored date for, deciding what counts as unredeemed, grouping a card's
+ * closing perks into one digest, and — the one that matters most here — not
+ * nagging daily.
  */
 
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -22,39 +23,44 @@ const h = vi.hoisted(() => {
     cards: [] as Row[],
     perksByCard: {} as Record<string, Row[]>,
     redemptionsByPerk: {} as Record<string, Row[]>,
-    reminders: [] as Row[],
+    /** The delivery queue, per user — `/users/{id}/scheduled-notifications`. */
+    queue: {} as Record<string, Row[]>,
     nextId: 1,
   };
   const writes = {
-    created: [] as Row[],
+    created: [] as Array<Row & { userId: string }>,
     updated: [] as Array<{ id: string; patch: Row }>,
     deleted: [] as string[],
   };
-  const remindersCollection = {
-    listAll: async () => state.reminders,
+  const queueFor = (userId: string) => ({
+    listAll: async () => state.queue[userId] ?? [],
     create: async (payload: Row) => {
       const row = { id: `new-${state.nextId++}`, ...payload };
-      state.reminders.push(row);
-      writes.created.push(row);
+      (state.queue[userId] ??= []).push(row);
+      writes.created.push({ ...row, userId });
       return row;
     },
     record: (id: string) => ({
       update: async (patch: Row) => {
         writes.updated.push({ id, patch });
-        const row = state.reminders.find((r) => r.id === id);
+        const row = (state.queue[userId] ?? []).find((r) => r.id === id);
         if (row) Object.assign(row, patch);
         return row;
       },
       delete: async () => {
         writes.deleted.push(id);
-        state.reminders = state.reminders.filter((r) => r.id !== id);
+        state.queue[userId] = (state.queue[userId] ?? []).filter((r) => r.id !== id);
       },
     }),
-  };
+  });
   const fakeHs = {
     collection: (name: string) => {
-      if (name === 'users') return { listAll: async () => state.users };
-      if (name === 'reminders') return remindersCollection;
+      if (name === 'users') {
+        return {
+          listAll: async () => state.users,
+          record: (userId: string) => ({ collection: () => queueFor(userId) }),
+        };
+      }
       if (name === 'credit-cards') {
         return {
           listAll: async () => state.cards,
@@ -123,7 +129,7 @@ beforeEach(() => {
   h.state.cards = [CARD];
   h.state.perksByCard = {};
   h.state.redemptionsByPerk = {};
-  h.state.reminders = [];
+  h.state.queue = {};
   h.state.nextId = 1;
   h.writes.created = [];
   h.writes.updated = [];
@@ -255,20 +261,20 @@ describe('perk window reminders', () => {
     };
   }
 
-  test('an unused perk becomes one reminder when its window opens', async () => {
+  test('an unused perk becomes one queued notification when its window opens', async () => {
     h.state.perksByCard = { c1: [monthlyPerk()] };
 
     const result = await handler(ctx(OPENS));
 
     expect(result).toMatchObject({ optedIn: 1, planned: 1, created: 1 });
     expect(h.writes.created[0]).toMatchObject({
+      userId: 'u1',
       title: 'Dining credit closes June 30',
-      due_at: new Date(2026, 5, 26, 9).toISOString(),
-      type: 'credit-cards',
+      send_at: new Date(2026, 5, 26, 9).toISOString(),
+      url: '/credit-cards',
+      source_app: 'credit-cards',
       source_key: 'perk-window:c1:2026-06-30:monthly',
-      visibility: 'household',
-      status: 'pending',
-      notify_users: ['u1'],
+      status: 'scheduled',
     });
   });
 
@@ -326,7 +332,7 @@ describe('perk window reminders', () => {
 
     const result = await handler(ctx(OPENS));
     expect(result).toMatchObject({ planned: 1 });
-    expect(h.writes.created[0].notes).toContain('$150 unclaimed');
+    expect(h.writes.created[0].message).toContain('$150 unclaimed');
   });
 
   test('a trivial leftover is not worth interrupting anyone', async () => {
@@ -358,8 +364,8 @@ describe('perk window reminders', () => {
     const result = await handler(ctx(OPENS));
 
     expect(result).toMatchObject({ created: 1 });
-    expect(h.writes.created[0].notes).toContain('• Dining credit');
-    expect(h.writes.created[0].notes).toContain('• Streaming credit');
+    expect(h.writes.created[0].message).toContain('• Dining credit');
+    expect(h.writes.created[0].message).toContain('• Streaming credit');
   });
 
   test('an archived card is skipped entirely', async () => {
@@ -376,30 +382,33 @@ describe('perk window reminders', () => {
     expect(result).toMatchObject({ planned: 0, created: 0 });
   });
 
-  test('opting out withdraws a reminder that has not fired yet', async () => {
+  test('opting out withdraws a notification that has not fired yet', async () => {
     h.state.perksByCard = { c1: [monthlyPerk()] };
     // Just inside the 3-day horizon, so the row exists but is still in the
     // future — which is what makes it withdrawable rather than historical.
     const early = new Date(2026, 5, 23, 10);
     await handler(ctx(early));
-    expect(h.state.reminders).toHaveLength(1);
+    expect(h.state.queue.u1).toHaveLength(1);
 
     h.state.optedIn = [];
     const result = await handler(ctx(early));
     expect(result).toMatchObject({ withdrawn: 1 });
-    expect(h.state.reminders).toHaveLength(0);
+    expect(h.state.queue.u1).toHaveLength(0);
   });
 
-  test('another app’s reminders are never touched', async () => {
-    h.state.reminders = [
-      {
-        id: 'bin',
-        title: 'Bins out tonight: Trash',
-        due_at: new Date(2026, 5, 27, 18).toISOString(),
-        type: 'home',
-        source_key: 'pickup:2026-06-28',
-      },
-    ];
+  test('another app’s notifications are never touched', async () => {
+    h.state.queue = {
+      u1: [
+        {
+          id: 'bin',
+          title: 'Bins out tonight: Trash',
+          send_at: new Date(2026, 5, 27, 18).toISOString(),
+          status: 'scheduled',
+          source_app: 'home',
+          source_key: 'pickup:2026-06-28',
+        },
+      ],
+    };
     h.state.perksByCard = {};
 
     const result = await handler(ctx(OPENS));
