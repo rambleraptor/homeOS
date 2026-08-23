@@ -12,13 +12,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Database } from '../engine/sqlite';
 import { resetSuperuserPassword } from '../bootstrap';
-
-function flagValue(argv: string[], name: string): string | undefined {
-  const eq = argv.find((a) => a.startsWith(`${name}=`));
-  if (eq) return eq.slice(name.length + 1);
-  const i = argv.indexOf(name);
-  return i !== -1 ? argv[i + 1] : undefined;
-}
+import { flagValue } from './flags';
 
 const argv = process.argv.slice(2);
 const dataDir = flagValue(argv, '--data-dir');
