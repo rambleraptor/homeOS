@@ -156,36 +156,125 @@ notificationsRoute.post('/send-test', (c) =>
 A cron (or any headless job) has no calling user, so it targets a recipient by
 id with `sendNotificationToUser(token, userId, options)`. Pass the short-lived
 admin token the scheduler hands your handler (`ctx.token`); it can read that
-user's subscriptions and write their inbox row. The `options` are the same
-`UserNotificationOptions`, plus two extras a reminder wants to set:
+user's subscriptions and write their inbox row.
 
-| Field              | Description                                                          |
-|--------------------|----------------------------------------------------------------------|
-| `notificationType` | Inbox `notification_type` to record (`day_of` / `week_before` / …). Defaults to `system`. |
-| `scheduledFor`     | The occurrence the notification is about, stored on `scheduled_for`. |
-
-The events reminder cron
-([`packages/homestead-apps/events/crons/notify.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/events/crons/notify.ts))
-is the working example — it fans out to each user's per-event reminder:
+**Only do this for something that has just happened.** If the notification is
+about a moment in the future — an event next week, a bin collection tomorrow
+night, a window closing on Sunday — do not send it from a cron that wakes up at
+the right time. Schedule it (next section) and let the dispatcher deliver it.
+That is the difference between "the hauler sync found a schedule change" and
+"tell me about bin night", and getting it wrong is how an app ends up with its
+own private notification pipeline, its own idea of what hour to interrupt
+someone, and its own dedup bugs.
 
 ```ts
 import { sendNotificationToUser } from '@rambleraptor/homestead-core/server/notifications';
 
 await sendNotificationToUser(ctx.token, userId, {
-  title: `Today: ${event.name}`,
-  body: `${event.name} is today.`,
-  tag: `event-${event.id}-day_of`,
-  url: '/events',
-  sourceCollection: 'events',
-  sourceId: event.id,
-  notificationType: 'day_of',
-  scheduledFor: occurrence.toISOString(),
+  title: 'Import finished',
+  body: '42 receipts filed.',
+  tag: `import-${runId}`,
+  url: '/hsa',
+  sourceCollection: 'hsa-receipts',
+  sourceId: runId,
 });
 ```
 
-Recording the send in the inbox (with `sourceId` + `notificationType` +
-`scheduledFor`) also gives a natural dedup key: check for an existing row before
-sending so a re-run never double-notifies.
+The response JSON carries `notificationId` — the inbox row the send wrote —
+alongside `sent` / `failed` device counts.
+
+---
+
+## Schedule a notification for later
+
+`scheduled-notification` is the delivery queue: a notification that hasn't been
+sent yet, parented under the user it is addressed to
+(`/users/{id}/scheduled-notifications`). One row is one person, so **fan-out
+happens when you schedule, not when it delivers**. The
+`notifications-dispatch` cron runs every minute, sends whatever has come due,
+and stamps the outcome back onto the row — so `status` is the delivery ledger
+and you never need to write dedup logic.
+
+Everything lives in
+[`@rambleraptor/homestead-core/server/scheduled-notifications`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-core/server/scheduled-notifications.ts).
+
+### One-off
+
+```ts
+import { scheduleNotification } from '@rambleraptor/homestead-core/server/scheduled-notifications';
+
+await scheduleNotification(ctx.token, {
+  userId,
+  title: 'Passport expires in 30 days',
+  message: 'Renewals are taking 8 weeks right now.',
+  url: '/documents',
+  sendAt: expiry.toISOString(),
+  sourceCollection: 'documents',
+  sourceId: doc.id,
+}, 'documents');
+```
+
+The last argument stamps `source_app`, which marks the row as app-raised: it
+becomes read-only in the Scheduled tab (its content is derived, so an edit would
+be reverted) and it becomes visible to that app's reconcile.
+
+### Recurring, from records you own
+
+The usual shape. Once a day, work out every notification your records imply over
+the next week or so and hand over the whole list; `reconcileScheduled` makes the
+stored rows match — creating what's missing, patching what drifted, withdrawing
+a future row nothing implies any more.
+
+```ts
+import {
+  fanOut,
+  reconcileScheduled,
+  type PlannedNotification,
+} from '@rambleraptor/homestead-core/server/scheduled-notifications';
+
+const planned: PlannedNotification[] = [];
+for (const day of upcoming) {
+  planned.push(
+    ...fanOut(
+      {
+        sourceKey: `pickup:${day.date}`,
+        title: 'Bins out tonight: Trash and Recycling',
+        message: 'Collected tomorrow, Tuesday, June 16.',
+        url: '/home',
+        sendAt: eveningBefore(day).toISOString(),
+      },
+      optedInUserIds,
+    ),
+  );
+}
+
+await reconcileScheduled(ctx.token, 'home', planned, { now, pruneAfterDays: 14 });
+```
+
+The contract is `sourceKey`: an app-unique, stable string identifying *what the
+notification is for*. Because your cron runs daily over an overlapping horizon,
+that key is the only thing standing between one notification and seven copies of
+it — so derive it from the source record, **never from the clock**. Fold the
+instant into the key (`<event id>:day_of:2026`) when a moved date should
+re-announce; leave it out when it shouldn't.
+
+Two rules the reconcile follows that are worth knowing:
+
+- **A row already sent, cancelled, missed or failed is never rewritten.**
+  Cancelling is a status rather than a delete precisely so your next run can't
+  resurrect what someone turned off.
+- **Only rows whose moment has already passed are pruned.** A plan only contains
+  future keys, so a cancelled row always outlives the plan entry suppressing it.
+
+With nobody opted in, pass an empty plan rather than skipping the call — the
+reconcile is what withdraws the rows written for whoever just opted out.
+
+### Worked example
+
+[`home/crons/pickup-reminders.ts`](https://github.com/rambleraptor/homestead/blob/main/packages/homestead-apps/home/crons/pickup-reminders.ts)
+is the smallest complete one: a per-person opt-in, a horizon, one notification
+per collection day listing every stream, and a `source_key` derived from the
+date.
 
 ---
 
@@ -242,9 +331,15 @@ inbox, instead. To read them in your app, use these hooks:
 For a top-N inbox preview, use `useUnreadNotifications()` from
 `@rambleraptor/homestead-core/dashboard/hooks/useUnreadNotifications`.
 
+What hasn't been delivered yet is a separate list: `useScheduledNotifications()`
+from `@rambleraptor/homestead-core/notifications/hooks/useScheduledNotifications`
+reads the signed-in user's queue, and `/notifications?tab=scheduled` renders it.
+Note the browser can only read and write its own user's rows (`checkUserScope`),
+so scheduling for somebody else is a server-side operation.
+
 Each notification carries `title` and `message` (what the user sees), `read`
-and `read_at` (read state), and `source_collection` and `source_id` (the
-record it's about). For an app-scoped feed, read the notifications and filter
+and `read_at` (read state), `url` (where tapping it lands), and
+`source_collection` and `source_id` (the record it's about). For an app-scoped feed, read the notifications and filter
 client-side by `source_collection === '<your-collection>'`.
 
 ---
