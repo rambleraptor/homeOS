@@ -83,9 +83,32 @@ describe('DocumentListItem', () => {
     expect(screen.queryByTestId('document-status')).not.toBeInTheDocument();
   });
 
-  it('keeps the status badge while there is no type icon', () => {
+  it('keeps the status badge while the document is still being read', () => {
     renderRow({ parse_status: 'pending' });
     expect(screen.getByTestId('document-status')).toBeInTheDocument();
+  });
+
+  it('keeps the status badge when reading failed', () => {
+    renderRow({ parse_status: 'failed' });
+    expect(screen.getByTestId('document-status')).toBeInTheDocument();
+  });
+
+  it('says nothing at all about a document that matched no type', () => {
+    // "No matching type" is the ordinary outcome for most household paper, so
+    // the row states no classification rather than flagging its absence.
+    renderRow({
+      parse_status: 'unmatched',
+      mime_type: 'application/pdf',
+      metadata: { doc_type: 'unknown' },
+    });
+    expect(screen.queryByTestId('document-status')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('document-type')).not.toBeInTheDocument();
+  });
+
+  it('leaves an unclassified row with its date and no stray separator', () => {
+    renderRow({ parse_status: 'unmatched', create_time: '2026-02-03T12:00:00Z' });
+    expect(screen.getByText(/Feb \d+, 2026/)).toBeInTheDocument();
+    expect(screen.queryByText('·')).not.toBeInTheDocument();
   });
 
   it('opens the document from the row', () => {

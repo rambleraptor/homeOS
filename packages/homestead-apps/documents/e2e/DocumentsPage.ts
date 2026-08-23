@@ -76,10 +76,12 @@ export class DocumentsPage {
     return this.page.getByTestId('document-card');
   }
 
+  /** The row's parse badge — present only while reading, or after it failed. */
   status(title: string): Locator {
     return this.card(title).getByTestId('document-status');
   }
 
+  /** The row's type label — present only once a document matched a type. */
   type(title: string): Locator {
     return this.card(title).getByTestId('document-type');
   }
