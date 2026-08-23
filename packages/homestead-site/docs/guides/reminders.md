@@ -69,7 +69,9 @@ server.
 `/notifications`, or the bell in the top bar — which carries a count of unread
 messages. Two tabs:
 
-**Inbox** — what has already been delivered. Mark things read as you go.
+**Inbox** — what has already been delivered. Mark things read as you go, and
+tap one to jump to whatever it's about — a bin reminder opens Home, an event
+reminder opens Events.
 
 **Scheduled** — what's queued *for you*, soonest first, grouped by day. This is
 the useful one for answering "what's coming up?", and it's where you cancel
@@ -138,8 +140,15 @@ marked *missed* instead of being sent. Getting told about last night's bins over
 breakfast is worse than not being told, and marking it missed means it's visible
 in your list rather than silently dropped.
 
-A push that fails is retried a few times over the following minutes before the
-reminder is marked failed. The inbox row is written either way.
+A push that fails is retried with a widening gap — a minute, then two, four,
+eight, then every fifteen — for a little under two hours before the reminder is
+marked *failed*. That is deliberately long enough to ride out a restart, a
+deploy, or a misconfiguration somebody notices and fixes. The inbox row is
+written either way.
+
+If something didn't reach you, the Scheduled tab says so: anything marked
+*missed* or *failed* is called out at the top of the list with the reason,
+rather than being quietly filed under Past.
 
 ---
 
@@ -151,6 +160,6 @@ reminder is marked failed. The inbox row is written either way.
 | Nothing anywhere, not even the inbox | Nothing was scheduled. Check the Scheduled tab: an app reminder only exists if you opted in |
 | It stopped working on a device that used to work | Site data cleared, or notification permission revoked in the browser. Re-enable it |
 | Marked *missed* in the Scheduled tab | The instance was down when it came due, by more than 12 hours |
-| Marked *failed* | Push delivery failed repeatedly. The inbox row is still there; check the device is still registered |
+| Marked *failed* | Delivery kept erroring for nearly two hours. Usually the server side — VAPID keys, or the instance being unreachable. The message is still in your inbox |
 | Nobody in the household gets pushes | VAPID keys aren't configured on the server — an operator task, see [Notifications](./notifications#set-up-vapid-keys) |
 | An app reminder you cancelled came back | You cancelled the *setting*'s next occurrence but the setting is still on, so the following one was raised. Turn the toggle off |
