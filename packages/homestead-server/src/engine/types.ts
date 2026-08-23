@@ -108,6 +108,15 @@ export interface User {
    * ordinary password/OAuth sessions, which act with the user's full authority.
    */
   pat?: { id: string };
+  /**
+   * Set when the caller is authenticating via an OAuth access token the auth
+   * service issued, carrying the scope that token was granted. Enforcement
+   * treats it as a ceiling on the verbs the credential may exercise, so a
+   * `homestead:read` token is refused writes at the engine and not merely
+   * offered a smaller tool surface (see engine/enforce.ts). Absent for
+   * password sessions and PATs, which carry no scope of their own.
+   */
+  oauth?: { scope: string | null };
 }
 
 export const TYPE_SUPERUSER = 'superuser';

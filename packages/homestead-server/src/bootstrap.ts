@@ -17,6 +17,7 @@ import type { User } from './engine/types';
 import { TYPE_SUPERUSER } from './engine/types';
 import { countUsers, deleteToken, hashPassword, insertToken, insertUser } from './engine/users';
 import { leaseToken, releaseToken } from '@rambleraptor/homestead-core/server/token-lease';
+import { deleteAccessTokenBinding, insertAccessTokenBinding } from './auth/storage';
 
 export const DEFAULT_SUPERUSER_EMAIL = 'admin@example.com';
 
@@ -219,13 +220,38 @@ export function mintAdminToken(db: Database): AdminToken {
 /**
  * Mint a leased bearer token for a specific user id — the same lease semantics
  * as {@link mintAdminToken} (see that doc), but for any user. Used by the MCP
- * route when Cloudflare Access authenticates a caller: the endpoint runs the
- * tools under the mapped user's token, then revokes it once the request settles.
+ * route when an external authenticator (Cloudflare Access, say) resolves a
+ * caller: the endpoint runs the tools under the mapped user's token, then
+ * revokes it once the request settles.
+ *
+ * `scope` carries the authority the *upstream* identity was granted onto the
+ * minted token, as an OAuth binding. Without it the token would be
+ * unattenuated, and filtering the MCP tool list to match the identity's scope
+ * would decide nothing — the same trap the engine-side scope ceiling exists to
+ * close (see engine/enforce.ts). Every authenticator in the tree reports an
+ * unscoped identity today, so this is load-bearing only for the next one; it is
+ * wired now so a scoped provider cannot reopen the hole by simply existing.
  */
-export function mintTokenForUser(db: Database, userId: string): AdminToken {
+export function mintTokenForUser(
+  db: Database,
+  userId: string,
+  scope?: string | null,
+): AdminToken {
   const token = generateToken();
   insertToken(db, token, userId);
-  leaseToken(token, () => deleteToken(db, token));
+  if (scope != null) {
+    insertAccessTokenBinding(db, {
+      access_token: token,
+      user_id: userId,
+      client_id: null,
+      scope,
+      audience: null,
+    });
+  }
+  leaseToken(token, () => {
+    deleteToken(db, token);
+    if (scope != null) deleteAccessTokenBinding(db, token);
+  });
   return {
     token,
     userId,

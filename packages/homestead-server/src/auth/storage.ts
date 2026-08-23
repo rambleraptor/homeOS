@@ -9,6 +9,7 @@ import type { Database } from '../engine/sqlite';
 import { nowRFC3339 } from '../engine/ids';
 import { hashToken } from '../engine/pat';
 import { isExpired } from './tokens';
+import { authTablesChanged } from '../engine/users';
 
 export interface RefreshTokenRecord {
   refresh_token: string;
@@ -52,6 +53,9 @@ export function createAuthTables(db: Database): void {
 		audience TEXT,
 		create_time TEXT NOT NULL
 	)`);
+  // The engine memoizes whether this table exists (see engine/users.ts);
+  // creating it here has to clear that memo or scopes issued now are missed.
+  authTablesChanged(db);
 }
 
 // Presented secrets are stored only as their hash (matching `_tokens.token`),

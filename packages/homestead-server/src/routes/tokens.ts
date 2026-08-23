@@ -14,6 +14,12 @@
  * its owner can, no matter what scopes were requested here — this route only
  * validates scope *shape*; the runtime intersection is the security guarantee.
  *
+ * That intersection bounds the new token by its *owner*, though, and says
+ * nothing about the credential doing the minting. Minting is therefore reserved
+ * for an interactive session: a delegated credential (a PAT, or a token issued
+ * to an OAuth client) cannot mint a fresh one, which would otherwise let any
+ * narrowly-scoped credential widen itself back to its owner's full authority.
+ *
  * Token-subject grants are written here with a leased admin token (the public
  * grants API rejects them — see enforceGrantWrite), which is why minting has to
  * be a dedicated server route rather than plain client CRUD.
@@ -28,6 +34,7 @@ import type { Engine } from '../engine/engine';
 import { mintAdminToken } from '../bootstrap';
 import { insertToken, deleteTokenByPatId } from '../engine/users';
 import { generatePatSecret, patDisplayPrefix } from '../engine/pat';
+import { isDelegatedCredential } from '../auth/credential';
 
 /** Auth resolver, injectable so the route can be tested without loopback auth. */
 export type AuthFn = (request: Request) => Promise<AuthResult | null>;
@@ -78,6 +85,12 @@ export function makeTokensRoute(engine: Engine, authFn: AuthFn = authenticate): 
   app.post('/', async (c) => {
     const auth = await authFn(c.req.raw);
     if (!auth) return c.json({ error: 'authentication required' }, 401);
+    if (isDelegatedCredential(engine.db, auth.token)) {
+      return c.json(
+        { error: 'tokens can only be created from an interactive session' },
+        403,
+      );
+    }
 
     let body: { name?: unknown; expires_at?: unknown; scopes?: unknown };
     try {
