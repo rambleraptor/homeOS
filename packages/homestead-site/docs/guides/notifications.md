@@ -1,5 +1,9 @@
 # Notifications
 
+> Using an instance rather than building one? See
+> [Reminders & Notifications](./reminders) for turning on push, seeing what's
+> queued, and switching reminders off.
+
 Send push notifications from your app to a user, and optionally read them back.
 Homestead signs and delivers the web push to the user's devices and records it
 in their inbox. A request-driven notification goes to the **calling** user —
