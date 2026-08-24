@@ -18,4 +18,5 @@ export { homeApp } from './home';
 export { peopleApp } from './people';
 export { receiptsApp } from './receipts';
 export { recipesApp } from './recipes';
+export { todayApp } from './today';
 export { todosApp } from './todos';

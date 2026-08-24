@@ -21,6 +21,7 @@ import {
   peopleApp,
   receiptsApp,
   recipesApp,
+  todayApp,
   todosApp,
 } from '@rambleraptor/homestead-apps';
 import type { HomesteadConfig } from '@rambleraptor/homestead-core/apps/config';
@@ -192,6 +193,8 @@ const embedding: HomesteadConfig['embedding'] = embeddingApiKey
 
 const config: HomesteadConfig = {
   apps: [
+    // Widget-only: contributes the Today card to the dashboard.
+    todayApp,
     homeApp,
     todosApp,
     documentsApp,
