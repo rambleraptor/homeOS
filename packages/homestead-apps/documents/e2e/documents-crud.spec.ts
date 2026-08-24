@@ -103,7 +103,7 @@ test.describe('Documents', () => {
     await expect(documents.card('Ally Bank interest 2025')).toBeVisible();
   });
 
-  test('a document matching no known type is shown as unmatched, not failed', async ({
+  test('a document matching no known type is quiet in the list, and unmatched (not failed) on its page', async ({
     userToken,
     authenticatedPage,
   }) => {
@@ -113,9 +113,18 @@ test.describe('Documents', () => {
 
     const documents = new DocumentsPage(authenticatedPage);
     await documents.goto();
-    await expect(documents.status('mystery-letter')).toContainText(/no matching type/i, {
-      timeout: 30_000,
-    });
+
+    // The index states no classification for it — no type line and no badge.
+    // Not having one is the ordinary case for household paper, and a badge for
+    // it read like an error to fix.
+    const card = documents.card('mystery-letter');
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(documents.type('mystery-letter')).toHaveCount(0);
+    await expect(documents.status('mystery-letter')).toHaveCount(0);
+
+    // The detail page, where it can be corrected, still names the state.
+    await documents.open('mystery-letter');
+    await expect(documents.detailStatus()).toContainText(/no matching type/i);
   });
 
   test('parsed metadata is filterable through the union columns', async ({ userToken }) => {

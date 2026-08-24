@@ -1,12 +1,13 @@
 /**
- * One row in the documents index: a file glyph, the name and type, a light
- * timestamp, and the parse status — linking to the document's detail page.
- * Parsed fields, full text, the file preview, and the rest of the actions all
- * live there.
+ * One row in the documents index: a file glyph, the name, a light timestamp,
+ * and — when there is something to say — the recognised type and the parse
+ * status. Parsed fields, full text, the file preview, and the rest of the
+ * actions all live on the document's detail page, which the row links to.
  *
  * The row is also where a document's classification lands. When one finishes
  * reading while the list is open its glyph becomes the recognised type's icon,
- * and that swap is marked — see `useJustParsed`.
+ * and that swap is marked — see `useJustParsed`. A document that matched no
+ * type simply says nothing: no type line, no badge.
  *
  * Actions are optional. Given handlers, the row can be swiped to delete or to
  * take it out of the folder in view; given none — the read-only shelf the Home
@@ -62,11 +63,13 @@ export function DocumentListItem({
     ? getDocType(document.metadata.doc_type)
     : undefined;
 
-  // A parsed document that matched a type is identified by its tile, which
-  // carries that type's icon in its category's colour. Every other state has no
-  // type icon to stand in for it, so it keeps a status badge (Reading…, No
-  // matching type, Failed).
-  const showStatus = !(status === 'parsed' && docType);
+  // The row only ever states a classification it has. A matched document is
+  // identified by its tile, which carries that type's icon in its category's
+  // colour; a document the app couldn't place says nothing at all, since "no
+  // matching type" is the ordinary outcome for most household paper and a badge
+  // for it reads like an error to fix. That leaves the badge to the two states
+  // that really are in flight: Reading… and Failed.
+  const showStatus = status === 'pending' || status === 'failed';
   const revealing = useJustParsed(status);
 
   const title = document.title || 'Untitled document';
@@ -125,12 +128,14 @@ export function DocumentListItem({
             {title}
           </h3>
           <div className="mt-0.5 flex items-center gap-2 text-xs text-text-muted">
-            <span data-testid="document-type" className="truncate">
-              {docType?.label ?? 'Unrecognised document'}
-            </span>
+            {docType && (
+              <span data-testid="document-type" className="truncate">
+                {docType.label}
+              </span>
+            )}
             {document.create_time && (
               <>
-                <span aria-hidden="true">·</span>
+                {docType && <span aria-hidden="true">·</span>}
                 <span className="shrink-0">
                   {formatDate(document.create_time, SHORT_DATE)}
                 </span>
