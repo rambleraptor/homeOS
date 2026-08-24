@@ -1,16 +1,20 @@
 # Security: encryption at rest
 
-Homestead can encrypt uploaded file bytes and extracted-text columns at rest so
-that a stolen disk, database dump, or backup is unreadable. This document
-describes the trust model, how keys work, and the operator's responsibilities.
+Homestead can encrypt uploaded file bytes and extracted-text columns at rest, so
+that the most sensitive part of a stolen disk, database dump, or backup is
+unreadable without the master key. It is **partial** by design — structured
+fields, the search index, and account rows stay in the clear (see [What is
+encrypted](#what-is-encrypted)). This document describes the trust model, how
+keys work, and the operator's responsibilities.
 
 ## Threat model
 
 The design protects **data at rest** under a **trusted server**:
 
 - **Protects against:** theft of the data directory, the SQLite database, or a
-  backup — anything obtained without the running server's memory. All of it is
-  ciphertext without the master key.
+  backup — anything obtained without the running server's memory. What is
+  encrypted (below) is ciphertext without the master key; the rest of the
+  database is not, so a stolen copy still exposes structured fields.
 - **Does NOT protect against:** a compromised running server, root on the host,
   or the operator. The server holds the master key and decrypts on demand, so
   whoever controls the live server can read the data. This is a deliberate
@@ -25,7 +29,9 @@ this feature is not that — it does not implement end-to-end encryption.
 - **File-field bytes** on disk (`data/files/...`).
 - **Extracted-text companion columns** (`<field>_text`) in the database.
 
-Structured fields (names, amounts, titles) are **not** encrypted.
+Structured fields (names, amounts, titles, card numbers) are **not** encrypted,
+and neither are the account rows (`_users` password hashes, `_tokens`). Treat a
+data directory or a backup as sensitive even with encryption on.
 
 ### Known residual: the vector store
 
@@ -87,7 +93,8 @@ time each record is written; there is no bulk re-encrypt of old data.
 
 1. **Keep the key out of the data directory and out of backups.** If the key is
    captured alongside the data, the encryption is worthless. `homestead doctor`
-   fails if the key file sits inside the data dir.
+   fails if the key file sits inside the data dir, and `homestead backup`
+   refuses to run in that situation.
 2. **Back the key up separately** — a password manager or secrets store. If you
    lose it, encrypted data is unrecoverable; there is no recovery path.
 3. **Lock the key file to `0600`.** `homestead key generate` does this;
@@ -98,7 +105,9 @@ time each record is written; there is no bulk re-encrypt of old data.
 ```bash
 homestead key generate      # write ~/.homestead/master.key (0600), refuse to clobber
 homestead key show          # print the resolved key, to copy into a password manager
-homestead backup            # archive the data dir as ciphertext; refuses to include the key
+homestead backup            # archive the data dir (consistent db snapshot); refuses to include the key
+homestead restore --verify  # check an archive end to end, including that this key matches it
+homestead backup-key generate  # mint the keypair that encrypts archives outright (see below)
 homestead doctor            # checks key presence, location, and permissions
 ```
 
@@ -107,6 +116,27 @@ service user's home (`~/.homestead/master.key`). If the service runs as a
 different user, or you keep the key elsewhere, point at it explicitly by adding
 `HOMESTEAD_MASTER_KEY_FILE=/path/to/master.key` to the unit's `.env`
 (the generated service already loads it via `EnvironmentFile`).
+
+## Encrypted backup archives
+
+Encryption at rest is partial by design, so a backup archive still exposes
+structured fields. `homestead backup-key generate` closes that gap for archives
+specifically, by encrypting the whole archive to a public backup key.
+
+It is deliberately asymmetric: the machine taking backups holds only the public
+recipient, so it cannot decrypt what it writes. A stolen box — or an unattended
+scheduled backup, which would otherwise need a secret sitting beside the data —
+yields ciphertext. The private identity is printed once, never written to disk
+unless explicitly requested, and is needed only to restore.
+
+This does not change the at-rest picture on the running server; it changes what
+a copied archive is worth. And it adds a second unrecoverable secret: losing the
+backup identity makes every archive encrypted to it unreadable. Store it
+somewhere separate from the master key, and verify the pair with `homestead
+restore --verify --identity=…` before relying on it.
+
+See [the backups guide](packages/homestead-site/docs/guides/backups.md) for the
+format and the operational details.
 
 ## Related hardening
 

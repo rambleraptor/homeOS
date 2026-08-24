@@ -366,7 +366,28 @@ project dir:
 
 Other commands: `init`, `doctor`, `install-service` (sudo; installs the
 systemd service), `resources`, `login`, `logout`, `profiles`,
-`admin reset-password`.
+`admin reset-password`, `backup`, `restore`, `backup-key`.
+
+`backup` archives the data dir and `restore` puts one back (or checks it with
+`--verify`). Both delegate their database work to runtime children of the
+project's homestead-server (`src/tools/snapshot.ts`, `src/tools/verify-db.ts`)
+for the same reason `admin reset-password` does — the launcher bundles no
+engine code, so the SQLite driver always matches the version that owns the db.
+Databases are captured with `VACUUM INTO` rather than copied, since a live WAL
+database cannot be safely tarred; every archive carries a
+`homestead-backup.json` manifest (checksums plus a master-key fingerprint) that
+restore verifies before touching anything.
+
+`backup-key generate` mints the X25519 keypair that encrypts archives outright
+(`src/archive-crypto.ts`, `src/backup-key.ts`). It is asymmetric on purpose: only
+the public recipient is written to disk (`~/.homestead/backup-recipient.pub`), so
+the box can write archives it cannot read, and an unattended backup needs no
+secret locally. A configured recipient turns archive encryption on by itself,
+the way a master key turns encryption at rest on. The format is a plaintext
+header (date, release, recipient — readable without keys) over a body of
+authenticated 64 KiB AES-256-GCM chunks, streamed straight through `tar` in both
+directions so plaintext never lands on disk. See
+[`packages/homestead-site/docs/guides/backups.md`](packages/homestead-site/docs/guides/backups.md).
 
 ### Deployment
 

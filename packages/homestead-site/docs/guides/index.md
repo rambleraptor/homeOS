@@ -34,3 +34,4 @@ Running an instance for your household.
 - **[Creating Users](./users)** — claim a new instance and add accounts.
 - **[Access & Tags](./access)** — group users and control which apps they can reach.
 - **[Reminders & Notifications](./reminders)** — turn on push, see what's coming up, and make it stop.
+- **[Backups & Restore](./backups)** — archive the data directory, verify an archive, and put it back.

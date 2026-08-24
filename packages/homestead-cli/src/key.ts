@@ -8,7 +8,7 @@
  * key that sits inside the data dir.
  */
 
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -118,3 +118,19 @@ export function keyPermsAreLocked(path: string): boolean {
     return false;
   }
 }
+
+/**
+ * A stable, non-secret identifier for a master key, recorded in backup
+ * manifests so a restore can tell whether the configured key is the one the
+ * archive's encrypted bytes were written under.
+ *
+ * An HMAC over a fixed label rather than a hash of the key itself: the
+ * manifest ships inside the archive, so it must not hand an attacker anything
+ * to check candidate keys against beyond the ciphertext they already hold.
+ */
+export function keyFingerprint(base64Key: string): string {
+  const raw = Buffer.from(base64Key.trim(), 'base64');
+  return createHmac('sha256', raw).update(KEY_ID_LABEL).digest('hex').slice(0, 16);
+}
+
+const KEY_ID_LABEL = 'homestead-backup-key-id-v1';

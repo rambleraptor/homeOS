@@ -54,6 +54,10 @@ async function main(argv: string[]): Promise<number> {
       return keyCmd(rest);
     case 'backup':
       return backupCmd(rest);
+    case 'backup-key':
+      return backupKeyCmd(rest);
+    case 'restore':
+      return restoreCmd(rest);
     default:
       printUsage();
       console.error(`\nunknown subcommand ${JSON.stringify(sub)}`);
@@ -507,19 +511,73 @@ async function backupCmd(args: string[]): Promise<number> {
   const parsed = parse(args, {
     'data-dir': { type: 'string' },
     out: { type: 'string' },
+    recipient: { type: 'string' },
+    'recipient-file': { type: 'string' },
   });
   if (!parsed) return 1;
   const { backupCmd: runBackup } = await import('./backup.ts');
   return runBackup({
     dataDir: strFlag(parsed.values['data-dir']),
     out: strFlag(parsed.values.out),
+    recipient: strFlag(parsed.values.recipient),
+    recipientFile: strFlag(parsed.values['recipient-file']),
     stamp: backupStamp(),
   });
 }
 
-/** Compact UTC stamp (YYYYMMDD-HHMMSS) for the default backup filename. */
+async function backupKeyCmd(args: string[]): Promise<number> {
+  const [sub, ...rest] = args;
+  const parsed = parse(rest, {
+    'recipient-file': { type: 'string' },
+    out: { type: 'string' },
+    identity: { type: 'boolean' },
+    force: { type: 'boolean' },
+  });
+  if (!parsed) return 1;
+  const { generateBackupKeyCmd, showBackupKeyCmd } = await import('./backup-key.ts');
+  switch (sub) {
+    case 'generate':
+      return generateBackupKeyCmd({
+        recipientFile: strFlag(parsed.values['recipient-file']),
+        out: strFlag(parsed.values.out),
+        force: parsed.values.force === true,
+      });
+    case 'show':
+      return showBackupKeyCmd({
+        recipientFile: strFlag(parsed.values['recipient-file']),
+        identity: parsed.values.identity === true,
+      });
+    default:
+      console.error('usage: homestead backup-key <generate|show> [--out=PATH] [--identity]');
+      return 1;
+  }
+}
+
+/** Compact UTC stamp (YYYYMMDD-HHMMSS) for backup/restore filenames. */
 function backupStamp(): string {
   return new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+}
+
+async function restoreCmd(args: string[]): Promise<number> {
+  const parsed = parse(args, {
+    from: { type: 'string' },
+    'data-dir': { type: 'string' },
+    verify: { type: 'boolean' },
+    force: { type: 'boolean' },
+    'allow-key-mismatch': { type: 'boolean' },
+    identity: { type: 'string' },
+  });
+  if (!parsed) return 1;
+  const { restoreCmd: runRestore } = await import('./restore.ts');
+  return runRestore({
+    from: strFlag(parsed.values.from),
+    dataDir: strFlag(parsed.values['data-dir']),
+    verify: parsed.values.verify === true,
+    force: parsed.values.force === true,
+    allowKeyMismatch: parsed.values['allow-key-mismatch'] === true,
+    identity: strFlag(parsed.values.identity),
+    stamp: backupStamp(),
+  });
 }
 
 async function initAppCmd(args: string[]): Promise<number> {
@@ -606,7 +664,10 @@ function printUsage(): void {
       '  homestead admin reset-password  Rotate the superuser password (prints the new one).',
       '  homestead key generate      Create a master key for encryption-at-rest (writes ~/.homestead/master.key).',
       '  homestead key show          Print the resolved master key (for backing up to a password manager).',
-      '  homestead backup            Archive the data dir (ciphertext; refuses to include the master key).',
+      '  homestead backup            Archive the data dir (consistent db snapshot; never includes the key).',
+      '  homestead restore           Rebuild a data dir from an archive, or --verify one.',
+      '  homestead backup-key generate  Create the backup keypair that encrypts archives.',
+      '  homestead backup-key show      Print the backup recipient (--identity for the secret half).',
       '',
       'Flags for `init`:',
       '  --dir=PATH                  Project directory (default: prompt, or cwd with --yes).',
@@ -654,6 +715,22 @@ function printUsage(): void {
       'Flags for `backup`:',
       '  --data-dir=PATH             Data dir to archive (default <project>/data).',
       '  --out=PATH                  Output archive path (default homestead-backup-<timestamp>.tar.gz).',
+      '  --recipient=KEY             Backup key to encrypt to (default: the configured one).',
+      '  --recipient-file=PATH       Read the backup key from a file instead.',
+      '',
+      'Flags for `restore`:',
+      '  --from=PATH                 Archive to restore (required).',
+      '  --data-dir=PATH             Data dir to restore into (default <project>/data).',
+      '  --verify                    Check the archive end to end; restore nothing.',
+      '  --force                     Replace a non-empty data dir (renamed aside, not deleted).',
+      '  --allow-key-mismatch        Restore even if the archive names a different master key.',
+      '  --identity=KEY|PATH         Backup identity that opens an encrypted archive.',
+      '',
+      'Flags for `backup-key`:',
+      '  --out=PATH                  Also write the secret identity here (generate; 0600).',
+      '  --recipient-file=PATH       Where the public recipient lives (default ~/.homestead/).',
+      '  --identity                  Print the secret identity instead of the recipient (show).',
+      '  --force                     Replace an existing backup key.',
     ].join('\n'),
   );
 }
