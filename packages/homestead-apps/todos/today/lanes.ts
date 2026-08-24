@@ -14,12 +14,12 @@
 import { formatCurrency } from '@rambleraptor/homestead-core/shared/utils/currencyUtils';
 import { isAppScheduled } from '@rambleraptor/homestead-core/notifications/types';
 import type { ScheduledNotification } from '@rambleraptor/homestead-core/notifications/types';
-import type { UpcomingEvent } from '../events/hooks/useUpcomingEvents';
-import { streamLabel, type PickupDay } from '../home/utils/pickups';
-import type { GroceryItem, Store } from '../groceries/types';
-import type { PersonalTodo, Todo } from '../todos/types';
-import type { UpcomingPerk } from '../credit-cards/types';
-import { URGENT_WINDOW_DAYS } from '../credit-cards/utils/periodUtils';
+import type { UpcomingEvent } from '../../events/hooks/useUpcomingEvents';
+import { streamLabel, type PickupDay } from '../../home/utils/pickups';
+import type { GroceryItem, Store } from '../../groceries/types';
+import type { PersonalTodo, Todo } from '../types';
+import type { UpcomingPerk } from '../../credit-cards/types';
+import { URGENT_WINDOW_DAYS } from '../../credit-cards/utils/periodUtils';
 import type { TodayItem } from './types';
 
 /** Whole days from `now` to `then`, rounded up. Negative when `then` has passed. */

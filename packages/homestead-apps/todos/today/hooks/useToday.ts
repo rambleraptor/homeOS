@@ -1,9 +1,14 @@
 /**
  * Assembles the Today card from the apps that already own the data.
  *
- * This app stores nothing. Every line comes from a sibling app's existing hook,
- * which is the whole point: Today is a *view*, and a second copy of "what is
- * happening" would be a second thing to keep correct.
+ * Today stores nothing of its own. Every line comes from an existing hook —
+ * this app's or a sibling's — which is the whole point: Today is a *view*, and
+ * a second copy of "what is happening" would be a second thing to keep correct.
+ *
+ * It lives under Todos rather than as an app of its own because a card is not
+ * worth a registry entry: a collection-less app still takes an app-scope grant
+ * in every built-in role. Todos is the closest fit — the card answers "what do
+ * I need to do today" — and already reaches across apps (see useSyntheticTodos).
  *
  * On calling every hook unconditionally: React's rules require it, and it costs
  * nothing in practice — each of these queries is already mounted by the sibling
@@ -17,15 +22,15 @@ import { useMemo, useState } from 'react';
 import { getAppById } from '@rambleraptor/homestead-core/apps/registry';
 import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 import { useScheduledNotifications } from '@rambleraptor/homestead-core/notifications/hooks/useScheduledNotifications';
-import { useUpcomingEvents } from '../../events/hooks/useUpcomingEvents';
-import { useUpcomingPickupDays } from '../../home/hooks/useGarbagePickups';
-import { useGroceries } from '../../groceries/hooks/useGroceries';
-import { useStores } from '../../groceries/hooks/useStores';
-import { useTodos, usePersonalTodos } from '../../todos/hooks/useTodos';
-import { useCreditCards } from '../../credit-cards/hooks/useCreditCards';
-import { useCreditCardPerks } from '../../credit-cards/hooks/useCreditCardPerks';
-import { usePerkRedemptions } from '../../credit-cards/hooks/usePerkRedemptions';
-import { useUpcomingPerks } from '../../credit-cards/hooks/useUpcomingPerks';
+import { useUpcomingEvents } from '../../../events/hooks/useUpcomingEvents';
+import { useUpcomingPickupDays } from '../../../home/hooks/useGarbagePickups';
+import { useGroceries } from '../../../groceries/hooks/useGroceries';
+import { useStores } from '../../../groceries/hooks/useStores';
+import { useTodos, usePersonalTodos } from '../../hooks/useTodos';
+import { useCreditCards } from '../../../credit-cards/hooks/useCreditCards';
+import { useCreditCardPerks } from '../../../credit-cards/hooks/useCreditCardPerks';
+import { usePerkRedemptions } from '../../../credit-cards/hooks/usePerkRedemptions';
+import { useUpcomingPerks } from '../../../credit-cards/hooks/useUpcomingPerks';
 import {
   buildEventItems,
   buildGroceryItems,

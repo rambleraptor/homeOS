@@ -4,6 +4,8 @@
  * A `TodayItem` is one line on the card, whatever app it came from. Lanes
  * produce these; the widget only knows how to render them. That split is what
  * lets a new lane be added without touching the component.
+ *
+ * Lives under the Todos app, which owns the Today widget — see `useToday`.
  */
 
 /**
