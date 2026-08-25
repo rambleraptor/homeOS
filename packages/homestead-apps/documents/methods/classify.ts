@@ -63,8 +63,12 @@ const MIN_CONFIDENCE = 0.5;
  */
 const MAX_OUTPUT_TOKENS = 16384;
 
-/** What the model may be handed. Gemini reads PDFs natively, multi-page. */
-const SUPPORTED_MIME = /^(application\/pdf|image\/(jpeg|png|webp|gif))$/;
+/**
+ * What the model may be handed. Gemini reads PDFs natively, multi-page.
+ * `text/plain` covers email bodies filed by the ingest cron (and hand-uploaded
+ * .txt files) — sent to the model as prompt text, not a file part.
+ */
+const SUPPORTED_MIME = /^(application\/pdf|image\/(jpeg|png|webp|gif)|text\/plain)$/;
 
 function classifyPrompt(types: DocType[]): string {
   const catalogue = types
@@ -191,7 +195,7 @@ export const validate: AsyncCustomMethodValidator = async ({ id, auth, request }
     return Response.json(
       {
         error: 'Bad request',
-        message: `unsupported file type "${doc.mime_type}" — expected a PDF or an image`,
+        message: `unsupported file type "${doc.mime_type}" — expected a PDF, an image, or plain text`,
       },
       { status: 400 },
     );
@@ -223,16 +227,20 @@ const handler: AsyncCustomMethodHandler = async ({ id, auth, request }) => {
   // client-side rasterisation and no first-page-only limit.
   const mediaType = doc.mime_type || 'application/pdf';
 
+  // A plain-text document (an email body filed by the ingest cron, a .txt
+  // upload) is inlined into the message as text — every provider reads that,
+  // and there are no pages to rasterise. Binary documents ride as a file part.
+  const documentPart = mediaType.startsWith('text/')
+    ? ({ type: 'text', text: bytes.toString('utf-8') } as const)
+    : ({ type: 'file', data: base64, mediaType } as const);
+
   // Pair an instruction with the document as one user message. Each pass builds
   // its own — the document is re-sent so the extraction pass sees the pages too,
   // not just the classification's verdict.
   const withDocument = (text: string): ModelMessage[] => [
     {
       role: 'user',
-      content: [
-        { type: 'text', text },
-        { type: 'file', data: base64, mediaType },
-      ],
+      content: [{ type: 'text', text }, documentPart],
     },
   ];
 

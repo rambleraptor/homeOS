@@ -14,13 +14,14 @@ export const documentsApp: AppConfig = {
   name: 'Documents',
   description: 'Store documents and parse their details automatically',
   resources: documentsResources,
-  // Pull document attachments out of incoming email every 5 minutes. No-ops
-  // when no email provider is configured. The handler lives under `crons/` so
-  // it's stubbed out of the browser bundle; the import stays lazy.
+  // Pull documents out of incoming email every 5 minutes — PDF and important
+  // image attachments, or the message body itself (receipts) when there are
+  // none. No-ops when no email provider is configured. The handler lives under
+  // `crons/` so it's stubbed out of the browser bundle; the import stays lazy.
   crons: [
     {
       id: 'documents-ingest-email',
-      title: 'Ingest email attachments',
+      title: 'Ingest email documents',
       intervalSeconds: 300,
       load: () => import('./crons/ingest-email'),
     },

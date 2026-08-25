@@ -26,7 +26,16 @@ describe('DocumentOrigin', () => {
 
   it('says when a document was filed from an email', () => {
     renderOrigin({ source_email_id: 'msg-1' });
-    expect(screen.getByTestId('document-origin-email')).toHaveTextContent(/from an email/i);
+    expect(screen.getByTestId('document-origin-email')).toHaveTextContent(
+      /from an email attachment/i,
+    );
+  });
+
+  it('says when the document is the email body itself, not an attachment', () => {
+    renderOrigin({ source_email_id: 'msg-1', source_email_attachment: 'body' });
+    const origin = screen.getByTestId('document-origin-email');
+    expect(origin).toHaveTextContent(/from an email\./i);
+    expect(origin).not.toHaveTextContent(/attachment/i);
   });
 
   it('links to the record a post-classify hook created', () => {

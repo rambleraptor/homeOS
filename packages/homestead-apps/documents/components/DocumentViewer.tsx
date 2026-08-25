@@ -1,8 +1,8 @@
 /**
  * Inline preview of a document's file on its detail page: an <img> for images,
- * an embedded <iframe> for PDFs, and a graceful fallback (download prompt) for
- * anything else or while the bytes are still resolving. Fetches the file once
- * via the shared blob-URL hook.
+ * an embedded <iframe> for PDFs and plain text (e.g. an ingested email body),
+ * and a graceful fallback (download prompt) for anything else or while the
+ * bytes are still resolving. Fetches the file once via the shared blob-URL hook.
  */
 
 import { ExternalLink, FileQuestion, Loader2 } from 'lucide-react';
@@ -44,6 +44,22 @@ export function DocumentViewer({ document }: { document: Document }) {
           src={url}
           alt={document.title || 'Document preview'}
           className="mx-auto max-h-[70vh] w-auto rounded-lg object-contain"
+        />
+      </div>
+    );
+  }
+
+  if (kind === 'text') {
+    // A text/plain blob URL renders inertly in an iframe — the browser shows
+    // the raw text (an ingested email body, a .txt upload) with no styling and
+    // no script execution.
+    return (
+      <div className={frame} data-testid="document-viewer">
+        <iframe
+          src={url}
+          title={document.title || 'Document preview'}
+          sandbox=""
+          className="h-[70vh] w-full bg-surface-white"
         />
       </div>
     );

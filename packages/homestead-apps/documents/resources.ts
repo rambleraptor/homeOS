@@ -57,7 +57,7 @@ export const documentsResources: ResourceDefinition[] = [
       file: {
         type: 'file',
         required: true,
-        description: 'pdf/jpeg/png',
+        description: 'pdf/jpeg/png, or plain text (e.g. an ingested email body)',
         ai: { embed: true },
       },
       title: {
@@ -187,13 +187,16 @@ export const documentsResources: ResourceDefinition[] = [
         description: 'Provider message id this document was ingested from (email source only).',
       },
       /**
-       * Stable per-message attachment key `"{index}:{filename}"`. The index
-       * disambiguates repeated filenames (or unnamed parts) within one message,
-       * so dedup is exact even when two attachments share a name.
+       * Stable per-message part key: `"{index}:{filename}"` for an attachment
+       * (the index disambiguates repeated filenames or unnamed parts within one
+       * message, so dedup is exact even when two attachments share a name), or
+       * the reserved `"body"` when the document is the message body itself.
        */
       source_email_attachment: {
         type: 'string',
-        description: 'Identifier of the source email attachment ("{index}:{filename}").',
+        description:
+          'Identifier of the source email part ("{index}:{filename}" for an ' +
+          'attachment, "body" for the message body).',
       },
     },
     // POST /api/aep/documents/{id}:classify — reads the stored file, so it

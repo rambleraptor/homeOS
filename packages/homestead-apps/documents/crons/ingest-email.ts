@@ -2,16 +2,24 @@
  * `documents-ingest-email` cron handler.
  *
  * Every 5 minutes (see the `crons` entry in `../app.config.ts`), reads mail from
- * the configured {@link EmailProvider}, files each supported attachment as a
- * `documents` record, kicks off the same classify pipeline a hand-upload runs,
- * and then moves the source message to Trash so its (potentially private)
- * contents don't linger in the mailbox.
+ * the configured {@link EmailProvider} and files each message as documents,
+ * kicks off the same classify pipeline a hand-upload runs, and then moves the
+ * source message to Trash so its (potentially private) contents don't linger in
+ * the mailbox.
+ *
+ * What gets filed, per message: every PDF attachment plus every *important*
+ * image attachment (see {@link IMPORTANT_IMAGE_MIN_BYTES} — signature logos and
+ * pixel-sized chrome don't count). When a message has none of those, the email
+ * *body itself* is the document — receipts and confirmations routinely arrive
+ * as pure HTML with no attachment at all. The body is stored as a `text/plain`
+ * file (headers + text part, or the HTML stripped to its visible text) under
+ * the reserved attachment key {@link BODY_KEY}.
  *
  * Idempotency has two layers. Trashing a fully-processed message is the primary
- * guard — a trashed message drops out of the `has:attachment` search on the next
+ * guard — a trashed message drops out of the configured search on the next
  * firing. The provenance fields (`source_email_id` + `source_email_attachment`)
  * are the backstop: if an upload partially fails or the process dies before the
- * trash call, the next run skips attachments already filed and only retries the
+ * trash call, the next run skips parts already filed and only retries the
  * missing ones.
  *
  * Server-only: lives under `crons/`, so vite stubs it out of the browser bundle.
@@ -24,19 +32,38 @@ import {
   getEmailConfig,
   getEmailProvider,
 } from '@rambleraptor/homestead-core/server/email/config';
+import { emailBodyText } from '@rambleraptor/homestead-core/server/email/body-text';
 import { isAiConfigured } from '@rambleraptor/homestead-core/server/ai/config';
 import type { CollectionRef } from '@rambleraptor/homestead-client';
 import { serverClient } from '@rambleraptor/homestead-core/server/client';
 import { sha256Hex } from '@rambleraptor/homestead-core/server/hash';
-import type { EmailAttachment } from '@rambleraptor/homestead-core/server/email/types';
+import type {
+  EmailAttachment,
+  EmailMessage,
+} from '@rambleraptor/homestead-core/server/email/types';
 import { DOCUMENTS } from '../resources';
 import type { Document } from '../types';
 
-/** Attachment types the documents classify pipeline can actually read. */
-const SUPPORTED_MIME = /^(application\/pdf|image\/(jpeg|png|webp|gif))$/;
+/** Image attachment types the documents classify pipeline can actually read. */
+const IMAGE_MIME = /^image\/(jpeg|png|webp|gif)$/;
+
+/**
+ * An image attachment below this is treated as message chrome — a signature
+ * logo or an icon attached outright rather than inline — not something worth
+ * filing, and not a reason to skip the email body. Real scans and phone photos
+ * run hundreds of KB. Mirrors the Gmail provider's inline-chrome threshold; an
+ * image whose size the provider doesn't report gets the benefit of the doubt.
+ */
+const IMPORTANT_IMAGE_MIN_BYTES = 64 * 1024;
 
 /** How many messages to hydrate per firing. Trashing keeps the backlog bounded. */
 const MAX_MESSAGES = 50;
+
+/**
+ * Reserved `source_email_attachment` key for a document made from the message
+ * body. Can't collide with attachment keys, which always contain a `:`.
+ */
+const BODY_KEY = 'body';
 
 /** Strip the extension for a default title: "1099-int-2025.pdf" → "1099-int-2025". */
 function titleFromFilename(name: string): string {
@@ -46,6 +73,52 @@ function titleFromFilename(name: string): string {
 /** Stable per-message dedup key; the index disambiguates repeated filenames. */
 function attachmentKey(index: number, att: EmailAttachment): string {
   return `${index}:${att.filename}`;
+}
+
+/** A PDF, or an image big enough to be a real photo/scan (see threshold above). */
+function isIngestibleAttachment(att: EmailAttachment): boolean {
+  if (att.mimeType === 'application/pdf') return true;
+  if (!IMAGE_MIME.test(att.mimeType)) return false;
+  return att.size === undefined || att.size >= IMPORTANT_IMAGE_MIN_BYTES;
+}
+
+/**
+ * The stored plain-text rendering of a bodied message: a short provenance
+ * header block (what a person — or the classify model — needs to know where
+ * this came from) over the body text. Empty when the message has no readable
+ * body at all.
+ */
+function renderBodyDocument(message: EmailMessage): string {
+  const body = emailBodyText(message);
+  if (!body) return '';
+  const headers: string[] = [];
+  if (message.from) {
+    const { name, email } = message.from;
+    headers.push(`From: ${name ? `${name} <${email}>` : email}`);
+  }
+  if (message.date) headers.push(`Date: ${message.date}`);
+  if (message.subject) headers.push(`Subject: ${message.subject}`);
+  return headers.length ? `${headers.join('\n')}\n\n${body}` : body;
+}
+
+/** Display title for a body document: the subject, else the sender, else generic. */
+function bodyTitle(message: EmailMessage): string {
+  const subject = message.subject?.trim();
+  if (subject) return subject;
+  const from = message.from;
+  if (from) return `Email from ${from.name || from.email}`;
+  return 'Email';
+}
+
+/** Filesystem-safe `.txt` filename derived from the body document's title. */
+function bodyFilename(message: EmailMessage): string {
+  const base = bodyTitle(message)
+    .replace(/[/\\:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
+    .trim();
+  return `${base || 'email'}.txt`;
 }
 
 /**
@@ -77,6 +150,7 @@ const handler: CronHandler = async ({ token, log }) => {
 
   const aiReady = isAiConfigured();
   let uploaded = 0;
+  let bodies = 0;
   let skipped = 0;
   let duplicates = 0;
   let trashed = 0;
@@ -95,29 +169,20 @@ const handler: CronHandler = async ({ token, log }) => {
       att,
       key: attachmentKey(index, att),
     }));
-    const supported = keyed.filter(({ att }) => SUPPORTED_MIME.test(att.mimeType));
-    const unsupported = keyed.filter(({ att }) => !SUPPORTED_MIME.test(att.mimeType));
+    const ingestible = keyed.filter(({ att }) => isIngestibleAttachment(att));
+    const dropped = keyed.filter(({ att }) => !isIngestibleAttachment(att));
 
     // Say out loud what we drop. Silence here is invisible in the Operations
     // log — the run just reports zeroes — and when the message has other
     // ingestible parts it gets trashed with the dropped one still inside.
-    if (unsupported.length > 0) {
-      const seen = unsupported
+    if (dropped.length > 0) {
+      const seen = dropped
         .map(({ att }) => `${att.filename || '(unnamed)'} (${att.mimeType})`)
         .join(', ');
-      await log(`message ${ref.id}: skipping unsupported attachment(s): ${seen}`);
+      await log(`message ${ref.id}: skipping unimportant attachment(s): ${seen}`);
     }
 
-    // Nothing we can file → leave the message untouched (never trash mail we
-    // didn't consume).
-    if (supported.length === 0) {
-      if (unsupported.length === 0) {
-        await log(`message ${ref.id}: no attachment parts found; leaving in place`);
-      }
-      continue;
-    }
-
-    // Which of this message's attachments are already filed?
+    // Which of this message's parts (attachments or body) are already filed?
     const existing = await documents.listAll({
       filter: `source_email_id == '${ref.id}'`,
     });
@@ -125,49 +190,88 @@ const handler: CronHandler = async ({ token, log }) => {
       existing.map((d) => d.source_email_attachment).filter((v): v is string => !!v),
     );
 
+    // No ingestible attachment → the email body IS the document (receipts and
+    // confirmations arrive as pure HTML all the time). A message with neither a
+    // usable attachment nor a readable body is left untouched — never trash
+    // mail we didn't consume.
+    const bodyText = ingestible.length === 0 ? renderBodyDocument(message) : '';
+    if (ingestible.length === 0 && !bodyText) {
+      await log(
+        `message ${ref.id}: no ingestible attachments and no readable body; leaving in place`,
+      );
+      continue;
+    }
+
+    // The unit of work per message: attachments when any qualify, else the
+    // body. Each entry knows how to produce its bytes + document fields.
+    const parts = ingestible.length
+      ? ingestible.map(({ att, key }) => ({
+          key,
+          isBody: false,
+          load: () => provider.getAttachment(message.id, att.id),
+          fields: {
+            title: titleFromFilename(att.filename || 'email-attachment'),
+            mime_type: att.mimeType,
+            filename: att.filename || 'attachment',
+          },
+        }))
+      : [
+          {
+            key: BODY_KEY,
+            isBody: true,
+            load: async () => Buffer.from(bodyText, 'utf-8'),
+            fields: {
+              title: bodyTitle(message),
+              mime_type: 'text/plain',
+              filename: bodyFilename(message),
+            },
+          },
+        ];
+
     let messageFailed = false;
-    for (const { att, key } of supported) {
-      if (filed.has(key)) {
+    for (const part of parts) {
+      if (filed.has(part.key)) {
         skipped++;
         continue;
       }
       try {
-        const bytes = await provider.getAttachment(message.id, att.id);
+        const bytes = await part.load();
         const hash = sha256Hex(bytes);
 
-        // Hard block: an identical file already filed (in an earlier run or
-        // earlier in this one) is a duplicate — don't file it again. The
-        // attachment is still handled, so mark the key filed and let the
-        // message trash normally; we just skip the redundant upload.
+        // Hard block: identical content already filed (in an earlier run or
+        // earlier in this one) is a duplicate — don't file it again. The part
+        // is still handled, so mark the key filed and let the message trash
+        // normally; we just skip the redundant upload.
         const isDuplicate = seenHashes.has(hash) || (await contentHashExists(documents, hash));
         seenHashes.add(hash);
         if (isDuplicate) {
           duplicates++;
-          filed.add(key);
+          filed.add(part.key);
           await log(
-            `message ${ref.id}: attachment ${key} duplicates an existing document ` +
+            `message ${ref.id}: ${part.key} duplicates an existing document ` +
               `(sha256 ${hash.slice(0, 12)}…); not filing`,
           );
           continue;
         }
 
         const doc = await documents.create({
-          title: titleFromFilename(att.filename || 'email-attachment'),
-          mime_type: att.mimeType,
+          title: part.fields.title,
+          mime_type: part.fields.mime_type,
           parse_status: 'pending',
           source_email_id: ref.id,
-          source_email_attachment: key,
+          source_email_attachment: part.key,
           content_hash: hash,
           // A File is a named Blob; the client auto-assembles it into the
           // multipart upload the engine's `file` field expects. Copy into a
           // fresh Uint8Array so the Buffer's backing store (typed as possibly
           // SharedArrayBuffer) satisfies BlobPart's stricter DOM types.
-          file: new File([new Uint8Array(bytes)], att.filename || 'attachment', {
-            type: att.mimeType,
+          file: new File([new Uint8Array(bytes)], part.fields.filename, {
+            type: part.fields.mime_type,
           }),
         });
         uploaded++;
-        filed.add(key);
+        if (part.isBody) bodies++;
+        filed.add(part.key);
 
         // Kick off classification. Skip when AI is off — classify would just
         // 503 and clutter the Operations log.
@@ -190,15 +294,15 @@ const handler: CronHandler = async ({ token, log }) => {
       } catch (error) {
         messageFailed = true;
         console.error(
-          `[documents] failed to ingest attachment "${att.filename}" from message ${ref.id}`,
+          `[documents] failed to ingest ${part.key} from message ${ref.id}`,
           error,
         );
       }
     }
 
-    // Retire the message only once every supported attachment is safely filed.
-    // A partial failure leaves it in place; provenance dedup makes the retry
-    // upload only what's missing.
+    // Retire the message only once every part is safely filed. A partial
+    // failure leaves it in place; provenance dedup makes the retry upload only
+    // what's missing.
     if (!messageFailed) {
       try {
         await provider.trashMessage(ref.id);
@@ -210,9 +314,10 @@ const handler: CronHandler = async ({ token, log }) => {
   }
 
   await log(
-    `uploaded ${uploaded}, skipped ${skipped}, duplicates ${duplicates}, trashed ${trashed}`,
+    `uploaded ${uploaded} (${bodies} from email bodies), skipped ${skipped}, ` +
+      `duplicates ${duplicates}, trashed ${trashed}`,
   );
-  return { messages: refs.length, uploaded, skipped, duplicates, trashed };
+  return { messages: refs.length, uploaded, bodies, skipped, duplicates, trashed };
 };
 
 export default handler;

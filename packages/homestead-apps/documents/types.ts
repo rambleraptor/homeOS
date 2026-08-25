@@ -61,7 +61,10 @@ export interface Document {
   created_by?: string;
   /** Provider message id this doc was ingested from (email source only). */
   source_email_id?: string;
-  /** Per-message attachment key `"{index}:{filename}"` for email-ingested docs. */
+  /**
+   * Per-message part key for email-ingested docs: `"{index}:{filename}"` for
+   * an attachment, or `"body"` when the document is the message body itself.
+   */
   source_email_attachment?: string;
   create_time?: string;
   update_time?: string;
