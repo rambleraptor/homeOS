@@ -37,6 +37,19 @@ export const todosApp: AppConfig = {
     section: 'Tasks',
     widgets: [
       {
+        // Cross-app: the day's events, bin night, perks closing, the grocery
+        // list, open todos, and the reminders you scheduled for yourself. Lives
+        // here rather than in its own app so a single card doesn't cost a
+        // registry entry — see `today/hooks/useToday`.
+        id: 'todos-today',
+        label: 'Today',
+        component: () =>
+          import('./today/components/TodayWidget').then((m) => m.TodayWidget),
+        // Ahead of every other widget: the card is the dashboard's answer to
+        // "what now", so it reads first.
+        order: 0,
+      },
+      {
         id: 'todos-active',
         label: 'Active todos',
         component: () => import('./components/TodoWidget').then((m) => m.TodoWidget),
