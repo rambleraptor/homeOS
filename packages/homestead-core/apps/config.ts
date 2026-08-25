@@ -246,9 +246,12 @@ export interface EmailConfigBase {
   /**
    * Provider-specific search expression scoping which messages the documents
    * ingestion cron reads (and then trashes). Defaults to `'has:attachment'`.
-   * Narrow it to a dedicated label/address (e.g. `'label:homestead
-   * has:attachment'`) so only mail meant for ingestion is ever touched. The
-   * *syntax* is the provider's (Gmail search here); the field itself is generic.
+   * Narrow it to a dedicated label/address (e.g. `'label:homestead'`) so only
+   * mail meant for ingestion is ever touched — and note the cron ingests the
+   * *body* of a matched message that carries no usable attachment (receipts),
+   * so a label-only query lets attachment-less receipts in, while the
+   * `has:attachment` default keeps them out. The *syntax* is the provider's
+   * (Gmail search here); the field itself is generic.
    */
   query?: string;
 }

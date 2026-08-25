@@ -32,7 +32,9 @@ export function DocumentOrigin({ document }: { document: Document }) {
           data-testid="document-origin-email"
         >
           <Mail className="h-4 w-4 shrink-0" />
-          Filed automatically from an email attachment.
+          {document.source_email_attachment === 'body'
+            ? 'Filed automatically from an email.'
+            : 'Filed automatically from an email attachment.'}
         </p>
       )}
 
