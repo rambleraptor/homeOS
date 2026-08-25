@@ -157,7 +157,7 @@ describe('buildPerkItems', () => {
       isRedeemed,
     }) as never;
 
-  it('surfaces an unredeemed perk closing inside the urgency window', () => {
+  it('names a lone perk, which is more use than an aggregate of one', () => {
     const items = buildPerkItems([perk('p1', 50, 4)], NOW);
     expect(items).toHaveLength(1);
     expect(items[0]!.title).toBe('$50.00 dining credit');
@@ -165,23 +165,36 @@ describe('buildPerkItems', () => {
     expect(items[0]!.urgency).toBe('soon');
   });
 
+  it('consolidates several into one row carrying the total', () => {
+    const items = buildPerkItems(
+      [perk('p1', 10, 5), perk('p2', 200, 3), perk('p3', 65, 1)],
+      NOW,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]!.title).toBe('$275.00 in perks expiring');
+    expect(items[0]!.detail).toBe('3 perks · soonest tomorrow');
+  });
+
+  it('sorts on the soonest deadline, not the largest amount', () => {
+    const items = buildPerkItems([perk('p1', 10, 5), perk('p2', 200, 2)], NOW);
+    expect(items[0]!.at).toBe(at(2).getTime());
+  });
+
   it('never nags about a perk already used', () => {
     expect(buildPerkItems([perk('p1', 50, 4, true)], NOW)).toHaveLength(0);
   });
 
-  it('stays quiet outside the urgency window', () => {
-    expect(buildPerkItems([perk('p1', 50, 20)], NOW)).toHaveLength(0);
-  });
-
-  it('caps at the two most valuable, so the card cannot be flooded', () => {
+  it('counts only the unredeemed ones toward the total', () => {
     const items = buildPerkItems(
-      [perk('p1', 10, 2), perk('p2', 200, 3), perk('p3', 75, 1)],
+      [perk('p1', 50, 4), perk('p2', 100, 3, true), perk('p3', 25, 2)],
       NOW,
     );
-    expect(items.map((i) => i.title)).toEqual([
-      '$200.00 dining credit',
-      '$75.00 dining credit',
-    ]);
+    expect(items[0]!.title).toBe('$75.00 in perks expiring');
+    expect(items[0]!.detail).toBe('2 perks · soonest in 2 days');
+  });
+
+  it('stays quiet outside the urgency window', () => {
+    expect(buildPerkItems([perk('p1', 50, 20)], NOW)).toHaveLength(0);
   });
 });
 
@@ -229,23 +242,43 @@ describe('buildGroceryItems', () => {
 });
 
 describe('buildTodoItems', () => {
-  it('counts pending work across both lists', () => {
+  const todo = (over: Record<string, unknown> = {}) =>
+    ({ id: 't', title: 't', status: 'pending', create_time: '2026-08-01', ...over }) as never;
+
+  it('counts open work across the main list and personal todos', () => {
     const items = buildTodoItems(
-      [{ status: 'pending' }, { status: 'completed' }, { status: 'do_later' }] as never,
-      [{ status: 'pending' }] as never,
+      [todo(), todo({ status: 'completed' }), todo({ status: 'do_later' })],
+      [todo()],
     );
     expect(items[0]!.title).toBe('2 open todos');
     expect(items[0]!.detail).toBe('1 shared · 1 personal');
   });
 
+  it('excludes a todo filed under a project — that is the project\'s business', () => {
+    const items = buildTodoItems([todo(), todo({ project: 'projects/kitchen' })], []);
+    expect(items[0]!.title).toBe('1 open todo');
+  });
+
+  it('includes a project todo the household pinned to the main list', () => {
+    const items = buildTodoItems(
+      [todo({ project: 'projects/kitchen', in_main: true })],
+      [],
+    );
+    expect(items[0]!.title).toBe('1 open todo');
+  });
+
   it('drops the breakdown when only one list has work', () => {
-    const items = buildTodoItems([{ status: 'pending' }] as never, []);
+    const items = buildTodoItems([todo()], []);
     expect(items[0]!.title).toBe('1 open todo');
     expect(items[0]!.detail).toBeUndefined();
   });
 
   it('says nothing when everything is done', () => {
-    expect(buildTodoItems([{ status: 'completed' }] as never, [])).toHaveLength(0);
+    expect(buildTodoItems([todo({ status: 'completed' })], [])).toHaveLength(0);
+  });
+
+  it('says nothing when every open todo lives in a project', () => {
+    expect(buildTodoItems([todo({ project: 'projects/kitchen' })], [])).toHaveLength(0);
   });
 });
 

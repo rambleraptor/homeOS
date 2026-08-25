@@ -17,7 +17,8 @@ import type { ScheduledNotification } from '@rambleraptor/homestead-core/notific
 import type { UpcomingEvent } from '../../events/hooks/useUpcomingEvents';
 import { streamLabel, type PickupDay } from '../../home/utils/pickups';
 import type { GroceryItem, Store } from '../../groceries/types';
-import type { PersonalTodo, Todo } from '../types';
+import { MAIN_PROJECT_ID, type PersonalTodo, type Todo } from '../types';
+import { bucketTodos, mergeTodosForScope } from '../hooks/useTodos';
 import type { UpcomingPerk } from '../../credit-cards/types';
 import { URGENT_WINDOW_DAYS } from '../../credit-cards/utils/periodUtils';
 import type { TodayItem } from './types';
@@ -145,42 +146,60 @@ export function buildPickupItems(
   });
 }
 
-/** Cap on perk lines. See {@link buildPerkItems}. */
-const MAX_PERK_ITEMS = 2;
-
 /**
- * Perks about to expire unused.
+ * Perks about to expire unused, as a single line.
  *
  * Deliberately conservative. The credit-cards app withdrew its perk reminders
  * because a monthly credit closes twelve times a year and the notification was
  * worth less than the interruption (see `creditCardsApp.migrations`). The same
  * restraint applies here: only unredeemed perks inside the app's own urgency
- * window, only the two most valuable, and never a line for a perk you have
- * already used.
+ * window, and never more than one line however many are closing — the number
+ * worth acting on is the total, and the card links to the app for the detail.
+ * A lone perk keeps its name, which is more use than an aggregate of one.
  */
 export function buildPerkItems(
   perks: readonly UpcomingPerk[],
   now: Date,
 ): TodayItem[] {
-  return perks
+  const closing = perks
     .filter((item) => {
       if (item.isRedeemed) return false;
       const days = daysUntil(item.currentPeriod.end, now);
       return days >= 0 && days <= URGENT_WINDOW_DAYS;
     })
-    .sort((a, b) => b.perk.value - a.perk.value)
-    .slice(0, MAX_PERK_ITEMS)
-    .map((item) => ({
-      id: `perk-${item.perk.id}`,
-      lane: 'perk' as const,
-      title: `${formatCurrency(item.perk.value)} ${item.perk.name}`,
-      detail: `${item.card.name} · expires ${relativeDayLabel(
-        daysUntil(item.currentPeriod.end, now),
-      )}`,
+    .sort((a, b) => a.currentPeriod.end.getTime() - b.currentPeriod.end.getTime());
+
+  if (closing.length === 0) return [];
+
+  const soonest = closing[0]!;
+  const soonestLabel = relativeDayLabel(daysUntil(soonest.currentPeriod.end, now));
+
+  if (closing.length === 1) {
+    return [
+      {
+        id: `perk-${soonest.perk.id}`,
+        lane: 'perk',
+        title: `${formatCurrency(soonest.perk.value)} ${soonest.perk.name}`,
+        detail: `${soonest.card.name} · expires ${soonestLabel}`,
+        href: '/credit-cards',
+        urgency: 'soon',
+        at: soonest.currentPeriod.end.getTime(),
+      },
+    ];
+  }
+
+  const total = closing.reduce((sum, item) => sum + item.perk.value, 0);
+  return [
+    {
+      id: 'perks',
+      lane: 'perk',
+      title: `${formatCurrency(total)} in perks expiring`,
+      detail: `${closing.length} perks · soonest ${soonestLabel}`,
       href: '/credit-cards',
-      urgency: 'soon' as const,
-      at: item.currentPeriod.end.getTime(),
-    }));
+      urgency: 'soon',
+      at: soonest.currentPeriod.end.getTime(),
+    },
+  ];
 }
 
 /**
@@ -222,7 +241,13 @@ export function buildGroceryItems(
 }
 
 /**
- * Open todos, as one line.
+ * Open todos on the main list, as one line.
+ *
+ * "Main list" is the Todos app's own rule, not a second definition of it:
+ * `mergeTodosForScope` at main scope keeps family todos with no project (plus
+ * any pinned there with `in_main`) and every personal todo, and `bucketTodos`
+ * decides what counts as still open. A todo filed under a project is that
+ * project's business, not today's.
  *
  * Only a count, because `todo` carries no due date — there is no such thing as
  * a todo that is due *today* yet. When due dates land this lane should become
@@ -232,8 +257,11 @@ export function buildTodoItems(
   family: readonly Todo[],
   personal: readonly PersonalTodo[],
 ): TodayItem[] {
-  const familyOpen = family.filter((t) => t.status === 'pending').length;
-  const personalOpen = personal.filter((t) => t.status === 'pending').length;
+  const { active } = bucketTodos(
+    mergeTodosForScope([...family], [...personal], MAIN_PROJECT_ID),
+  );
+  const familyOpen = active.filter((t) => t.kind === 'family').length;
+  const personalOpen = active.filter((t) => t.kind === 'personal').length;
   const total = familyOpen + personalOpen;
   if (total === 0) return [];
 
