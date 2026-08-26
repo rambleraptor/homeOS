@@ -57,6 +57,7 @@ vi.mock('@rambleraptor/homestead-core/api/aepbase', () => {
     AepbaseError,
     aepbase: {
       list: vi.fn(async () => []),
+      page: vi.fn(async () => ({ results: [] })),
       get: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),

@@ -136,6 +136,16 @@ export const queryKeys = {
     resource: (singular: string) => ({
       all: () => ['app', appId, singular] as const,
       list: () => ['app', appId, singular, 'list'] as const,
+      /**
+       * Cursor-paginated reads (`usePaginatedResource`). Distinct from
+       * `list()` because the cached value is an infinite-query envelope
+       * (`{ pages, pageParams }`), not a flat array — and one slot per
+       * query shape, since a different filter/order is a different sequence
+       * of pages. Still under the app prefix, so the mutation factory's
+       * settle-time `app(appId).all()` invalidation covers it.
+       */
+      paged: (params?: Record<string, unknown>) =>
+        ['app', appId, singular, 'list', 'paged', params ?? {}] as const,
       detail: (id: string) => ['app', appId, singular, 'detail', id] as const,
     }),
   }),

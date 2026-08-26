@@ -417,6 +417,38 @@ export async function list<T>(plural: string, options: ListOptions = {}): Promis
   return out;
 }
 
+export interface PageOptions extends ListOptions {
+  /** Opaque cursor from a previous page's `nextPageToken`. Omit for page one. */
+  pageToken?: string;
+}
+
+/** One page of a list response, with the cursor for the next one. */
+export interface ResourcePage<T> {
+  results: T[];
+  nextPageToken?: string;
+}
+
+/**
+ * Fetch a *single* page — one round-trip, cursor exposed. The counterpart to
+ * {@link list}, which drains every page into one array. `maxPageSize` is the
+ * page size here, not a hard cap on the total.
+ */
+export async function page<T>(
+  plural: string,
+  options: PageOptions = {},
+): Promise<ResourcePage<T>> {
+  const { filter, parent, maxPageSize = 50, orderBy, pageToken } = options;
+  const body = await request<ListResponse<T>>(collectionPath(plural, parent), {
+    query: {
+      max_page_size: maxPageSize,
+      page_token: pageToken,
+      filter,
+      order_by: orderBy,
+    },
+  });
+  return { results: body.results ?? [], nextPageToken: body.next_page_token || undefined };
+}
+
 export async function get<T>(plural: string, id: string, options: ItemOptions = {}): Promise<T> {
   return await request<T>(itemPath(plural, id, options.parent));
 }
@@ -806,6 +838,7 @@ export function getCurrentUser(): User | null {
 
 export const aepbase = {
   list,
+  page,
   get,
   create,
   update,
