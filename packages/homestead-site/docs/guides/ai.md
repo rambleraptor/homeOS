@@ -191,11 +191,63 @@ resources.
 
 ### The tool surface
 
-Two surfaces are available, chosen by the `settings` app's **MCP tool surface**
-flag (Superuser → Flag Management). It defaults to `typed`; see
-[Fewer tools](#fewer-tools-the-generic-surface) below for when to switch.
+Three surfaces are available, chosen by the `settings` app's **MCP tool
+surface** flag (Superuser → Flag Management). It's an ordinary app flag, so a
+change takes effect on the client's next `tools/list` — no config edit, no
+restart, and switching back is the same two clicks.
 
-By default the server mints **one tool per resource per verb**: `create_book` /
+| Surface | Tools | When |
+| --- | --- | --- |
+| `resource` (default) | one per resource, ~41 | Almost always |
+| `typed` | four per resource plus one per custom method, ~167 | You want the strictest per-verb schemas and your client can hold them |
+| `generic` | six, resource-parameterized | Your client is on a tight context or tool budget |
+
+All three run every call with the signed-in user's own permissions, and reach
+the engine by exactly the same path — the two derived surfaces translate a call
+into the typed call it stands for before executing it, so permissions,
+reference checks, and custom-method dispatch can't diverge between them.
+
+#### `resource` — one tool per resource
+
+Each resource is a single tool named for it — `gift_cards`, `recipes`,
+`transactions` — and the verb is its `action` parameter:
+
+```jsonc
+{
+  "name": "gift_cards",
+  "arguments": {
+    "action": "create",
+    "fields": { "merchant": "Target", "amount": 25 }
+  }
+}
+```
+
+The actions are `list`, `get`, `create`, `update`, and `delete`, plus one per
+declared custom method written in AEP's `:verb` notation — `:classify`,
+`:process-image`. (The colon is why a custom method named `list` can't shadow
+the CRUD action.) A custom method's request body goes in `body`; the tool
+description says what each verb needs, and an async (AEP-151) method tells the
+model to poll the `operations` resource until `done` is true.
+
+Each tool carries **its own resource's field schemas** — types, enums,
+descriptions, and which resource a reference points at — so the model can see
+what a field is at the moment it composes the call. Nested resources take their
+ancestor ids as required `<parent>_id` params, needed for every action
+including `list`.
+
+Because one schema serves every action, requiredness that varies by action
+isn't in the JSON Schema: the tool description states it (`create requires:
+merchant, card_number, amount`) and the server enforces it, naming the fields
+the resource accepts when it rejects. A wrong guess self-corrects in one
+round-trip.
+
+This is the default because it beats `typed` on both counts: ~41 tools instead
+of ~167, and *fewer* schema tokens, since `typed` emits each resource's field
+set twice (once for `create_x`, once for `update_x`) where this emits it once.
+
+#### `typed` — four tools per resource
+
+The server mints **one tool per resource per verb**: `create_book` /
 `read_book` / `update_book` / `delete_book`, plus one tool per custom method
 named after its verb and what it addresses — `classify_document` for an
 `item`-target method, `process_image_groceries` for a `collection`-target one.
@@ -203,68 +255,59 @@ Each takes the addressed record's `id`, any parent ids, and (for a custom
 method) the fields of its declared `request` schema; a method with no declared
 schema gets a single optional `body` param taking a JSON-encoded object.
 
-Async (AEP-151) custom methods answer with an operation rather than a result;
-the tool description tells the model to poll `read_operation` until `done` is
-true and then read its `response`.
+The schemas are the strictest of the three — requiredness is per verb, so
+`create_book` can demand `title` in JSON Schema rather than in prose. The cost
+is ~167 tools on a stock instance: tens of thousands of tokens of schema in the
+client's context on every request, and past the tool cap some clients enforce.
 
-**Read-only vs. read + write.** The server advertises two scopes:
+#### `generic` — six tools
 
-| Scope              | Tools exposed                                                          |
-| ------------------ | ---------------------------------------------------------------------- |
-| `homestead:read`   | the `read_*` tools per resource, `GET` custom methods, document search |
-| `homestead:write`  | everything read grants, plus create / update / delete and the rest of the custom methods |
+For clients on a tight budget, everything collapses into six tools that take
+the resource as a parameter, so the count stays flat however many apps you add:
 
-A client that requests `homestead:read` gets a read-only surface — the write
-tools aren't even registered, so a read-only authorization can't mutate data.
+| Tool | What it does |
+| --- | --- |
+| `describe_resources` | No argument → the catalog. With `resource` → that resource's fields, allowed values, references, parent ids, and custom methods |
+| `read_records` | `id` for one record, omit it to list the collection |
+| `create_record` | Create one record from a `fields` object |
+| `update_record` | Merge-patch one record |
+| `delete_record` | Delete one record |
+| `run_custom_method` | Invoke an AEP-136 custom method by `resource` + `verb` |
+
+Discovery is designed in rather than traded away. The `resource` parameter is a
+real enum of every plural in the instance, so the catalog rides along in each
+tool's schema and the model can neither miss a resource nor invent one. The
+server's `instructions` carry a one-line description of every resource and its
+custom methods, and `describe_resources` returns the full field schema on
+demand. What you give up versus `resource` is field *typing* at call time: the
+model has to ask what a field accepts instead of reading it off the schema.
+
+Nested resources take their ancestor ids in `parent_ids`, keyed by
+`<parent>_id` — `{"gift_card_id": "abc"}` for a transaction.
+
+### Read-only vs. read + write
+
+The server advertises two scopes:
+
+| Scope | What it grants |
+| --- | --- |
+| `homestead:read` | Reading every resource, `GET` custom methods, document search |
+| `homestead:write` | Everything read grants, plus create / update / delete and the rest of the custom methods |
+
+A client that requests `homestead:read` gets a read-only surface and cannot
+mutate data. How that's expressed depends on the surface: `typed` and `generic`
+don't register the write tools at all, while `resource` — where the tool *is*
+the resource and so can't be withheld — narrows each tool's `action` enum to
+the read actions. That makes the read-only `resource` surface self-describing:
+the model sees an enum with no write actions in it rather than inferring the
+limit from absent tools.
+
 Custom methods count as writes unless they're declared `method: 'GET'`. Request
 `homestead:write` (or both) for full access. Clients that request no scope get
 full read + write, as before.
 
-The synthesized `:bulk-import` / `:bulk-export` methods aren't exposed on either
+The synthesized `:bulk-import` / `:bulk-export` methods aren't exposed on any
 surface — they move files, not model-composable JSON.
-
-### Fewer tools: the generic surface
-
-A stock instance mints about **167 tools** (40 resources × 4, plus the custom
-methods and document search). That's tens of thousands of tokens of schema in
-the client's context on every request, and past the tool cap some clients
-enforce.
-
-Switch surfaces from **Superuser → Flag Management → Settings → MCP tool
-surface**: pick `generic` instead of `typed`. It's an ordinary app flag, so it
-takes effect on the client's next `tools/list` — no config edit, no restart,
-and flipping back is the same two clicks.
-
-The generic surface is **six tools** that take the resource as a parameter, so
-the count stays flat however many apps you add:
-
-| Tool                 | What it does                                                                 |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `describe_resources` | No argument → the catalog. With `resource` → that resource's fields, allowed values, references, parent ids, and custom methods |
-| `read_records`       | `id` for one record, omit it to list the collection                          |
-| `create_record`      | Create one record from a `fields` object                                     |
-| `update_record`      | Merge-patch one record                                                       |
-| `delete_record`      | Delete one record                                                            |
-| `run_custom_method`  | Invoke an AEP-136 custom method by `resource` + `verb`                       |
-
-**Discovery is designed in, not traded away.** The `resource` parameter is a
-real enum of every plural in the instance, so the catalog rides along in each
-tool's schema and the model can neither miss a resource nor invent one. The
-server's `instructions` (sent at initialize, so clients put it in the system
-prompt) carry a one-line description of every resource and its custom methods.
-`describe_resources` returns the full field schema on demand. And a rejected
-write names the fields the resource actually accepts, so a wrong guess
-self-corrects in one round-trip instead of dead-ending.
-
-Nested resources take their ancestor ids in `parent_ids`, keyed by
-`<parent>_id` — `{"gift_card_id": "abc"}` for a transaction. `describe_resources`
-reports which ones a resource needs.
-
-Scopes work the same way: `homestead:read` gets `describe_resources`,
-`read_records`, and `GET` custom methods; `homestead:write` adds the rest.
-Permissions, reference checks, and custom-method dispatch are identical on both
-surfaces — a generic call is translated into the typed call it stands for
-before it executes.
 
 > Prefer an out-of-process option? The community
 > [`aep-mcp-server`](https://github.com/aep-dev/aep-mcp-server) can still be

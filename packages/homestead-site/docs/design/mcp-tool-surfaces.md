@@ -1,23 +1,41 @@
 # One tool per resource on `/api/mcp` — Design
 
-**Status:** Proposed · **Audience:** contributors
+**Status:** Implemented · **Audience:** contributors
 
 > Adds a third MCP tool surface — `resource` — that mints **one tool per
 > resource**, with the verb as an `action` parameter. It sits between the two
-> surfaces we ship today: it keeps the per-resource field schemas that make
+> surfaces we shipped before: it keeps the per-resource field schemas that make
 > `typed` good, at a tool count that fits every client, and it recovers the
 > per-resource typing that `generic` gives up.
+
+> **What landed, and where it differs from this document.** All of §2–§9 as
+> written, with `resource` as the new default (§6, the flip taken now). Two
+> deviations, both small:
+>
+> - The instruction builders stayed in their own surface modules rather than
+>   moving to `surface.ts` (§5). Making `homesteadInstructions` mode-aware there
+>   would have created a value cycle for no benefit; instead `instructions` is a
+>   field on the `ToolSurface` contract, which each builder fills in. That also
+>   removed a double build: the route needs the string before it can construct
+>   the MCP server, so it builds the surface once and passes it to registration.
+> - Validating a custom method's body against its declared `request` schema
+>   (§2.3) landed on **both** derived surfaces, not just this one. Splitting it
+>   would have meant a call that works on `generic` failing on `resource`, which
+>   is exactly the divergence the shared translation exists to prevent.
+>
+> §11's first open question is settled (the default flipped). The other two are
+> still open and still not worth solving yet.
 
 ---
 
 ## 1. The problem
 
-`/api/mcp` serves one of two surfaces, chosen by the `settings` app's
-`mcp_tools` flag:
+Before this change, `/api/mcp` served one of two surfaces, chosen by the
+`settings` app's `mcp_tools` flag:
 
 | Surface   | Tools on a stock instance | What the model sees |
 |---|---|---|
-| `typed` (default) | ~167 — 4 per resource (~40 resources), plus ~40 custom methods and `search_documents` | Full Zod→JSON-Schema for every field, per verb |
+| `typed` (the default then) | ~167 — 4 per resource (~40 resources), plus ~40 custom methods and `search_documents` | Full Zod→JSON-Schema for every field, per verb |
 | `generic` | 6 — `describe_resources`, `read_records`, `create_record`, `update_record`, `delete_record`, `run_custom_method` | A `resource` enum and an untyped `fields` record; field schemas only on request |
 
 Both are extremes, and each pays for the other's virtue:
@@ -348,9 +366,9 @@ stuck.
 | **`resource`** | **~41** (one per resource, plus `search_documents`) | **once per resource** | ~41, narrowed enums |
 | `generic` | 6–7 | never (on demand) | 3 |
 
-The implementation should land a test that pins the tool count and asserts the
-serialized schema size is below `typed`'s, so the claim above stays true as
-apps are added rather than being a comment that rots.
+`test/mcp/per-resource.test.ts` pins this rather than leaving it as a comment
+that rots: it asserts one tool per resource, and that a field name appears in
+*one* tool's schema on this surface where it appears in two on `typed`.
 
 ---
 
