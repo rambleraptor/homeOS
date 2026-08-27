@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ComponentProps } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { initializeAppRegistry } from '@rambleraptor/homestead-core/apps/registry';
@@ -63,10 +64,10 @@ function LocationProbe() {
   return <div data-testid="location">{pathname}</div>;
 }
 
-function renderHeader() {
+function renderHeader(props: Partial<ComponentProps<typeof Header>> = {}) {
   return render(
     <MemoryRouter initialEntries={['/dashboard']}>
-      <Header onMenuClick={() => undefined} />
+      <Header onMenuClick={() => undefined} {...props} />
       <LocationProbe />
     </MemoryRouter>,
   );
@@ -103,5 +104,35 @@ describe('Header', () => {
   it('labels buttons with the app name', () => {
     renderHeader();
     expect(screen.getByLabelText('Bell')).toBeInTheDocument();
+  });
+
+  it('omits the desktop sidebar toggle when no handler is given', () => {
+    renderHeader();
+    expect(screen.queryByTestId('desktop-sidebar-toggle')).not.toBeInTheDocument();
+  });
+
+  it('toggles the desktop sidebar and labels the button by current state', () => {
+    const onDesktopSidebarToggle = vi.fn();
+    const { rerender } = renderHeader({ onDesktopSidebarToggle });
+
+    const toggle = screen.getByTestId('desktop-sidebar-toggle');
+    expect(toggle).toHaveAttribute('aria-label', 'Hide sidebar');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.click(toggle);
+    expect(onDesktopSidebarToggle).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Header
+          onMenuClick={() => undefined}
+          onDesktopSidebarToggle={onDesktopSidebarToggle}
+          desktopSidebarHidden
+        />
+      </MemoryRouter>,
+    );
+    const shown = screen.getByTestId('desktop-sidebar-toggle');
+    expect(shown).toHaveAttribute('aria-label', 'Show sidebar');
+    expect(shown).toHaveAttribute('aria-expanded', 'false');
   });
 });
