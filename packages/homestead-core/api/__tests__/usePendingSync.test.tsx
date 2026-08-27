@@ -16,7 +16,11 @@ import {
   QueryClientProvider,
   onlineManager,
 } from '@tanstack/react-query';
-import { usePendingSync, usePendingSyncIds } from '../usePendingSync';
+import {
+  useHasQueuedWrites,
+  usePendingSync,
+  usePendingSyncIds,
+} from '../usePendingSync';
 import {
   clearTempIdMaps,
   registerResourceMutationDefaults,
@@ -182,6 +186,41 @@ describe('usePendingSync', () => {
     const { result } = renderHook(() => usePendingSync('rec_9'), {
       wrapper: wrapper(client),
     });
+
+    expect(result.current).toBe(false);
+  });
+});
+
+describe('useHasQueuedWrites', () => {
+  it('is false with an empty queue', () => {
+    const { result } = renderHook(() => useHasQueuedWrites(), {
+      wrapper: wrapper(client),
+    });
+
+    expect(result.current).toBe(false);
+  });
+
+  it('is true while a write waits for connectivity', async () => {
+    onlineManager.setOnline(false);
+    const { result } = renderHook(() => useHasQueuedWrites(), {
+      wrapper: wrapper(client),
+    });
+
+    startMutation(client, keys.update, { id: 'rec_3', data: { checked: true } });
+
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it('ignores an ordinary online write', async () => {
+    const { result } = renderHook(() => useHasQueuedWrites(), {
+      wrapper: wrapper(client),
+    });
+
+    const { promise } = startMutation(client, keys.create, {
+      tempId: 'tmp_d',
+      name: 'Butter',
+    });
+    await promise;
 
     expect(result.current).toBe(false);
   });

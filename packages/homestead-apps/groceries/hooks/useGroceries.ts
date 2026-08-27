@@ -3,6 +3,7 @@
  */
 
 import { useResourceList } from '@rambleraptor/homestead-core/api/resourceHooks';
+import { useLiveRefresh } from '@rambleraptor/homestead-core/api/useLiveRefresh';
 import { GROCERIES } from '../resources';
 import type { GroceryItem } from '../types';
 
@@ -13,7 +14,12 @@ interface AepGroceryItem extends GroceryItem {
 }
 
 export function useGroceries() {
+  // The list is shared, so a change made on another device has to arrive on
+  // its own — see useLiveRefresh.
+  const live = useLiveRefresh();
+
   return useResourceList<AepGroceryItem>('groceries', 'grocery', GROCERIES, {
+    ...live,
     map: (rec) => ({
       ...rec,
       created: rec.create_time || '',

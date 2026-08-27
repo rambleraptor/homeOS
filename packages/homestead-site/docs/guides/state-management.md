@@ -127,6 +127,37 @@ They wire up the create/update/delete call and the cache invalidation for
 you. Reach for a hand-written `useMutation` only when a write needs extra
 steps (file handling, nested writes, name resolution).
 
+### Keep a shared list fresh
+
+Reads are pull-only — nothing pushes a change from the server — and the
+default cache settings are tuned for data one person owns: a query stays
+fresh for five minutes and does not refetch when the tab regains focus. On a
+list two people edit at once (a grocery list, a shared to-do), that leaves
+one device showing yesterday's answer.
+
+Spread `useLiveRefresh` into such a query to opt it back in:
+
+```ts
+import { useLiveRefresh } from '@rambleraptor/homestead-core/api/useLiveRefresh';
+
+export function useGroceries() {
+  const live = useLiveRefresh();          // or useLiveRefresh(30_000)
+
+  return useResourceList<GroceryItem>('groceries', 'grocery', GROCERIES, {
+    ...live,
+  });
+}
+```
+
+It refetches when the tab comes back to the foreground and polls every 15
+seconds while it stays open. A hidden tab stops polling on its own, and so
+does one that is offline or still has [queued writes](./offline) to flush —
+polling mid-replay would answer with rows that predate the user's own edits
+and briefly undo them on screen.
+
+Use it for lists the household shares, not for everything: each opted-in
+query is a request every 15 seconds per open tab.
+
 ---
 
 ## Flags and settings
