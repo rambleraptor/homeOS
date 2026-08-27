@@ -196,6 +196,49 @@ body {
 }
 
 /**
+ * Touch-device form controls never fall below 16px
+ *
+ * Safari on iOS zooms the page in when a text control smaller than 16px takes
+ * focus, and it does not zoom back out when the control is blurred. In a tab
+ * you can pinch your way back; installed to the home screen — which is how
+ * this app is meant to be used, `display: standalone` in the manifest — there
+ * is no URL bar to reset the scale and no reliable pinch-out, so the first tap
+ * into a filter box or a form field leaves the whole app zoomed in and shifted
+ * with no way back short of force-quitting it.
+ *
+ * The `Input` and `Textarea` primitives already dodge this with
+ * `text-base md:text-sm`, but only ~30 of the roughly 140 form controls in the
+ * codebase go through them; the rest are raw elements, and about a third of
+ * those carry a bare `text-sm` or `text-xs`. Fixing them one by one leaves the
+ * trap armed for the next one written, so this sets the floor for all of them
+ * at once — the same reasoning as the press-feedback rule below.
+ *
+ * It is a floor, not a size: 16px is only ever an increase, since nothing in
+ * the codebase styles a control above it. Anything that legitimately wants
+ * larger text on touch should set it on a rule that outranks this one.
+ *
+ * Excluded are the input types that raise no keyboard, so their box sizing is
+ * left alone; `select` and `textarea` are in, both of them zoom the same way.
+ * The `:not()` chain also means a type nobody has used yet (`search`, `tel`)
+ * is covered by default rather than forgotten.
+ *
+ * `hover: none` narrows this to genuine touch-only devices — a touchscreen
+ * laptop reports `pointer: coarse` too, but its browser has no focus-zoom to
+ * prevent and its inputs should stay the size they were designed at.
+ *
+ * Unlayered on purpose: Tailwind's utilities live in `@layer utilities`, and
+ * unlayered CSS outranks every layer regardless of specificity, so this beats
+ * a `text-sm` on the element without needing `!important`.
+ */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']):not([type='image']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/**
  * Press feedback
  *
  * Every enabled button dips slightly while it's held. Hover states only ever
