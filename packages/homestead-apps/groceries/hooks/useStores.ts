@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { STORES } from '../resources';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
+import { useLiveRefresh } from '@rambleraptor/homestead-core/api/useLiveRefresh';
 import type { Store } from '../types';
 
 interface AepStore extends Store {
@@ -15,7 +16,11 @@ interface AepStore extends Store {
 }
 
 export function useStores() {
+  // Stores order the shared list, so they follow it — see useLiveRefresh.
+  const live = useLiveRefresh();
+
   return useQuery({
+    ...live,
     queryKey: queryKeys.app('groceries').resource('store').list(),
     queryFn: async () => {
       const stores = await aepbase.list<AepStore>(STORES);

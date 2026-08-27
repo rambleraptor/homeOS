@@ -81,3 +81,19 @@ export function usePendingSync(id: string): boolean {
   const { isOffline } = useOnlineStatus();
   return pendingIds.has(id) || (isOffline && isTempId(id));
 }
+
+/**
+ * Whether *any* write is waiting for connectivity.
+ *
+ * Same `isPaused` discrimination as {@link usePendingSyncIds}, but without
+ * naming the records. A caller that only needs "is the queue empty?" — a
+ * background poll deciding whether to hold off, say — shouldn't have to rely
+ * on every mutation's variables being id-shaped.
+ */
+export function useHasQueuedWrites(): boolean {
+  const paused = useMutationState({
+    filters: { status: 'pending' },
+    select: (mutation) => mutation.state.isPaused,
+  });
+  return paused.some(Boolean);
+}
