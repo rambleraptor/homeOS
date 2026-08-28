@@ -105,7 +105,7 @@ export interface ConformanceHarness {
   credentials: Record<string, Credential>;
   /** `/api/aep` gateway app — the door the CLI and the SPA both use. */
   gateway: Hono;
-  /** `/api/mcp` app, mounted with the typed tool surface. */
+  /** `/api/mcp` app, mounted with the route's default (per-resource) surface. */
   mcp: Hono;
   /** `/api/tokens` app — PAT minting. */
   tokens: Hono;
@@ -315,21 +315,26 @@ export function verdictFromError(message: string): Verdict {
  * The MCP server, driven over its real HTTP route so the OAuth scope check in
  * `makeMcpRoute` is part of what's under test.
  *
- * MCP expresses a refusal two different ways, and both count as `deny`:
- * a scope-withheld tool is simply absent from the registry (the call comes back
- * "Tool ... not found"), while an engine-level refusal comes back as the 403
- * text inside an `isError` result. Treating "withheld" as a denial is the whole
- * point — `scopeAllowsWrite` withholding the writers *is* how MCP currently
- * enforces a read-only scope, so the matrix has to compare it against what the
- * other surfaces do with the same token.
+ * Driven through the surface the route serves by default — `resource`, one tool
+ * per resource with the verb as an `action` parameter — because what the matrix
+ * has to pin is what a real client is handed.
+ *
+ * MCP expresses a refusal three ways, and all count as `deny`. An engine-level
+ * refusal comes back as the 403 text inside an `isError` result. A scope
+ * withheld the *tool* (how `typed` and `generic` enforce read-only) makes the
+ * call come back "Tool ... not found". A scope withheld the *action* (how
+ * `resource` enforces it, since the tool is the resource and can't be withheld)
+ * fails the tool's own action enum. Treating all three as denials is the whole
+ * point — that is how MCP enforces a read-only scope, so the matrix has to
+ * compare it against what the other surfaces do with the same token.
  */
 export const mcpSurface = {
   name: 'mcp',
   async read(h: ConformanceHarness, c: Credential): Promise<Verdict> {
-    return mcpVerdict(h, c, 'read_book', {});
+    return mcpVerdict(h, c, 'books', { action: 'list' });
   },
   async write(h: ConformanceHarness, c: Credential): Promise<Verdict> {
-    return mcpVerdict(h, c, 'create_book', { title: `by ${c.label}` });
+    return mcpVerdict(h, c, 'books', { action: 'create', fields: { title: `by ${c.label}` } });
   },
 };
 
@@ -381,6 +386,9 @@ async function mcpVerdict(
   const text = result.content?.[0]?.text ?? '';
   // A tool the caller's scope withheld never got registered.
   if (/not found/i.test(text)) return 'deny';
+  // An action the caller's scope withheld isn't in the tool's action enum, so
+  // the call fails validation — either the SDK's, or the executor's own check.
+  if (/invalid arguments|unknown action/i.test(text)) return 'deny';
   return verdictFromError(text);
 }
 

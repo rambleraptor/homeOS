@@ -20,12 +20,16 @@ export const settingsApp: AppConfig = {
       type: 'enum',
       label: 'MCP tool surface',
       description:
-        'How /api/mcp exposes your data. "typed" gives an MCP client four tools per ' +
+        'How /api/mcp exposes your data. "resource" gives one tool per resource with ' +
+        'the verb as an action parameter (~41 tools, each carrying its own fields) — ' +
+        'the right choice for almost every client. "typed" gives four tools per ' +
         'resource plus one per custom method (richest schemas, but ~167 tools). ' +
-        '"generic" collapses that to six tools that take the resource as a parameter, ' +
-        'for clients that hit a tool cap or whose context you want back.',
-      options: ['typed', 'generic'],
-      default: 'typed',
+        '"generic" collapses everything to six tools that take the resource as a ' +
+        'parameter, for clients whose context you want back.',
+      options: ['resource', 'typed', 'generic'],
+      // Must match the route's own fallback for an unset flag — see
+      // `toolMode` in homestead-server/src/routes/mcp.ts.
+      default: 'resource',
     },
   },
   web: {

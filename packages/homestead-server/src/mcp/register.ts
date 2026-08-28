@@ -7,6 +7,14 @@
  * (see `./custom-methods`), which the chat has no equivalent of — an MCP client
  * would otherwise be limited to plain CRUD.
  *
+ * That is the `typed` surface. Two derived surfaces re-shape the same
+ * operations for clients that can't hold ~167 tools — `./per-resource` (one
+ * tool per resource, verb as a parameter) and `./generic` (six
+ * resource-parameterized tools). Both produce the shape described in
+ * `./surface`, so this module registers either through one loop and the choice
+ * costs a single branch. Which one a request gets is the `settings` app's
+ * `mcp_tools` flag, read by the route.
+ *
  * Tools bind to a single caller's token, so this runs once per request (the
  * route builds a fresh McpServer each time), mirroring how `handleChat`
  * rebuilds tools per request.
@@ -23,7 +31,9 @@ import {
   SEARCH_TOOL_NAME,
 } from '@rambleraptor/homestead-core/server/chat/search-tool';
 import { buildCustomMethodTools, executeCustomMethod } from './custom-methods';
-import { buildGenericTools, type McpToolMode } from './generic';
+import { buildGenericTools } from './generic';
+import { buildResourceTools } from './per-resource';
+import type { McpToolMode, ToolSurface } from './surface';
 
 function ok(result: unknown): CallToolResult {
   return { content: [{ type: 'text', text: JSON.stringify(result ?? null) }] };
@@ -41,25 +51,43 @@ export interface RegisterOptions {
    */
   write?: boolean;
   /**
-   * Which surface to register:
-   *  - `typed` (default) — per-resource CRUD tools plus one per custom method.
-   *    Richer provider-side schemas, but ~167 tools on a stock instance.
-   *  - `generic` — six resource-parameterized tools (see `./generic`), so the
-   *    tool count stays flat as apps are added. Opt in with
-   *    `auth.authServer.mcpTools: 'generic'`.
+   * Which surface to register (see `./surface`):
+   *  - `resource` — one tool per resource, the verb as an `action` parameter.
+   *  - `typed` — four tools per resource plus one per custom method. Richest
+   *    provider-side schemas, but ~167 tools on a stock instance.
+   *  - `generic` — six resource-parameterized tools, so the tool count stays
+   *    flat as apps are added.
+   *
+   * Defaults to `typed` — the surface this function registers directly, with no
+   * surface object involved. That is *not* the instance default: which surface a
+   * real request gets is the `settings` app's `mcp_tools` flag, which the route
+   * resolves (to `resource` when unset) and passes in.
    */
   mode?: McpToolMode;
+  /**
+   * A surface already built for this request. The route builds one ahead of
+   * registration because the MCP server needs its `instructions` at
+   * construction time; passing it here avoids building it twice. Ignored when
+   * `mode` is `typed`, which registers straight from `buildTools`.
+   */
+  surface?: ToolSurface;
 }
 
 /**
- * Register the CRUD tools (one set per resource), one tool per declared AEP-136
- * custom method, plus the semantic `search_documents` tool (only when
- * embeddings are configured) on `server` — all executing against aepbase under
- * `token`, so every action runs with exactly the calling user's permissions.
+ * Register the tool surface named by `opts.mode` on `server`, plus the semantic
+ * `search_documents` tool (only when embeddings are configured) — all executing
+ * against aepbase under `token`, so every action runs with exactly the calling
+ * user's permissions.
  *
- * When `opts.write` is false, the create/update/delete tools are omitted and
- * only the read-only surface (the `read_*` tools, `GET` custom methods, and
- * document search) is exposed, so a read-only authorization can't mutate data.
+ * On the `typed` surface that means the CRUD tools (one set per resource) and
+ * one tool per declared AEP-136 custom method; the derived surfaces register
+ * whatever they built.
+ *
+ * When `opts.write` is false, a read-only authorization can't mutate data:
+ * `typed` omits the create/update/delete tools and the non-`GET` custom
+ * methods, `generic` omits its write tools, and `resource` — where the tool is
+ * the resource and so can't be withheld — narrows each tool's `action` enum to
+ * the read actions and rejects a write outright.
  */
 export function registerHomesteadTools(
   server: McpServer,
@@ -68,8 +96,9 @@ export function registerHomesteadTools(
   opts: RegisterOptions = {},
 ): void {
   const write = opts.write ?? true;
-  if (opts.mode === 'generic') {
-    registerGenericTools(server, defs, token, write);
+  const mode = opts.mode ?? 'typed';
+  if (mode !== 'typed') {
+    registerSurface(server, opts.surface ?? buildSurface(defs, mode, write), token);
     registerSearchTool(server, defs, token);
     return;
   }
@@ -121,17 +150,27 @@ export function registerHomesteadTools(
 }
 
 /**
- * Register the six resource-parameterized tools. The surface is flat — adding
- * an app changes what `describe_resources` reports and which values the
- * `resource` enum accepts, not how many tools a client has to hold.
+ * Build a derived surface. Exported because the route needs the surface's
+ * `instructions` before it can construct the MCP server, and then hands the
+ * same object back to {@link registerHomesteadTools}.
  */
-function registerGenericTools(
-  server: McpServer,
+export function buildSurface(
   defs: ResourceDefinition[],
-  token: string,
+  mode: Exclude<McpToolMode, 'typed'>,
   write: boolean,
-): void {
-  const { tools, execute } = buildGenericTools(defs, { write });
+): ToolSurface {
+  return mode === 'generic'
+    ? buildGenericTools(defs, { write })
+    : buildResourceTools(defs, { write });
+}
+
+/**
+ * Register a derived surface's tools. Both derived surfaces expose the same
+ * `{ tools, execute }` shape, so registration is one loop rather than one per
+ * surface — the difference between them is entirely in what they built.
+ */
+function registerSurface(server: McpServer, surface: ToolSurface, token: string): void {
+  const { tools, execute } = surface;
   for (const [name, spec] of Object.entries(tools)) {
     const shape = (spec.inputSchema as z.ZodObject).shape;
     server.registerTool(

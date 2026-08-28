@@ -25,8 +25,8 @@ import type { RequestAuthenticator } from '../auth/authenticator';
 import { buildAuthenticators } from '../auth/providers';
 import { getUserByEmail } from '../engine/users';
 import { mintTokenForUser } from '../bootstrap';
-import { registerHomesteadTools } from '../mcp/register';
-import { homesteadInstructions } from '../mcp/generic';
+import { buildSurface, registerHomesteadTools } from '../mcp/register';
+import type { McpToolMode } from '../mcp/surface';
 import { scopeAllowsWrite } from '../auth/scopes';
 import { readAppFlag } from '../app-flags';
 
@@ -66,6 +66,18 @@ function forbidden(message: string): Response {
     status: 403,
     headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
+}
+
+/**
+ * The tool surface a `settings.mcp_tools` flag value selects.
+ *
+ * An unset flag (never configured, or a schema sync that hasn't run) reads as
+ * undefined, so **this fallback is the real default** — the `default` declared
+ * on the flag only seeds the Flag Management UI. The two have to agree; see
+ * `homestead-core/settings/app.config.ts`.
+ */
+function toolMode(flag: unknown): McpToolMode {
+  return flag === 'typed' || flag === 'generic' ? flag : 'resource';
 }
 
 /**
@@ -125,27 +137,29 @@ export function makeMcpRoute(
     if (caller instanceof Response) return caller;
 
     const defs = resolveDefs();
+    const write = scopeAllowsWrite(caller.scope);
     // Read per request (not at mount) so flipping the flag in Flag Management
     // takes effect on the client's next tools/list, with no restart.
-    const mode = readAppFlag(engine, 'settings', 'mcp_tools') === 'generic' ? 'generic' : 'typed';
+    const mode = toolMode(readAppFlag(engine, 'settings', 'mcp_tools'));
+    // Built here rather than inside registration because the server needs the
+    // surface's `instructions` at construction time; the same object is handed
+    // to registerHomesteadTools below so it isn't built twice.
+    const surface = mode === 'typed' ? undefined : buildSurface(defs, mode, write);
 
     // Stateless: no session id, one JSON response per request, fresh server +
     // transport each time (tools bind to this caller's token).
     const server = new McpServer(
       { name: 'homestead', version: '0.2.0' },
-      // On the generic surface the tool names no longer name the resources, so
-      // the catalog rides in the initialize instructions instead — clients hand
-      // it to the model once per session.
-      mode === 'generic' ? { instructions: homesteadInstructions(defs) } : undefined,
+      // A derived surface tells the model how to call it — the generic one has
+      // to carry the whole resource catalog, since its tool names no longer
+      // name the resources; the per-resource one only has to explain `action`.
+      surface ? { instructions: surface.instructions } : undefined,
     );
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,
     });
-    registerHomesteadTools(server, defs, caller.token, {
-      write: scopeAllowsWrite(caller.scope),
-      mode,
-    });
+    registerHomesteadTools(server, defs, caller.token, { write, mode, surface });
     await server.connect(transport);
     try {
       const res = await transport.handleRequest(c.req.raw);

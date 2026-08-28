@@ -216,7 +216,8 @@ describe('an externally-authenticated MCP caller', () => {
         jsonrpc: '2.0',
         id: 1,
         method: 'tools/call',
-        params: { name: 'read_book', arguments: {} },
+        // The route's default surface: one tool per resource, verb as `action`.
+        params: { name: 'books', arguments: { action: 'list' } },
       }),
     });
     expect(res.status).toBe(200);

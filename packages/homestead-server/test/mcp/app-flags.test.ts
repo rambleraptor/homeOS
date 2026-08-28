@@ -45,8 +45,11 @@ async function setFlag(t: TestEngine, value: string): Promise<void> {
   });
 }
 
-/** List the MCP tools over the route, as a client would. */
-async function listTools(app: Hono, token: string): Promise<string[]> {
+/** Fetch the full tool specs over the route, as a client would. */
+async function listToolSpecs(
+  app: Hono,
+  token: string,
+): Promise<Array<{ name: string; inputSchema: Record<string, unknown> }>> {
   const send = async (body: unknown) =>
     app.request('/api/mcp', {
       method: 'POST',
@@ -71,7 +74,12 @@ async function listTools(app: Hono, token: string): Promise<string[]> {
   const text = await res.text();
   // enableJsonResponse answers with JSON, possibly wrapped in an SSE `data:` line.
   const payload = JSON.parse(text.startsWith('data:') ? text.slice(5).trim() : text);
-  return (payload.result?.tools ?? []).map((tool: { name: string }) => tool.name);
+  return payload.result?.tools ?? [];
+}
+
+/** Just the tool names, which is all most of these assertions need. */
+async function listTools(app: Hono, token: string): Promise<string[]> {
+  return (await listToolSpecs(app, token)).map((tool) => tool.name);
 }
 
 async function harness() {
@@ -110,21 +118,48 @@ describe('readAppFlag', () => {
 });
 
 describe('the MCP route honours settings.mcp_tools', () => {
-  it('serves the typed surface when the flag is unset', async () => {
+  it('serves the per-resource surface when the flag is unset', async () => {
     const { app, token } = await harness();
+    const names = await listTools(app, token);
+    // One tool, named for the resource; the verb is its `action` parameter.
+    expect(names).toEqual(['books']);
+    expect(names).not.toContain('read_book');
+    expect(names).not.toContain('read_records');
+  });
+
+  it('serves that tool with its schema intact — enum, types, and all', async () => {
+    // The surface's whole value is that the field schemas reach the client, so
+    // assert the JSON Schema a real client receives rather than the Zod object
+    // we handed the SDK.
+    const { app, token } = await harness();
+    const [books] = await listToolSpecs(app, token);
+    expect(books.name).toBe('books');
+
+    const properties = books.inputSchema.properties as Record<string, Record<string, unknown>>;
+    expect(properties.action.enum).toEqual(['list', 'get', 'create', 'update', 'delete']);
+    expect(books.inputSchema.required).toEqual(['action']);
+    expect(properties.id.type).toBe('string');
+    expect(properties.fields.properties).toEqual({ title: { type: 'string' } });
+  });
+
+  it('switches to the typed surface when the flag is flipped, with no restart', async () => {
+    const { t, app, token } = await harness();
+    await defineAppFlags(t);
+    expect(await listTools(app, token)).toEqual(['books']);
+
+    // Same route object, same process — only the flag changed.
+    await setFlag(t, 'typed');
     const names = await listTools(app, token);
     expect(names).toEqual(
       expect.arrayContaining(['create_book', 'read_book', 'update_book', 'delete_book']),
     );
-    expect(names).not.toContain('read_records');
+    expect(names).not.toContain('books');
   });
 
   it('switches to the generic surface when the flag is flipped, with no restart', async () => {
     const { t, app, token } = await harness();
     await defineAppFlags(t);
-    expect(await listTools(app, token)).toContain('read_book');
 
-    // Same route object, same process — only the flag changed.
     await setFlag(t, 'generic');
     const names = await listTools(app, token);
     // No resource here declares a custom method, so run_custom_method is absent.
@@ -135,6 +170,6 @@ describe('the MCP route honours settings.mcp_tools', () => {
       'read_records',
       'update_record',
     ]);
-    expect(names).not.toContain('read_book');
+    expect(names).not.toContain('books');
   });
 });

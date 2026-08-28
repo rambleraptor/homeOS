@@ -1,11 +1,12 @@
 /**
  * The generic (consolidated) MCP tool surface.
  *
- * The typed surface in `./register` mints four tools per resource plus one per
- * custom method — ~167 tools on a stock instance, which is tens of thousands of
- * tokens of schema in every client's context and past the tool cap some clients
- * enforce. This module collapses all of it into six tools that take the
- * resource as a parameter:
+ * The flattest of the three surfaces (`./surface` lists them). The typed one in
+ * `./register` mints four tools per resource plus one per custom method — ~167
+ * tools on a stock instance, which is tens of thousands of tokens of schema in
+ * every client's context and past the tool cap some clients enforce. This
+ * module collapses all of it into six tools that take the resource as a
+ * parameter:
  *
  *   describe_resources · read_records · create_record · update_record
  *   delete_record · run_custom_method
@@ -26,9 +27,14 @@
  *     a wrong guess self-corrects in one round-trip instead of dead-ending.
  *
  * Execution is not reimplemented — a generic call is translated into the typed
- * call it stands for and handed to `executeToolCall` / `executeCustomMethod`,
- * so permissions, reference checks, list caps, and custom-method dispatch
- * behave identically on both surfaces.
+ * call it stands for (`./translate`, shared with the per-resource surface) and
+ * handed to `executeToolCall` / `executeCustomMethod`, so permissions,
+ * reference checks, list caps, and custom-method dispatch behave identically on
+ * every surface.
+ *
+ * When a client can afford per-resource schemas, `./per-resource` is the better
+ * trade: it holds the tool count near-flat too, but keeps each resource's
+ * fields typed instead of describing them on request.
  */
 
 import { z } from 'zod';
@@ -50,11 +56,9 @@ import {
   buildCustomMethodTools,
   customMethodToolName,
   executeCustomMethod,
-  type CustomMethodBinding,
 } from './custom-methods';
-
-/** Which tool surface `/api/mcp` exposes. */
-export type McpToolMode = 'generic' | 'typed';
+import type { SurfaceResult, ToolSurface } from './surface';
+import { toCustomMethodCall, toTypedCall } from './translate';
 
 export const DESCRIBE_TOOL = 'describe_resources';
 export const READ_TOOL = 'read_records';
@@ -62,23 +66,6 @@ export const CREATE_TOOL = 'create_record';
 export const UPDATE_TOOL = 'update_record';
 export const DELETE_TOOL = 'delete_record';
 export const CUSTOM_METHOD_TOOL = 'run_custom_method';
-
-/** Outcome of a generic tool call; never thrown, always reported. */
-export type GenericResult =
-  | { ok: true; result: unknown }
-  | { ok: false; error: string };
-
-/**
- * Everything the six generic tools are built and executed from: the typed
- * tools/bindings they delegate to, plus the catalog they describe.
- */
-export interface GenericSurface {
-  tools: Record<string, ToolSpec>;
-  /** Invoke one of the generic tools under `token`. */
-  execute: (name: string, args: Record<string, unknown>, token: string) => Promise<GenericResult>;
-  /** The plurals exposed, in declaration order. */
-  resources: string[];
-}
 
 // ─────────────────────────────── the catalog ───────────────────────────────
 
@@ -152,7 +139,7 @@ const PARENT_IDS_PARAM = z
 export function buildGenericTools(
   defs: ResourceDefinition[],
   { write = true }: { write?: boolean } = {},
-): GenericSurface {
+): ToolSurface {
   const { tools: typed, bindings } = buildTools(defs);
   const custom = buildCustomMethodTools(defs);
   const bySingular = new Map(defs.map((d) => [d.singular, d]));
@@ -275,7 +262,7 @@ export function buildGenericTools(
 
   // ───────────────────────────── execution ─────────────────────────────
 
-  function describe(args: Record<string, unknown>): GenericResult {
+  function describe(args: Record<string, unknown>): SurfaceResult {
     const plural = args.resource;
     if (plural === undefined || plural === null || plural === '') {
       return { ok: true, result: { resources: catalog } };
@@ -310,9 +297,10 @@ export function buildGenericTools(
   }
 
   /**
-   * Flatten a generic call into the args its typed tool takes, then validate
-   * them against that tool's schema so the caller gets the same guarantees the
-   * typed surface enforces — with an error that names what was accepted.
+   * Flatten a generic call into the args its typed tool takes and validate them
+   * against that tool's schema, so the caller gets the same guarantees the typed
+   * surface enforces. The translation itself is shared with the per-resource
+   * surface (see `./translate`) — only resolving the resource is generic's own.
    */
   function typedArgs(
     plural: string,
@@ -322,34 +310,17 @@ export function buildGenericTools(
     const found = bindingFor(plural, op);
     if (!found) return { error: unknownResource(plural) };
     const { name, binding } = found;
-
-    const fields = isRecord(args.fields) ? args.fields : {};
-    const unknown = Object.keys(fields).filter((key) => !binding.bodyFields.has(key));
-    if (unknown.length > 0) {
-      return {
-        error:
-          `unknown field${unknown.length > 1 ? 's' : ''} ${unknown.map((f) => `"${f}"`).join(', ')}` +
-          ` on ${plural} — it accepts: ${[...binding.bodyFields].join(', ')}`,
-      };
-    }
-
-    const merged: Record<string, unknown> = {
-      ...(isRecord(args.parent_ids) ? args.parent_ids : {}),
-      ...fields,
-    };
-    if (typeof args.id === 'string' && args.id) merged.id = args.id;
-
-    const parsed = (typed[name].inputSchema as z.ZodObject).safeParse(merged);
-    if (!parsed.success) {
-      return { error: `${plural}: ${issueMessage(parsed.error)}` };
-    }
-    return { name, args: merged };
+    return toTypedCall(plural, name, binding, typed[name].inputSchema as z.ZodObject, {
+      id: args.id,
+      fields: args.fields,
+      parentIds: args.parent_ids,
+    });
   }
 
   async function runCustomMethod(
     args: Record<string, unknown>,
     token: string,
-  ): Promise<GenericResult> {
+  ): Promise<SurfaceResult> {
     const plural = typeof args.resource === 'string' ? args.resource : '';
     const def = byPlural.get(plural);
     if (!def) return { ok: false, error: unknownResource(args.resource) };
@@ -367,28 +338,32 @@ export function buildGenericTools(
 
     const name = customMethodToolName(def, verb, method.target ?? 'collection');
     const binding = custom.bindings.get(name);
-    if (!binding) return { ok: false, error: `custom method ${plural}:${verb} is not exposed` };
+    // The plural/verb check guards a generated name that resolved to another
+    // resource's method — possible only when one resource's plural equals
+    // another's singular, but better unexposed than misdispatched.
+    if (!binding || binding.plural !== def.plural || binding.verb !== verb) {
+      return { ok: false, error: `custom method ${plural}:${verb} is not exposed` };
+    }
     if (!write && binding.httpMethod !== 'GET') {
       return { ok: false, error: `${plural}:${verb} needs write access` };
     }
 
-    const body = isRecord(args.body) ? args.body : {};
-    const merged: Record<string, unknown> = {
-      ...(isRecord(args.parent_ids) ? args.parent_ids : {}),
-      // A method with no declared request schema takes the body whole; one with
-      // a schema takes its fields as params (see `./custom-methods`).
-      ...(binding.freeFormBody ? { body } : body),
-    };
-    if (typeof args.id === 'string' && args.id) merged.id = args.id;
-
-    return executeCustomMethod(name, merged, custom.bindings, token);
+    const call = toCustomMethodCall(
+      plural,
+      name,
+      binding,
+      custom.tools[name].inputSchema as z.ZodObject,
+      { id: args.id, body: args.body, parentIds: args.parent_ids },
+    );
+    if ('error' in call) return { ok: false, error: call.error };
+    return executeCustomMethod(call.name, call.args, custom.bindings, token);
   }
 
   async function execute(
     name: string,
     args: Record<string, unknown>,
     token: string,
-  ): Promise<GenericResult> {
+  ): Promise<SurfaceResult> {
     if (name === DESCRIBE_TOOL) return describe(args);
     if (name === CUSTOM_METHOD_TOOL) return runCustomMethod(args, token);
 
@@ -408,7 +383,7 @@ export function buildGenericTools(
     return out.ok ? { ok: true, result: out.result } : { ok: false, error: out.error ?? 'error' };
   }
 
-  return { tools, execute, resources };
+  return { tools, execute, instructions: homesteadInstructions(defs), resources };
 }
 
 /** Generic tool name → the CRUD op it stands for. */
@@ -418,20 +393,6 @@ const CRUD_OP: Record<string, CrudOp | undefined> = {
   [UPDATE_TOOL]: 'update',
   [DELETE_TOOL]: 'delete',
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/** Render Zod issues as one actionable sentence for the model. */
-function issueMessage(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => {
-      const at = issue.path.join('.');
-      return at ? `${at}: ${issue.message}` : issue.message;
-    })
-    .join('; ');
-}
 
 /**
  * The server's initialize `instructions` — the catalog the client hands the
