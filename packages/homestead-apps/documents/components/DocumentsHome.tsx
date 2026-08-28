@@ -5,11 +5,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import { TickingCount } from '@rambleraptor/homestead-core/shared/components/TickingCount';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
+import { useReducedMotion } from '@rambleraptor/homestead-core/shared/hooks/useReducedMotion';
 import { useDocuments } from '../hooks/useDocuments';
 import { useUploadDocument } from '../hooks/useUploadDocument';
 import { useUploadBundle } from '../hooks/useSplitDocument';
@@ -28,6 +30,8 @@ import { DocumentFilters } from './DocumentFilters';
 import { DocumentDropzone } from './DocumentDropzone';
 import { DuplicateUploadWarning } from './DuplicateUploadWarning';
 import { DocumentsEmptyState, type EmptyReason } from './DocumentsEmptyState';
+import { DocumentsSkeleton } from './DocumentsSkeleton';
+import { PendingUploadRows, type PendingUpload } from './PendingUploadRows';
 import { CollectionsBar, UNFILED, type CollectionSelection } from './CollectionsBar';
 import type { Document } from '../types';
 import {
@@ -43,6 +47,25 @@ import {
 const ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp,image/gif';
 /** The bundle-split path takes a PDF only — a form boundary needs pages to cut. */
 const ACCEPT_PDF = 'application/pdf';
+
+/**
+ * The row cascade. Rows rise in sequence when the list is rebuilt — a re-sort,
+ * a folder change, a facet change — so a reorder is something you watch happen
+ * rather than a flash between two arrangements. Capped for the same reason the
+ * metadata cascade is: past the cap the remaining rows share the last delay and
+ * land together, which is fine, because by then the cascade has been read.
+ */
+const ROW_STAGGER_MS = 22;
+const MAX_STAGGERED_ROWS = 12;
+
+/**
+ * How long a row's collapse runs before the mutation behind it is sent. Must
+ * match `--animate-row-collapse` in globals.css — a JS timer and a CSS
+ * animation agreeing by hand is fragile, but the alternative (waiting on
+ * `animationend`) fails silently when the element is unmounted mid-flight,
+ * which is exactly the case here.
+ */
+const ROW_EXIT_MS = 240;
 
 type SortKey = 'newest' | 'oldest' | 'title' | 'type';
 
@@ -91,8 +114,18 @@ export function DocumentsHome() {
   // server stamps their content hash (which arrives on a later list poll).
   // Dismissing or deleting a flagged upload drops it from here.
   const [uploadedIds, setUploadedIds] = useState<string[]>([]);
+  // The files in the batch currently uploading, newest batch only. Drives both
+  // the placeholder rows and the dropzone's "n of m" counter, so the two can't
+  // disagree about how far along the batch is.
+  const [uploadQueue, setUploadQueue] = useState<PendingUpload[]>([]);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  // Rows playing their exit. They stay in the list for the length of the
+  // animation and are released in the `finally` below, so a delete that fails
+  // puts its row back rather than leaving a hole.
+  const [exitingIds, setExitingIds] = useState<string[]>([]);
 
   const toast = useToast();
+  const reducedMotion = useReducedMotion();
   const { data: documents, isLoading, isError, error } = useDocuments();
   const { data: collections } = useCollections();
   const upload = useUploadDocument();
@@ -171,20 +204,75 @@ export function DocumentsHome() {
     [documents, uploadedIds],
   );
 
+  // Remounts the list — and so replays the cascade — when the arrangement
+  // itself changes. Deliberately excludes `filters.search`: the free-text box
+  // changes on every keystroke, and re-running the cascade under a typing
+  // finger would strobe the page. The discrete controls (sort, folder, the
+  // three facet dropdowns) are each a single decision, which is what the
+  // cascade is there to acknowledge.
+  const listGeneration = [
+    sort,
+    collection ?? 'all',
+    filters.docType,
+    filters.person,
+    filters.tag,
+  ].join('|');
+
+  /**
+   * Play a row's exit, then resolve so the caller can send the mutation behind
+   * it. Resolves immediately under reduced motion — the CSS guard has already
+   * made the animation instant, and waiting out the timer anyway would turn a
+   * courtesy into a delay for precisely the people who opted out of it.
+   */
+  const playRowExit = async (id: string) => {
+    if (reducedMotion) return;
+    setExitingIds((ids) => [...ids, id]);
+    await new Promise((resolve) => setTimeout(resolve, ROW_EXIT_MS));
+  };
+
+  const releaseRowExit = (id: string) =>
+    setExitingIds((ids) => ids.filter((i) => i !== id));
+
   const handleFiles = async (files: FileList | null) => {
     if (!files?.length) return;
     // Sequential: each upload is a multipart POST plus a classify kick-off, and
     // firing a whole folder at once would stampede the AI provider.
+    const batch = Array.from(files);
     const ids: string[] = [];
-    for (const file of Array.from(files)) {
-      try {
-        const doc = await upload.mutateAsync(file);
-        ids.push(doc.id);
-      } catch (err) {
-        toast.error(`Couldn't upload ${file.name}. ${getAepErrorMessage(err)}`);
-        break;
+
+    // Every file in the batch gets a placeholder row immediately, so the drop
+    // visibly lands instead of disappearing into a spinner until the list
+    // polls. The queue shrinks from the front as files are taken.
+    setUploadTotal(batch.length);
+    setUploadQueue(
+      batch.map((file, i) => ({ id: `${i}-${file.name}`, name: file.name, active: i === 0 })),
+    );
+
+    try {
+      for (let i = 0; i < batch.length; i += 1) {
+        const file = batch[i];
+        setUploadQueue(
+          batch
+            .slice(i)
+            .map((queued, j) => ({
+              id: `${i + j}-${queued.name}`,
+              name: queued.name,
+              active: j === 0,
+            })),
+        );
+        try {
+          const doc = await upload.mutateAsync(file);
+          ids.push(doc.id);
+        } catch (err) {
+          toast.error(`Couldn't upload ${file.name}. ${getAepErrorMessage(err)}`);
+          break;
+        }
       }
+    } finally {
+      setUploadQueue([]);
+      setUploadTotal(0);
     }
+
     setUploadedIds(ids);
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -247,22 +335,31 @@ export function DocumentsHome() {
 
   const deleteDuplicate = async (id: string) => {
     try {
+      await playRowExit(id);
       await remove.mutateAsync(id);
       dismissDuplicate(id);
       toast.success('Duplicate deleted');
     } catch (err) {
       toast.error(err);
+    } finally {
+      releaseRowExit(id);
     }
   };
 
   const handleDelete = async (doc: Document) => {
     setConfirmDelete(null);
     try {
+      // The row collapses first and the request goes after it. The other order
+      // — delete, then try to animate — has nothing left to animate: the
+      // record is gone from the cache and its row with it.
+      await playRowExit(doc.id);
       await remove.mutateAsync(doc.id);
       dismissDuplicate(doc.id);
       toast.success(`Deleted “${doc.title || 'Untitled document'}”`);
     } catch (err) {
       toast.error(err);
+    } finally {
+      releaseRowExit(doc.id);
     }
   };
 
@@ -276,6 +373,7 @@ export function DocumentsHome() {
     if (collection === null || collection === UNFILED) return;
     const before = doc.collections ?? [];
     try {
+      await playRowExit(doc.id);
       await setCollections.mutateAsync({
         documentId: doc.id,
         collections: toggleMembership(before, collection, false),
@@ -287,6 +385,8 @@ export function DocumentsHome() {
       });
     } catch (err) {
       toast.error(err);
+    } finally {
+      releaseRowExit(doc.id);
     }
   };
 
@@ -338,8 +438,17 @@ export function DocumentsHome() {
         onBrowseUpload={() => inputRef.current?.click()}
         onBrowseRedact={() => redactInputRef.current?.click()}
         onBrowseBundle={() => bundleInputRef.current?.click()}
-        uploading={upload.isPending}
+        // The queue, not just the mutation: `isPending` dips to false in the
+        // gap between two files of a batch, and driving the label off it alone
+        // made "Uploading 2 of 5…" blink back to the idle prompt between every
+        // file.
+        uploading={upload.isPending || uploadQueue.length > 0}
         bundleBusy={uploadBundle.isPending}
+        progress={
+          uploadTotal > 1
+            ? { done: uploadTotal - uploadQueue.length, total: uploadTotal }
+            : undefined
+        }
       />
 
       {documents && (
@@ -368,11 +477,7 @@ export function DocumentsHome() {
         deletingId={remove.isPending ? remove.variables : undefined}
       />
 
-      {isLoading && (
-        <div className="flex justify-center py-12" data-testid="documents-loading">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
-        </div>
-      )}
+      {isLoading && <DocumentsSkeleton />}
 
       {isError && (
         <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
@@ -381,7 +486,12 @@ export function DocumentsHome() {
         </div>
       )}
 
-      {documents && documents.length === 0 && (
+      {/* Above both the empty state and the list: the very first upload into an
+          empty library needs its placeholder row as much as any other, and
+          without this it would be the one case that still showed nothing. */}
+      <PendingUploadRows uploads={uploadQueue} />
+
+      {documents && documents.length === 0 && uploadQueue.length === 0 && (
         <DocumentsEmptyState reason="library" />
       )}
 
@@ -397,9 +507,18 @@ export function DocumentsHome() {
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-text-muted" data-testid="documents-summary">
-              {sortedDocuments.length}{' '}
+              <TickingCount value={sortedDocuments.length} />{' '}
               {sortedDocuments.length === 1 ? 'document' : 'documents'}
-              {stillReading > 0 && ` · ${stillReading} still reading`}
+              {stillReading > 0 && (
+                <>
+                  {' · '}
+                  <TickingCount
+                    value={stillReading}
+                    data-testid="documents-still-reading"
+                  />{' '}
+                  still reading
+                </>
+              )}
             </p>
             <div className="flex items-center gap-2">
               <label htmlFor="document-sort" className="text-xs text-text-muted">
@@ -422,8 +541,12 @@ export function DocumentsHome() {
           </div>
 
           {sortedDocuments.length > 0 ? (
-            <div className="space-y-2" data-testid="documents-list">
-              {sortedDocuments.map((doc) => (
+            // Keyed on the arrangement, not the contents: changing the sort or
+            // the folder remounts the rows and replays the cascade, while a
+            // poll that returns the same arrangement leaves them alone — so
+            // only rows that are genuinely new animate in.
+            <div className="space-y-2" data-testid="documents-list" key={listGeneration}>
+              {sortedDocuments.map((doc, index) => (
                 <DocumentListItem
                   key={doc.id}
                   document={doc}
@@ -433,6 +556,8 @@ export function DocumentsHome() {
                   }
                   collectionName={activeCollectionName}
                   disabled={remove.isPending || setCollections.isPending}
+                  enterDelayMs={Math.min(index, MAX_STAGGERED_ROWS) * ROW_STAGGER_MS}
+                  exiting={exitingIds.includes(doc.id)}
                 />
               ))}
             </div>

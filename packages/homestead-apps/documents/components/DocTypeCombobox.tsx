@@ -254,8 +254,10 @@ export function DocTypeCombobox({
 
       {open && (
         <div
-          className={`absolute z-20 rounded-xl border border-gray-200 bg-surface-white shadow-md ${
-            dropUp ? 'bottom-full mb-1' : 'mt-1'
+          // The panel grows out of the edge it is anchored to, so a dropped-up
+          // panel expands upward from the control rather than downward into it.
+          className={`animate-menu-in absolute z-20 rounded-xl border border-gray-200 bg-surface-white shadow-md ${
+            dropUp ? 'bottom-full mb-1 origin-bottom' : 'mt-1 origin-top'
           } ${block ? 'w-full' : 'right-0 w-[min(20rem,calc(100vw-3rem))]'}`}
           data-testid={testId ? `${testId}-panel` : undefined}
         >

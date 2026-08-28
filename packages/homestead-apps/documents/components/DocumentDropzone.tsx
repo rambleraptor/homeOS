@@ -29,6 +29,12 @@ interface DocumentDropzoneProps {
   onBrowseBundle: () => void;
   uploading: boolean;
   bundleBusy: boolean;
+  /**
+   * How far through a multi-file batch the upload is, when there is more than
+   * one file. Uploads run one at a time, so without this a five-file drop said
+   * "Uploading…" for five files' worth of time and never said which one.
+   */
+  progress?: { done: number; total: number };
 }
 
 interface UploadOption {
@@ -46,6 +52,7 @@ export function DocumentDropzone({
   onBrowseBundle,
   uploading,
   bundleBusy,
+  progress,
 }: DocumentDropzoneProps) {
   const [dragging, setDragging] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -88,6 +95,16 @@ export function DocumentDropzone({
 
   const busy = uploading || bundleBusy;
 
+  // "Uploading 2 of 5…" only where it says something a plain "Uploading…"
+  // doesn't. A single file has no progress to report — the count would just be
+  // "1 of 1" — and the row for it is already on screen below.
+  const multiple = !!progress && progress.total > 1;
+  const uploadingLabel =
+    multiple && progress
+      ? `Uploading ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…`
+      : 'Uploading…';
+  const fraction = multiple && progress ? progress.done / progress.total : 0;
+
   return (
     <div>
       <div
@@ -124,13 +141,36 @@ export function DocumentDropzone({
             <Upload className="h-6 w-6" />
           )}
         </span>
-        <div>
-          <p className="text-sm font-semibold text-brand-navy">
-            {uploading ? 'Uploading…' : 'Drop a document here, or click to browse'}
+        <div className="w-full">
+          <p className="text-sm font-semibold text-brand-navy" data-testid="dropzone-status">
+            {uploading ? uploadingLabel : 'Drop a document here, or click to browse'}
           </p>
           <p className="mt-1 text-xs text-text-muted">
             PDF or image · multi-page PDFs welcome · we&rsquo;ll read it for you
           </p>
+
+          {/* A batch's progress as a bar as well as a count. It fills per
+              completed file rather than per byte — the upload hook reports no
+              byte progress — so it steps rather than glides, which is honest
+              about what is actually known. Width is a layout property, but this
+              is one element that exists only while a batch is uploading, not
+              something on a list or a hot path. */}
+          {multiple && uploading && (
+            <span
+              className="mx-auto mt-3 block h-1 w-40 max-w-full overflow-hidden rounded-full bg-accent-terracotta/15"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={progress?.total ?? 0}
+              aria-valuenow={progress?.done ?? 0}
+              aria-label="Upload progress"
+              data-testid="dropzone-progress"
+            >
+              <span
+                className="block h-full rounded-full bg-accent-terracotta transition-[width] duration-(--duration-settle) ease-out-soft"
+                style={{ width: `${Math.round(fraction * 100)}%` }}
+              />
+            </span>
+          )}
         </div>
       </div>
 
@@ -157,7 +197,7 @@ export function DocumentDropzone({
             <div
               role="menu"
               data-testid="document-upload-menu-items"
-              className="absolute right-0 z-10 mt-1 w-72 rounded-xl border border-gray-200 bg-surface-white p-1 shadow-md"
+              className="animate-menu-in absolute right-0 z-10 mt-1 w-72 origin-top-right rounded-xl border border-gray-200 bg-surface-white p-1 shadow-md"
             >
               {options.map((option) => {
                 const Icon = option.icon;
