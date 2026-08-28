@@ -7,16 +7,24 @@
 
 import { Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Menu, PanelLeft, PanelLeftClose } from 'lucide-react';
 import { getTopBarApps } from '@rambleraptor/homestead-core/apps/registry';
 import { AppIcon, getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 
 interface HeaderProps {
+  /** Toggles the mobile drawer. */
   onMenuClick: () => void;
+  /** Toggles whether the sidebar is hidden on desktop (lg and up). */
+  onDesktopSidebarToggle?: () => void;
+  desktopSidebarHidden?: boolean;
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({
+  onMenuClick,
+  onDesktopSidebarToggle,
+  desktopSidebarHidden = false,
+}: HeaderProps) {
   const navigate = useNavigate();
 
   // Top-bar apps use the same visibility rule as the sidebar.
@@ -35,9 +43,25 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Menu className="w-6 h-6 text-brand-navy" />
         </button>
 
-        {/* Desktop: Placeholder for breadcrumbs or page title */}
-        <div className="hidden lg:block">
-          {/* Breadcrumbs or additional navigation can go here */}
+        {/* Desktop: sidebar show/hide toggle */}
+        <div className="hidden lg:flex items-center">
+          {onDesktopSidebarToggle && (
+            <button
+              onClick={onDesktopSidebarToggle}
+              className="p-2 rounded-lg hover:bg-bg-pearl transition-colors"
+              aria-label={desktopSidebarHidden ? 'Show sidebar' : 'Hide sidebar'}
+              aria-expanded={!desktopSidebarHidden}
+              aria-controls="app-sidebar"
+              title={desktopSidebarHidden ? 'Show sidebar' : 'Hide sidebar'}
+              data-testid="desktop-sidebar-toggle"
+            >
+              {desktopSidebarHidden ? (
+                <PanelLeft className="w-5 h-5 text-brand-navy" />
+              ) : (
+                <PanelLeftClose className="w-5 h-5 text-brand-navy" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Right side - Top-bar apps */}

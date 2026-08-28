@@ -14,13 +14,16 @@ import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { useAppVisible } from '@rambleraptor/homestead-core/apps/useAppVisibility';
 
 interface SidebarProps {
+  /** Mobile drawer state (below lg). */
   isOpen: boolean;
   onClose: () => void;
+  /** When true, the sidebar is hidden on desktop (lg and up). */
+  desktopHidden?: boolean;
 }
 
 const COLLAPSED_SECTIONS_STORAGE_KEY = 'homestead.sidebar.collapsedSections';
 
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export function Sidebar({ isOpen, onClose, desktopHidden = false }: SidebarProps) {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
 
@@ -122,10 +125,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Sidebar */}
       <aside
+        id="app-sidebar"
+        data-testid="app-sidebar"
         className={`
           fixed top-0 left-0 z-50 h-full w-64 bg-surface-white
           border-r border-gray-100 shadow-sm transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0 lg:static
+          ${desktopHidden ? 'lg:hidden' : 'lg:translate-x-0 lg:static'}
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
