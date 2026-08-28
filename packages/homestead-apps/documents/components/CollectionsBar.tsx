@@ -16,6 +16,7 @@ import { useMemo, useRef, useState } from 'react';
 import { FolderPlus, MoreHorizontal, Pencil, Share2, Trash2 } from 'lucide-react';
 import { useCan } from '@rambleraptor/homestead-core/permissions/useCan';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
+import { TickingCount } from '@rambleraptor/homestead-core/shared/components/TickingCount';
 import { useDismissOnOutside } from '@rambleraptor/homestead-core/shared/hooks/useDismissOnOutside';
 import { useCollections, useDeleteCollection } from '../hooks/useCollections';
 import type { Collection, Document } from '../types';
@@ -114,7 +115,7 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
               />
               {c.name}
               <span className={isActive ? 'text-white/70' : 'text-gray-400'}>
-                {counts.byId.get(c.id) ?? 0}
+                <TickingCount value={counts.byId.get(c.id) ?? 0} />
               </span>
             </button>
           );
@@ -149,7 +150,7 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
                 <div
                   role="menu"
                   data-testid="collection-menu-items"
-                  className="absolute right-0 top-full z-10 mt-1 w-44 rounded-xl border border-gray-200 bg-surface-white p-1 shadow-md"
+                  className="animate-menu-in absolute right-0 top-full z-10 mt-1 w-44 origin-top-right rounded-xl border border-gray-200 bg-surface-white p-1 shadow-md"
                 >
                   <button
                     type="button"
@@ -207,7 +208,7 @@ export function CollectionsBar({ documents, selected, onSelect }: CollectionsBar
           >
             Unfiled
             <span className={selected === UNFILED ? 'text-white/70' : 'text-gray-400'}>
-              {counts.unfiled}
+              <TickingCount value={counts.unfiled} />
             </span>
           </button>
         )}

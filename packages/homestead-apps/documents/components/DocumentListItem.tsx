@@ -17,6 +17,12 @@
  * rule. Both actions remain reachable without the gesture, on the document's
  * own page: Delete under Manage, and collection membership in the edit form.
  * So the row is a shortcut to them rather than the only way to reach them.
+ *
+ * The row owns its own arrival and departure. It rises into place on a delay
+ * its caller sets — which is what turns a re-sort from a flash into a visible
+ * reordering — and, when the caller marks it `exiting`, collapses its height
+ * and slides out before the delete behind it is even sent. Both are cosmetic:
+ * a row that skips either still renders and still works.
  */
 
 import { Link } from 'react-router-dom';
@@ -49,6 +55,17 @@ interface DocumentListItemProps {
   /** Name of that collection, for the action's accessible label. */
   collectionName?: string;
   disabled?: boolean;
+  /**
+   * Hold the row's entrance back by this many milliseconds, so a list arriving
+   * at once arrives as a cascade. The caller owns the stagger because only it
+   * knows the row's position among its siblings.
+   */
+  enterDelayMs?: number;
+  /**
+   * The row is on its way out — play the collapse. The caller keeps the row
+   * mounted for the length of the animation and removes it afterwards.
+   */
+  exiting?: boolean;
 }
 
 export function DocumentListItem({
@@ -57,6 +74,8 @@ export function DocumentListItem({
   onRemoveFromCollection,
   collectionName,
   disabled = false,
+  enterDelayMs = 0,
+  exiting = false,
 }: DocumentListItemProps) {
   const status = document.parse_status ?? 'pending';
   const docType = document.metadata?.doc_type
@@ -163,24 +182,50 @@ export function DocumentListItem({
     </div>
   );
 
-  if (!swipeRight && !swipeLeft) return row;
+  const body =
+    !swipeRight && !swipeLeft ? (
+      row
+    ) : (
+      // SwipeRow's own container is square-cornered — right for the flush,
+      // divider-separated lists it was built for, wrong here where every row is
+      // a rounded card. Without this the action panel revealed behind the row
+      // shows square corners past the card's curve. Clipping on the outside
+      // rounds the panel and the row together.
+      <div className="overflow-hidden rounded-xl">
+        <SwipeRow
+          swipeRight={swipeRight}
+          swipeLeft={swipeLeft}
+          disabled={disabled}
+          className="rounded-xl bg-surface-white"
+          data-testid="document-card-swipe"
+        >
+          {row}
+        </SwipeRow>
+      </div>
+    );
 
+  // One shell around both shapes, so the entrance and the exit are declared in
+  // a single place.
+  //
+  // `overflow-hidden` is applied *only* while exiting. The collapse animates
+  // max-height and needs the contents clipped to the shrinking box — but the
+  // row carries a `shadow-sm`, which falls outside its border box, so clipping
+  // it at rest would shave the shadow off every row in the list.
   return (
-    // SwipeRow's own container is square-cornered — right for the flush,
-    // divider-separated lists it was built for, wrong here where every row is a
-    // rounded card. Without this the action panel revealed behind the row shows
-    // square corners past the card's curve. Clipping on the outside rounds the
-    // panel and the row together.
-    <div className="overflow-hidden rounded-xl">
-      <SwipeRow
-        swipeRight={swipeRight}
-        swipeLeft={swipeLeft}
-        disabled={disabled}
-        className="rounded-xl bg-surface-white"
-        data-testid="document-card-swipe"
-      >
-        {row}
-      </SwipeRow>
+    <div
+      className={
+        exiting
+          ? 'animate-row-collapse pointer-events-none overflow-hidden'
+          : 'animate-field-rise'
+      }
+      style={exiting ? undefined : { animationDelay: `${enterDelayMs}ms` }}
+      data-exiting={exiting || undefined}
+      // An exiting row is on its way to being deleted; take it out of the
+      // accessibility tree, and out of reach of a click, rather than letting
+      // either land on something that is about to stop existing.
+      aria-hidden={exiting || undefined}
+    >
+      {body}
     </div>
   );
 }

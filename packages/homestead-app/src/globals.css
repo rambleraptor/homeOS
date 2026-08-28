@@ -184,6 +184,92 @@
       transform: translateY(0);
     }
   }
+
+  /* A dropdown panel opening from the control that owns it. Set
+   * `origin-top-right` (or whichever corner) on the element so the scale grows
+   * out of the button rather than the panel's middle.
+   *
+   * This exists because the shadcn primitives' `animate-in` / `zoom-in-95`
+   * classes compile to nothing here (no `tailwindcss-animate`, see above), so
+   * every menu in the app opened with a hard cut. `quick`, because a menu is
+   * direct feedback on a press and must not feel like it lags the finger. */
+  --animate-menu-in: menu-in 150ms var(--ease-out-soft) both;
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  /* A row leaving the list: it collapses its own height and slides out rather
+   * than vanishing between two frames, so the rows below arrive at their new
+   * positions instead of appearing there.
+   *
+   * The exception to the "transform and opacity only" rule above, and a
+   * deliberate one: collapsing the gap is the whole point, and there is no way
+   * to animate a row's height on the compositor. Affordable because it runs on
+   * one row at a time, in response to a delete the user just asked for — never
+   * on a list-wide re-render. */
+  --animate-row-collapse: row-collapse 240ms var(--ease-out-soft) both;
+  @keyframes row-collapse {
+    /* The ceiling has to clear the tallest row — one with a wrapped line of
+     * tags — or the collapse would open by clipping it, which reads as a
+     * glitch rather than as a departure. */
+    from {
+      opacity: 1;
+      max-height: 10rem;
+      transform: translateX(0);
+    }
+    40% {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    to {
+      opacity: 0;
+      max-height: 0;
+      margin-bottom: -0.5rem;
+      transform: translateX(-12px);
+    }
+  }
+
+  /* A document that is still being read. The list already spins a loader inside
+   * its status badge, but at list distance a pending row is otherwise identical
+   * to a finished one — so its tile carries a slow sheen for as long as the work
+   * is in flight. It loops, which is what makes it read as "still going" rather
+   * than as something that happened once; the reduced-motion guard below stops
+   * it after a single pass. */
+  --animate-tile-shimmer: tile-shimmer 1800ms var(--ease-out-soft) infinite;
+  @keyframes tile-shimmer {
+    from {
+      opacity: 0;
+      transform: translateX(-120%);
+    }
+    40% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: translateX(220%);
+    }
+  }
+
+  /* A number that has just changed. Counts tick silently — the folder tallies,
+   * the "3 still reading" summary — so a document finishing shifts a digit
+   * nobody watches. This tints and lifts it for one beat, which is enough to
+   * connect the number to the row that just resolved beneath it. */
+  --animate-count-tick: count-tick 420ms var(--ease-out-soft) both;
+  @keyframes count-tick {
+    from {
+      transform: translateY(-3px) scale(1.14);
+    }
+    to {
+      transform: translateY(0) scale(1);
+    }
+  }
 }
 
 body {

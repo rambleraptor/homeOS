@@ -5,7 +5,8 @@
  * bytes are still resolving. Fetches the file once via the shared blob-URL hook.
  */
 
-import { ExternalLink, FileQuestion, Loader2 } from 'lucide-react';
+import { ExternalLink, FileQuestion } from 'lucide-react';
+import { Skeleton } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useDocumentFileUrl } from '../hooks/useDocumentFileUrl';
 import { fileKind } from '../fileKind';
 import type { Document } from '../types';
@@ -30,9 +31,12 @@ export function DocumentViewer({ document }: { document: Document }) {
   }
 
   if (!url) {
+    // The preview's size is known before its bytes are — it is always the same
+    // 70vh frame — so the wait reserves that box rather than centring a spinner
+    // in it and letting the page reflow when the file lands.
     return (
-      <div className={`${frame} flex h-[70vh] items-center justify-center`}>
-        <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
+      <div className={frame} data-testid="document-viewer-loading">
+        <Skeleton className="h-[70vh] w-full rounded-none" />
       </div>
     );
   }

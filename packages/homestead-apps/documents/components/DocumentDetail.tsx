@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { AppIcon } from '@rambleraptor/homestead-core/apps/lazy';
 import { PageHeader } from '@rambleraptor/homestead-core/shared/components/PageHeader';
+import {
+  Skeleton,
+  SkeletonRegion,
+} from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { Button } from '@rambleraptor/homestead-core/shared/components/Button';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { SectionCard } from '@rambleraptor/homestead-core/shared/components/SectionCard';
@@ -99,10 +103,40 @@ export function DocumentDetail({ documentId }: DocumentDetailProps) {
   );
 
   if (isLoading) {
+    // Stands in for the page that is coming rather than for the fact of
+    // waiting: the back link, the title block, then the two-column body with
+    // the preview on the left and the detail cards on the right. Holding that
+    // frame means the header and the buttons don't pop into existence under a
+    // reader who is already reaching for them.
     return (
-      <div className="flex justify-center py-12" data-testid="document-detail-loading">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-300" />
-      </div>
+      <SkeletonRegion
+        label="Loading document"
+        className="space-y-6"
+        data-testid="document-detail-loading"
+      >
+        <Skeleton className="h-5 w-40" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <Skeleton className="h-9 w-64 max-w-full" />
+            <Skeleton className="mt-2 h-5 w-40" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-28 rounded-lg" />
+            <Skeleton className="h-10 w-20 rounded-lg" />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Skeleton className="h-7 w-28 rounded-full" />
+          <Skeleton className="h-7 w-32 rounded-full" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] lg:items-start">
+          <Skeleton className="h-[60vh] w-full rounded-2xl" />
+          <div className="space-y-6">
+            <Skeleton className="h-48 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+          </div>
+        </div>
+      </SkeletonRegion>
     );
   }
 
