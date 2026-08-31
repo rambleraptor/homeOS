@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { DUE_SOON_DAYS, daysUntil, dueSoon, dueStatus, todayIso } from '../utils/due';
-import type { Vaccination } from '../types';
+import type { Vaccine } from '../types';
 
 const TODAY = '2026-08-31';
 
-function makeVaccination(id: string, nextDue?: string): Vaccination {
+function makeVaccine(id: string, nextDue?: string): Vaccine {
   return {
     id,
-    path: `vaccinations/${id}`,
-    vaccine: `Vaccine ${id}`,
-    date_administered: '2026-01-01',
+    path: `vaccines/${id}`,
+    name: `Vaccine ${id}`,
     next_due: nextDue,
     create_time: '2026-01-01T00:00:00Z',
     update_time: '2026-01-01T00:00:00Z',
@@ -59,18 +58,18 @@ describe('dueStatus', () => {
 });
 
 describe('dueSoon', () => {
-  it('keeps only overdue and due-soon records, soonest first', () => {
+  it('keeps only overdue and due-soon vaccines, soonest first', () => {
     const records = [
-      makeVaccination('far', '2027-01-01'),
-      makeVaccination('soon', '2026-09-15'),
-      makeVaccination('past', '2026-08-01'),
-      makeVaccination('never'),
+      makeVaccine('far', '2027-01-01'),
+      makeVaccine('soon', '2026-09-15'),
+      makeVaccine('past', '2026-08-01'),
+      makeVaccine('never'),
     ];
     expect(dueSoon(records, TODAY).map((v) => v.id)).toEqual(['past', 'soon']);
   });
 
   it('returns an empty array when nothing is due', () => {
-    expect(dueSoon([makeVaccination('a'), makeVaccination('b', '2027-06-01')], TODAY)).toEqual([]);
+    expect(dueSoon([makeVaccine('a'), makeVaccine('b', '2027-06-01')], TODAY)).toEqual([]);
   });
 });
 

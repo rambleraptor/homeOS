@@ -1,9 +1,14 @@
-import type { DueStatus, Vaccination } from '../types';
+import type { DueStatus } from '../types';
 
 /** A `next_due` within this many days of today counts as "due soon". */
 export const DUE_SOON_DAYS = 60;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Anything carrying the series-level due date — in practice, a Vaccine. */
+export interface DueDated {
+  next_due?: string;
+}
 
 /** Parse an ISO YYYY-MM-DD as a UTC day, so comparisons ignore time of day. */
 function parseIsoDay(iso: string): number | null {
@@ -24,7 +29,7 @@ export function daysUntil(dueIso: string, todayIso: string): number | null {
 }
 
 /**
- * Classify a vaccination's `next_due` relative to today: `overdue` (past),
+ * Classify a vaccine's `next_due` relative to today: `overdue` (past),
  * `due-soon` (within {@link DUE_SOON_DAYS}), `ok` (further out), or `none`
  * when there is no parseable due date (series complete / unknown).
  */
@@ -41,15 +46,15 @@ export function dueStatus(
 }
 
 /**
- * The records needing attention — overdue or due within the window — sorted
+ * The vaccines needing attention — overdue or due within the window — sorted
  * soonest-first so the most urgent lead. Powers the "due soon" strip on the
  * Health home.
  */
-export function dueSoon(
-  vaccinations: readonly Vaccination[],
+export function dueSoon<T extends DueDated>(
+  vaccines: readonly T[],
   todayIso: string,
-): Vaccination[] {
-  return vaccinations
+): T[] {
+  return vaccines
     .filter((v) => {
       const status = dueStatus(v.next_due, todayIso);
       return status === 'overdue' || status === 'due-soon';

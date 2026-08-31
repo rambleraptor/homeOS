@@ -3,4 +3,10 @@
  */
 
 export { healthApp } from './app.config';
-export type { Vaccination, VaccinationFormData, DueStatus } from './types';
+export type {
+  Vaccine,
+  VaccineFormData,
+  Vaccination,
+  VaccinationFormData,
+  DueStatus,
+} from './types';

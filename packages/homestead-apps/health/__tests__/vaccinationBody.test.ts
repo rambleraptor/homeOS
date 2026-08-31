@@ -3,7 +3,6 @@ import { buildVaccinationBody } from '../utils/vaccinationBody';
 import type { VaccinationFormData } from '../types';
 
 const base: VaccinationFormData = {
-  vaccine: 'Tdap',
   date_administered: '2026-08-01',
 };
 
@@ -14,7 +13,6 @@ describe('buildVaccinationBody', () => {
       { createdBy: 'users/u1' },
     );
     expect(body).toEqual({
-      vaccine: 'Tdap',
       date_administered: '2026-08-01',
       provider: 'CVS',
       created_by: 'users/u1',
@@ -25,19 +23,19 @@ describe('buildVaccinationBody', () => {
     const body = buildVaccinationBody({
       ...base,
       dose: '',
-      next_due: undefined,
+      provider: undefined,
       document: '',
       record_image: null,
     });
-    expect(body).toEqual({ vaccine: 'Tdap', date_administered: '2026-08-01' });
+    expect(body).toEqual({ date_administered: '2026-08-01' });
   });
 
   it('nulls cleared fields on update so merge-patch erases them', () => {
     const body = buildVaccinationBody(
-      { ...base, next_due: '', document: '' },
+      { ...base, provider: '', document: '' },
       { mode: 'update' },
     ) as Record<string, unknown>;
-    expect(body.next_due).toBeNull();
+    expect(body.provider).toBeNull();
     expect(body.document).toBeNull();
     // Undefined still means "untouched", even on update.
     expect('dose' in body).toBe(false);
@@ -59,7 +57,6 @@ describe('buildVaccinationBody', () => {
     );
     expect(body).toBeInstanceOf(FormData);
     const form = body as FormData;
-    expect(form.get('vaccine')).toBe('Tdap');
     expect(form.get('date_administered')).toBe('2026-08-01');
     expect(form.get('notes')).toBe('left arm');
     expect(form.get('created_by')).toBe('users/u1');
