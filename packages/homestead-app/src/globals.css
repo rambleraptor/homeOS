@@ -257,6 +257,61 @@
     }
   }
 
+  /* A confetti piece for the groceries store-complete celebration: falls the
+   * height of the viewport with a per-piece horizontal drift and spin passed
+   * in as inline `--confetti-drift` / `--confetti-spin` custom properties
+   * (duration and delay are inline too, so pieces don't move in lockstep).
+   * Transform + opacity only, so a few dozen pieces composite cheaply. The
+   * component skips rendering pieces entirely under reduced motion, so the
+   * global guard below never has to make sense of this one. */
+  --animate-confetti-fall: confetti-fall 2000ms cubic-bezier(0.3, 0.2, 0.8, 0.8) both;
+  @keyframes confetti-fall {
+    from {
+      opacity: 0;
+      transform: translate3d(0, -3vh, 0) rotate(0deg);
+    }
+    10% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(var(--confetti-drift, 0px), 103vh, 0)
+        rotate(var(--confetti-spin, 540deg));
+    }
+  }
+
+  /* The store-complete card's whole lifecycle in one animation: pop in with a
+   * manual overshoot (a reward moment, like `reveal-pop`), hold, fade out.
+   * Ends at opacity 0 because the component unmounts it shortly after
+   * (`STORE_CELEBRATION_MS` in the groceries app's `useStoreCelebration` is
+   * the JS-side twin of this duration — keep them in step). Only rendered
+   * when motion is allowed; reduced motion gets a static card instead. */
+  --animate-celebration-card: celebration-card 2600ms var(--ease-out-soft) both;
+  @keyframes celebration-card {
+    0% {
+      opacity: 0;
+      transform: scale(0.6) translateY(12px);
+    }
+    9% {
+      opacity: 1;
+      transform: scale(1.05) translateY(0);
+    }
+    14% {
+      transform: scale(1);
+    }
+    85% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+  }
+
   /* A number that has just changed. Counts tick silently — the folder tallies,
    * the "3 still reading" summary — so a document finishing shifts a digit
    * nobody watches. This tints and lifts it for one beat, which is enough to
