@@ -20,6 +20,9 @@ const immunizationRecord: DocType = {
   icon: () => import('lucide-react').then((m) => m.Syringe),
   category: 'medical',
   title_template: 'Immunization — {vaccine}',
+  // Mirrors every extracted dose into the Health app (find-or-create the
+  // vaccine series by name, one vaccination per dose).
+  post_classify: () => import('./post-classify/immunization-record.server'),
   description:
     'An immunization or vaccination record — an official document listing the ' +
     'vaccines a person has received, with the vaccine name, date administered, ' +
@@ -35,6 +38,60 @@ const immunizationRecord: DocType = {
       person: true,
       description:
         'The person the immunization record belongs to, as named on the record.',
+    },
+    // The full dose list drives the Health-app mirror (one vaccination per
+    // entry); the scalar fields below stay as the single-value summary the
+    // title template and index facets read.
+    doses: {
+      label: 'Doses',
+      type: 'array',
+      description:
+        'Every vaccine dose the record lists, one array entry per administered ' +
+        'dose — a multi-row immunization history becomes multiple entries. ' +
+        'Preserve the order they appear in.',
+      items: {
+        label: 'Dose',
+        type: 'object',
+        properties: {
+          vaccine: {
+            label: 'Vaccine name',
+            type: 'string',
+            description:
+              'The vaccine this dose is of (e.g. "COVID-19 (Pfizer)", "MMR", ' +
+              '"Tdap", "Influenza"), exactly as the record names it.',
+          },
+          date_administered: {
+            label: 'Date administered',
+            type: 'string',
+            description:
+              'The date this dose was given. Prefer an ISO date (YYYY-MM-DD) ' +
+              'when unambiguous; otherwise record it exactly as shown. Leave ' +
+              'null when the row shows no date.',
+          },
+          dose: {
+            label: 'Dose / series',
+            type: 'string',
+            description:
+              'Which dose in a series this entry represents, when stated ' +
+              '(e.g. "1st dose", "booster", "2 of 2"). Leave null if not shown.',
+          },
+          provider: {
+            label: 'Administering provider',
+            type: 'string',
+            description:
+              'The clinic, pharmacy, health department, or provider that ' +
+              'administered this dose, when named. Leave null if not shown.',
+          },
+          lot_number: {
+            label: 'Lot number',
+            type: 'string',
+            description:
+              'The manufacturer lot number of this dose, labelled "Lot" or ' +
+              '"Lot #", when recorded. Record it exactly as printed. Leave ' +
+              'null if not shown.',
+          },
+        },
+      },
     },
     vaccine: {
       label: 'Vaccine name',

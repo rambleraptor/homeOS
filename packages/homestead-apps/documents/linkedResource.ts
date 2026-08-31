@@ -51,6 +51,9 @@ const TARGETS: Record<string, LinkedResourceTarget> = {
     href: () => '/receipts?tab=charitable',
   },
   recipes: { label: 'recipe', href: (id) => `/recipes/${id}` },
+  // The Health app has no per-record page; its home lists the series. One
+  // document may feed several series — the pointer names the first.
+  vaccines: { label: 'vaccine record', href: () => '/health-records' },
 };
 
 /** The spelling-based guess, used when a target doesn't override it. */

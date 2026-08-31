@@ -24,6 +24,7 @@ const { createFn, listAllFn } = fake;
 import medicalReceiptHook from '../medical-receipt.server';
 import charitableReceiptHook from '../charitable-donation-receipt.server';
 import recipeHook from '../recipe.server';
+import immunizationRecordHook from '../immunization-record.server';
 
 const auth = {
   token: 'tok',
@@ -360,5 +361,172 @@ describe('recipe post_classify', () => {
     const [, body] = createFn.mock.calls[0] as [string, Record<string, unknown>];
     expect(body.title).toBe('Untitled recipe');
     expect(body.parsed_ingredients).toEqual([]);
+  });
+});
+
+describe('immunization-record post_classify', () => {
+  /** Route the single list/create spies by engine path: a vaccines index plus
+   *  per-series dose lists, mirroring the nested `/vaccines/{id}/vaccinations`. */
+  function seedHealth(
+    vaccines: Array<{ id: string; name: string }>,
+    dosesById: Record<string, Array<Record<string, unknown>>> = {},
+  ) {
+    listAllFn.mockImplementation(async (path: string) => {
+      if (path === '/vaccines') return vaccines;
+      const match = /^\/vaccines\/([^/]+)\/vaccinations$/.exec(path);
+      if (match) return dosesById[match[1]!] ?? [];
+      return [];
+    });
+    let nextId = 0;
+    createFn.mockImplementation(async (_path: string, body: unknown) => ({
+      id: `new${++nextId}`,
+      ...(body as Record<string, unknown>),
+    }));
+  }
+
+  it('creates the series and one vaccination per extracted dose', async () => {
+    seedHealth([]);
+
+    const result = await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        doses: [
+          {
+            vaccine: 'Tdap',
+            date_administered: '2024-05-12',
+            dose: 'booster',
+            provider: 'CVS Pharmacy',
+            lot_number: 'A123',
+          },
+          { vaccine: 'Influenza', date_administered: '2025-10-01' },
+        ],
+      },
+      auth,
+    });
+
+    // Two series created, then a dose under each.
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls.map(([path]) => path)).toEqual([
+      '/vaccines',
+      '/vaccines/new1/vaccinations',
+      '/vaccines',
+      '/vaccines/new3/vaccinations',
+    ]);
+    expect(calls[0][1]).toEqual({ name: 'Tdap', created_by: 'users/u1' });
+    expect(calls[1][1]).toEqual({
+      date_administered: '2024-05-12',
+      dose: 'booster',
+      provider: 'CVS Pharmacy',
+      lot_number: 'A123',
+      document: 'doc1',
+      created_by: 'users/u1',
+    });
+    expect(calls[3][1]).toMatchObject({
+      date_administered: '2025-10-01',
+      document: 'doc1',
+    });
+    // The pointer names the first touched series.
+    expect(result).toEqual({ linked_resource: 'vaccines/new1' });
+  });
+
+  it('reuses an existing series, matching its name case-insensitively', async () => {
+    seedHealth([{ id: 'v1', name: 'TDAP' }]);
+
+    await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        doses: [{ vaccine: 'Tdap', date_administered: '2024-05-12' }],
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls.map(([path]) => path)).toEqual(['/vaccines/v1/vaccinations']);
+  });
+
+  it('skips a dose this document already mirrored (same series + date)', async () => {
+    seedHealth([{ id: 'v1', name: 'Tdap' }], {
+      v1: [{ id: 'd1', date_administered: '2024-05-12', document: 'doc1' }],
+    });
+
+    const result = await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        doses: [
+          { vaccine: 'Tdap', date_administered: '2024-05-12' }, // duplicate
+          { vaccine: 'Tdap', date_administered: '2034-05-12' }, // new
+        ],
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe('/vaccines/v1/vaccinations');
+    expect(calls[0][1]).toMatchObject({ date_administered: '2034-05-12' });
+    // Still linked: the duplicate proves the series is this document's.
+    expect(result).toEqual({ linked_resource: 'vaccines/v1' });
+  });
+
+  it('falls back to the scalar summary fields when the doses array is empty', async () => {
+    seedHealth([]);
+
+    await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        doses: [],
+        vaccine: 'MMR',
+        date_administered: '2020-06-01',
+        provider: 'County clinic',
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls[0]).toEqual(['/vaccines', { name: 'MMR', created_by: 'users/u1' }]);
+    expect(calls[1][1]).toMatchObject({
+      date_administered: '2020-06-01',
+      provider: 'County clinic',
+      document: 'doc1',
+    });
+  });
+
+  it('widens a non-ISO printed date and skips a dose with no readable date', async () => {
+    seedHealth([]);
+
+    await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        doses: [
+          { vaccine: 'Hep B', date_administered: 'March 15, 2019' },
+          { vaccine: 'Hep B', date_administered: 'sometime in childhood' },
+        ],
+      },
+      auth,
+    });
+
+    const doseCalls = (createFn.mock.calls as Array<[string, Record<string, unknown>]>).filter(
+      ([path]) => path.endsWith('/vaccinations'),
+    );
+    expect(doseCalls).toHaveLength(1);
+    expect(doseCalls[0][1]).toMatchObject({ date_administered: '2019-03-15' });
+  });
+
+  it('creates nothing and returns void when nothing is extractable', async () => {
+    seedHealth([]);
+
+    const result = await immunizationRecordHook({
+      document: doc(),
+      metadata: { doc_type: 'immunization-record' },
+      auth,
+    });
+
+    expect(createFn).not.toHaveBeenCalled();
+    expect(result).toBeUndefined();
   });
 });
