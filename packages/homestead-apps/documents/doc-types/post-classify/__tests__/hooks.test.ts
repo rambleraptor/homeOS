@@ -365,14 +365,17 @@ describe('recipe post_classify', () => {
 });
 
 describe('immunization-record post_classify', () => {
-  /** Route the single list/create spies by engine path: a vaccines index plus
-   *  per-series dose lists, mirroring the nested `/vaccines/{id}/vaccinations`. */
+  /** Route the single list/create spies by engine path: a vaccines index,
+   *  per-series dose lists (mirroring the nested `/vaccines/{id}/vaccinations`),
+   *  and the people directory the patient name resolves against. */
   function seedHealth(
-    vaccines: Array<{ id: string; name: string }>,
+    vaccines: Array<{ id: string; name: string; person?: string }>,
     dosesById: Record<string, Array<Record<string, unknown>>> = {},
+    people: Array<{ id: string; name: string; aliases?: string[] }> = [],
   ) {
     listAllFn.mockImplementation(async (path: string) => {
       if (path === '/vaccines') return vaccines;
+      if (path === '/people') return people;
       const match = /^\/vaccines\/([^/]+)\/vaccinations$/.exec(path);
       if (match) return dosesById[match[1]!] ?? [];
       return [];
@@ -528,5 +531,95 @@ describe('immunization-record post_classify', () => {
 
     expect(createFn).not.toHaveBeenCalled();
     expect(result).toBeUndefined();
+  });
+
+  it('links the series to the person the parser found', async () => {
+    seedHealth([], {}, [
+      { id: 'p1', name: 'Jamie', aliases: [] },
+      { id: 'p2', name: 'Alex', aliases: [] },
+    ]);
+
+    await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        patient: 'Jamie',
+        doses: [{ vaccine: 'Tdap', date_administered: '2024-05-12' }],
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls[0][0]).toBe('/vaccines');
+    expect(calls[0][1]).toMatchObject({ name: 'Tdap', person: 'p1' });
+  });
+
+  it("reuses the matched person's series, not another person's same-named one", async () => {
+    seedHealth(
+      [
+        { id: 'v-alex', name: 'Tdap', person: 'p2' },
+        { id: 'v-jamie', name: 'Tdap', person: 'p1' },
+      ],
+      {},
+      [
+        { id: 'p1', name: 'Jamie', aliases: [] },
+        { id: 'p2', name: 'Alex', aliases: [] },
+      ],
+    );
+
+    const result = await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        patient: 'Jamie',
+        doses: [{ vaccine: 'Tdap', date_administered: '2024-05-12' }],
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls.map(([path]) => path)).toEqual(['/vaccines/v-jamie/vaccinations']);
+    expect(result).toEqual({ linked_resource: 'vaccines/v-jamie' });
+  });
+
+  it('creates a fresh series for the person even when a person-less one shares the name', async () => {
+    seedHealth([{ id: 'v-nobody', name: 'Tdap' }], {}, [
+      { id: 'p1', name: 'Jamie', aliases: [] },
+    ]);
+
+    await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        patient: 'Jamie',
+        doses: [{ vaccine: 'Tdap', date_administered: '2024-05-12' }],
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls[0][0]).toBe('/vaccines');
+    expect(calls[0][1]).toMatchObject({ name: 'Tdap', person: 'p1' });
+  });
+
+  it('leaves the series unassigned when the patient name is ambiguous', async () => {
+    seedHealth([], {}, [
+      { id: 'p1', name: 'Jamie', aliases: [] },
+      { id: 'p3', name: 'Jamie', aliases: [] }, // two people named Jamie → ambiguous
+    ]);
+
+    await immunizationRecordHook({
+      document: doc(),
+      metadata: {
+        doc_type: 'immunization-record',
+        patient: 'Jamie',
+        doses: [{ vaccine: 'Tdap', date_administered: '2024-05-12' }],
+      },
+      auth,
+    });
+
+    const calls = createFn.mock.calls as Array<[string, Record<string, unknown>]>;
+    expect(calls[0][0]).toBe('/vaccines');
+    expect(calls[0][1].person).toBeUndefined();
   });
 });

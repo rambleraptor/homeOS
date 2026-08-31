@@ -16,6 +16,12 @@ interface VaccineFormProps {
   isSubmitting?: boolean;
 }
 
+/** The reference widget trades in `people/{id}` paths; the wire field stores
+ *  the bare id (what the engine's `set-null` enforcement matches). */
+const toPersonRef = (id: string | undefined): string => (id ? `people/${id}` : '');
+const fromPersonRef = (ref: string | undefined): string =>
+  ref?.startsWith('people/') ? ref.slice('people/'.length) : (ref ?? '');
+
 export function VaccineForm({
   onSubmit,
   onCancel,
@@ -27,8 +33,12 @@ export function VaccineForm({
     <SchemaForm<VaccineFormData>
       resource={vaccineDef}
       mode={mode}
-      initialData={initialData}
-      onSubmit={onSubmit}
+      initialData={
+        initialData
+          ? { ...initialData, person: toPersonRef(initialData.person) }
+          : undefined
+      }
+      onSubmit={(data) => onSubmit({ ...data, person: fromPersonRef(data.person) })}
       onCancel={onCancel}
       isSubmitting={isSubmitting}
       testId="vaccine-form"
@@ -41,6 +51,15 @@ export function VaccineForm({
           colSpan: 2,
           placeholder: 'e.g. Tdap, COVID-19, Influenza',
           autoFocus: true,
+        },
+        person: {
+          id: 'person',
+          colSpan: 2,
+          label: 'For',
+          collection: 'people',
+          labelField: 'name',
+          help: 'Who this series belongs to (the patient).',
+          emptyMessage: 'No people yet — add them in the People app first.',
         },
         next_due: {
           id: 'next_due',

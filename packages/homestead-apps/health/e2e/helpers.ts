@@ -8,6 +8,8 @@ import { deleteIfPresent, e2eClient } from '../../../../tests/e2e/utils/aepbase-
 export interface VaccineRecord {
   id: string;
   name: string;
+  /** Bare person id of the patient, when known. */
+  person?: string;
   next_due?: string;
   notes?: string;
 }

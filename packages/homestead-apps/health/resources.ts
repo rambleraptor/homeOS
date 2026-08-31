@@ -26,6 +26,19 @@ export const healthResources: ResourceDefinition[] = [
         description:
           'name of the vaccine or series, e.g. "Tdap", "COVID-19", "Influenza"',
       },
+      // Who the series is FOR — the household person the doses were given to,
+      // which for a document parsed from email may not be the account that
+      // owns the record. Distinct from ownership: `created_by`/`_owner` (the
+      // account) still governs visibility; `person` is the subject. One person
+      // can have many series; the same vaccine for two people is two series.
+      // Stored as a bare person id (like documents' `people`), which is what
+      // the engine's `set-null` enforcement matches.
+      person: {
+        type: 'string',
+        reference: { resource: 'person', onDelete: 'set-null' },
+        description:
+          'id of the person this series belongs to (the patient). Optional — unset when the subject is unknown.',
+      },
       next_due: {
         type: 'string',
         format: 'date',

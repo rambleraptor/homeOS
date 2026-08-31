@@ -74,6 +74,16 @@ describe('health resources', () => {
     expect(prop?.['x-aepbase-file-field']).toBe(true);
   });
 
+  test('the person link references person with set-null', () => {
+    const person = vaccine.fields.person;
+    expect(person?.type).toBe('string');
+    expect(person?.reference?.resource).toBe('person');
+    // A series belongs to a person (the patient), which for email-ingested
+    // documents may not be the account that owns the record. Deleting the
+    // person only clears the link, never the health history.
+    expect(person?.reference?.onDelete).toBe('set-null');
+  });
+
   test('the document link references document with set-null', () => {
     const doc = vaccination.fields.document;
     expect(doc?.type).toBe('string');

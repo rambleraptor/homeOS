@@ -14,6 +14,8 @@ export interface Vaccine {
   id: string;
   path: string;
   name: string;
+  /** Bare id of the person (the patient) this series belongs to, if known. */
+  person?: string;
   /** ISO YYYY-MM-DD; unset when the series is complete. */
   next_due?: string;
   notes?: string;
@@ -24,6 +26,8 @@ export interface Vaccine {
 
 export interface VaccineFormData {
   name: string;
+  /** Bare person id, or '' to clear the link on update. */
+  person?: string;
   next_due?: string;
   notes?: string;
 }

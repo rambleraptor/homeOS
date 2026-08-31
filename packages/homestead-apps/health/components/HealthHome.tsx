@@ -26,10 +26,12 @@ import {
   useDeleteVaccination,
   useUpdateVaccination,
 } from '../hooks/useVaccinationMutations';
+import { usePeople } from '../../people/hooks/usePeople';
 import { VaccineForm } from './VaccineForm';
 import { VaccinationForm } from './VaccinationForm';
 import { VaccineCard } from './VaccineCard';
 import { dueSoon, todayIso } from '../utils/due';
+import { groupVaccinesByPerson } from '../utils/groupByPerson';
 import type { Vaccination, VaccinationFormData, Vaccine, VaccineFormData } from '../types';
 
 type View = 'list' | 'vaccine-form' | 'dose-form';
@@ -50,6 +52,16 @@ export function HealthHome() {
 
   const { data: vaccines, isLoading, isError, error } = useVaccines();
   const { dosesByVaccine } = useAllVaccinations(vaccines);
+  const { data: people } = usePeople();
+
+  const personNames = useMemo(
+    () => new Map((people ?? []).map((p) => [p.id, p.name])),
+    [people],
+  );
+  const groups = useMemo(
+    () => groupVaccinesByPerson(vaccines ?? [], personNames),
+    [vaccines, personNames],
+  );
 
   const createVaccine = useCreateVaccine();
   const updateVaccine = useUpdateVaccine();
@@ -86,6 +98,7 @@ export function HealthHome() {
           id: editingVaccine.id,
           data: {
             name: data.name,
+            person: data.person || null,
             next_due: data.next_due || null,
             notes: data.notes || null,
           },
@@ -93,6 +106,7 @@ export function HealthHome() {
       } else {
         await createVaccine.mutateAsync({
           name: data.name,
+          ...(data.person ? { person: data.person } : {}),
           ...(data.next_due ? { next_due: data.next_due } : {}),
           ...(data.notes ? { notes: data.notes } : {}),
         });
@@ -207,31 +221,47 @@ export function HealthHome() {
               </p>
             </div>
           ) : (
-            <div data-testid="vaccines-list" className="space-y-3">
-              {vaccines!.map((vaccine) => (
-                <VaccineCard
-                  key={vaccine.id}
-                  vaccine={vaccine}
-                  doses={dosesByVaccine.get(vaccine.id)}
-                  expanded={expandedIds.has(vaccine.id)}
-                  onToggle={toggleExpanded}
-                  onEdit={(v) => {
-                    setEditingVaccine(v);
-                    setView('vaccine-form');
-                  }}
-                  onDelete={(v) => setDeleteTarget({ kind: 'vaccine', vaccine: v })}
-                  onAddDose={(v) => {
-                    setDoseContext({ vaccine: v, dose: null });
-                    setView('dose-form');
-                  }}
-                  onEditDose={(v, dose) => {
-                    setDoseContext({ vaccine: v, dose });
-                    setView('dose-form');
-                  }}
-                  onDeleteDose={(v, dose) =>
-                    setDeleteTarget({ kind: 'dose', vaccine: v, dose })
-                  }
-                />
+            <div data-testid="vaccines-list" className="space-y-6">
+              {groups.map((group) => (
+                <section key={group.personId ?? '__unassigned__'} className="space-y-3">
+                  {/* Headers only when at least one series names a person. */}
+                  {groups.length > 1 || group.personId !== null ? (
+                    <h2
+                      data-testid="vaccines-person-heading"
+                      className="text-sm font-semibold text-brand-slate uppercase tracking-wide"
+                    >
+                      {group.personName ?? (group.personId ? 'Unknown person' : 'Unassigned')}
+                    </h2>
+                  ) : null}
+                  {group.vaccines.map((vaccine) => (
+                    <VaccineCard
+                      key={vaccine.id}
+                      vaccine={vaccine}
+                      personName={
+                        vaccine.person ? personNames.get(vaccine.person) : undefined
+                      }
+                      doses={dosesByVaccine.get(vaccine.id)}
+                      expanded={expandedIds.has(vaccine.id)}
+                      onToggle={toggleExpanded}
+                      onEdit={(v) => {
+                        setEditingVaccine(v);
+                        setView('vaccine-form');
+                      }}
+                      onDelete={(v) => setDeleteTarget({ kind: 'vaccine', vaccine: v })}
+                      onAddDose={(v) => {
+                        setDoseContext({ vaccine: v, dose: null });
+                        setView('dose-form');
+                      }}
+                      onEditDose={(v, dose) => {
+                        setDoseContext({ vaccine: v, dose });
+                        setView('dose-form');
+                      }}
+                      onDeleteDose={(v, dose) =>
+                        setDeleteTarget({ kind: 'dose', vaccine: v, dose })
+                      }
+                    />
+                  ))}
+                </section>
               ))}
             </div>
           )}

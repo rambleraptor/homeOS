@@ -10,6 +10,8 @@ import { VaccinationCard, formatDate } from './VaccinationCard';
 
 interface VaccineCardProps {
   vaccine: Vaccine;
+  /** Resolved display name of `vaccine.person`, when set and known. */
+  personName?: string;
   /** Doses newest-first; undefined while still loading. */
   doses: Vaccination[] | undefined;
   expanded: boolean;
@@ -29,6 +31,7 @@ const DUE_BADGE: Record<Exclude<DueStatus, 'none'>, { label: string; className: 
 
 export function VaccineCard({
   vaccine,
+  personName,
   doses,
   expanded,
   onToggle,
@@ -62,6 +65,14 @@ export function VaccineCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-semibold text-brand-navy">{vaccine.name}</h3>
+            {personName && (
+              <span
+                data-testid="vaccine-person-chip"
+                className="px-2 py-0.5 rounded-full text-xs font-medium bg-bg-pearl text-brand-slate"
+              >
+                {personName}
+              </span>
+            )}
             {badge && (
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
                 {badge.label}
