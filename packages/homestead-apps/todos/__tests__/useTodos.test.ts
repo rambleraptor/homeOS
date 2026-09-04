@@ -35,6 +35,7 @@ function makePersonal(
   id: string,
   status: TodoStatus,
   createTime = '2025-01-01T00:00:00Z',
+  extra: Partial<PersonalTodo> = {},
 ): PersonalTodo {
   return {
     id,
@@ -43,6 +44,7 @@ function makePersonal(
     status,
     create_time: createTime,
     update_time: createTime,
+    ...extra,
   };
 }
 
@@ -143,6 +145,36 @@ describe('filterTodosForScope', () => {
       filterTodosForScope([...todos, pinned], MAIN_PROJECT_ID).map((t) => t.id),
     ).toEqual(['a', 'c', 'e']);
   });
+
+  it('main scope: rescues a todo whose list no longer exists', () => {
+    // Nobody can select a deleted list, so a todo left pointing at one would
+    // be unreachable. Deleting a list reassigns the todos the deleter can see;
+    // another member's private ones it cannot, and they land here.
+    const orphan = makeTodo('o', 'pending', '2025-01-01T00:00:00Z', {
+      project: 'projects/deleted',
+    });
+    const known = new Set(['p1', 'p2']);
+    expect(
+      filterTodosForScope([...todos, orphan], MAIN_PROJECT_ID, known).map(
+        (t) => t.id,
+      ),
+    ).toEqual(['a', 'c', 'o']);
+  });
+
+  it('main scope: keeps filed todos where they are when the lists are known', () => {
+    const known = new Set(['p1', 'p2']);
+    expect(
+      filterTodosForScope(todos, MAIN_PROJECT_ID, known).map((t) => t.id),
+    ).toEqual(['a', 'c']);
+  });
+
+  it('main scope: treats no known-id set as "lists still loading", not "no lists"', () => {
+    // An empty set would read every filed todo as an orphan and dump the whole
+    // household onto main for a frame.
+    expect(
+      filterTodosForScope(todos, MAIN_PROJECT_ID, undefined).map((t) => t.id),
+    ).toEqual(['a', 'c']);
+  });
 });
 
 describe('mergeTodosForScope', () => {
@@ -179,10 +211,44 @@ describe('mergeTodosForScope', () => {
     expect(times).toEqual([...times].sort());
   });
 
-  it('project scope: family only — personal todos never belong to a project', () => {
+  it('project scope: includes only the todos filed under that list', () => {
     const merged = mergeTodosForScope(family, personal, 'p1');
     expect(merged.map((t) => t.id)).toEqual(['fb', 'fc']);
     expect(merged.every((t) => t.kind === 'family')).toBe(true);
+  });
+
+  it('project scope: a private todo filed under the list appears in it', () => {
+    const filed = makePersonal('pc', 'pending', '2025-01-06T00:00:00Z', {
+      project: 'projects/p1',
+    });
+    const merged = mergeTodosForScope(family, [...personal, filed], 'p1');
+    expect(merged.map((t) => t.id)).toEqual(['fb', 'fc', 'pc']);
+    expect(merged.find((t) => t.id === 'pc')?.kind).toBe('personal');
+  });
+
+  it('main scope: a private todo filed under a list stays out of main', () => {
+    const filed = makePersonal('pc', 'pending', '2025-01-06T00:00:00Z', {
+      project: 'projects/p1',
+    });
+    const merged = mergeTodosForScope(
+      family,
+      [...personal, filed],
+      MAIN_PROJECT_ID,
+    );
+    expect(merged.map((t) => t.id)).not.toContain('pc');
+  });
+
+  it('main scope: a private todo pinned from a list shows on main too', () => {
+    const pinned = makePersonal('pc', 'pending', '2025-01-06T00:00:00Z', {
+      project: 'projects/p1',
+      in_main: true,
+    });
+    const merged = mergeTodosForScope(
+      family,
+      [...personal, pinned],
+      MAIN_PROJECT_ID,
+    );
+    expect(merged.map((t) => t.id)).toContain('pc');
   });
 
   it('handles empty inputs', () => {

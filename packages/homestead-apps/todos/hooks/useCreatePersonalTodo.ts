@@ -8,6 +8,10 @@ import type { PersonalTodo, TodoStatus } from '../types';
 interface CreatePersonalTodoBody {
   title: string;
   status: TodoStatus;
+  /** 'projects/{id}' — omit to file it on the main list. */
+  project?: string;
+  /** Category record id within the project. */
+  category?: string;
 }
 
 /**

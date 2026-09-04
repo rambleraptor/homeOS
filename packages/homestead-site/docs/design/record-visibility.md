@@ -47,7 +47,8 @@ In the todos app today:
 | Duplicated | Detail |
 |---|---|
 | Two resource definitions | `todo` and `personal-todo` |
-| **Feature drift** | `personal-todo` has no `project`, no `category`, no `in_main` — *"personal todos never belong to a project"* is a limitation of the workaround presented as a rule |
+| **Duplicated placement fields** | Closing the drift meant copying `project`, `category`, and `in_main` onto `personal-todo` field-for-field. The old *"personal todos never belong to a project"* was a limitation of the workaround presented as a rule; the fix keeps two definitions of the same three fields in step by hand |
+| **Referential integrity that stops at the fork** | `todo.project` can declare an `onDelete`; `personal-todo.project` deliberately cannot. A `restrict` would let one member's invisible private todo block another's list delete, with nothing on screen to explain it — so the deleter's client patches the private todos it can see, and the read side rescues the rest (`filterTodosForScope`). One resource would need none of that |
 | Two read hooks + a merge | `useTodos`, `usePersonalTodos`, `mergeTodosForScope` |
 | A synthetic union type | `TodoItem` carries `kind: 'family' \| 'personal'` to remember which collection a row came from |
 | Two write paths | `useCreateTodo` / `useCreatePersonalTodo`, `useUpdateTodo` / `useUpdatePersonalTodo` |

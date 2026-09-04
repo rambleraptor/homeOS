@@ -17,6 +17,7 @@ import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
 import { PERSONAL_TODOS, TODOS } from '../resources';
+import { useProjects } from './useProjects';
 import {
   MAIN_PROJECT_ID,
   type PersonalTodo,
@@ -58,52 +59,70 @@ export function usePersonalTodos() {
   });
 }
 
+/** The bare project id a todo is filed under, or '' when it's on main. */
+function projectIdOf(todo: { project?: string }): string {
+  return todo.project ? todo.project.replace(/^projects\//, '') : '';
+}
+
 /**
- * Filter the household (family) todo list down to those visible in a given
- * project scope.
+ * Filter a todo list — family or personal, they carry the same placement
+ * fields — down to those visible in a given project scope.
  *
  * - Main scope: todos with no `project` field, plus todos pinned via
  *   `in_main=true`.
  * - Project scope: todos whose `project` matches `projects/{scope}`.
+ *
+ * `knownProjectIds`, when supplied, also pulls *orphans* onto main: a todo
+ * filed under a list that no longer exists. Family todos are reassigned by the
+ * delete itself (see useDeleteProject), but another member's private todo is
+ * invisible to whoever deleted the list and can't be, so without this fallback
+ * it would be stranded in a scope nothing can select. Omit the set while the
+ * project list is still loading — an empty set would read every todo as an
+ * orphan.
  */
-export function filterTodosForScope(
-  todos: Todo[],
+export function filterTodosForScope<
+  T extends { project?: string; in_main?: boolean },
+>(
+  todos: T[],
   scope: ProjectScope,
-): Todo[] {
+  knownProjectIds?: ReadonlySet<string>,
+): T[] {
   if (scope === MAIN_PROJECT_ID) {
-    return todos.filter((t) => !t.project || t.in_main === true);
+    return todos.filter(
+      (t) =>
+        !t.project ||
+        t.in_main === true ||
+        (knownProjectIds !== undefined && !knownProjectIds.has(projectIdOf(t))),
+    );
   }
   const ref = `projects/${scope}`;
   return todos.filter((t) => t.project === ref);
 }
 
 /**
- * Merge family + personal todos for a scope into a single tagged list.
+ * Merge family + personal todos for a scope into a single tagged list, sorted
+ * by create_time so the two streams interleave chronologically.
  *
- * - Main scope: family todos visible on main (see {@link filterTodosForScope})
- *   plus every personal todo, tagged by origin and re-sorted by create_time so
- *   the two streams interleave chronologically.
- * - Project scope: family todos for that project only — personal todos never
- *   belong to a project, so they don't appear here.
+ * Both kinds are scoped by the same rule (see {@link filterTodosForScope}): a
+ * private todo can be filed into a project list just like a shared one, and
+ * only its owner ever sees it there.
  */
 export function mergeTodosForScope(
   family: Todo[],
   personal: PersonalTodo[],
   scope: ProjectScope,
+  knownProjectIds?: ReadonlySet<string>,
 ): TodoItem[] {
-  if (scope !== MAIN_PROJECT_ID) {
-    return filterTodosForScope(family, scope).map((t) => ({
-      ...t,
-      kind: 'family' as const,
-    }));
-  }
-  const familyItems: TodoItem[] = filterTodosForScope(family, scope).map(
-    (t) => ({ ...t, kind: 'family' as const }),
-  );
-  const personalItems: TodoItem[] = personal.map((t) => ({
-    ...t,
-    kind: 'personal' as const,
-  }));
+  const familyItems: TodoItem[] = filterTodosForScope(
+    family,
+    scope,
+    knownProjectIds,
+  ).map((t) => ({ ...t, kind: 'family' as const }));
+  const personalItems: TodoItem[] = filterTodosForScope(
+    personal,
+    scope,
+    knownProjectIds,
+  ).map((t) => ({ ...t, kind: 'personal' as const }));
   return [...familyItems, ...personalItems].sort(byCreateTimeAsc);
 }
 
@@ -138,10 +157,24 @@ export function computeProgress(todos: TodoItem[]): TodoProgress {
 export function useTodoBuckets(scope: ProjectScope = MAIN_PROJECT_ID) {
   const family = useTodos();
   const personal = usePersonalTodos();
+  // Shares the cache entry with every other `useProjects()` on the page, so
+  // this costs no extra request. Only used to recognise orphans, so it stays
+  // undefined until the list has actually resolved.
+  const projects = useProjects();
+  const knownProjectIds = useMemo<ReadonlySet<string> | undefined>(
+    () => (projects.data ? new Set(projects.data.map((p) => p.id)) : undefined),
+    [projects.data],
+  );
 
   const scoped = useMemo<TodoItem[]>(
-    () => mergeTodosForScope(family.data ?? [], personal.data ?? [], scope),
-    [family.data, personal.data, scope],
+    () =>
+      mergeTodosForScope(
+        family.data ?? [],
+        personal.data ?? [],
+        scope,
+        knownProjectIds,
+      ),
+    [family.data, personal.data, scope, knownProjectIds],
   );
   const buckets = useMemo<TodoBuckets>(() => bucketTodos(scoped), [scoped]);
   const progress = useMemo<TodoProgress>(

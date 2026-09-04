@@ -40,9 +40,12 @@ export type TodoKind = 'family' | 'personal';
 
 /**
  * A private, per-user todo. Stored under `/users/{uid}/personal-todos/{id}`,
- * so ownership is encoded in the URL rather than a `created_by` field, and it
- * never carries `project` / `in_main` — personal todos are a flat list that
- * only surfaces on the main view.
+ * so ownership is encoded in the URL rather than a `created_by` field.
+ *
+ * It carries the same `project` / `in_main` / `category` placement fields as a
+ * family {@link Todo}, so a private item can be filed into a project list
+ * alongside shared ones — the list is shared, the item in it is not. Only its
+ * owner ever sees it, in any scope.
  */
 export interface PersonalTodo {
   id: string;
@@ -51,13 +54,20 @@ export interface PersonalTodo {
   status: TodoStatus;
   create_time: string;
   update_time: string;
+  /** 'projects/{id}'. Empty/missing means the main list. */
+  project?: string;
+  /** When true, the todo also appears on the main view. */
+  in_main?: boolean;
+  /** Category record id (within the project). Empty/missing = uncategorized. */
+  category?: string;
 }
 
 /**
  * Unified in-memory shape the UI renders. Family and personal todos are merged
- * into a single list; `kind` tags each one's origin so rendering (the family
+ * into a single list; `kind` tags each one's origin so rendering (the kind
  * marker) and mutation routing (which collection to write) can branch on it.
- * `project` / `in_main` / `created_by` are only ever present on family todos.
+ * `created_by` is only ever present on family todos — the two kinds otherwise
+ * carry the same placement fields.
  */
 export type TodoItem = Todo & { kind: TodoKind };
 

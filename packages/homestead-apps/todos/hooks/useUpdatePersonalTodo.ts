@@ -7,7 +7,9 @@ import type { PersonalTodo } from '../types';
 
 interface UpdatePersonalTodoVars {
   id: string;
-  data: Partial<Pick<PersonalTodo, 'title' | 'status'>>;
+  data: Partial<
+    Pick<PersonalTodo, 'title' | 'status' | 'project' | 'in_main' | 'category'>
+  >;
 }
 
 /**

@@ -49,6 +49,9 @@ export interface PersonalTodoRecord {
   id: string;
   title: string;
   status: TodoStatus;
+  project?: string;
+  in_main?: boolean;
+  category?: string;
 }
 
 /** The current user's private todos live under `/users/{userId}/personal-todos`. */
@@ -62,11 +65,18 @@ function personalTodos(token: string, userId: string) {
 export async function createPersonalTodo(
   token: string,
   userId: string,
-  data: { title: string; status?: TodoStatus },
+  data: {
+    title: string;
+    status?: TodoStatus;
+    project_id?: string;
+    in_main?: boolean;
+  },
 ): Promise<PersonalTodoRecord> {
   return personalTodos(token, userId).create({
     title: data.title,
     status: data.status ?? 'pending',
+    ...(data.project_id ? { project: `projects/${data.project_id}` } : {}),
+    ...(data.in_main !== undefined ? { in_main: data.in_main } : {}),
   });
 }
 
