@@ -76,8 +76,9 @@ export const todosResources: ResourceDefinition[] = [
     parents: ['user'],
     description:
       "A private, per-user todo item. Scoped to its owner by the user parent — " +
-      'only the owner (and superusers) can read or write it. Unlike the shared ' +
-      '`todo` resource, personal todos never belong to a project.',
+      'only the owner (and superusers) can read or write it. Like the shared ' +
+      '`todo` resource it can be filed under a project list, but only its owner ' +
+      'ever sees it there.',
     user_settable_create: true,
     fields: {
       title: { type: 'string', description: 'Todo title.', required: true },
@@ -85,6 +86,29 @@ export const todosResources: ResourceDefinition[] = [
         type: 'string',
         enum: ['pending', 'do_later', 'completed', 'cancelled'],
         required: true,
+      },
+      project: {
+        type: 'string',
+        description: 'empty/missing means the main list.',
+        // Deliberately no `onDelete`, unlike `todo.project`. A private todo is
+        // invisible to everyone but its owner, so a `restrict` would let one
+        // household member's private item block another member from deleting a
+        // shared list — with no way to see why. The client clears the deleter's
+        // own private todos (see useDeleteProject), and a private todo left
+        // pointing at a list that no longer exists falls back to the main list
+        // in the UI rather than disappearing (see filterTodosForScope).
+        reference: { resource: 'project' },
+      },
+      in_main: {
+        type: 'boolean',
+        description:
+          'When true, the todo also appears on the main list (only meaningful when project is set).',
+      },
+      category: {
+        type: 'string',
+        description:
+          'Optional grouping within the project list. Empty/missing means uncategorized.',
+        reference: { resource: 'category', onDelete: 'set-null' },
       },
     },
   },

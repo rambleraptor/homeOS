@@ -13,23 +13,19 @@ export class TodosPage {
   }
 
   /**
-   * Add a todo. On the main view two buttons are offered (personal is the
-   * default); in a project view only the single family button exists. `kind`
-   * selects the button on the main view and is ignored in a project view.
+   * Add a todo. Both buttons are offered in every list — private (the default)
+   * and shared — so `kind` selects between them wherever we are.
    */
   async addTodo(title: string, kind: 'personal' | 'family' = 'personal') {
     const input = this.page.getByTestId('todos-add-input');
     await input.fill(title);
-    const personalBtn = this.page.getByTestId('todos-add-submit-personal');
-    if ((await personalBtn.count()) > 0) {
-      const id =
+    await this.page
+      .getByTestId(
         kind === 'family'
           ? 'todos-add-submit-family'
-          : 'todos-add-submit-personal';
-      await this.page.getByTestId(id).click();
-    } else {
-      await this.page.getByTestId('todos-add-submit').click();
-    }
+          : 'todos-add-submit-personal',
+      )
+      .click();
     await expect(input).toHaveValue('');
   }
 
@@ -142,36 +138,60 @@ export class TodosPage {
     await this.clickRowAction(title, 'cancel');
   }
 
-  async undo(title: string) {
-    await this.clickRowAction(title, 'undo');
+  /** Bring a Do Later item back to the active list. */
+  async restore(title: string) {
+    await this.clickRowAction(title, 'restore');
+  }
+
+  /** Open the list dropdown (no-op if it's already open). */
+  private async openListMenu() {
+    const menu = this.page.getByTestId('todos-list-menu');
+    if (await menu.isVisible()) return;
+    await this.page.getByTestId('todos-list-selector').click();
+    await menu.waitFor({ state: 'visible' });
+  }
+
+  private async closeListMenu() {
+    const menu = this.page.getByTestId('todos-list-menu');
+    if (!(await menu.isVisible())) return;
+    await this.page.getByTestId('todos-list-selector').click();
+    await menu.waitFor({ state: 'hidden' });
+  }
+
+  /** The trigger names the list in view, so it's what "which list" asserts on. */
+  async expectActiveList(name: string) {
+    await expect(this.page.getByTestId('todos-list-selector')).toContainText(
+      name,
+    );
   }
 
   async selectMainProject() {
-    await this.page.getByTestId('todos-project-pill-main').click();
+    await this.openListMenu();
+    await this.page.getByTestId('todos-list-option-main').click();
+    await this.expectActiveList('Main');
   }
 
   async selectProject(name: string) {
+    await this.openListMenu();
     await this.page
-      .getByTestId(/^todos-project-pill-/)
+      .getByTestId(/^todos-list-option-/)
       .filter({ hasText: name })
       .first()
       .click();
+    await this.expectActiveList(name);
   }
 
   async createProject(name: string) {
+    await this.openListMenu();
     await this.page.getByTestId('todos-project-add').click();
     await this.page.getByTestId('todos-project-name-input').fill(name);
     await this.page.getByTestId('todos-project-create-submit').click();
-    // After create, the new project becomes active; wait for its pill.
-    await this.page
-      .getByTestId(/^todos-project-pill-/)
-      .filter({ hasText: name })
-      .first()
-      .waitFor({ state: 'visible' });
+    // After create, the new list becomes the active one.
+    await this.expectActiveList(name);
   }
 
   async createListFromTemplate(templateName: string) {
-    await this.page.getByTestId('todos-template-picker').click();
+    await this.openListMenu();
     await this.page
       .getByTestId('todos-template-menu')
       .getByText(templateName, { exact: true })
@@ -179,14 +199,16 @@ export class TodosPage {
   }
 
   async gotoTemplates() {
+    await this.openListMenu();
     await this.page.getByTestId('todos-templates-link').click();
   }
 
   /**
-   * Delete the active project. By default its todos move to Main; pass
+   * Delete the active list. By default its todos move to Main; pass
    * `{ deleteTodos: true }` to remove the list's todos outright instead.
    */
   async deleteCurrentProject(opts: { deleteTodos?: boolean } = {}) {
+    await this.openListMenu();
     await this.page
       .locator('[data-testid^="todos-project-delete-"]')
       .first()
@@ -213,10 +235,13 @@ export class TodosPage {
     await expect(this.rowFor(title)).toHaveCount(0);
   }
 
-  async expectProjectPillAbsent(projectId: string) {
+  /** The list is gone from the dropdown entirely. */
+  async expectListAbsent(projectId: string) {
+    await this.openListMenu();
     await expect(
-      this.page.getByTestId(`todos-project-pill-${projectId}`),
+      this.page.getByTestId(`todos-list-option-${projectId}`),
     ).toHaveCount(0);
+    await this.closeListMenu();
   }
 
   async expectInActive(title: string) {
@@ -229,13 +254,18 @@ export class TodosPage {
     await expect(section.getByText(title).first()).toBeVisible();
   }
 
-  async expectInCompleted(title: string) {
-    const toggle = this.page.getByTestId('todos-section-completed-toggle');
-    if ((await toggle.getAttribute('aria-expanded')) === 'false') {
-      await toggle.click();
-    }
-    const section = this.page.getByTestId('todos-section-completed');
-    await expect(section.getByText(title).first()).toBeVisible();
+  /**
+   * A finished todo leaves the list — there is no Completed section to find it
+   * in. Its only trace on the page is the progress bar.
+   */
+  async expectCompletedAndGone(title: string) {
+    await this.expectRowAbsent(title);
+    await this.expectGreenSegmentNonZero();
+  }
+
+  /** Undo the last status change from its toast. */
+  async undoFromToast() {
+    await this.page.getByRole('button', { name: 'Undo' }).click();
   }
 
   async expectGreenSegmentNonZero() {

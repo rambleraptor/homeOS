@@ -244,10 +244,10 @@ export function buildGroceryItems(
  * Open todos on the main list, as one line.
  *
  * "Main list" is the Todos app's own rule, not a second definition of it:
- * `mergeTodosForScope` at main scope keeps family todos with no project (plus
- * any pinned there with `in_main`) and every personal todo, and `bucketTodos`
- * decides what counts as still open. A todo filed under a project is that
- * project's business, not today's.
+ * `mergeTodosForScope` at main scope keeps the todos of either kind that carry
+ * no project (plus any pinned there with `in_main`), and `bucketTodos` decides
+ * what counts as still open. A todo filed under a project is that project's
+ * business, not today's — private ones included.
  *
  * Only a count, because `todo` carries no due date — there is no such thing as
  * a todo that is due *today* yet. When due dates land this lane should become

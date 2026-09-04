@@ -46,13 +46,24 @@ test.describe('Todos CRUD', () => {
     await todosPage.expectKindMarker('Shared task', 'family');
   });
 
-  test('marks a todo complete and shows it under Completed', async ({ adminToken }) => {
+  test('marks a todo complete and takes it off the list', async ({ adminToken }) => {
     await createTodo(adminToken, { title: 'Pay rent' });
     await todosPage.goto();
 
     await todosPage.markComplete('Pay rent');
-    await todosPage.expectInCompleted('Pay rent');
-    await todosPage.expectGreenSegmentNonZero();
+    await todosPage.expectCompletedAndGone('Pay rent');
+  });
+
+  test('the undo toast puts a completed todo back', async ({ adminToken }) => {
+    await createTodo(adminToken, { title: 'Pay rent' });
+    await todosPage.goto();
+
+    await todosPage.markComplete('Pay rent');
+    await todosPage.expectRowAbsent('Pay rent');
+
+    await todosPage.undoFromToast();
+    await todosPage.expectInActive('Pay rent');
+    await todosPage.expectGreenSegmentZero();
   });
 
   test('moves a todo to Do Later', async ({ adminToken }) => {

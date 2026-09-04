@@ -6,7 +6,12 @@ import { SwipeRow, type SwipeAction } from '@rambleraptor/homestead-core/shared/
 import { TODO_KIND_RAIL_BASE, TODO_KIND_STYLE } from '../kindStyles';
 import type { Todo, TodoItem, TodoKind, TodoStatus } from '../types';
 
-export type TodoRowVariant = 'active' | 'doLater' | 'completed';
+/**
+ * Which bucket the row is being drawn in. There is no `completed` variant:
+ * a finished todo leaves the list rather than moving to a drawer at the
+ * bottom of it (the undo toast is the way back).
+ */
+export type TodoRowVariant = 'active' | 'doLater';
 
 interface TodoRowProps {
   todo: Todo | TodoItem;
@@ -112,43 +117,28 @@ function actionsForVariant(variant: TodoRowVariant): ActionConfig[] {
     ];
   }
 
-  if (variant === 'doLater') {
-    return [
-      {
-        testId: 'cancel',
-        label: 'Cancel',
-        icon: X,
-        color: 'text-red-500 hover:bg-red-500/10',
-        status: 'cancelled',
-      },
-      {
-        testId: 'restore',
-        label: 'Move back to active',
-        icon: Undo2,
-        color: 'text-brand-navy hover:bg-brand-navy/10',
-        status: 'pending',
-        swipe: 'left',
-      },
-      {
-        testId: 'complete',
-        label: 'Mark complete',
-        icon: Check,
-        color: 'text-green-500 hover:bg-green-500/10',
-        status: 'completed',
-        swipe: 'right',
-      },
-    ];
-  }
-
   return [
     {
-      testId: 'undo',
-      label: 'Undo',
+      testId: 'cancel',
+      label: 'Cancel',
+      icon: X,
+      color: 'text-red-500 hover:bg-red-500/10',
+      status: 'cancelled',
+    },
+    {
+      testId: 'restore',
+      label: 'Move back to active',
       icon: Undo2,
       color: 'text-brand-navy hover:bg-brand-navy/10',
       status: 'pending',
-      // Right is "the positive action" everywhere else; on a finished todo the
-      // only thing left to do is put it back, so right means restore here.
+      swipe: 'left',
+    },
+    {
+      testId: 'complete',
+      label: 'Mark complete',
+      icon: Check,
+      color: 'text-green-500 hover:bg-green-500/10',
+      status: 'completed',
       swipe: 'right',
     },
   ];
@@ -174,7 +164,6 @@ export function TodoRow({
 
   const titleClassName = cn(
     'flex-1 font-body text-base text-text-main',
-    variant === 'completed' && 'text-text-muted',
     isCancelled && 'line-through',
     href && 'hover:text-accent-terracotta transition-colors',
   );

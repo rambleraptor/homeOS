@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { AlertCircle, ListChecks } from 'lucide-react';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
+import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useTodoBuckets } from '../hooks/useTodos';
 import { useProjects } from '../hooks/useProjects';
 import { useCategories, groupTodosByCategory } from '../hooks/useCategories';
@@ -26,7 +27,18 @@ import { AddTodoInput } from './AddTodoInput';
 import { TodoRow } from './TodoRow';
 import { CategoryManager } from './CategoryManager';
 import { CollapsibleSection } from './CollapsibleSection';
-import { ProjectSwitcher } from './ProjectSwitcher';
+import { ListSwitcher } from './ListSwitcher';
+
+/**
+ * Finishing a todo takes it off the list for good — there is no "Completed"
+ * drawer to fish it back out of. So the toast is the way back, and it is the
+ * only one: it says what happened and offers the reversal, for the eight
+ * seconds during which anyone would notice a mis-tap.
+ */
+const doneMessage: Record<string, (title: string) => string> = {
+  completed: (title) => `Completed “${title}”`,
+  cancelled: (title) => `Cancelled “${title}”`,
+};
 
 export function TodosHome() {
   const location = useLocation();
@@ -50,6 +62,7 @@ export function TodosHome() {
   const createPersonal = useCreatePersonalTodo();
   const update = useUpdateTodo();
   const updatePersonal = useUpdatePersonalTodo();
+  const toast = useToast();
   const currentUserId = aepbase.getCurrentUser()?.id;
 
   const isMain = scope === MAIN_PROJECT_ID;
@@ -71,20 +84,27 @@ export function TodosHome() {
     (projectsQuery.data ?? []).map((p) => [p.id, p]),
   );
 
-  const handleAdd = async (title: string, kind: TodoKind) => {
-    if (kind === 'personal') {
-      await createPersonal.mutateAsync({ title, status: 'pending' });
-      return;
-    }
-    await create.mutateAsync({
-      title,
-      status: 'pending',
-      ...(isMain ? {} : { project: `projects/${scope}` }),
-      ...(hasCategories && addCategoryId ? { category: addCategoryId } : {}),
-    });
+  // Where a new todo lands: the list in view, and the category chosen for it.
+  // Identical for both kinds — a private todo is filed exactly like a shared
+  // one, it's just only visible to its author.
+  const placement = {
+    ...(isMain ? {} : { project: `projects/${scope}` }),
+    ...(hasCategories && addCategoryId ? { category: addCategoryId } : {}),
   };
 
-  const handleSetStatus = (todo: TodoItem, status: TodoStatus) => {
+  const handleAdd = async (title: string, kind: TodoKind) => {
+    if (kind === 'personal') {
+      await createPersonal.mutateAsync({
+        title,
+        status: 'pending',
+        ...placement,
+      });
+      return;
+    }
+    await create.mutateAsync({ title, status: 'pending', ...placement });
+  };
+
+  const setStatus = (todo: TodoItem, status: TodoStatus) => {
     if (todo.kind === 'personal') {
       updatePersonal.mutate({ id: todo.id, data: { status } });
       return;
@@ -92,8 +112,24 @@ export function TodosHome() {
     update.mutate({ id: todo.id, data: { status } });
   };
 
-  const handleTogglePin = (id: string, inMain: boolean) => {
-    update.mutate({ id, data: { in_main: inMain } });
+  const handleSetStatus = (todo: TodoItem, status: TodoStatus) => {
+    const previous = todo.status;
+    setStatus(todo, status);
+    const message = doneMessage[status];
+    // A todo that leaves the list gets an undo; do_later and restore don't
+    // need one — you can still see where they went. Undo puts it back in the
+    // bucket it came from, not blindly into pending.
+    if (message) {
+      toast.undo(message(todo.title), () => setStatus(todo, previous));
+    }
+  };
+
+  const handleTogglePin = (todo: TodoItem, inMain: boolean) => {
+    if (todo.kind === 'personal') {
+      updatePersonal.mutate({ id: todo.id, data: { in_main: inMain } });
+      return;
+    }
+    update.mutate({ id: todo.id, data: { in_main: inMain } });
   };
 
   const originLabelFor = (todo: TodoItem): string | undefined => {
@@ -104,30 +140,23 @@ export function TodosHome() {
   };
 
   const togglePinHandlerFor = (todo: TodoItem) => {
-    if (isMain) {
-      // On main: only show the pin control for todos that originate in a
-      // project (so users can unpin them). Native main-only todos shouldn't
-      // expose the action.
-      if (!todo.project) return undefined;
-      return (inMain: boolean) => handleTogglePin(todo.id, inMain);
-    }
-    return (inMain: boolean) => handleTogglePin(todo.id, inMain);
+    // On main: only show the pin control for todos that originate in a
+    // project (so users can unpin them). Native main-only todos shouldn't
+    // expose the action.
+    if (isMain && !todo.project) return undefined;
+    return (inMain: boolean) => handleTogglePin(todo, inMain);
   };
 
-  // Shared per-row wiring for real (non-synthetic) todos. The kind marker and
-  // "you" hint only apply on the main mixed view, where personal and family
-  // todos are interleaved; inside a project view every row is already family.
+  // Shared per-row wiring for real (non-synthetic) todos.
   const rowProps = (todo: TodoItem) => ({
     onSetStatus: (status: TodoStatus) => handleSetStatus(todo, status),
     disabled: isUpdating,
     onTogglePin: togglePinHandlerFor(todo),
     pinnedFromLabel: originLabelFor(todo),
-    // Only on the main view, where the two kinds are interleaved. Inside a
-    // project every row is family, so a rail on every line would carry no
-    // information.
-    kindMarker: isMain ? todo.kind : undefined,
+    // Shown in every scope: a project list can hold private items too, so
+    // "who can see this" is live information on every row, not just on main.
+    kindMarker: todo.kind,
     createdByYou:
-      isMain &&
       todo.kind === 'family' &&
       Boolean(currentUserId) &&
       todo.created_by === `users/${currentUserId}`,
@@ -144,7 +173,7 @@ export function TodosHome() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <ProjectSwitcher scope={scope} onChange={setScope} />
+      <ListSwitcher scope={scope} onChange={setScope} />
 
       <TodoProgressBar
         progress={progress}
@@ -181,11 +210,7 @@ export function TodosHome() {
         </div>
       )}
 
-      <AddTodoInput
-        onSubmit={handleAdd}
-        disabled={isCreating}
-        allowPersonal={isMain}
-      />
+      <AddTodoInput onSubmit={handleAdd} disabled={isCreating} />
 
       {isLoading && (
         <SkeletonList
@@ -301,24 +326,6 @@ export function TodosHome() {
                   key={todo.id}
                   todo={todo}
                   variant="doLater"
-                  {...rowProps(todo)}
-                />
-              ))}
-            </CollapsibleSection>
-          )}
-
-          {buckets.completed.length > 0 && (
-            <CollapsibleSection
-              title="Completed"
-              testId="todos-section-completed"
-              count={buckets.completed.length}
-              defaultOpen={false}
-            >
-              {buckets.completed.map((todo) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  variant="completed"
                   {...rowProps(todo)}
                 />
               ))}

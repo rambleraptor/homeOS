@@ -10,14 +10,21 @@
  * When `deleteTodos` is true, the member todos are removed outright instead of
  * being moved to main — again before the project DELETE, so a partial failure
  * never leaves live todos pointing at a deleted project.
+ *
+ * The caller's *own* private todos in the list get the same treatment. Other
+ * members' private todos can't: they're invisible to whoever is deleting, by
+ * design. Those are handled on the read side instead — a private todo filed
+ * under a list that no longer exists shows up on its owner's main list (see
+ * `filterTodosForScope`), rather than being stranded or silently destroyed.
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@rambleraptor/homestead-core/api/queryClient';
 import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
-import { PROJECTS, TODOS } from '../resources';
+import { USERS } from '@rambleraptor/homestead-core/resources/builtins';
+import { PERSONAL_TODOS, PROJECTS, TODOS } from '../resources';
 import { logger } from '@rambleraptor/homestead-core/utils/logger';
-import type { Todo } from '../types';
+import type { PersonalTodo, Todo } from '../types';
 
 interface DeleteProjectVars {
   projectId: string;
@@ -34,20 +41,39 @@ export function useDeleteProject() {
       deleteTodos = false,
     }: DeleteProjectVars): Promise<void> => {
       const projectRef = `projects/${projectId}`;
+      const userId = aepbase.getCurrentUser()?.id;
+
       const todos = await aepbase.list<Todo>(TODOS);
       const members = todos.filter((t) => t.project === projectRef);
+      const personal = userId
+        ? (
+            await aepbase.list<PersonalTodo>(PERSONAL_TODOS, {
+              parent: [USERS, userId],
+            })
+          ).filter((t) => t.project === projectRef)
+        : [];
+      const personalParent = { parent: [USERS, userId ?? ''] };
+
       if (deleteTodos) {
-        await Promise.all(members.map((t) => aepbase.remove(TODOS, t.id)));
-      } else {
-        await Promise.all(
-          members.map((t) =>
-            aepbase.update<Todo>(TODOS, t.id, {
-              project: '',
-              in_main: false,
-              category: '',
-            }),
+        await Promise.all([
+          ...members.map((t) => aepbase.remove(TODOS, t.id)),
+          ...personal.map((t) =>
+            aepbase.remove(PERSONAL_TODOS, t.id, personalParent),
           ),
-        );
+        ]);
+      } else {
+        const cleared = { project: '', in_main: false, category: '' };
+        await Promise.all([
+          ...members.map((t) => aepbase.update<Todo>(TODOS, t.id, cleared)),
+          ...personal.map((t) =>
+            aepbase.update<PersonalTodo>(
+              PERSONAL_TODOS,
+              t.id,
+              cleared,
+              personalParent,
+            ),
+          ),
+        ]);
       }
       // Force-cascade so the project's category children are removed with it.
       await aepbase.remove(PROJECTS, projectId, { force: true });
