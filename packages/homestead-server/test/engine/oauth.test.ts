@@ -67,15 +67,28 @@ describe('buildProviders', () => {
 /**
  * The address the fake providers bind, and the one their URLs name.
  *
- * These have to be the same address, and saying it twice by hand is how they
- * drift. Left to its default, `listen` binds whatever `localhost` resolves to
- * — `::1` first on a dual-stack host — while the provider URLs below name
- * `127.0.0.1` literally. When the two disagree the engine's token exchange is
- * refused at connect and every callback test fails with a 502, which reads as
- * an OAuth bug rather than the plumbing it is. Binding the literal address
- * takes name resolution out of the loop.
+ * One constant for both halves so they cannot disagree. Left to its default,
+ * `listen` binds whatever `localhost` resolves to — `::1` first on a dual-stack
+ * host — while these URLs name an address literally; binding the same literal
+ * address takes name resolution out of the loop on hosts where those differ.
  */
 const LOOPBACK = '127.0.0.1';
+
+/**
+ * Assert a callback's status, and say what the body was when it doesn't match.
+ *
+ * Everything that can go wrong between the engine and a provider — the token
+ * exchange, the userinfo call — comes back as a 502 whose body names the actual
+ * error. Asserting the status alone throws that away, leaving "expected 302,
+ * received 502" and no way to tell a broken OAuth rule from a fake provider the
+ * test process couldn't reach. The body is the whole diagnosis, so put it in
+ * the failure.
+ */
+async function expectStatus(res: Response, want: number): Promise<void> {
+  // Cloned so callers can still read the body themselves afterwards.
+  const detail = res.status === want ? '' : ` — ${await res.clone().text()}`;
+  expect(`${res.status}${detail}`).toBe(String(want));
+}
 
 describe('oauth flow (mocked provider)', () => {
   let fakeProvider: Listener;
@@ -165,7 +178,7 @@ describe('oauth flow (mocked provider)', () => {
     const cookie = start.headers.get('set-cookie')!.split(';')[0]!;
 
     const cb = await get(`/oauth/fake/callback?code=abc&state=${state}`, { Cookie: cookie });
-    expect(cb.status).toBe(302);
+    await expectStatus(cb, 302);
     const location = cb.headers.get('location')!;
     expect(location.startsWith('http://localhost:3000/auth/callback#token=')).toBe(true);
     const token = new URLSearchParams(location.split('#')[1]).get('token')!;
@@ -273,7 +286,7 @@ describe('oauth flow (mocked provider)', () => {
         headers: { Cookie: cookie },
       }),
     );
-    expect(cb.status).toBe(302);
+    await expectStatus(cb, 302);
     const token = new URLSearchParams(cb.headers.get('location')!.split('#')[1]).get('token')!;
     const me = await (
       await engine2.fetch(
@@ -340,7 +353,7 @@ describe('oauth flow (mocked provider)', () => {
       }),
     );
     // The link is refused — no token minted, no identity created.
-    expect(cb.status).toBe(403);
+    await expectStatus(cb, 403);
     expect((await cb.json()).error.message).toContain('did not verify');
 
     // The victim's password login still works and resolves the same account,
@@ -405,7 +418,7 @@ describe('oauth flow (mocked provider)', () => {
         headers: { Cookie: cookie },
       }),
     );
-    expect(cb.status).toBe(302);
+    await expectStatus(cb, 302);
     const token = new URLSearchParams(cb.headers.get('location')!.split('#')[1]).get('token')!;
     const me = await (
       await engine2.fetch(
