@@ -64,6 +64,19 @@ describe('buildProviders', () => {
   });
 });
 
+/**
+ * The address the fake providers bind, and the one their URLs name.
+ *
+ * These have to be the same address, and saying it twice by hand is how they
+ * drift. Left to its default, `listen` binds whatever `localhost` resolves to
+ * — `::1` first on a dual-stack host — while the provider URLs below name
+ * `127.0.0.1` literally. When the two disagree the engine's token exchange is
+ * refused at connect and every callback test fails with a 502, which reads as
+ * an OAuth bug rather than the plumbing it is. Binding the literal address
+ * takes name resolution out of the loop.
+ */
+const LOOPBACK = '127.0.0.1';
+
 describe('oauth flow (mocked provider)', () => {
   let fakeProvider: Listener;
   let engine: Engine;
@@ -72,6 +85,7 @@ describe('oauth flow (mocked provider)', () => {
   beforeAll(async () => {
     fakeProvider = await listen({
       port: 0,
+      hostname: LOOPBACK,
       fetch: async (req) => {
         const url = new URL(req.url);
         if (url.pathname === '/token') {
@@ -91,7 +105,7 @@ describe('oauth flow (mocked provider)', () => {
         return new Response('nope', { status: 404 });
       },
     });
-    providerUrl = `http://127.0.0.1:${fakeProvider.port}`;
+    providerUrl = `http://${LOOPBACK}:${fakeProvider.port}`;
 
     const dir = mkdtempSync(join(tmpdir(), 'hs-oauth-'));
     engine = new Engine({
@@ -212,6 +226,7 @@ describe('oauth flow (mocked provider)', () => {
     await fakeProvider.stop();
     fakeProvider = await listen({
       port: 0,
+      hostname: LOOPBACK,
       fetch: async (req) => {
         const url = new URL(req.url);
         if (url.pathname === '/token') return Response.json({ access_token: 't' });
@@ -239,9 +254,9 @@ describe('oauth flow (mocked provider)', () => {
             name: 'fake',
             clientId: 'c',
             clientSecret: 's',
-            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
-            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
-            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            authUrl: `http://${LOOPBACK}:${fakeProvider.port}/auth`,
+            tokenUrl: `http://${LOOPBACK}:${fakeProvider.port}/token`,
+            userInfoUrl: `http://${LOOPBACK}:${fakeProvider.port}/userinfo`,
             allowRegistration: false, // linking works even with registration off
           },
         ],
@@ -276,6 +291,7 @@ describe('oauth flow (mocked provider)', () => {
     await fakeProvider.stop();
     fakeProvider = await listen({
       port: 0,
+      hostname: LOOPBACK,
       fetch: async (req) => {
         const url = new URL(req.url);
         if (url.pathname === '/token') return Response.json({ access_token: 't' });
@@ -302,9 +318,9 @@ describe('oauth flow (mocked provider)', () => {
             name: 'fake',
             clientId: 'c',
             clientSecret: 's',
-            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
-            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
-            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            authUrl: `http://${LOOPBACK}:${fakeProvider.port}/auth`,
+            tokenUrl: `http://${LOOPBACK}:${fakeProvider.port}/token`,
+            userInfoUrl: `http://${LOOPBACK}:${fakeProvider.port}/userinfo`,
             allowRegistration: true,
           },
         ],
@@ -346,6 +362,7 @@ describe('oauth flow (mocked provider)', () => {
     await fakeProvider.stop();
     fakeProvider = await listen({
       port: 0,
+      hostname: LOOPBACK,
       fetch: async (req) => {
         const url = new URL(req.url);
         if (url.pathname === '/token') return Response.json({ access_token: 't' });
@@ -369,9 +386,9 @@ describe('oauth flow (mocked provider)', () => {
             name: 'fake',
             clientId: 'c',
             clientSecret: 's',
-            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
-            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
-            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            authUrl: `http://${LOOPBACK}:${fakeProvider.port}/auth`,
+            tokenUrl: `http://${LOOPBACK}:${fakeProvider.port}/token`,
+            userInfoUrl: `http://${LOOPBACK}:${fakeProvider.port}/userinfo`,
             allowRegistration: false,
             trustEmailVerified: true,
           },
