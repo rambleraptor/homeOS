@@ -297,6 +297,50 @@ describe('reconcileScheduled', () => {
       }),
     ).rejects.toThrow(/sourceKey/);
   });
+
+  // One app, two producers. Without a key prefix each run would see the
+  // other's rows as "nothing implies this any more" and withdraw them.
+  describe('keyPrefix', () => {
+    const taskPlan = () =>
+      plan({ sourceKey: 'task:t1:2026-06-20', title: 'Home upkeep: gutters' });
+
+    test('a sibling producer’s rows under the same source_app are out of scope', async () => {
+      await reconcileScheduled('t', 'home', [plan()], {
+        now: NOW,
+        keyPrefix: 'pickup:',
+      });
+      h.writes.deleted = [];
+
+      const result = await reconcileScheduled('t', 'home', [taskPlan()], {
+        now: NOW,
+        keyPrefix: 'task:',
+      });
+
+      expect(result).toMatchObject({ created: 1, withdrawn: 0 });
+      expect(h.writes.deleted).toHaveLength(0);
+      expect(h.state.queue.u1).toHaveLength(2);
+    });
+
+    test('within its own scope it still withdraws what nothing implies', async () => {
+      await reconcileScheduled('t', 'home', [taskPlan()], {
+        now: NOW,
+        keyPrefix: 'task:',
+      });
+
+      const result = await reconcileScheduled('t', 'home', [], {
+        now: NOW,
+        keyPrefix: 'task:',
+      });
+
+      expect(result).toMatchObject({ withdrawn: 1 });
+    });
+
+    test('a plan outside the declared scope throws rather than writing an orphan', async () => {
+      await expect(
+        reconcileScheduled('t', 'home', [plan()], { now: NOW, keyPrefix: 'task:' }),
+      ).rejects.toThrow(/outside the reconciled scope/);
+    });
+  });
 });
 
 describe('cancelScheduledNotification', () => {

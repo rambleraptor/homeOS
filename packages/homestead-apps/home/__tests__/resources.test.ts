@@ -11,7 +11,11 @@ import {
   validateResourceDefinition,
 } from '@rambleraptor/homestead-core/resources/translate';
 import { BUILTIN_RESOURCE_DEFS } from '@rambleraptor/homestead-core/resources/builtins';
-import { GARBAGE_STREAMS, homeResources } from '../resources';
+import {
+  GARBAGE_STREAMS,
+  HOME_TASK_INTERVAL_UNITS,
+  homeResources,
+} from '../resources';
 
 describe('home resource definitions', () => {
   it('each definition passes validation', () => {
@@ -53,5 +57,37 @@ describe('home resource definitions', () => {
     for (const stream of GARBAGE_STREAMS) {
       expect(stream).toMatch(/^[a-z]+(-[a-z]+)*$/);
     }
+  });
+
+  describe('home-task', () => {
+    const def = homeResources.find((r) => r.singular === 'home-task')!;
+
+    it('requires the three things a schedule cannot exist without', () => {
+      const wire = toWireSchema(def.fields, def.singular);
+      expect(wire.required).toEqual(
+        expect.arrayContaining(['name', 'interval_count', 'interval_unit', 'next_due']),
+      );
+    });
+
+    it('encodes the interval enum into the wire description, since aepbase strips enum', () => {
+      const wire = toWireSchema(def.fields, def.singular);
+      expect(wire.properties.interval_unit?.description).toContain('one of:');
+      for (const unit of HOME_TASK_INTERVAL_UNITS) {
+        expect(wire.properties.interval_unit?.description).toContain(unit);
+      }
+    });
+
+    it('keeps the notes field optional — a reminder is useful without them', () => {
+      const wire = toWireSchema(def.fields, def.singular);
+      expect(wire.required ?? []).not.toContain('notes');
+      expect(wire.properties.notes?.type).toBe('string');
+    });
+
+    it('bounds the interval and the lead time so a bad write is refused at the engine', () => {
+      const wire = toWireSchema(def.fields, def.singular);
+      expect(wire.properties.interval_count?.minimum).toBe(1);
+      expect(wire.properties.lead_days?.minimum).toBe(0);
+      expect(wire.properties.lead_days?.maximum).toBe(90);
+    });
   });
 });

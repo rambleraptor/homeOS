@@ -17,7 +17,9 @@
  * calendar stays what it always was — household data anyone can read. With
  * nobody opted in, no rows are written at all.
  *
- * Idempotent by `source_key` (`pickup:<date>`); see `reconcileScheduled`.
+ * Idempotent by `source_key` (`pickup:<date>`); see `reconcileScheduled`. That
+ * prefix is also the reconcile scope — the Home app's other producer (upkeep
+ * reminders) shares this `source_app`, and each must sweep only its own rows.
  *
  * Server-only: lives under `crons/`, so vite stubs it out of the browser bundle.
  */
@@ -48,6 +50,9 @@ export const PICKUP_HOUR = 18;
 
 /** Where tapping a bin reminder lands. */
 const HOME_URL = '/home';
+
+/** Namespaces this producer's `source_key`s, and with them its reconcile scope. */
+export const PICKUP_KEY_PREFIX = 'pickup:';
 
 /**
  * How far ahead to materialize. A week covers the weekly cadence twice over, so
@@ -133,7 +138,7 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
       // day (a schedule change re-run), and "Trash and Trash" reads as a bug.
       const streams = [...new Set(day.pickups.map((pickup) => pickup.stream))];
       const { title, notes } = buildContent(streams, day.date);
-      const sourceKey = `pickup:${day.date}`;
+      const sourceKey = `${PICKUP_KEY_PREFIX}${day.date}`;
       planned.push(
         ...fanOut(
           {
@@ -153,6 +158,9 @@ const handler: CronHandler = async ({ token, firedAt, log }) => {
   const outcome = await reconcileScheduled(token, HOME_REMINDER_TYPE, planned, {
     now,
     pruneAfterDays: PRUNE_AFTER_DAYS,
+    // The Home app has a second producer (upkeep reminders) writing under the
+    // same `source_app`; without this each run would withdraw the other's rows.
+    keyPrefix: PICKUP_KEY_PREFIX,
   });
 
   await log(
