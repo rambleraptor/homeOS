@@ -1,7 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
+import { discoveredApps } from './vite/discovered-apps';
+
+// Operator project root (mirrors vite.config.ts). The workspace root has no
+// apps/ dir, so discovery finds nothing here unless HOMESTEAD_APPS_DIRS points
+// somewhere that does.
+const projectRoot = path.resolve(__dirname, '../..');
 
 export default defineConfig({
+  plugins: [discoveredApps(projectRoot)],
   // tsconfig sets `jsx: preserve` for Next.js, which leaves the JSX
   // runtime up to the bundler. Vitest doesn't go through Next.js, so
   // pin it to the automatic runtime here — otherwise components that
@@ -45,9 +52,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       '@homestead/config': path.resolve(__dirname, '../../homestead.config.ts'),
       // Operator project root (mirrors vite.config.ts). The workspace root has
-      // no apps/ or documents/ dir, so project-relative globs resolve to zero
-      // modules here.
-      '@homestead-project': path.resolve(__dirname, '../..'),
+      // no documents/ dir, so project-relative globs resolve to zero modules
+      // here.
+      '@homestead-project': projectRoot,
     },
   },
 });

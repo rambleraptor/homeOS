@@ -2,8 +2,9 @@ import { defineConfig, searchForWorkspaceRoot, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { execSync } from 'node:child_process';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { discoveredApps, projectAppsDirs } from './vite/discovered-apps';
 
 const SERVER_STUB_ID = '\0homestead-server-only-stub';
 
@@ -72,28 +73,20 @@ const configPath =
   process.env.HOMESTEAD_CONFIG ??
   fileURLToPath(new URL('../../homestead.config.ts', import.meta.url));
 const projectRoot = dirname(configPath);
-// `@homestead-project` aliases the operator's project root, so the boot shim
-// and apps can glob project-relative paths (`@homestead-project/apps/*/…`,
-// `@homestead-project/documents/types/*.ts`) without any app-specific alias.
-const projectAppsDir = join(projectRoot, 'apps');
-
-/**
- * The project's apps/ dir lives outside the Vite root (this package), so the
- * dev watcher doesn't cover it — newly added app.homestead.ts files would
- * never invalidate the boot shim's glob. Watch it explicitly.
- */
-function watchProjectApps(): Plugin {
-  return {
-    name: 'homestead:watch-project-apps',
-    apply: 'serve',
-    configureServer(server) {
-      server.watcher.add(projectAppsDir);
-    },
-  };
-}
+// `@homestead-project` aliases the operator's project root, so apps can glob
+// project-relative paths (`@homestead-project/documents/types/*.ts`) without
+// any app-specific alias. Auto-discovered apps don't go through it — they can
+// live outside the project (HOMESTEAD_APPS_DIRS), so the boot shim imports
+// them from the `virtual:homestead-discovered-apps` module instead.
+const appDirs = projectAppsDirs(projectRoot);
 
 export default defineConfig(({ mode }) => ({
-  plugins: [stubServerOnlyModules(), watchProjectApps(), react(), tailwindcss()],
+  plugins: [
+    stubServerOnlyModules(),
+    discoveredApps(projectRoot),
+    react(),
+    tailwindcss(),
+  ],
   resolve: {
     alias: {
       '@': srcDir,
@@ -104,9 +97,10 @@ export default defineConfig(({ mode }) => ({
   server: {
     fs: {
       // Explicit allow replaces Vite's default, so keep the workspace root
-      // (covers the repo checkout) and add the operator's project dir (the
-      // config + apps/ live outside this package).
-      allow: [searchForWorkspaceRoot(srcDir), projectRoot],
+      // (covers the repo checkout) and add the operator's project dir plus
+      // every app dir (the config and the apps live outside this package,
+      // and an app dir need not sit inside the project at all).
+      allow: [searchForWorkspaceRoot(srcDir), projectRoot, ...appDirs],
     },
   },
   // Keep the existing `process.env.*` reads in shared packages working in
@@ -132,7 +126,7 @@ export default defineConfig(({ mode }) => ({
   // No dev proxy: in dev, Vite runs in middleware mode inside
   // homestead-server (see packages/homestead-server/src/dev-vite.ts), which
   // serves /api/* and /oauth/* itself. The `server` block above only widens
-  // fs access for the out-of-root config + apps/ dir.
+  // fs access for the out-of-root config + app dirs.
   build: {
     // Built SPA. The launcher overrides --outDir into its build cache
     // (spa-build.ts); `make build` uses this default. Sourcemaps stay off in

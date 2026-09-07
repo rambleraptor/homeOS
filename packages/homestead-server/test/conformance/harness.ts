@@ -145,12 +145,14 @@ export function installEngineFetch(engine: Engine): () => void {
  * top-level await the moment it is imported, and the gateway imports it. Left
  * alone it finds the repo-root config (and every React app behind it) or, under
  * vitest, nothing at all — so the env has to be set before the import, which is
- * why this is dynamic. `HOMESTEAD_APPS_DIR` is pinned at a path that does not
- * exist so auto-discovery stays deterministic regardless of the runner's cwd.
+ * why this is dynamic. The app-discovery env vars are pinned at a path that
+ * does not exist so auto-discovery stays deterministic regardless of the
+ * runner's cwd (and of an operator's own HOMESTEAD_APPS_DIRS).
  */
 async function loadGateway(): Promise<typeof import('../../src/routes/aep-gateway')['makeAepGateway']> {
   process.env.HOMESTEAD_CONFIG ??= join(HERE, '..', 'fixtures', 'minimal-homestead.config.ts');
   process.env.HOMESTEAD_APPS_DIR ??= join(HERE, '..', 'fixtures', 'no-such-apps-dir');
+  process.env.HOMESTEAD_APPS_DIRS ??= join(HERE, '..', 'fixtures', 'no-such-apps-dir');
   const mod = await import('../../src/routes/aep-gateway');
   return mod.makeAepGateway;
 }

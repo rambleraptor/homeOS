@@ -31,6 +31,37 @@ Declare your config in one of two places:
 
 If the same `id` appears in both places, the explicit entry wins.
 
+### Discovering apps from other directories {#app-directories}
+
+Auto-discovery scans `<project>/apps` by default. Set `HOMESTEAD_APPS_DIRS` to
+scan somewhere else, or several places at once — a list of directories
+separated by `:` (`;` on Windows), each holding `<name>/app.homestead.ts`
+subdirectories just like `apps/` does:
+
+```bash
+HOMESTEAD_APPS_DIRS=apps:/srv/household-apps
+```
+
+Relative entries resolve against the project root. The variable **replaces**
+the default lookup rather than adding to it, so list `apps` explicitly if you
+want to keep it. Directories are scanned in the order given; if two of them
+ship the same app `id`, the first one wins (and an `id` also listed in
+`homestead.config.ts` still beats both).
+
+Set it wherever the server reads its environment — the `EnvironmentFile` of
+the systemd unit `homestead install-service` writes (`<project>/.env` by
+default), or your shell before `homestead start`. Both the server and the SPA
+build read it, so apps in any of these directories are registered and routed
+exactly like ones under `apps/`.
+
+One constraint: an app's own imports (`@rambleraptor/homestead-core`,
+`lucide-react`, …) resolve from the directory the app file lives in, the same
+way Node resolves anything else. Directories under the project see the
+project's `node_modules` and just work. A directory outside the project needs
+its dependencies resolvable there — make it its own npm project with the
+homestead packages installed. Otherwise boot fails with `Cannot find package`,
+naming the app file.
+
 ## Writing a minimal config
 
 Required are `id`, `name`, `description`, and a `web` object holding `icon`,

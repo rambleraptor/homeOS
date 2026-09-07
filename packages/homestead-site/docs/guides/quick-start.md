@@ -115,7 +115,9 @@ Sign in, then open `/grocery`. Your app appears in the sidebar under its
 Homestead finds any `apps/<dir>/app.homestead.ts` on startup, so no config
 edit is needed. To install an app from npm or wire one in by hand, add it to
 the `apps` array in `homestead.config.ts`. If both declare the same `id`,
-the entry in `homestead.config.ts` wins.
+the entry in `homestead.config.ts` wins. To keep apps somewhere other than
+`apps/` — or in several directories — point `HOMESTEAD_APPS_DIRS` at them
+(see [App Config](./app-config#app-directories)).
 
 ## Next steps {#next-steps}
 

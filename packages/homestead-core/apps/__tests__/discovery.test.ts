@@ -78,6 +78,23 @@ describe('mergeDiscoveredApps', () => {
     }
   });
 
+  test('first discovered app wins a discovered/discovered collision, with a warning', () => {
+    // Two app directories (HOMESTEAD_APPS_DIRS) can both ship an `alpha`.
+    const first = app('alpha');
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    try {
+      const merged = mergeDiscoveredApps([], [first, app('beta'), app('alpha')]);
+      expect(merged.map((m) => m.id)).toEqual(['alpha', 'beta']);
+      expect(merged[0]).toBe(first);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('more than one app directory'),
+        expect.objectContaining({ appId: 'alpha' }),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   test('handles an empty explicit list (pure-discovery project)', () => {
     expect(mergeDiscoveredApps([], [app('alpha')]).map((m) => m.id)).toEqual(['alpha']);
   });
