@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { buildProviders, type OAuthConfig } from '../../src/engine/oauth';
 import { Engine } from '../../src/engine/engine';
-import { listen, type Listener } from '../../src/listen';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -64,34 +63,60 @@ describe('buildProviders', () => {
   });
 });
 
+/**
+ * The provider is mocked at the `fetch` seam rather than behind a real socket.
+ *
+ * It used to be a `Bun.serve` on an ephemeral port, which tripped an upstream
+ * race in `bun test`: with 50+ test files running in parallel, a `port: 0`
+ * server intermittently loses its handler and answers Bun's default "Welcome
+ * to Bun!" page instead (oven-sh/bun#26394). That 200 of HTML fails
+ * `JSON.parse` inside the token exchange, so every flow test collapsed into an
+ * opaque 502. Nothing here needs a socket — `exchangeCode`/`fetchUserInfo` call
+ * global `fetch`, so stubbing it exercises the same request construction and
+ * response parsing, in-process like the rest of this suite drives the engine.
+ */
 describe('oauth flow (mocked provider)', () => {
-  let fakeProvider: Listener;
   let engine: Engine;
-  let providerUrl: string;
 
-  beforeAll(async () => {
-    fakeProvider = await listen({
-      port: 0,
-      fetch: async (req) => {
-        const url = new URL(req.url);
-        if (url.pathname === '/token') {
-          return Response.json({ access_token: 'provider-access-token' });
+  /** Any origin that is obviously not real; requests to it never leave here. */
+  const providerUrl = 'http://oauth-provider.test';
+
+  /** Answers the provider's endpoints; swapped per test via {@link setProvider}. */
+  type ProviderHandler = (req: Request) => Response | Promise<Response>;
+  let provider: ProviderHandler;
+  const setProvider = (handler: ProviderHandler) => {
+    provider = handler;
+  };
+
+  const realFetch = globalThis.fetch;
+
+  beforeAll(() => {
+    // Only provider traffic is intercepted; anything else falls through, so an
+    // accidental real request still behaves (and fails) as it normally would.
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const req = new Request(input as RequestInfo, init);
+      if (new URL(req.url).origin === providerUrl) return provider(req);
+      return realFetch(input as RequestInfo, init);
+    }) as typeof fetch;
+
+    setProvider(async (req) => {
+      const url = new URL(req.url);
+      if (url.pathname === '/token') {
+        return Response.json({ access_token: 'provider-access-token' });
+      }
+      if (url.pathname === '/userinfo') {
+        if (req.headers.get('authorization') !== 'Bearer provider-access-token') {
+          return new Response('bad token', { status: 401 });
         }
-        if (url.pathname === '/userinfo') {
-          if (req.headers.get('authorization') !== 'Bearer provider-access-token') {
-            return new Response('bad token', { status: 401 });
-          }
-          return Response.json({
-            sub: 'prov-user-1',
-            email: 'oauth-user@example.com',
-            name: 'OAuth User',
-            email_verified: true,
-          });
-        }
-        return new Response('nope', { status: 404 });
-      },
+        return Response.json({
+          sub: 'prov-user-1',
+          email: 'oauth-user@example.com',
+          name: 'OAuth User',
+          email_verified: true,
+        });
+      }
+      return new Response('nope', { status: 404 });
     });
-    providerUrl = `http://127.0.0.1:${fakeProvider.port}`;
 
     const dir = mkdtempSync(join(tmpdir(), 'hs-oauth-'));
     engine = new Engine({
@@ -116,8 +141,8 @@ describe('oauth flow (mocked provider)', () => {
     });
   });
 
-  afterAll(async () => {
-    await fakeProvider.stop();
+  afterAll(() => {
+    globalThis.fetch = realFetch;
   });
 
   const get = (path: string, headers: Record<string, string> = {}) =>
@@ -209,23 +234,19 @@ describe('oauth flow (mocked provider)', () => {
   test('email match links the identity to an existing user', async () => {
     const existing = await seedUser(engine, { email: 'linked@example.com' });
     // New provider identity, same email → link, don't create.
-    await fakeProvider.stop();
-    fakeProvider = await listen({
-      port: 0,
-      fetch: async (req) => {
-        const url = new URL(req.url);
-        if (url.pathname === '/token') return Response.json({ access_token: 't' });
-        if (url.pathname === '/userinfo') {
-          return Response.json({
-            sub: 'prov-user-2',
-            email: 'linked@example.com',
-            email_verified: true,
-          });
-        }
-        return new Response('nope', { status: 404 });
-      },
+    setProvider(async (req) => {
+      const url = new URL(req.url);
+      if (url.pathname === '/token') return Response.json({ access_token: 't' });
+      if (url.pathname === '/userinfo') {
+        return Response.json({
+          sub: 'prov-user-2',
+          email: 'linked@example.com',
+          email_verified: true,
+        });
+      }
+      return new Response('nope', { status: 404 });
     });
-    // Rebuild engine pointing at the new fake provider port.
+    // A second engine, so the link is proved against a fresh database.
     const dir = mkdtempSync(join(tmpdir(), 'hs-oauth2-'));
     const engine2 = new Engine({
       dbPath: ':memory:',
@@ -239,9 +260,9 @@ describe('oauth flow (mocked provider)', () => {
             name: 'fake',
             clientId: 'c',
             clientSecret: 's',
-            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
-            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
-            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            authUrl: `${providerUrl}/auth`,
+            tokenUrl: `${providerUrl}/token`,
+            userInfoUrl: `${providerUrl}/userinfo`,
             allowRegistration: false, // linking works even with registration off
           },
         ],
@@ -273,21 +294,17 @@ describe('oauth flow (mocked provider)', () => {
   test('an unverified email is refused, leaving the existing account untouched', async () => {
     // Account-takeover guard: a provider that returns email_verified:false (or
     // omits it) must not auto-link a new identity onto a pre-existing account.
-    await fakeProvider.stop();
-    fakeProvider = await listen({
-      port: 0,
-      fetch: async (req) => {
-        const url = new URL(req.url);
-        if (url.pathname === '/token') return Response.json({ access_token: 't' });
-        if (url.pathname === '/userinfo') {
-          return Response.json({
-            sub: 'attacker-sub',
-            email: 'victim@example.com',
-            email_verified: false,
-          });
-        }
-        return new Response('nope', { status: 404 });
-      },
+    setProvider(async (req) => {
+      const url = new URL(req.url);
+      if (url.pathname === '/token') return Response.json({ access_token: 't' });
+      if (url.pathname === '/userinfo') {
+        return Response.json({
+          sub: 'attacker-sub',
+          email: 'victim@example.com',
+          email_verified: false,
+        });
+      }
+      return new Response('nope', { status: 404 });
     });
     const dir = mkdtempSync(join(tmpdir(), 'hs-oauth-unverified-'));
     const engine2 = new Engine({
@@ -302,9 +319,9 @@ describe('oauth flow (mocked provider)', () => {
             name: 'fake',
             clientId: 'c',
             clientSecret: 's',
-            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
-            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
-            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            authUrl: `${providerUrl}/auth`,
+            tokenUrl: `${providerUrl}/token`,
+            userInfoUrl: `${providerUrl}/userinfo`,
             allowRegistration: true,
           },
         ],
@@ -343,18 +360,14 @@ describe('oauth flow (mocked provider)', () => {
   test('trustEmailVerified lets a claim-less provider link an existing account', async () => {
     // Some providers (e.g. GitHub) never send email_verified; an operator can
     // opt into trusting them per-provider.
-    await fakeProvider.stop();
-    fakeProvider = await listen({
-      port: 0,
-      fetch: async (req) => {
-        const url = new URL(req.url);
-        if (url.pathname === '/token') return Response.json({ access_token: 't' });
-        if (url.pathname === '/userinfo') {
-          // No email_verified claim at all.
-          return Response.json({ sub: 'gh-1', email: 'trusted@example.com' });
-        }
-        return new Response('nope', { status: 404 });
-      },
+    setProvider(async (req) => {
+      const url = new URL(req.url);
+      if (url.pathname === '/token') return Response.json({ access_token: 't' });
+      if (url.pathname === '/userinfo') {
+        // No email_verified claim at all.
+        return Response.json({ sub: 'gh-1', email: 'trusted@example.com' });
+      }
+      return new Response('nope', { status: 404 });
     });
     const dir = mkdtempSync(join(tmpdir(), 'hs-oauth-trust-'));
     const engine2 = new Engine({
@@ -369,9 +382,9 @@ describe('oauth flow (mocked provider)', () => {
             name: 'fake',
             clientId: 'c',
             clientSecret: 's',
-            authUrl: `http://127.0.0.1:${fakeProvider.port}/auth`,
-            tokenUrl: `http://127.0.0.1:${fakeProvider.port}/token`,
-            userInfoUrl: `http://127.0.0.1:${fakeProvider.port}/userinfo`,
+            authUrl: `${providerUrl}/auth`,
+            tokenUrl: `${providerUrl}/token`,
+            userInfoUrl: `${providerUrl}/userinfo`,
             allowRegistration: false,
             trustEmailVerified: true,
           },
