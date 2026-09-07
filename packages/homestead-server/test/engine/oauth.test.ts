@@ -123,6 +123,22 @@ describe('oauth flow (mocked provider)', () => {
   const get = (path: string, headers: Record<string, string> = {}) =>
     engine.fetch(new Request(`http://localhost:8090${path}`, { headers }));
 
+  /**
+   * Assert a callback's status, reporting the body when it doesn't match.
+   *
+   * Every way the engine can fail to reach a provider — a refused connection,
+   * a token endpoint answering 404, a malformed token response — ends at the
+   * same 502, so "expected 302, received 502" names a symptom shared by all of
+   * them and gives a reader nothing to debug from. The body carries the reason
+   * (see `providerFetch` in engine/oauth.ts); put it in the failure message.
+   * The response is cloned, so callers still read it afterwards.
+   */
+  const expectStatus = async (res: Response, status: number): Promise<void> => {
+    if (res.status === status) return;
+    const body = await res.clone().text();
+    throw new Error(`expected ${status}, received ${res.status}: ${body}`);
+  };
+
   test('GET /oauth/providers lists providers without secrets', async () => {
     const res = await get('/oauth/providers');
     const body = await res.json();
@@ -151,7 +167,7 @@ describe('oauth flow (mocked provider)', () => {
     const cookie = start.headers.get('set-cookie')!.split(';')[0]!;
 
     const cb = await get(`/oauth/fake/callback?code=abc&state=${state}`, { Cookie: cookie });
-    expect(cb.status).toBe(302);
+    await expectStatus(cb, 302);
     const location = cb.headers.get('location')!;
     expect(location.startsWith('http://localhost:3000/auth/callback#token=')).toBe(true);
     const token = new URLSearchParams(location.split('#')[1]).get('token')!;
@@ -258,7 +274,7 @@ describe('oauth flow (mocked provider)', () => {
         headers: { Cookie: cookie },
       }),
     );
-    expect(cb.status).toBe(302);
+    await expectStatus(cb, 302);
     const token = new URLSearchParams(cb.headers.get('location')!.split('#')[1]).get('token')!;
     const me = await (
       await engine2.fetch(
@@ -324,7 +340,7 @@ describe('oauth flow (mocked provider)', () => {
       }),
     );
     // The link is refused — no token minted, no identity created.
-    expect(cb.status).toBe(403);
+    await expectStatus(cb, 403);
     expect((await cb.json()).error.message).toContain('did not verify');
 
     // The victim's password login still works and resolves the same account,
@@ -388,7 +404,7 @@ describe('oauth flow (mocked provider)', () => {
         headers: { Cookie: cookie },
       }),
     );
-    expect(cb.status).toBe(302);
+    await expectStatus(cb, 302);
     const token = new URLSearchParams(cb.headers.get('location')!.split('#')[1]).get('token')!;
     const me = await (
       await engine2.fetch(

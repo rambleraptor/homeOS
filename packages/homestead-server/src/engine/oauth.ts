@@ -187,6 +187,38 @@ interface UserInfo {
   emailVerified: boolean;
 }
 
+/**
+ * `fetch` that names what it was doing when the transport itself fails.
+ *
+ * A provider call that never gets a response surfaces to the user as a 502
+ * carrying only the runtime's bare message — "Body already used",
+ * "Unable to connect" — with no URL, no error code, and no cause. That is
+ * the least debuggable moment in the whole login path, since it's also the
+ * one that depends on someone else's server. Wrap it so the message says
+ * which request died and how.
+ */
+async function providerFetch(
+  method: string,
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    const e = err as { name?: string; code?: string; cause?: unknown } | null;
+    const parts = [
+      `${method} ${url} failed`,
+      err instanceof Error ? err.message : String(err),
+    ];
+    if (e?.name && e.name !== 'Error') parts.push(`name=${e.name}`);
+    if (e?.code) parts.push(`code=${e.code}`);
+    if (e?.cause !== undefined && e.cause !== null) {
+      parts.push(`cause=${e.cause instanceof Error ? e.cause.message : String(e.cause)}`);
+    }
+    throw new Error(parts.join(': '), { cause: err });
+  }
+}
+
 async function exchangeCode(p: Provider, code: string): Promise<string> {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -195,7 +227,7 @@ async function exchangeCode(p: Provider, code: string): Promise<string> {
     client_id: p.clientId,
     client_secret: p.clientSecret,
   });
-  const resp = await fetch(p.tokenUrl, {
+  const resp = await providerFetch('POST', p.tokenUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -218,7 +250,7 @@ async function exchangeCode(p: Provider, code: string): Promise<string> {
 }
 
 async function fetchUserInfo(p: Provider, accessToken: string): Promise<UserInfo> {
-  const resp = await fetch(p.userInfoUrl, {
+  const resp = await providerFetch('GET', p.userInfoUrl, {
     headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' },
   });
   const text = await resp.text();
