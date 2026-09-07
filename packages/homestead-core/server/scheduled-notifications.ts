@@ -82,6 +82,22 @@ export interface ReconcileOptions {
    * see {@link reconcileScheduled}.
    */
   pruneAfterDays?: number;
+  /**
+   * Narrow the reconcile to rows whose `source_key` starts with this string.
+   *
+   * `source_app` is the default scope, which is exactly right while an app has
+   * one producer. An app with two — the Home app schedules bin nights *and*
+   * upkeep reminders — would otherwise have each run withdraw everything the
+   * other wrote, since neither plan contains the other's keys. A prefix splits
+   * the app's queue into independent scopes (`pickup:`, `task:`) without
+   * inventing a second `source_app`, which is the string the Scheduled tab
+   * resolves to an app name and a link.
+   *
+   * Every planned `sourceKey` must start with it; a plan that doesn't is a
+   * programming error and throws rather than quietly writing a row the next
+   * run can't see.
+   */
+  keyPrefix?: string;
 }
 
 export interface ReconcileResult {
@@ -191,7 +207,9 @@ function matches(stored: ScheduledNotification, plan: PlannedNotification): bool
  *
  * Only rows carrying `sourceApp` are considered — a reconcile never sees,
  * edits, or sweeps a notification a person scheduled, or one another app
- * raised. Within that scope, rows are keyed by `(user, source_key)`:
+ * raised. An app with more than one producer narrows further with
+ * {@link ReconcileOptions.keyPrefix}. Within that scope, rows are keyed by
+ * `(user, source_key)`:
  *
  * | Situation                                              | Action    |
  * |--------------------------------------------------------|-----------|
@@ -218,13 +236,18 @@ export async function reconcileScheduled(
   token: string,
   sourceApp: string,
   planned: readonly PlannedNotification[],
-  { now, pruneAfterDays = 30 }: ReconcileOptions,
+  { now, pruneAfterDays = 30, keyPrefix }: ReconcileOptions,
 ): Promise<ReconcileResult> {
   const byUser = new Map<string, PlannedNotification[]>();
   for (const plan of planned) {
     if (!plan.sourceKey) {
       throw new Error(
         `reconcileScheduled(${sourceApp}): every planned notification needs a sourceKey`,
+      );
+    }
+    if (keyPrefix && !plan.sourceKey.startsWith(keyPrefix)) {
+      throw new Error(
+        `reconcileScheduled(${sourceApp}): sourceKey "${plan.sourceKey}" is outside the reconciled scope "${keyPrefix}"`,
       );
     }
     const list = byUser.get(plan.userId);
@@ -249,7 +272,11 @@ export async function reconcileScheduled(
 
   for (const user of users) {
     const rows = collectionFor(token, user.id);
-    const existing = (await rows.listAll()).filter((row) => row.source_app === sourceApp);
+    const existing = (await rows.listAll()).filter(
+      (row) =>
+        row.source_app === sourceApp &&
+        (!keyPrefix || (row.source_key ?? '').startsWith(keyPrefix)),
+    );
     const stored = new Map(
       existing.filter((row) => row.source_key).map((row) => [row.source_key as string, row]),
     );
