@@ -28,7 +28,7 @@ import {
 import { buildAppAccessMap } from '@rambleraptor/homestead-core/apps/access-map';
 import { mergeDiscoveredApps } from '@rambleraptor/homestead-core/apps/discovery';
 import {
-  defaultAppsDir,
+  appsDirs,
   discoverApps,
 } from '@rambleraptor/homestead-core/server/app-discovery';
 import { handleChat } from '@rambleraptor/homestead-core/server/chat/handler';
@@ -50,11 +50,12 @@ const config = (
   )
 ).default;
 
-// Apps dropped under the project's apps/ dir (apps/*/app.homestead.ts)
-// are picked up on top of the config's explicit list.
+// Apps dropped under the project's app directories (*/app.homestead.ts) are
+// picked up on top of the config's explicit list. That's <project>/apps by
+// default, or every directory named by HOMESTEAD_APPS_DIRS when it is set.
 initializeAppRegistry(
   withAlwaysInstalled(
-    mergeDiscoveredApps(config.apps ?? [], await discoverApps(defaultAppsDir())),
+    mergeDiscoveredApps(config.apps ?? [], await discoverApps(appsDirs())),
   ),
 );
 

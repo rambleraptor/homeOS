@@ -52,18 +52,28 @@ export function assertDiscoveredApp(
  * `homestead.config.ts` list. The explicit entry wins on an id
  * collision, so an operator who already imported `./apps/<dir>` into
  * the config keeps working unchanged — with a warning that the manual
- * wiring is now redundant.
+ * wiring is now redundant. Discovery can span several directories
+ * (`HOMESTEAD_APPS_DIRS`), so two discovered apps can collide too; the
+ * first one found wins, following the order of the directory list.
  */
 export function mergeDiscoveredApps(
   explicit: AppConfig[],
   discovered: AppConfig[],
 ): AppConfig[] {
-  const seen = new Set(explicit.map((m) => m.id));
+  const fromConfig = new Set(explicit.map((m) => m.id));
+  const seen = new Set(fromConfig);
   const merged = [...explicit];
   for (const app of discovered) {
+    if (fromConfig.has(app.id)) {
+      logger.warn(
+        `App "${app.id}" is auto-discovered and also listed in homestead.config.ts; using the config entry. The manual import can be removed.`,
+        { appId: app.id },
+      );
+      continue;
+    }
     if (seen.has(app.id)) {
       logger.warn(
-        `App "${app.id}" is auto-discovered from apps/ and also listed in homestead.config.ts; using the config entry. The manual import can be removed.`,
+        `App "${app.id}" was auto-discovered from more than one app directory; keeping the first one found.`,
         { appId: app.id },
       );
       continue;
