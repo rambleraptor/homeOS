@@ -17,7 +17,7 @@ import { useCreateGroceryItem } from '../hooks/useCreateGroceryItem';
 import { useMarkStoreCompleted } from '../hooks/useMarkStoreCompleted';
 import { useStoreCelebration } from '../hooks/useStoreCelebration';
 import { GroceryList } from './GroceryList';
-import { StoreCelebration } from './StoreCelebration';
+import { StoreConfetti } from './StoreConfetti';
 import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
@@ -33,9 +33,15 @@ export function GroceriesList() {
   const markStoreCompletedMutation = useMarkStoreCompleted();
   const { isOffline } = useOnlineStatus();
   const toast = useToast();
-  // Confetti when checking an item finishes off a whole store's list. Watches
-  // the grouped stats, so the optimistic cache update fires it instantly.
-  const celebration = useStoreCelebration(stats.stores);
+  // Checking an item that finishes off a whole store's list: the shared
+  // celebration toast carries the message, the confetti overlay is the
+  // fanfare. Watches the grouped stats, so the optimistic cache update fires
+  // it instantly.
+  const celebration = useStoreCelebration(stats.stores, (storeName) =>
+    toast.celebrate(`${storeName} complete!`, {
+      description: 'Every item checked off — nice work!',
+    }),
+  );
 
   // Fire-and-forget — optimistic onMutate updates the cache synchronously,
   // so awaiting the mutation would just leak a hanging promise when the
@@ -136,9 +142,7 @@ export function GroceriesList() {
         isLoading={markStoreCompletedMutation.isPending}
       />
 
-      {celebration && (
-        <StoreCelebration key={celebration.key} storeName={celebration.storeName} />
-      )}
+      {celebration && <StoreConfetti key={celebration.key} />}
     </>
   );
 }

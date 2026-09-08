@@ -2,8 +2,15 @@ import { createContext, useContext, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { toast as sonnerToast } from 'sonner';
 import { Toaster } from '@rambleraptor/homestead-core/shared/components/ui/sonner';
+import { CelebrationToast } from '@rambleraptor/homestead-core/shared/components/CelebrationToast';
 import type { ToastType } from '@rambleraptor/homestead-core/shared/types/toast';
 import { getAepErrorMessage } from '@rambleraptor/homestead-core/api/errorMessage';
+
+export interface CelebrateOptions {
+  /** A second, quieter line under the title. */
+  description?: string;
+  duration?: number;
+}
 
 interface ToastContextValue {
   showToast: (type: ToastType, message: string, duration?: number) => void;
@@ -39,10 +46,22 @@ interface ToastContextValue {
    * user realises their mistake.
    */
   undo: (message: string, onUndo: () => void, duration?: number) => void;
+  /**
+   * Mark a small win — a list finished, a goal reached.
+   *
+   * Renders the shared {@link CelebrationToast} card instead of a plain
+   * message, so every app's "you did it" moment looks the same and lands where
+   * toasts live (the bottom of the screen) rather than over the content the
+   * user is still working in. Any fanfare beyond the card — confetti, say —
+   * stays with the caller; this is only the message.
+   */
+  celebrate: (title: string, options?: CelebrateOptions) => void;
 }
 
 /** Long enough to notice a mistake and reach the button, short of a nuisance. */
 const UNDO_DURATION_MS = 8000;
+/** Nothing to act on, so it only needs to hang around long enough to be read. */
+const CELEBRATION_DURATION_MS = 4000;
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
@@ -103,7 +122,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const value = { showToast, success, error, info, warning, undo };
+  const celebrate = useCallback(
+    (title: string, options?: CelebrateOptions) =>
+      sonnerToast.custom(
+        () => <CelebrationToast title={title} description={options?.description} />,
+        {
+          duration: options?.duration ?? CELEBRATION_DURATION_MS,
+          // sonner gives an unstyled toast no width of its own, so it would
+          // shrink-wrap the card; fill the toaster like every other toast.
+          className: 'w-full',
+        }
+      ),
+    []
+  );
+
+  const value = { showToast, success, error, info, warning, undo, celebrate };
 
   return (
     <ToastContext.Provider value={value}>

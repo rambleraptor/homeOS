@@ -1,7 +1,8 @@
 /**
  * Detects the moment a store's shopping is finished — its group transitioning
- * from "some items unchecked" to "every item checked" — and holds a short-lived
- * celebration state for the overlay to render.
+ * from "some items unchecked" to "every item checked" — tells the caller which
+ * store it was (so it can raise the shared celebration toast), and holds a
+ * short-lived state for the confetti overlay to render.
  *
  * Transition-based on purpose: a store that is *already* fully checked when the
  * list first loads (or when a new group appears) says nothing about what the
@@ -11,20 +12,14 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from '@rambleraptor/homestead-core/shared/hooks/useReducedMotion';
 import type { StoreGroupedGroceries } from '../types';
 
 /**
- * How long the overlay stays mounted. The CSS twin is the 2600ms
- * `celebration-card` animation in `globals.css` — the card has finished fading
- * before the unmount lands, so the removal is never visible.
+ * How long the confetti overlay stays mounted. Every piece has landed by then
+ * (`makeConfetti` in `StoreConfetti` caps delay + duration under this), so the
+ * unmount is never visible. The toast runs on its own clock.
  */
 export const STORE_CELEBRATION_MS = 2800;
-/**
- * With motion off the card is static text, so it only needs to hang around
- * long enough to be read.
- */
-export const STORE_CELEBRATION_REDUCED_MS = 1600;
 
 export interface StoreCelebration {
   /** Changes on every trigger so a re-celebration remounts (and replays) the overlay. */
@@ -37,10 +32,19 @@ interface GroupSnapshot {
   total: number;
 }
 
-export function useStoreCelebration(storeGroups: StoreGroupedGroceries[]): StoreCelebration | null {
+export function useStoreCelebration(
+  storeGroups: StoreGroupedGroceries[],
+  /** Called once per trigger with the finished store's display name. */
+  onCelebrate?: (storeName: string) => void,
+): StoreCelebration | null {
   const [celebration, setCelebration] = useState<StoreCelebration | null>(null);
   const prevRef = useRef<Map<string | null, GroupSnapshot> | null>(null);
-  const reducedMotion = useReducedMotion();
+  // Read at trigger time through a ref: callers hand in an inline closure, and
+  // making it a dependency would re-run the detection pass on every render.
+  const onCelebrateRef = useRef(onCelebrate);
+  useEffect(() => {
+    onCelebrateRef.current = onCelebrate;
+  }, [onCelebrate]);
 
   useEffect(() => {
     const prev = prevRef.current;
@@ -63,17 +67,15 @@ export function useStoreCelebration(storeGroups: StoreGroupedGroceries[]): Store
     prevRef.current = next;
     if (completedStore !== null) {
       setCelebration({ key: Date.now(), storeName: completedStore });
+      onCelebrateRef.current?.(completedStore);
     }
   }, [storeGroups]);
 
   useEffect(() => {
     if (!celebration) return;
-    const timer = setTimeout(
-      () => setCelebration(null),
-      reducedMotion ? STORE_CELEBRATION_REDUCED_MS : STORE_CELEBRATION_MS,
-    );
+    const timer = setTimeout(() => setCelebration(null), STORE_CELEBRATION_MS);
     return () => clearTimeout(timer);
-  }, [celebration, reducedMotion]);
+  }, [celebration]);
 
   return celebration;
 }

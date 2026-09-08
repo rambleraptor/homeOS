@@ -141,4 +141,35 @@ describe('useStoreCelebration', () => {
 
     expect(result.current?.storeName).toBe('Aldi');
   });
+
+  it('tells the caller which store was just finished', () => {
+    const onCelebrate = vi.fn();
+    const { rerender } = renderHook(
+      ({ groups }) => useStoreCelebration(groups, onCelebrate),
+      { initialProps: { groups: [group('s1', 'Aldi', 1, 2)] } },
+    );
+    expect(onCelebrate).not.toHaveBeenCalled();
+
+    rerender({ groups: [group('s1', 'Aldi', 2, 2)] });
+
+    expect(onCelebrate).toHaveBeenCalledTimes(1);
+    expect(onCelebrate).toHaveBeenCalledWith('Aldi');
+  });
+
+  it('fires the callback once per finish, even when a fresh closure is passed each render', () => {
+    const calls: string[] = [];
+    const { rerender } = renderHook(
+      ({ groups }) => useStoreCelebration(groups, (name) => calls.push(name)),
+      { initialProps: { groups: [group('s1', 'Aldi', 1, 2)] } },
+    );
+
+    rerender({ groups: [group('s1', 'Aldi', 2, 2)] });
+    rerender({ groups: [group('s1', 'Aldi', 2, 2)] });
+    act(() => {
+      vi.advanceTimersByTime(STORE_CELEBRATION_MS);
+    });
+    rerender({ groups: [group('s1', 'Aldi', 2, 2)] });
+
+    expect(calls).toEqual(['Aldi']);
+  });
 });
