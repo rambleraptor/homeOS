@@ -26,8 +26,6 @@ interface TodoRowProps {
    * every line.
    */
   kindMarker?: TodoKind;
-  /** When true, show a subtle "you" hint — a family todo the viewer created. */
-  createdByYou?: boolean;
   /**
    * Read-only rows render no action buttons. Used for synthetic todos that
    * are derived from other apps' state (e.g. "Buy N groceries") and
@@ -154,7 +152,6 @@ export function TodoRow({
   pinnedFromLabel,
   href,
   kindMarker,
-  createdByYou,
 }: TodoRowProps) {
   const actions = readOnly ? [] : actionsForVariant(variant);
   const isCancelled = todo.status === 'cancelled';
@@ -170,14 +167,6 @@ export function TodoRow({
   const titleContent = (
     <>
       {todo.title}
-      {createdByYou && (
-        <span
-          data-testid={`todo-row-${todo.id}-you`}
-          className="ml-2 text-xs font-body italic text-text-muted"
-        >
-          you
-        </span>
-      )}
       {pinnedFromLabel && (
         <span
           data-testid={`todo-row-${todo.id}-origin`}

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertCircle, ListChecks } from 'lucide-react';
-import { aepbase } from '@rambleraptor/homestead-core/api/aepbase';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
 import { useTodoBuckets } from '../hooks/useTodos';
@@ -63,7 +62,6 @@ export function TodosHome() {
   const update = useUpdateTodo();
   const updatePersonal = useUpdatePersonalTodo();
   const toast = useToast();
-  const currentUserId = aepbase.getCurrentUser()?.id;
 
   const isMain = scope === MAIN_PROJECT_ID;
   // Categories only exist inside a real project list.
@@ -156,10 +154,6 @@ export function TodosHome() {
     // Shown in every scope: a project list can hold private items too, so
     // "who can see this" is live information on every row, not just on main.
     kindMarker: todo.kind,
-    createdByYou:
-      todo.kind === 'family' &&
-      Boolean(currentUserId) &&
-      todo.created_by === `users/${currentUserId}`,
   });
 
   // Active todos grouped by category (project view with categories); the
