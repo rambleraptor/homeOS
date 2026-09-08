@@ -283,32 +283,25 @@
     }
   }
 
-  /* The store-complete card's whole lifecycle in one animation: pop in with a
-   * manual overshoot (a reward moment, like `reveal-pop`), hold, fade out.
-   * Ends at opacity 0 because the component unmounts it shortly after
-   * (`STORE_CELEBRATION_MS` in the groceries app's `useStoreCelebration` is
-   * the JS-side twin of this duration — keep them in step). Only rendered
-   * when motion is allowed; reduced motion gets a static card instead. */
-  --animate-celebration-card: celebration-card 2600ms var(--ease-out-soft) both;
-  @keyframes celebration-card {
-    0% {
+  /* The celebration toast's card popping in: a manual overshoot (a reward
+   * moment, like `reveal-pop`) that settles at rest. Deliberately the entrance
+   * only — the card lives inside a sonner toast, which owns the slide in from
+   * the bottom and the exit, so an animation that faded the card out on its
+   * own clock would fight the toast's. Ends visible, which is what lets the
+   * reduced-motion guard below collapse it to an instant safely. */
+  --animate-celebration-pop: celebration-pop 360ms var(--ease-out-soft) both;
+  @keyframes celebration-pop {
+    from {
       opacity: 0;
       transform: scale(0.6) translateY(12px);
     }
-    9% {
+    65% {
       opacity: 1;
       transform: scale(1.05) translateY(0);
     }
-    14% {
-      transform: scale(1);
-    }
-    85% {
+    to {
       opacity: 1;
-      transform: scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: scale(0.94);
+      transform: scale(1) translateY(0);
     }
   }
 

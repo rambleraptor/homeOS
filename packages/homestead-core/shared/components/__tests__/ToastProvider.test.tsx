@@ -1,21 +1,28 @@
 /**
- * Tests for `ToastProvider`'s undo toast.
+ * Tests for `ToastProvider`'s undo and celebration toasts.
  *
- * The contract worth locking down is that the action runs immediately and
- * `onUndo` is what reverses it — the opposite arrangement (defer the action,
- * cancel on undo) loses the write entirely if the tab closes inside the
- * window, and the two are easy to confuse when reading a call site.
+ * For undo, the contract worth locking down is that the action runs
+ * immediately and `onUndo` is what reverses it — the opposite arrangement
+ * (defer the action, cancel on undo) loses the write entirely if the tab
+ * closes inside the window, and the two are easy to confuse when reading a
+ * call site.
+ *
+ * For celebrate, it is that the toast body is the shared card, so an app's
+ * "you did it" moment can't quietly drift into its own styling.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { ReactElement } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ToastProvider, useToast } from '../ToastProvider';
 
 const toastFn = vi.fn();
+const customFn = vi.fn();
 
 vi.mock('sonner', () => ({
   toast: Object.assign((...args: unknown[]) => toastFn(...args), {
+    custom: (...args: unknown[]) => customFn(...args),
     success: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
@@ -32,8 +39,24 @@ function Harness({ onUndo }: { onUndo: () => void }) {
   );
 }
 
+function CelebrateHarness() {
+  const toast = useToast();
+  return (
+    <button
+      onClick={() =>
+        toast.celebrate('Aldi complete!', {
+          description: 'Every item checked off — nice work!',
+        })
+      }
+    >
+      celebrate
+    </button>
+  );
+}
+
 beforeEach(() => {
   toastFn.mockClear();
+  customFn.mockClear();
 });
 
 describe('ToastProvider.undo', () => {
@@ -86,5 +109,45 @@ describe('ToastProvider.undo', () => {
 
     const [, options] = toastFn.mock.calls[0] as [string, { duration: number }];
     expect(options.duration).toBeGreaterThanOrEqual(5000);
+  });
+});
+
+describe('ToastProvider.celebrate', () => {
+  it('shows the shared celebration card with the title and description', async () => {
+    render(
+      <ToastProvider>
+        <CelebrateHarness />
+      </ToastProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'celebrate' }));
+
+    expect(customFn).toHaveBeenCalledTimes(1);
+    const [renderToast] = customFn.mock.calls[0] as [
+      (id: string | number) => ReactElement,
+    ];
+    render(renderToast('toast-1'));
+
+    expect(screen.getByTestId('celebration-toast')).toBeInTheDocument();
+    expect(screen.getByText('Aldi complete!')).toBeInTheDocument();
+    expect(screen.getByText('Every item checked off — nice work!')).toBeInTheDocument();
+  });
+
+  it('dismisses itself: nothing to act on, so it only stays long enough to read', async () => {
+    render(
+      <ToastProvider>
+        <CelebrateHarness />
+      </ToastProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'celebrate' }));
+
+    const [, options] = customFn.mock.calls[0] as [
+      unknown,
+      { duration: number; className: string },
+    ];
+    expect(options.duration).toBeGreaterThan(0);
+    expect(options.duration).toBeLessThan(8000);
+    expect(options.className).toBe('w-full');
   });
 });
