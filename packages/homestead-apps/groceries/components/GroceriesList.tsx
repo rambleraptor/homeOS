@@ -2,36 +2,29 @@
  * Groceries List Component
  *
  * Data-backed wrapper around `GroceryList` that owns its own fetching,
- * toggle/delete wiring, and store-complete confirmation. Used by
+ * toggle/delete wiring, and per-store clearing of crossed-off items. Used by
  * `GroceriesHome` — it deliberately omits the page header, quick-add,
  * notify, upload, new-list and store-management controls.
  */
 
-import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { SkeletonList } from '@rambleraptor/homestead-core/shared/components/Skeleton';
 import { useGroupedGroceries } from '../hooks/useGroupedGroceries';
 import { useUpdateGroceryItem } from '../hooks/useUpdateGroceryItem';
 import { useDeleteGroceryItem } from '../hooks/useDeleteGroceryItem';
 import { useCreateGroceryItem } from '../hooks/useCreateGroceryItem';
-import { useMarkStoreCompleted } from '../hooks/useMarkStoreCompleted';
+import { useClearCheckedItems } from '../hooks/useClearCheckedItems';
 import { useStoreCelebration } from '../hooks/useStoreCelebration';
 import { GroceryList } from './GroceryList';
 import { StoreConfetti } from './StoreConfetti';
-import { ConfirmDialog } from '@rambleraptor/homestead-core/shared/components/ConfirmDialog';
 import { useToast } from '@rambleraptor/homestead-core/shared/components/ToastProvider';
-import { useOnlineStatus } from '@rambleraptor/homestead-core/shared/hooks/useOnlineStatus';
-import { logger } from '@rambleraptor/homestead-core/utils/logger';
 
 export function GroceriesList() {
-  const [storeToClear, setStoreToClear] = useState<{ id: string | null; name: string } | null>(null);
-
   const { stats, isLoading, isError, error } = useGroupedGroceries();
   const updateMutation = useUpdateGroceryItem();
   const deleteMutation = useDeleteGroceryItem();
   const createMutation = useCreateGroceryItem();
-  const markStoreCompletedMutation = useMarkStoreCompleted();
-  const { isOffline } = useOnlineStatus();
+  const clearCheckedItems = useClearCheckedItems();
   const toast = useToast();
   // Checking an item that finishes off a whole store's list: the shared
   // celebration toast carries the message, the confetti overlay is the
@@ -74,21 +67,27 @@ export function GroceriesList() {
     });
   };
 
-  const handleMarkStoreCompleted = (storeId: string | null) => {
+  // Clearing a store's crossed-off items is the same delete, many times over:
+  // it rides the per-item mutation (optimistic, queued offline) rather than a
+  // bulk online-only call, and the undo brings back exactly the rows removed,
+  // still checked, so a slip of the thumb costs nothing.
+  const handleClearCheckedItems = (storeId: string | null) => {
+    const cleared = clearCheckedItems(storeId);
+    if (cleared.length === 0) return;
+
     const storeGroup = stats.stores.find((s) => (s.store?.id || null) === storeId);
     const storeName = storeGroup?.store?.name || 'No Store';
-    setStoreToClear({ id: storeId, name: storeName });
-  };
-
-  const handleConfirmStoreClear = async () => {
-    if (!storeToClear) return;
-    try {
-      const result = await markStoreCompletedMutation.mutateAsync({ storeId: storeToClear.id });
-      logger.info(`Deleted ${result.deleted} items from completed store`);
-      setStoreToClear(null);
-    } catch (err) {
-      logger.error('Failed to mark store as completed', err);
-    }
+    const count = cleared.length === 1 ? '1 item' : `${cleared.length} items`;
+    toast.undo(`Cleared ${count} from ${storeName}`, () => {
+      for (const item of cleared) {
+        createMutation.mutate({
+          name: item.name,
+          notes: item.notes,
+          store: item.store,
+          checked: item.checked,
+        });
+      }
+    });
   };
 
   if (isLoading) {
@@ -118,28 +117,13 @@ export function GroceriesList() {
     );
   }
 
-  const isBulkUpdating = markStoreCompletedMutation.isPending;
-
   return (
     <>
       <GroceryList
         storeGroups={stats.stores}
         onToggleItem={handleToggleItem}
         onDeleteItem={handleDeleteItem}
-        onMarkStoreCompleted={handleMarkStoreCompleted}
-        // Mark Complete is a bulk delete — online-only, like New List.
-        isUpdating={isBulkUpdating || isOffline}
-      />
-
-      <ConfirmDialog
-        isOpen={storeToClear !== null}
-        onClose={() => setStoreToClear(null)}
-        onConfirm={handleConfirmStoreClear}
-        title={`Clear ${storeToClear?.name ?? 'Store'}`}
-        message={`Are you sure you want to clear all items from ${storeToClear?.name ?? 'this store'}? This action cannot be undone.`}
-        confirmLabel="Clear Store"
-        variant="danger"
-        isLoading={markStoreCompletedMutation.isPending}
+        onClearCheckedItems={handleClearCheckedItems}
       />
 
       {celebration && <StoreConfetti key={celebration.key} />}
