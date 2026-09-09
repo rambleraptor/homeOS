@@ -7,8 +7,8 @@
  * Transition-based on purpose: a store that is *already* fully checked when the
  * list first loads (or when a new group appears) says nothing about what the
  * shopper just did, so only a store seen incomplete on the previous pass
- * triggers. A group vanishing (Mark Complete deletes its items) is likewise
- * silent — the confirm dialog already owns that moment.
+ * triggers. A group vanishing (Clear sweeps its last crossed-off items away)
+ * is likewise silent — the shopper just asked for that, nothing to applaud.
  */
 
 import { useEffect, useRef, useState } from 'react';

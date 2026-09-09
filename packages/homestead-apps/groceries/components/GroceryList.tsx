@@ -4,7 +4,7 @@
  * Displays grocery items grouped by store
  */
 
-import { Check, Trash2, Store as StoreIcon, CheckCheck, ShoppingCart } from 'lucide-react';
+import { Check, Trash2, Store as StoreIcon, Eraser, ShoppingCart } from 'lucide-react';
 import { usePendingSyncIds } from '@rambleraptor/homestead-core/api/usePendingSync';
 import { Checkbox } from '@rambleraptor/homestead-core/shared/components/Checkbox';
 import { SwipeRow } from '@rambleraptor/homestead-core/shared/gestures';
@@ -19,16 +19,15 @@ interface GroceryListProps {
   storeGroups: StoreGroupedGroceries[];
   onToggleItem: (id: string, checked: boolean) => void;
   onDeleteItem: (id: string) => void;
-  onMarkStoreCompleted?: (storeId: string | null) => void;
-  isUpdating?: boolean;
+  /** Remove every crossed-off item in the store (`null` = the No Store group). */
+  onClearCheckedItems?: (storeId: string | null) => void;
 }
 
 export function GroceryList({
   storeGroups,
   onToggleItem,
   onDeleteItem,
-  onMarkStoreCompleted,
-  isUpdating = false,
+  onClearCheckedItems,
 }: GroceryListProps) {
   // Subscribed once for the whole list rather than per row — this is the view
   // most likely to be open on a phone with no signal, and it can hold a lot of
@@ -63,17 +62,18 @@ export function GroceryList({
             <span className="text-sm font-body text-text-muted shrink-0 whitespace-nowrap">
               {storeGroup.checkedCount} / {storeGroup.totalCount} checked
             </span>
-            {onMarkStoreCompleted && storeGroup.totalCount > 0 && (
+            {/* Only offered once there is something crossed off to sweep away —
+                an always-present button that does nothing invites a mis-tap. */}
+            {onClearCheckedItems && storeGroup.checkedCount > 0 && (
               <button
-                onClick={() => onMarkStoreCompleted(storeGroup.store?.id || null)}
-                disabled={isUpdating}
-                data-testid="mark-store-completed-button"
-                title="Clear all items from this store"
-                className="ml-1 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap"
+                onClick={() => onClearCheckedItems(storeGroup.store?.id || null)}
+                data-testid="clear-checked-items-button"
+                title="Remove crossed-off items from this store"
+                className="ml-1 flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-bg-pearl text-brand-navy rounded-lg font-medium font-body transition-colors shadow-sm border border-gray-200 text-sm whitespace-nowrap"
               >
-                <CheckCheck className="w-4 h-4" />
-                <span className="hidden sm:inline">Mark Complete</span>
-                <span className="sm:hidden">Done</span>
+                <Eraser className="w-4 h-4" />
+                <span className="hidden sm:inline">Clear crossed off</span>
+                <span className="sm:hidden">Clear</span>
               </button>
             )}
           </div>

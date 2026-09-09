@@ -83,7 +83,7 @@ describe('useStoreCelebration', () => {
     expect(result.current).toBeNull();
   });
 
-  it('stays quiet when a complete store disappears (Mark Complete)', () => {
+  it('stays quiet when a complete store disappears (Clear)', () => {
     const { result, rerender } = renderHook(
       ({ groups }) => useStoreCelebration(groups),
       { initialProps: { groups: [group('s1', 'Aldi', 2, 2)] } },
