@@ -34,6 +34,22 @@ export const permissionsApp: AppConfig = {
       drops: [{ resource: 'access-grant', field: 'is_default' }],
       load: () => import('./migrations/close-open-default'),
     },
+    {
+      // Same handler, second ledger entry — deliberately not a rename (an id is
+      // the ledger key and never changes). The entry above shipped with a bug:
+      // it demanded a member-role group *before* checking whether anyone
+      // actually needed one, so a household whose users all already held a role
+      // bailed with the open grant intact — and because that bail merely
+      // returned, the ledger recorded `succeeded` and never retried. Those
+      // instances have been open ever since and the row above will never run
+      // again, so the fixed handler needs a fresh id to get a first pass.
+      // Idempotent on every other instance: guard 1 no-ops when the grant is
+      // already gone.
+      id: 'permissions-close-open-default-recheck',
+      title: 'Re-check that the open-household grant is retired',
+      destructive: true,
+      load: () => import('./migrations/close-open-default'),
+    },
   ],
   web: {
     icon: () => import('lucide-react').then((m) => m.KeyRound),

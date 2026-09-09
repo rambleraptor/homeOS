@@ -10,8 +10,11 @@
  *   1. an ungrouped user is moved onto the Member role before the grant goes, so
  *      their effective access is unchanged;
  *   2. a user who already has an admin-chosen role is left exactly as they are;
- *   3. with nowhere to put people, the grant is *kept* — a household is never
- *      locked out of its own data by a migration.
+ *   3. with people to park and nowhere to put them, the grant is *kept* and the
+ *      handler throws — a household is never locked out of its own data, and a
+ *      bail recorded as `succeeded` would never retry;
+ *   4. with nobody to park, a missing Members group is irrelevant and the grant
+ *      goes anyway — the case that left a real household open.
  *
  * The handler builds its own client through `serverClient`, which targets
  * `AEPBASE_URL`, so these stub `globalThis.fetch` to route that origin at the
@@ -169,19 +172,42 @@ describe('permissions-close-open-default migration', () => {
     expect(await memberIdsOf(MEMBERS)).toEqual([alice.user.id]);
   });
 
-  test('keeps the open grant when no group confers the member role', async () => {
+  test('throws and keeps the grant when people need a role and none confers it', async () => {
     await installOpenGrant(t);
     await seedUser(t.engine, { email: 'alice@example.com' });
-    // The household deleted the Members group; there is nowhere to put people.
+    // The household deleted the Members group; Alice has nowhere to go.
+    expect(
+      (await call(t.engine, 'DELETE', `/groups/${MEMBERS}`, { token: t.adminToken })).status,
+    ).toBe(204);
+
+    // Throwing, not returning: the runner records a *failed* migration and
+    // retries next boot. A plain return is recorded as `succeeded` and skipped
+    // forever, which would leave the household open for good.
+    await expect(runMigration()).rejects.toThrow(/member.*role/i);
+
+    // Bailing beats locking the household out of its own data.
+    expect(await grantIds()).toContain(OPEN_GRANT);
+  });
+
+  test('deletes the grant with no Members group when every user already has a role', async () => {
+    await installOpenGrant(t);
+    const carol = await seedUser(t.engine, { email: 'carol@example.com' });
+    // Carol's access is already admin-chosen, so nobody is riding the open
+    // grant — and with nobody to park, the absent Members group is irrelevant.
+    await call(t.engine, 'POST', `/groups/${ADMINS}/group-memberships`, {
+      token: t.adminToken,
+      body: { user: carol.user.id },
+    });
     expect(
       (await call(t.engine, 'DELETE', `/groups/${MEMBERS}`, { token: t.adminToken })).status,
     ).toBe(204);
 
     const result = (await runMigration()) as Record<string, unknown>;
 
-    // Bailing out beats locking the household out of its own data.
-    expect(result.openGrant).toBe('kept');
-    expect(result.reason).toBe('no-member-group');
-    expect(await grantIds()).toContain(OPEN_GRANT);
+    expect(result.openGrant).toBe('deleted');
+    expect(result.joined).toBe(0);
+    expect(await grantIds()).not.toContain(OPEN_GRANT);
+    // Carol keeps the role an admin gave her; she was never touched.
+    expect(await memberIdsOf(ADMINS)).toEqual([carol.user.id]);
   });
 });
