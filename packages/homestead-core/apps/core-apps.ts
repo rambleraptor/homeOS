@@ -15,6 +15,7 @@ import { dashboardApp } from '../dashboard/app.config';
 import { notificationsApp } from '../notifications/app.config';
 import { settingsApp } from '../settings/app.config';
 import { superuserApp } from '../superuser/app.config';
+import { getAllApps } from './registry';
 import type { AppConfig } from './types';
 
 /**
@@ -57,4 +58,15 @@ export function withAlwaysInstalled(operatorApps: AppConfig[]): AppConfig[] {
     if (!seen.has(core.id)) merged.push(core);
   }
   return merged;
+}
+
+/**
+ * The operator's own apps — everything in the registry that isn't one of the
+ * always-installed core apps. Empty on a fresh project with no `apps` entry
+ * in `homestead.config.ts` and nothing under `apps/`, which is how the
+ * dashboard knows to show its "add your first app" guidance.
+ */
+export function getFeatureApps(): AppConfig[] {
+  const coreIds = new Set(ALWAYS_INSTALLED_APP_IDS);
+  return getAllApps().filter((app) => !coreIds.has(app.id));
 }

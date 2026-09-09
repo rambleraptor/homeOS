@@ -19,6 +19,10 @@ vi.mock('../AdminChecklistPanel', () => ({
   AdminChecklistPanel: () => <div data-testid="admin-checklist-stub" />,
 }));
 
+vi.mock('../NoAppsPanel', () => ({
+  NoAppsPanel: () => <div data-testid="no-apps-stub" />,
+}));
+
 vi.mock('@rambleraptor/homestead-core/auth/useAuth', () => ({
   useAuth: vi.fn(),
 }));

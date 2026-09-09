@@ -19,6 +19,7 @@ import { getLazyComponent } from '@rambleraptor/homestead-core/apps/lazy';
 import { useUserSetting } from '@rambleraptor/homestead-core/user-settings/hooks/useUserSetting';
 import { WelcomePanel } from './WelcomePanel';
 import { AdminChecklistPanel } from './AdminChecklistPanel';
+import { NoAppsPanel } from './NoAppsPanel';
 
 export function DashboardHome() {
   const { user } = useAuth();
@@ -62,6 +63,7 @@ export function DashboardHome() {
 
       <div className="max-w-3xl space-y-6">
         {isSuperuser ? <AdminChecklistPanel /> : <WelcomePanel />}
+        <NoAppsPanel />
         {widgets.map(({ id, component }) => {
           const Widget = getLazyComponent(component);
           return (
